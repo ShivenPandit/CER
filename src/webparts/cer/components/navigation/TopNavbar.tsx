@@ -51,7 +51,7 @@ export const TopNavbar: React.FC<ITopNavbarProps> = ({
   };
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 shadow-subtle z-20">
+    <header className="h-16 bg-white/95 backdrop-blur-md border-b border-slate-200 px-6 flex items-center justify-between shrink-0 shadow-subtle z-20 sticky top-0">
       {/* Search Input */}
       <form onSubmit={handleSearchSubmit} className="relative w-72 lg:w-96">
         <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />

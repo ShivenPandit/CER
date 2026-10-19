@@ -104,7 +104,7 @@ export const Sidebar: React.FC<ISidebarProps> = ({
   ];
 
   return (
-    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 min-h-screen border-r border-slate-800 select-none">
+    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 h-screen sticky top-0 border-r border-slate-800 select-none z-30">
       {/* Brand Header */}
       <div className="p-5 border-b border-slate-800/80 flex items-center gap-3">
         <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
@@ -112,7 +112,7 @@ export const Sidebar: React.FC<ISidebarProps> = ({
         </div>
         <div>
           <h1 className="font-bold text-white text-base tracking-tight leading-none">
-            SPX — CER
+            CER
           </h1>
           <p className="text-[11px] text-slate-400 font-medium mt-1">
             Capital Expenditure System
