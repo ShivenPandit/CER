@@ -9,7 +9,7 @@ if (rootElement) {
   root.render(
     <React.StrictMode>
       <CER
-        newcurrentUserName="Shiven Pandit (Project Proponent)"
+        newcurrentUserName="Shiven Pandit"
         newcurrentUserEmail="shiven.pandit@vedanta.co.in"
         newcurrentUserId={101}
       />

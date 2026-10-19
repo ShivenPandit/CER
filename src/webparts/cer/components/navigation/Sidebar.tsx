@@ -10,9 +10,9 @@ import {
   ShieldCheck,
   Settings,
   ChevronRight,
-  Layers,
 } from "lucide-react";
 import { UserRole } from "../../models/UserModel";
+import { VedantaLogo } from "../common/VedantaLogo";
 
 export type NavView =
   | "dashboard"
@@ -105,19 +105,9 @@ export const Sidebar: React.FC<ISidebarProps> = ({
 
   return (
     <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 h-screen sticky top-0 border-r border-slate-800 select-none z-30">
-      {/* Brand Header */}
-      <div className="p-4 border-b border-slate-800 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0">
-          <Layers className="w-4 h-4" />
-        </div>
-        <div>
-          <h1 className="font-bold text-white text-base tracking-tight leading-none">
-            CER
-          </h1>
-          <p className="text-[11px] text-slate-400 font-medium mt-1">
-            Capital Expenditure System
-          </p>
-        </div>
+      {/* Brand Header — Vedanta Logo & Name */}
+      <div className="p-4 border-b border-slate-800 flex items-center justify-start">
+        <VedantaLogo height={32} theme="dark" />
       </div>
 
       {/* Nav List */}
@@ -168,19 +158,6 @@ export const Sidebar: React.FC<ISidebarProps> = ({
             );
           })}
       </nav>
-
-      {/* Environment Footer */}
-      <div className="p-3.5 border-t border-slate-800 bg-slate-950/30">
-        <div className="flex items-center justify-between text-[11px] text-slate-400 mb-0.5">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            Vedanta / Cairn
-          </span>
-          <span className="text-[10px] font-mono bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">
-            v1.0.0
-          </span>
-        </div>
-      </div>
     </aside>
   );
 };
