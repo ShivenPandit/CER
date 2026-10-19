@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import {
-  Search,
   Bell,
   UserCheck,
   ChevronDown,
@@ -11,7 +10,7 @@ interface ITopNavbarProps {
   currentUser: IAppUser;
   onSelectUser: (user: IAppUser) => void;
   onOpenNotifications: () => void;
-  onQuickSearch: (cerprno: string) => void;
+  onQuickSearch?: (cerprno: string) => void;
   notificationCount: number;
 }
 
@@ -19,19 +18,9 @@ export const TopNavbar: React.FC<ITopNavbarProps> = ({
   currentUser,
   onSelectUser,
   onOpenNotifications,
-  onQuickSearch,
   notificationCount,
 }) => {
-  const [searchInput, setSearchInput] = useState("");
   const [showUserDropdown, setShowUserDropdown] = useState(false);
-
-  const handleSearchSubmit = (e: React.FormEvent): void => {
-    e.preventDefault();
-    if (searchInput.trim()) {
-      onQuickSearch(searchInput.trim());
-      setSearchInput("");
-    }
-  };
 
   const getRoleBadgeStyle = (role: UserRole): string => {
     switch (role) {
@@ -48,19 +37,7 @@ export const TopNavbar: React.FC<ITopNavbarProps> = ({
   };
 
   return (
-    <header className="h-16 bg-white/95 backdrop-blur-md border-b border-slate-200 px-6 flex items-center justify-between shrink-0 shadow-subtle z-20 sticky top-0">
-      {/* Search Input */}
-      <form onSubmit={handleSearchSubmit} className="relative w-72 lg:w-96">
-        <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Search by Proposal No. (e.g. CER-2026-0001)..."
-          className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-        />
-      </form>
-
+    <header className="h-16 bg-white/95 backdrop-blur-md border-b border-slate-200 px-6 flex items-center justify-end shrink-0 shadow-subtle z-20 sticky top-0">
       {/* Right Controls */}
       <div className="flex items-center gap-3">
         {/* Notifications Bell */}

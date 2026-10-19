@@ -267,7 +267,6 @@ const CER: React.FC<ICERProps> = (props) => {
           currentUser={currentUser}
           onSelectUser={(u) => setCurrentUser(u)}
           onOpenNotifications={() => setIsNotificationsOpen(true)}
-          onQuickSearch={handleQuickSearch}
           notificationCount={notifications.length}
         />
 
