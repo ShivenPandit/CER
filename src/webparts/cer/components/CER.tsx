@@ -58,14 +58,7 @@ const CER: React.FC<ICERProps> = (props) => {
   // Remarks History Modal
   const [remarksHistoryCerprno, setRemarksHistoryCerprno] = useState<string | null>(null);
 
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    loadInitialData();
-  }, []);
-
-  const loadInitialData = async () => {
-    setIsLoading(true);
+  const loadInitialData = async (): Promise<void> => {
     try {
       const [propsList, notifs] = await Promise.all([
         dataService.getAllProposals(),
@@ -75,12 +68,14 @@ const CER: React.FC<ICERProps> = (props) => {
       setNotifications(notifs);
     } catch (e) {
       console.error("[CER] Error loading proposals:", e);
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const handleRefreshProposals = async () => {
+  useEffect(() => {
+    loadInitialData().catch((e) => console.error(e));
+  }, []);
+
+  const handleRefreshProposals = async (): Promise<void> => {
     try {
       const [propsList, notifs] = await Promise.all([
         dataService.getAllProposals(),
@@ -93,13 +88,13 @@ const CER: React.FC<ICERProps> = (props) => {
     }
   };
 
-  const handleNavigate = (view: NavView, proposalId?: string) => {
+  const handleNavigate = (view: NavView, proposalId?: string): void => {
     setCurrentView(view);
     setActiveProposalId(proposalId);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleQuickSearch = (cerprno: string) => {
+  const handleQuickSearch = (cerprno: string): void => {
     handleNavigate("display", cerprno);
   };
 
@@ -158,8 +153,8 @@ const CER: React.FC<ICERProps> = (props) => {
               dataService={dataService}
               currentUser={currentUser}
               onCancel={() => handleNavigate("dashboard")}
-              onSuccess={async (cerprno) => {
-                await handleRefreshProposals();
+              onSuccess={(cerprno) => {
+                handleRefreshProposals().catch((e) => console.error(e));
                 handleNavigate("display", cerprno);
               }}
             />
@@ -171,8 +166,8 @@ const CER: React.FC<ICERProps> = (props) => {
               currentUser={currentUser}
               initialProposalId={activeProposalId}
               onCancel={() => handleNavigate("dashboard")}
-              onSuccess={async (cerprno) => {
-                await handleRefreshProposals();
+              onSuccess={(cerprno) => {
+                handleRefreshProposals().catch((e) => console.error(e));
                 handleNavigate("display", cerprno);
               }}
               onViewRemarksHistory={(cerprno) => setRemarksHistoryCerprno(cerprno)}

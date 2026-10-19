@@ -313,7 +313,9 @@ module.exports = {
 
         // Microsoft convention
         '**/test/*.ts',
-        '**/test/*.tsx'
+        '**/test/*.tsx',
+        '**/tests/*.ts',
+        '**/tests/*.tsx'
       ],
       rules: {}
     }
