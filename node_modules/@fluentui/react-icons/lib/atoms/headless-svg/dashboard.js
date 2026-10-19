@@ -1,0 +1,6 @@
+"use client";
+import { createFluentIcon } from '../../headless/createFluentIcon.js';
+export const DashboardFilled = ( /*#__PURE__*/createFluentIcon('DashboardFilled', "1em", ["M7 17H6a3 3 0 0 1-3-3v-1h4zm10-3a3 3 0 0 1-3 3H8v-4h9zm-5-2H3V6a3 3 0 0 1 3-3h6zm5 0h-4V8h4zm-3-9a3 3 0 0 1 3 3v1h-4V3z"]));
+export const DashboardRegular = ( /*#__PURE__*/createFluentIcon('DashboardRegular', "1em", ["M14 3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zM4 14c0 1.1.9 2 2 2h1v-3H4zm4 2h6a2 2 0 0 0 2-2v-1H8zM6 4a2 2 0 0 0-2 2v6h8V4zm7 8h3V8h-3zm0-5h3V6a2 2 0 0 0-2-2h-1z"]));
+export const Dashboard20Regular = ( /*#__PURE__*/createFluentIcon('Dashboard20Regular', "20", ["M14 3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zM4 14c0 1.1.9 2 2 2h1v-3H4zm4 2h6a2 2 0 0 0 2-2v-1H8zM6 4a2 2 0 0 0-2 2v6h8V4zm7 8h3V8h-3zm0-5h3V6a2 2 0 0 0-2-2h-1z"]));
+export const Dashboard20Filled = ( /*#__PURE__*/createFluentIcon('Dashboard20Filled', "20", ["M7 17H6a3 3 0 0 1-3-3v-1h4zm10-3a3 3 0 0 1-3 3H8v-4h9zm-5-2H3V6a3 3 0 0 1 3-3h6zm5 0h-4V8h4zm-3-9a3 3 0 0 1 3 3v1h-4V3z"]));

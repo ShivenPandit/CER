@@ -1,0 +1,11 @@
+import type { FluentIcon } from '../../utils/createFluentIcon.cjs';
+export declare const ChannelArrowRightFilled: FluentIcon;
+export declare const ChannelArrowRightRegular: FluentIcon;
+export declare const ChannelArrowRight16Regular: FluentIcon;
+export declare const ChannelArrowRight16Filled: FluentIcon;
+export declare const ChannelArrowRight20Regular: FluentIcon;
+export declare const ChannelArrowRight20Filled: FluentIcon;
+export declare const ChannelArrowRight24Regular: FluentIcon;
+export declare const ChannelArrowRight24Filled: FluentIcon;
+export declare const ChannelArrowRight28Regular: FluentIcon;
+export declare const ChannelArrowRight28Filled: FluentIcon;

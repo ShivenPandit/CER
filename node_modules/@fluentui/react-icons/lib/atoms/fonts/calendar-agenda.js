@@ -1,0 +1,12 @@
+"use client";
+import { createFluentFontIcon } from '../../utils/fonts/createFluentFontIcon.js';
+export const CalendarAgendaFilled = ( /*#__PURE__*/createFluentFontIcon("CalendarAgendaFilled", "", 2, undefined));
+export const CalendarAgendaRegular = ( /*#__PURE__*/createFluentFontIcon("CalendarAgendaRegular", "", 2, undefined));
+export const CalendarAgenda16Regular = ( /*#__PURE__*/createFluentFontIcon("CalendarAgenda16Regular", "󰳋", 1, 16));
+export const CalendarAgenda16Filled = ( /*#__PURE__*/createFluentFontIcon("CalendarAgenda16Filled", "󰵈", 0, 16));
+export const CalendarAgenda20Regular = ( /*#__PURE__*/createFluentFontIcon("CalendarAgenda20Regular", "", 1, 20));
+export const CalendarAgenda20Filled = ( /*#__PURE__*/createFluentFontIcon("CalendarAgenda20Filled", "", 0, 20));
+export const CalendarAgenda24Regular = ( /*#__PURE__*/createFluentFontIcon("CalendarAgenda24Regular", "", 1, 24));
+export const CalendarAgenda24Filled = ( /*#__PURE__*/createFluentFontIcon("CalendarAgenda24Filled", "", 0, 24));
+export const CalendarAgenda28Regular = ( /*#__PURE__*/createFluentFontIcon("CalendarAgenda28Regular", "", 1, 28));
+export const CalendarAgenda28Filled = ( /*#__PURE__*/createFluentFontIcon("CalendarAgenda28Filled", "", 0, 28));

@@ -1,0 +1,11 @@
+import type { FluentIcon } from '../../utils/createFluentIcon.cjs';
+export declare const TextBulletListSquareClockFilled: FluentIcon;
+export declare const TextBulletListSquareClockRegular: FluentIcon;
+export declare const TextBulletListSquareClock16Regular: FluentIcon;
+export declare const TextBulletListSquareClock16Filled: FluentIcon;
+export declare const TextBulletListSquareClock20Regular: FluentIcon;
+export declare const TextBulletListSquareClock20Filled: FluentIcon;
+export declare const TextBulletListSquareClock24Regular: FluentIcon;
+export declare const TextBulletListSquareClock24Filled: FluentIcon;
+export declare const TextBulletListSquareClock28Regular: FluentIcon;
+export declare const TextBulletListSquareClock28Filled: FluentIcon;

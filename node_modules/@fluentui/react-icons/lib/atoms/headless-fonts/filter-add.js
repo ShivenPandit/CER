@@ -1,0 +1,10 @@
+"use client";
+import { createFluentFontIcon } from '../../headless/fonts/createFluentFontIcon.js';
+export const FilterAddFilled = ( /*#__PURE__*/createFluentFontIcon("FilterAddFilled", "", 2, undefined));
+export const FilterAddRegular = ( /*#__PURE__*/createFluentFontIcon("FilterAddRegular", "", 2, undefined));
+export const FilterAdd16Regular = ( /*#__PURE__*/createFluentFontIcon("FilterAdd16Regular", "󰳷", 1, 16));
+export const FilterAdd16Filled = ( /*#__PURE__*/createFluentFontIcon("FilterAdd16Filled", "󰵴", 0, 16));
+export const FilterAdd20Regular = ( /*#__PURE__*/createFluentFontIcon("FilterAdd20Regular", "", 1, 20));
+export const FilterAdd20Filled = ( /*#__PURE__*/createFluentFontIcon("FilterAdd20Filled", "", 0, 20));
+export const FilterAdd24Regular = ( /*#__PURE__*/createFluentFontIcon("FilterAdd24Regular", "󰳸", 1, 24));
+export const FilterAdd24Filled = ( /*#__PURE__*/createFluentFontIcon("FilterAdd24Filled", "󰵵", 0, 24));

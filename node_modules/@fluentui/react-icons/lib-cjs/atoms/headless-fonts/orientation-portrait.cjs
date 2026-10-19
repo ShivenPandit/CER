@@ -1,0 +1,11 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.OrientationPortrait24Filled = exports.OrientationPortrait24Regular = exports.OrientationPortrait20Filled = exports.OrientationPortrait20Regular = exports.OrientationPortraitRegular = exports.OrientationPortraitFilled = void 0;
+const createFluentFontIcon_1 = require("../../headless/fonts/createFluentFontIcon.cjs");
+exports.OrientationPortraitFilled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("OrientationPortraitFilled", "", 2, undefined));
+exports.OrientationPortraitRegular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("OrientationPortraitRegular", "", 2, undefined));
+exports.OrientationPortrait20Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("OrientationPortrait20Regular", "󰳕", 1, 20));
+exports.OrientationPortrait20Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("OrientationPortrait20Filled", "󰵒", 0, 20));
+exports.OrientationPortrait24Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("OrientationPortrait24Regular", "󰳖", 1, 24));
+exports.OrientationPortrait24Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("OrientationPortrait24Filled", "󰵓", 0, 24));

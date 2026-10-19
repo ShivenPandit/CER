@@ -1,0 +1,18 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PeopleLock32Light = exports.PeopleLock32Filled = exports.PeopleLock32Regular = exports.PeopleLock28Filled = exports.PeopleLock28Regular = exports.PeopleLock24Filled = exports.PeopleLock24Regular = exports.PeopleLock20Filled = exports.PeopleLock20Regular = exports.PeopleLock16Filled = exports.PeopleLock16Regular = exports.PeopleLockRegular = exports.PeopleLockFilled = void 0;
+const createFluentFontIcon_1 = require("../../headless/fonts/createFluentFontIcon.cjs");
+exports.PeopleLockFilled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("PeopleLockFilled", "", 2, undefined));
+exports.PeopleLockRegular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("PeopleLockRegular", "", 2, undefined));
+exports.PeopleLock16Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("PeopleLock16Regular", "󰳨", 1, 16));
+exports.PeopleLock16Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("PeopleLock16Filled", "󰵥", 0, 16));
+exports.PeopleLock20Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("PeopleLock20Regular", "", 1, 20));
+exports.PeopleLock20Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("PeopleLock20Filled", "", 0, 20));
+exports.PeopleLock24Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("PeopleLock24Regular", "", 1, 24));
+exports.PeopleLock24Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("PeopleLock24Filled", "", 0, 24));
+exports.PeopleLock28Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("PeopleLock28Regular", "󰪡", 1, 28));
+exports.PeopleLock28Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("PeopleLock28Filled", "󰬞", 0, 28));
+exports.PeopleLock32Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("PeopleLock32Regular", "󰪢", 1, 32));
+exports.PeopleLock32Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("PeopleLock32Filled", "󰬟", 0, 32));
+exports.PeopleLock32Light = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("PeopleLock32Light", "", 3, 32));

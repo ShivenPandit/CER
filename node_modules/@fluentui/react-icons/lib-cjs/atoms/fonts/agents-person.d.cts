@@ -1,0 +1,9 @@
+import type { FluentFontIcon } from '../../utils/fonts/createFluentFontIcon.cjs';
+export declare const AgentsPersonFilled: FluentFontIcon;
+export declare const AgentsPersonRegular: FluentFontIcon;
+export declare const AgentsPerson16Regular: FluentFontIcon;
+export declare const AgentsPerson16Filled: FluentFontIcon;
+export declare const AgentsPerson20Regular: FluentFontIcon;
+export declare const AgentsPerson20Filled: FluentFontIcon;
+export declare const AgentsPerson24Regular: FluentFontIcon;
+export declare const AgentsPerson24Filled: FluentFontIcon;

@@ -1,0 +1,11 @@
+import type { FluentIcon } from '../../utils/createFluentIcon.cjs';
+export declare const TextNumberListLtrRotate270Regular: FluentIcon;
+export declare const TextNumberListLtrRotate270Filled: FluentIcon;
+export declare const TextNumberListLtrRotate9028Regular: FluentIcon;
+export declare const TextNumberListLtrRotate9028Filled: FluentIcon;
+export declare const TextNumberListLtrRotate27020Regular: FluentIcon;
+export declare const TextNumberListLtrRotate27020Filled: FluentIcon;
+export declare const TextNumberListLtrRotate27024Regular: FluentIcon;
+export declare const TextNumberListLtrRotate27024Filled: FluentIcon;
+export declare const TextNumberListLtrRotate27028Regular: FluentIcon;
+export declare const TextNumberListLtrRotate27028Filled: FluentIcon;

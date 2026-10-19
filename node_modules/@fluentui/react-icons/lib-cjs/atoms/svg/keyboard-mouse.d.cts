@@ -1,0 +1,7 @@
+import type { FluentIcon } from '../../utils/createFluentIcon.cjs';
+export declare const KeyboardMouseFilled: FluentIcon;
+export declare const KeyboardMouseRegular: FluentIcon;
+export declare const KeyboardMouse16Regular: FluentIcon;
+export declare const KeyboardMouse16Filled: FluentIcon;
+export declare const KeyboardMouse20Regular: FluentIcon;
+export declare const KeyboardMouse20Filled: FluentIcon;

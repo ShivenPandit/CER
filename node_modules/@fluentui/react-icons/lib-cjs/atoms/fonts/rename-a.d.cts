@@ -1,0 +1,11 @@
+import type { FluentFontIcon } from '../../utils/fonts/createFluentFontIcon.cjs';
+export declare const RenameAFilled: FluentFontIcon;
+export declare const RenameARegular: FluentFontIcon;
+export declare const RenameA16Regular: FluentFontIcon;
+export declare const RenameA16Filled: FluentFontIcon;
+export declare const RenameA20Regular: FluentFontIcon;
+export declare const RenameA20Filled: FluentFontIcon;
+export declare const RenameA24Regular: FluentFontIcon;
+export declare const RenameA24Filled: FluentFontIcon;
+export declare const RenameA28Regular: FluentFontIcon;
+export declare const RenameA28Filled: FluentFontIcon;

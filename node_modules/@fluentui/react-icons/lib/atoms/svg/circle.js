@@ -1,0 +1,18 @@
+"use client";
+import { createFluentIcon } from '../../utils/createFluentIcon.js';
+export const CircleFilled = ( /*#__PURE__*/createFluentIcon('CircleFilled', "1em", ["M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16"]));
+export const CircleRegular = ( /*#__PURE__*/createFluentIcon('CircleRegular', "1em", ["M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14m-8 7a8 8 0 1 1 16 0 8 8 0 0 1-16 0"]));
+export const Circle12Regular = ( /*#__PURE__*/createFluentIcon('Circle12Regular', "12", ["M6 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8M1 6a5 5 0 1 1 10 0A5 5 0 0 1 1 6"]));
+export const Circle12Filled = ( /*#__PURE__*/createFluentIcon('Circle12Filled', "12", ["M6 1a5 5 0 1 0 0 10A5 5 0 0 0 6 1"]));
+export const Circle16Regular = ( /*#__PURE__*/createFluentIcon('Circle16Regular', "16", ["M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1m0 1a6 6 0 1 0 0 12A6 6 0 0 0 8 2"]));
+export const Circle16Filled = ( /*#__PURE__*/createFluentIcon('Circle16Filled', "16", ["M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1"]));
+export const Circle20Regular = ( /*#__PURE__*/createFluentIcon('Circle20Regular', "20", ["M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14m-8 7a8 8 0 1 1 16 0 8 8 0 0 1-16 0"]));
+export const Circle20Filled = ( /*#__PURE__*/createFluentIcon('Circle20Filled', "20", ["M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16"]));
+export const Circle24Regular = ( /*#__PURE__*/createFluentIcon('Circle24Regular', "24", ["M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17M2 12a10 10 0 1 1 20 0 10 10 0 0 1-20 0"]));
+export const Circle24Filled = ( /*#__PURE__*/createFluentIcon('Circle24Filled', "24", ["M2 12a10 10 0 1 1 20 0 10 10 0 0 1-20 0"]));
+export const Circle28Regular = ( /*#__PURE__*/createFluentIcon('Circle28Regular', "28", ["M14 3.5a10.5 10.5 0 1 0 0 21 10.5 10.5 0 0 0 0-21M2 14a12 12 0 1 1 24 0 12 12 0 0 1-24 0"]));
+export const Circle28Filled = ( /*#__PURE__*/createFluentIcon('Circle28Filled', "28", ["M14 2a12 12 0 1 0 0 24 12 12 0 0 0 0-24"]));
+export const Circle32Regular = ( /*#__PURE__*/createFluentIcon('Circle32Regular', "32", ["M16 4a12 12 0 1 0 0 24 12 12 0 0 0 0-24M2 16a14 14 0 1 1 28 0 14 14 0 0 1-28 0"]));
+export const Circle32Filled = ( /*#__PURE__*/createFluentIcon('Circle32Filled', "32", ["M16 2a14 14 0 1 0 0 28 14 14 0 0 0 0-28"]));
+export const Circle48Regular = ( /*#__PURE__*/createFluentIcon('Circle48Regular', "48", ["M24 6.5a17.5 17.5 0 1 0 0 35 17.5 17.5 0 0 0 0-35M4 24a20 20 0 1 1 40 0 20 20 0 0 1-40 0"]));
+export const Circle48Filled = ( /*#__PURE__*/createFluentIcon('Circle48Filled', "48", ["M44 24a20 20 0 1 1-40 0 20 20 0 0 1 40 0"]));

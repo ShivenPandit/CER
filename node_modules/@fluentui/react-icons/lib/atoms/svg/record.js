@@ -1,0 +1,18 @@
+"use client";
+import { createFluentIcon } from '../../utils/createFluentIcon.js';
+export const RecordFilled = ( /*#__PURE__*/createFluentIcon('RecordFilled', "1em", ["M2 10a8 8 0 1 1 16 0 8 8 0 0 1-16 0m8 4.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9"]));
+export const RecordRegular = ( /*#__PURE__*/createFluentIcon('RecordRegular', "1em", ["M10 14.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16m-7 8a7 7 0 1 1 14 0 7 7 0 0 1-14 0"]));
+export const Record12Regular = ( /*#__PURE__*/createFluentIcon('Record12Regular', "12", ["M6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6m5-3A5 5 0 1 1 1 6a5 5 0 0 1 10 0m-1 0a4 4 0 1 0-8 0 4 4 0 0 0 8 0"]));
+export const Record12Filled = ( /*#__PURE__*/createFluentIcon('Record12Filled', "12", ["M6 11A5 5 0 1 0 6 1a5 5 0 0 0 0 10m0-2a3 3 0 1 1 0-6 3 3 0 0 1 0 6"]));
+export const Record16Regular = ( /*#__PURE__*/createFluentIcon('Record16Regular', "16", ["M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1M2 8a6 6 0 1 1 12 0A6 6 0 0 1 2 8"]));
+export const Record16Filled = ( /*#__PURE__*/createFluentIcon('Record16Filled', "16", ["M1 8a7 7 0 1 1 14 0A7 7 0 0 1 1 8m7 4a4 4 0 1 0 0-8 4 4 0 0 0 0 8"]));
+export const Record20Regular = ( /*#__PURE__*/createFluentIcon('Record20Regular', "20", ["M10 14.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16m-7 8a7 7 0 1 1 14 0 7 7 0 0 1-14 0"]));
+export const Record20Filled = ( /*#__PURE__*/createFluentIcon('Record20Filled', "20", ["M2 10a8 8 0 1 1 16 0 8 8 0 0 1-16 0m8 4.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9"]));
+export const Record24Regular = ( /*#__PURE__*/createFluentIcon('Record24Regular', "24", ["M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12m0-16a10 10 0 1 0 0 20 10 10 0 0 0 0-20M3.5 12a8.5 8.5 0 1 1 17 0 8.5 8.5 0 0 1-17 0"]));
+export const Record24Filled = ( /*#__PURE__*/createFluentIcon('Record24Filled', "24", ["M2 12a10 10 0 1 1 20 0 10 10 0 0 1-20 0m10 6a6 6 0 1 0 0-12 6 6 0 0 0 0 12"]));
+export const Record28Regular = ( /*#__PURE__*/createFluentIcon('Record28Regular', "28", ["M14 21.5a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15M14 2a12 12 0 1 0 0 24 12 12 0 0 0 0-24M3.5 14a10.5 10.5 0 1 1 21 0 10.5 10.5 0 0 1-21 0"]));
+export const Record28Filled = ( /*#__PURE__*/createFluentIcon('Record28Filled', "28", ["M14 2a12 12 0 1 0 0 24 12 12 0 0 0 0-24m0 19.5a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15"]));
+export const Record32Regular = ( /*#__PURE__*/createFluentIcon('Record32Regular', "32", ["M16 25a9 9 0 1 0 0-18 9 9 0 0 0 0 18m0-23a14 14 0 1 0 0 28 14 14 0 0 0 0-28M4 16a12 12 0 1 1 24 0 12 12 0 0 1-24 0"]));
+export const Record32Filled = ( /*#__PURE__*/createFluentIcon('Record32Filled', "32", ["M16 2a14 14 0 1 0 0 28 14 14 0 0 0 0-28m0 23a9 9 0 1 1 0-18 9 9 0 0 1 0 18"]));
+export const Record48Regular = ( /*#__PURE__*/createFluentIcon('Record48Regular', "48", ["M24 37a13 13 0 1 0 0-26 13 13 0 0 0 0 26m0-33a20 20 0 1 0 0 40 20 20 0 0 0 0-40M6.5 24a17.5 17.5 0 1 1 35 0 17.5 17.5 0 0 1-35 0"]));
+export const Record48Filled = ( /*#__PURE__*/createFluentIcon('Record48Filled', "48", ["M24 4a20 20 0 1 0 0 40 20 20 0 0 0 0-40m0 33a13 13 0 1 1 0-26 13 13 0 0 1 0 26"]));

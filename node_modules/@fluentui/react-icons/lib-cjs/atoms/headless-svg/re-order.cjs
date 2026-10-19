@@ -1,0 +1,13 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ReOrder24Filled = exports.ReOrder24Regular = exports.ReOrder20Filled = exports.ReOrder20Regular = exports.ReOrder16Filled = exports.ReOrder16Regular = exports.ReOrderRegular = exports.ReOrderFilled = void 0;
+const createFluentIcon_1 = require("../../headless/createFluentIcon.cjs");
+exports.ReOrderFilled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ReOrderFilled', "1em", ["M2.75 7.75a.75.75 0 0 0 0 1.5h14.5a.75.75 0 0 0 0-1.5zm0 3a.75.75 0 0 0 0 1.5h14.5a.75.75 0 0 0 0-1.5z"]));
+exports.ReOrderRegular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ReOrderRegular', "1em", ["M2.5 8a.5.5 0 0 0 0 1h15a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h15a.5.5 0 0 0 0-1z"]));
+exports.ReOrder16Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ReOrder16Regular', "16", ["M2.5 9h11a.5.5 0 0 1 .09 1H2.5a.5.5 0 0 1-.09-1zh11zm0-3h11a.5.5 0 0 1 .09 1H2.5a.5.5 0 0 1-.09-1zh11z"]));
+exports.ReOrder16Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ReOrder16Filled', "16", ["M2.75 9.25h10.5a.75.75 0 0 1 .1 1.5H2.75a.75.75 0 0 1-.1-1.5zh10.5zm0-4h10.5a.75.75 0 0 1 .1 1.5H2.75a.75.75 0 0 1-.1-1.5zh10.5z"]));
+exports.ReOrder20Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ReOrder20Regular', "20", ["M2.5 8a.5.5 0 0 0 0 1h15a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h15a.5.5 0 0 0 0-1z"]));
+exports.ReOrder20Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ReOrder20Filled', "20", ["M2.75 7.75a.75.75 0 0 0 0 1.5h14.5a.75.75 0 0 0 0-1.5zm0 3a.75.75 0 0 0 0 1.5h14.5a.75.75 0 0 0 0-1.5z"]));
+exports.ReOrder24Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ReOrder24Regular', "24", ["M2.75 13.25h18.5a.75.75 0 0 1 .1 1.5H2.75a.75.75 0 0 1-.1-1.5zh18.5zm0-4h18.5a.75.75 0 0 1 .1 1.5H2.75a.75.75 0 0 1-.1-1.5zh18.5z"]));
+exports.ReOrder24Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ReOrder24Filled', "24", ["M3 13h18a1 1 0 0 1 .12 2H3a1 1 0 0 1-.12-2zh18zm0-4h18a1 1 0 0 1 .12 2H3a1 1 0 0 1-.12-2zh18z"]));

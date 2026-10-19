@@ -1,0 +1,15 @@
+"use client";
+import { createFluentFontIcon } from '../../utils/fonts/createFluentFontIcon.js';
+export const PeopleLockFilled = ( /*#__PURE__*/createFluentFontIcon("PeopleLockFilled", "", 2, undefined));
+export const PeopleLockRegular = ( /*#__PURE__*/createFluentFontIcon("PeopleLockRegular", "", 2, undefined));
+export const PeopleLock16Regular = ( /*#__PURE__*/createFluentFontIcon("PeopleLock16Regular", "󰳨", 1, 16));
+export const PeopleLock16Filled = ( /*#__PURE__*/createFluentFontIcon("PeopleLock16Filled", "󰵥", 0, 16));
+export const PeopleLock20Regular = ( /*#__PURE__*/createFluentFontIcon("PeopleLock20Regular", "", 1, 20));
+export const PeopleLock20Filled = ( /*#__PURE__*/createFluentFontIcon("PeopleLock20Filled", "", 0, 20));
+export const PeopleLock24Regular = ( /*#__PURE__*/createFluentFontIcon("PeopleLock24Regular", "", 1, 24));
+export const PeopleLock24Filled = ( /*#__PURE__*/createFluentFontIcon("PeopleLock24Filled", "", 0, 24));
+export const PeopleLock28Regular = ( /*#__PURE__*/createFluentFontIcon("PeopleLock28Regular", "󰪡", 1, 28));
+export const PeopleLock28Filled = ( /*#__PURE__*/createFluentFontIcon("PeopleLock28Filled", "󰬞", 0, 28));
+export const PeopleLock32Regular = ( /*#__PURE__*/createFluentFontIcon("PeopleLock32Regular", "󰪢", 1, 32));
+export const PeopleLock32Filled = ( /*#__PURE__*/createFluentFontIcon("PeopleLock32Filled", "󰬟", 0, 32));
+export const PeopleLock32Light = ( /*#__PURE__*/createFluentFontIcon("PeopleLock32Light", "", 3, 32));

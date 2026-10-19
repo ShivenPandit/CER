@@ -1,0 +1,11 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SlideArrowForward24Filled = exports.SlideArrowForward24Regular = exports.SlideArrowForward20Filled = exports.SlideArrowForward20Regular = exports.SlideArrowForwardRegular = exports.SlideArrowForwardFilled = void 0;
+const createFluentFontIcon_1 = require("../../utils/fonts/createFluentFontIcon.cjs");
+exports.SlideArrowForwardFilled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("SlideArrowForwardFilled", "", 2, undefined));
+exports.SlideArrowForwardRegular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("SlideArrowForwardRegular", "", 2, undefined));
+exports.SlideArrowForward20Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("SlideArrowForward20Regular", "󰴏", 1, 20));
+exports.SlideArrowForward20Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("SlideArrowForward20Filled", "󰶌", 0, 20));
+exports.SlideArrowForward24Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("SlideArrowForward24Regular", "󰴐", 1, 24));
+exports.SlideArrowForward24Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("SlideArrowForward24Filled", "󰶍", 0, 24));

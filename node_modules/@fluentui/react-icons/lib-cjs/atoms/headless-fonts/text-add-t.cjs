@@ -1,0 +1,16 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.TextAddT32Light = exports.TextAddT32Filled = exports.TextAddT32Regular = exports.TextAddT28Filled = exports.TextAddT28Regular = exports.TextAddT24Filled = exports.TextAddT24Regular = exports.TextAddT20Filled = exports.TextAddT20Regular = exports.TextAddTRegular = exports.TextAddTFilled = void 0;
+const createFluentFontIcon_1 = require("../../headless/fonts/createFluentFontIcon.cjs");
+exports.TextAddTFilled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("TextAddTFilled", "", 2, undefined));
+exports.TextAddTRegular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("TextAddTRegular", "", 2, undefined));
+exports.TextAddT20Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("TextAddT20Regular", "", 1, 20));
+exports.TextAddT20Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("TextAddT20Filled", "", 0, 20));
+exports.TextAddT24Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("TextAddT24Regular", "", 1, 24));
+exports.TextAddT24Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("TextAddT24Filled", "", 0, 24));
+exports.TextAddT28Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("TextAddT28Regular", "󰳗", 1, 28));
+exports.TextAddT28Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("TextAddT28Filled", "󰵔", 0, 28));
+exports.TextAddT32Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("TextAddT32Regular", "󰳘", 1, 32));
+exports.TextAddT32Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("TextAddT32Filled", "󰵕", 0, 32));
+exports.TextAddT32Light = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("TextAddT32Light", "", 3, 32));

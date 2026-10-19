@@ -1,0 +1,14 @@
+"use client";
+import { createFluentFontIcon } from '../../headless/fonts/createFluentFontIcon.js';
+export const ChartMultipleFilled = ( /*#__PURE__*/createFluentFontIcon("ChartMultipleFilled", "", 2, undefined));
+export const ChartMultipleRegular = ( /*#__PURE__*/createFluentFontIcon("ChartMultipleRegular", "", 2, undefined));
+export const ChartMultiple16Regular = ( /*#__PURE__*/createFluentFontIcon("ChartMultiple16Regular", "󰗔", 1, 16));
+export const ChartMultiple16Filled = ( /*#__PURE__*/createFluentFontIcon("ChartMultiple16Filled", "󰙍", 0, 16));
+export const ChartMultiple20Regular = ( /*#__PURE__*/createFluentFontIcon("ChartMultiple20Regular", "", 1, 20));
+export const ChartMultiple20Filled = ( /*#__PURE__*/createFluentFontIcon("ChartMultiple20Filled", "", 0, 20));
+export const ChartMultiple24Regular = ( /*#__PURE__*/createFluentFontIcon("ChartMultiple24Regular", "", 1, 24));
+export const ChartMultiple24Filled = ( /*#__PURE__*/createFluentFontIcon("ChartMultiple24Filled", "", 0, 24));
+export const ChartMultiple28Regular = ( /*#__PURE__*/createFluentFontIcon("ChartMultiple28Regular", "󰳰", 1, 28));
+export const ChartMultiple28Filled = ( /*#__PURE__*/createFluentFontIcon("ChartMultiple28Filled", "󰵭", 0, 28));
+export const ChartMultiple32Regular = ( /*#__PURE__*/createFluentFontIcon("ChartMultiple32Regular", "󰠖", 1, 32));
+export const ChartMultiple32Filled = ( /*#__PURE__*/createFluentFontIcon("ChartMultiple32Filled", "󰢓", 0, 32));

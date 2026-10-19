@@ -1,0 +1,11 @@
+import type { FluentFontIcon } from '../../headless/fonts/createFluentFontIcon.cjs';
+export declare const TextBulletListSquareClockFilled: FluentFontIcon;
+export declare const TextBulletListSquareClockRegular: FluentFontIcon;
+export declare const TextBulletListSquareClock16Regular: FluentFontIcon;
+export declare const TextBulletListSquareClock16Filled: FluentFontIcon;
+export declare const TextBulletListSquareClock20Regular: FluentFontIcon;
+export declare const TextBulletListSquareClock20Filled: FluentFontIcon;
+export declare const TextBulletListSquareClock24Regular: FluentFontIcon;
+export declare const TextBulletListSquareClock24Filled: FluentFontIcon;
+export declare const TextBulletListSquareClock28Regular: FluentFontIcon;
+export declare const TextBulletListSquareClock28Filled: FluentFontIcon;

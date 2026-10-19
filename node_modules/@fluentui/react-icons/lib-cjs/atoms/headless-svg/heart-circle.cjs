@@ -1,0 +1,13 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.HeartCircle24Filled = exports.HeartCircle24Regular = exports.HeartCircle20Filled = exports.HeartCircle20Regular = exports.HeartCircle16Filled = exports.HeartCircle16Regular = exports.HeartCircleRegular = exports.HeartCircleFilled = void 0;
+const createFluentIcon_1 = require("../../headless/createFluentIcon.cjs");
+exports.HeartCircleFilled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('HeartCircleFilled', "1em", ["M2 10a8 8 0 1 0 16 0 8 8 0 0 0-16 0m7.6-2.39.39.4.4-.4a2.12 2.12 0 0 1 3.03 2.96l-3.05 3.27a.5.5 0 0 1-.74 0l-3.06-3.28A2.11 2.11 0 0 1 9.6 7.61"]));
+exports.HeartCircleRegular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('HeartCircleRegular', "1em", ["m9.6 7.61.39.39.4-.4a2.12 2.12 0 0 1 3.03 2.97l-3.05 3.27a.5.5 0 0 1-.74 0l-3.06-3.28A2.11 2.11 0 0 1 9.6 7.61M2 10a8 8 0 1 1 16 0 8 8 0 0 1-16 0m8-7a7 7 0 1 0 0 14 7 7 0 0 0 0-14"]));
+exports.HeartCircle16Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('HeartCircle16Regular', "16", ["m8 7-.42-.5A1.46 1.46 0 1 0 5.42 8.5l2.4 2.44c.1.1.26.1.36 0l2.4-2.44A1.46 1.46 0 1 0 8.42 6.5zM2 8a6 6 0 1 1 12 0A6 6 0 0 1 2 8m6-5a5 5 0 1 0 0 10A5 5 0 0 0 8 3"]));
+exports.HeartCircle16Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('HeartCircle16Filled', "16", ["M2 8a6 6 0 1 1 12 0A6 6 0 0 1 2 8m6-1-.42-.5A1.46 1.46 0 1 0 5.42 8.5l2.4 2.44c.1.1.26.1.36 0l2.4-2.44A1.46 1.46 0 1 0 8.42 6.5z"]));
+exports.HeartCircle20Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('HeartCircle20Regular', "20", ["m9.6 7.61.39.39.4-.4a2.12 2.12 0 0 1 3.03 2.97l-3.05 3.27a.5.5 0 0 1-.74 0l-3.06-3.28A2.11 2.11 0 0 1 9.6 7.61M2 10a8 8 0 1 1 16 0 8 8 0 0 1-16 0m8-7a7 7 0 1 0 0 14 7 7 0 0 0 0-14"]));
+exports.HeartCircle20Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('HeartCircle20Filled', "20", ["M2 10a8 8 0 1 0 16 0 8 8 0 0 0-16 0m7.6-2.39.39.4.4-.4a2.12 2.12 0 0 1 3.03 2.96l-3.05 3.27a.5.5 0 0 1-.74 0l-3.06-3.28A2.11 2.11 0 0 1 9.6 7.61"]));
+exports.HeartCircle24Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('HeartCircle24Regular', "24", ["m11.7 16.86-4.11-4.8a2.46 2.46 0 0 1 3.58-3.36l.83.8.83-.8a2.46 2.46 0 0 1 3.58 3.36l-4.1 4.8a.4.4 0 0 1-.61 0M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0m-1.5 0a8.5 8.5 0 1 0-17 0 8.5 8.5 0 0 0 17 0"]));
+exports.HeartCircle24Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('HeartCircle24Filled', "24", ["M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20m-.3-5.14-4.11-4.8a2.46 2.46 0 0 1 3.58-3.36l.83.8.83-.8a2.46 2.46 0 0 1 3.58 3.36l-4.1 4.8a.4.4 0 0 1-.61 0"]));

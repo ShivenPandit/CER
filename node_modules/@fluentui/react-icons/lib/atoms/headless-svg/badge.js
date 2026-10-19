@@ -1,0 +1,8 @@
+"use client";
+import { createFluentIcon } from '../../headless/createFluentIcon.js';
+export const BadgeFilled = ( /*#__PURE__*/createFluentIcon('BadgeFilled', "1em", ["M16 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4m0 1a3 3 0 0 0 1-.17V15a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h8.17A3 3 0 0 0 16 7"]));
+export const BadgeRegular = ( /*#__PURE__*/createFluentIcon('BadgeRegular', "1em", ["M16 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4m1 9V6.83A3 3 0 0 1 16 7v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h8a3 3 0 0 1 .17-1H5a2 2 0 0 0-2 2v10c0 1.1.9 2 2 2h10a2 2 0 0 0 2-2"]));
+export const Badge20Regular = ( /*#__PURE__*/createFluentIcon('Badge20Regular', "20", ["M16 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4m1 9V6.83A3 3 0 0 1 16 7v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h8a3 3 0 0 1 .17-1H5a2 2 0 0 0-2 2v10c0 1.1.9 2 2 2h10a2 2 0 0 0 2-2"]));
+export const Badge20Filled = ( /*#__PURE__*/createFluentIcon('Badge20Filled', "20", ["M16 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4m0 1a3 3 0 0 0 1-.17V15a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h8.17A3 3 0 0 0 16 7"]));
+export const Badge24Regular = ( /*#__PURE__*/createFluentIcon('Badge24Regular', "24", ["M16.34 3Q16 3.68 16 4.5H5.75c-.69 0-1.25.56-1.25 1.25v12.5c0 .7.56 1.25 1.25 1.25h12.5c.69 0 1.25-.56 1.25-1.25V8q.82 0 1.5-.34v10.59A2.75 2.75 0 0 1 18.25 21H5.75A2.75 2.75 0 0 1 3 18.25V5.75A2.75 2.75 0 0 1 5.75 3zm3.16-1a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5"]));
+export const Badge24Filled = ( /*#__PURE__*/createFluentIcon('Badge24Filled', "24", ["M16 4.5a3.5 3.5 0 0 0 5 3.16v10.59A2.75 2.75 0 0 1 18.25 21H5.75A2.75 2.75 0 0 1 3 18.25V5.75A2.75 2.75 0 0 1 5.75 3h10.59Q16 3.69 16 4.5M19.5 2a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5"]));

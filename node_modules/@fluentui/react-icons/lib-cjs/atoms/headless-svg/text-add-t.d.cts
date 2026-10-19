@@ -1,0 +1,12 @@
+import type { FluentIcon } from '../../headless/createFluentIcon.cjs';
+export declare const TextAddTFilled: FluentIcon;
+export declare const TextAddTRegular: FluentIcon;
+export declare const TextAddT20Regular: FluentIcon;
+export declare const TextAddT20Filled: FluentIcon;
+export declare const TextAddT24Regular: FluentIcon;
+export declare const TextAddT24Filled: FluentIcon;
+export declare const TextAddT28Regular: FluentIcon;
+export declare const TextAddT28Filled: FluentIcon;
+export declare const TextAddT32Regular: FluentIcon;
+export declare const TextAddT32Filled: FluentIcon;
+export declare const TextAddT32Light: FluentIcon;

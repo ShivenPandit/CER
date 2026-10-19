@@ -1,0 +1,11 @@
+import type { FluentIcon } from '../../headless/createFluentIcon.cjs';
+export declare const FilmstripGlobeFilled: FluentIcon;
+export declare const FilmstripGlobeRegular: FluentIcon;
+export declare const FilmstripGlobe16Regular: FluentIcon;
+export declare const FilmstripGlobe16Filled: FluentIcon;
+export declare const FilmstripGlobe20Regular: FluentIcon;
+export declare const FilmstripGlobe20Filled: FluentIcon;
+export declare const FilmstripGlobe24Regular: FluentIcon;
+export declare const FilmstripGlobe24Filled: FluentIcon;
+export declare const FilmstripGlobe32Regular: FluentIcon;
+export declare const FilmstripGlobe32Filled: FluentIcon;

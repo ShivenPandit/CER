@@ -1,0 +1,10 @@
+"use client";
+import { createFluentFontIcon } from '../../headless/fonts/createFluentFontIcon.js';
+export const AgentsPersonFilled = ( /*#__PURE__*/createFluentFontIcon("AgentsPersonFilled", "", 2, undefined));
+export const AgentsPersonRegular = ( /*#__PURE__*/createFluentFontIcon("AgentsPersonRegular", "", 2, undefined));
+export const AgentsPerson16Regular = ( /*#__PURE__*/createFluentFontIcon("AgentsPerson16Regular", "󰳙", 1, 16));
+export const AgentsPerson16Filled = ( /*#__PURE__*/createFluentFontIcon("AgentsPerson16Filled", "󰵖", 0, 16));
+export const AgentsPerson20Regular = ( /*#__PURE__*/createFluentFontIcon("AgentsPerson20Regular", "󰳚", 1, 20));
+export const AgentsPerson20Filled = ( /*#__PURE__*/createFluentFontIcon("AgentsPerson20Filled", "󰵗", 0, 20));
+export const AgentsPerson24Regular = ( /*#__PURE__*/createFluentFontIcon("AgentsPerson24Regular", "󰳛", 1, 24));
+export const AgentsPerson24Filled = ( /*#__PURE__*/createFluentFontIcon("AgentsPerson24Filled", "󰵘", 0, 24));

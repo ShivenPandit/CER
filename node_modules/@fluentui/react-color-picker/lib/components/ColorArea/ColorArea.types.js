@@ -1,0 +1,3 @@
+/**
+ * ColorArea Base State
+ */ export { };

@@ -1,0 +1,14 @@
+import type { FluentIcon } from '../../utils/createFluentIcon.cjs';
+export declare const PeopleLockFilled: FluentIcon;
+export declare const PeopleLockRegular: FluentIcon;
+export declare const PeopleLock16Regular: FluentIcon;
+export declare const PeopleLock16Filled: FluentIcon;
+export declare const PeopleLock20Regular: FluentIcon;
+export declare const PeopleLock20Filled: FluentIcon;
+export declare const PeopleLock24Regular: FluentIcon;
+export declare const PeopleLock24Filled: FluentIcon;
+export declare const PeopleLock28Regular: FluentIcon;
+export declare const PeopleLock28Filled: FluentIcon;
+export declare const PeopleLock32Regular: FluentIcon;
+export declare const PeopleLock32Filled: FluentIcon;
+export declare const PeopleLock32Light: FluentIcon;

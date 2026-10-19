@@ -1,0 +1,6 @@
+"use client";
+import { createFluentIcon } from '../../headless/createFluentIcon.js';
+export const LineHorizontal1DotFilled = ( /*#__PURE__*/createFluentIcon('LineHorizontal1DotFilled', "1em", ["M3.5 11a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3M8 11a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3m4.5 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3m6-1.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"]));
+export const LineHorizontal1DotRegular = ( /*#__PURE__*/createFluentIcon('LineHorizontal1DotRegular', "1em", ["M3.25 10.75a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5m4.5 0a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5m4.5 0a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5M18 9.5a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0"]));
+export const LineHorizontal1Dot20Regular = ( /*#__PURE__*/createFluentIcon('LineHorizontal1Dot20Regular', "20", ["M3.25 10.75a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5m4.5 0a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5m4.5 0a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5M18 9.5a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0"]));
+export const LineHorizontal1Dot20Filled = ( /*#__PURE__*/createFluentIcon('LineHorizontal1Dot20Filled', "20", ["M3.5 11a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3M8 11a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3m4.5 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3m6-1.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"]));

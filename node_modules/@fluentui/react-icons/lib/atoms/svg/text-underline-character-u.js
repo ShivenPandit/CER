@@ -1,0 +1,10 @@
+"use client";
+import { createFluentIcon } from '../../utils/createFluentIcon.js';
+export const TextUnderlineCharacterUFilled = ( /*#__PURE__*/createFluentIcon('TextUnderlineCharacterUFilled', "1em", ["M7 3.75a.75.75 0 0 0-1.5 0V9.5a4.5 4.5 0 1 0 9 0V3.75a.75.75 0 0 0-1.5 0V9.5a3 3 0 1 1-6 0zM5.75 15.5a.75.75 0 0 0 0 1.5h8.5a.75.75 0 0 0 0-1.5z"]));
+export const TextUnderlineCharacterURegular = ( /*#__PURE__*/createFluentIcon('TextUnderlineCharacterURegular', "1em", ["M7 3.5a.5.5 0 0 0-1 0V10a4 4 0 0 0 8 0V3.5a.5.5 0 0 0-1 0V10a3 3 0 1 1-6 0zM5.5 16a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1z"]));
+export const TextUnderlineCharacterU16Regular = ( /*#__PURE__*/createFluentIcon('TextUnderlineCharacterU16Regular', "16", ["M5.5 2.5a.5.5 0 0 0-1 0v5a3.5 3.5 0 1 0 7 0v-5a.5.5 0 0 0-1 0v5a2.5 2.5 0 0 1-5 0zM4.5 13a.5.5 0 0 0 0 1h7a.5.5 0 0 0 0-1z"]));
+export const TextUnderlineCharacterU16Filled = ( /*#__PURE__*/createFluentIcon('TextUnderlineCharacterU16Filled', "16", ["M6 2.75a.75.75 0 0 0-1.5 0V7.5a3.5 3.5 0 1 0 7 0V2.75a.75.75 0 0 0-1.5 0V7.5a2 2 0 1 1-4 0zM4.75 12.5a.75.75 0 0 0 0 1.5h6.5a.75.75 0 0 0 0-1.5z"]));
+export const TextUnderlineCharacterU20Regular = ( /*#__PURE__*/createFluentIcon('TextUnderlineCharacterU20Regular', "20", ["M7 3.5a.5.5 0 0 0-1 0V10a4 4 0 0 0 8 0V3.5a.5.5 0 0 0-1 0V10a3 3 0 1 1-6 0zM5.5 16a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1z"]));
+export const TextUnderlineCharacterU20Filled = ( /*#__PURE__*/createFluentIcon('TextUnderlineCharacterU20Filled', "20", ["M7 3.75a.75.75 0 0 0-1.5 0V9.5a4.5 4.5 0 1 0 9 0V3.75a.75.75 0 0 0-1.5 0V9.5a3 3 0 1 1-6 0zM5.75 15.5a.75.75 0 0 0 0 1.5h8.5a.75.75 0 0 0 0-1.5z"]));
+export const TextUnderlineCharacterU24Regular = ( /*#__PURE__*/createFluentIcon('TextUnderlineCharacterU24Regular', "24", ["M8.5 4.75a.75.75 0 0 0-1.5 0V12a5 5 0 0 0 10 0V4.75a.75.75 0 0 0-1.5 0V12a3.5 3.5 0 1 1-7 0zM6.75 18.5a.75.75 0 0 0 0 1.5h10.5a.75.75 0 0 0 0-1.5z"]));
+export const TextUnderlineCharacterU24Filled = ( /*#__PURE__*/createFluentIcon('TextUnderlineCharacterU24Filled', "24", ["M9 5a1 1 0 0 0-2 0v6.5a5 5 0 0 0 10 0V5a1 1 0 1 0-2 0v6.5a3 3 0 1 1-6 0zM7 18a1 1 0 1 0 0 2h10a1 1 0 1 0 0-2z"]));

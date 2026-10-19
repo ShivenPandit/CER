@@ -1,0 +1,12 @@
+"use client";
+import { createFluentFontIcon } from '../../headless/fonts/createFluentFontIcon.js';
+export const CallWarningFilled = ( /*#__PURE__*/createFluentFontIcon("CallWarningFilled", "", 2, undefined));
+export const CallWarningRegular = ( /*#__PURE__*/createFluentFontIcon("CallWarningRegular", "", 2, undefined));
+export const CallWarning16Regular = ( /*#__PURE__*/createFluentFontIcon("CallWarning16Regular", "", 1, 16));
+export const CallWarning16Filled = ( /*#__PURE__*/createFluentFontIcon("CallWarning16Filled", "", 0, 16));
+export const CallWarning20Regular = ( /*#__PURE__*/createFluentFontIcon("CallWarning20Regular", "", 1, 20));
+export const CallWarning20Filled = ( /*#__PURE__*/createFluentFontIcon("CallWarning20Filled", "", 0, 20));
+export const CallWarning24Regular = ( /*#__PURE__*/createFluentFontIcon("CallWarning24Regular", "󰳝", 1, 24));
+export const CallWarning24Filled = ( /*#__PURE__*/createFluentFontIcon("CallWarning24Filled", "󰵚", 0, 24));
+export const CallWarning28Regular = ( /*#__PURE__*/createFluentFontIcon("CallWarning28Regular", "󰳞", 1, 28));
+export const CallWarning28Filled = ( /*#__PURE__*/createFluentFontIcon("CallWarning28Filled", "󰵛", 0, 28));

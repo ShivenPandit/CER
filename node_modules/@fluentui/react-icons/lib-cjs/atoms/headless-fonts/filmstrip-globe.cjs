@@ -1,0 +1,15 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.FilmstripGlobe32Filled = exports.FilmstripGlobe32Regular = exports.FilmstripGlobe24Filled = exports.FilmstripGlobe24Regular = exports.FilmstripGlobe20Filled = exports.FilmstripGlobe20Regular = exports.FilmstripGlobe16Filled = exports.FilmstripGlobe16Regular = exports.FilmstripGlobeRegular = exports.FilmstripGlobeFilled = void 0;
+const createFluentFontIcon_1 = require("../../headless/fonts/createFluentFontIcon.cjs");
+exports.FilmstripGlobeFilled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripGlobeFilled", "", 2, undefined));
+exports.FilmstripGlobeRegular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripGlobeRegular", "", 2, undefined));
+exports.FilmstripGlobe16Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripGlobe16Regular", "󰳣", 1, 16));
+exports.FilmstripGlobe16Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripGlobe16Filled", "󰵠", 0, 16));
+exports.FilmstripGlobe20Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripGlobe20Regular", "󰳤", 1, 20));
+exports.FilmstripGlobe20Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripGlobe20Filled", "󰵡", 0, 20));
+exports.FilmstripGlobe24Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripGlobe24Regular", "󰳥", 1, 24));
+exports.FilmstripGlobe24Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripGlobe24Filled", "󰵢", 0, 24));
+exports.FilmstripGlobe32Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripGlobe32Regular", "󰳦", 1, 32));
+exports.FilmstripGlobe32Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripGlobe32Filled", "󰵣", 0, 32));

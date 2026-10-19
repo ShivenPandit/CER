@@ -1,0 +1,7 @@
+import type { FluentFontIcon } from '../../headless/fonts/createFluentFontIcon.cjs';
+export declare const SportBaseballFilled: FluentFontIcon;
+export declare const SportBaseballRegular: FluentFontIcon;
+export declare const SportBaseball20Regular: FluentFontIcon;
+export declare const SportBaseball20Filled: FluentFontIcon;
+export declare const SportBaseball24Regular: FluentFontIcon;
+export declare const SportBaseball24Filled: FluentFontIcon;

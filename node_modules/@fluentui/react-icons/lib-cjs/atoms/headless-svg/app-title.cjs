@@ -1,0 +1,11 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AppTitle24Filled = exports.AppTitle24Regular = exports.AppTitle20Filled = exports.AppTitle20Regular = exports.AppTitleRegular = exports.AppTitleFilled = void 0;
+const createFluentIcon_1 = require("../../headless/createFluentIcon.cjs");
+exports.AppTitleFilled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('AppTitleFilled', "1em", ["M7 3a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3zM4.5 17a.5.5 0 0 0 0 1h11a.5.5 0 0 0 0-1z"]));
+exports.AppTitleRegular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('AppTitleRegular', "1em", ["M4 6a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3zm3-2a2 2 0 0 0-2 2v6c0 1.1.9 2 2 2h6a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM4 17.5c0-.28.22-.5.5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5"]));
+exports.AppTitle20Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('AppTitle20Regular', "20", ["M4 6a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3zm3-2a2 2 0 0 0-2 2v6c0 1.1.9 2 2 2h6a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM4 17.5c0-.28.22-.5.5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5"]));
+exports.AppTitle20Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('AppTitle20Filled', "20", ["M7 3a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3zM4.5 17a.5.5 0 0 0 0 1h11a.5.5 0 0 0 0-1z"]));
+exports.AppTitle24Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('AppTitle24Regular', "24", ["M4.75 20.5h14.5a.75.75 0 0 1 .1 1.5H4.75a.75.75 0 0 1-.1-1.5zh14.5zM16.25 3A3.75 3.75 0 0 1 20 6.75v8.5A3.75 3.75 0 0 1 16.25 19h-8.5A3.75 3.75 0 0 1 4 15.25v-8.5A3.75 3.75 0 0 1 7.75 3zm0 1.5h-8.5c-1.24 0-2.25 1-2.25 2.25v8.5c0 1.24 1 2.25 2.25 2.25h8.5c1.24 0 2.25-1 2.25-2.25v-8.5c0-1.24-1-2.25-2.25-2.25"]));
+exports.AppTitle24Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('AppTitle24Filled', "24", ["M4.75 20.5h14.5a.75.75 0 0 1 .1 1.5H4.75a.75.75 0 0 1-.1-1.5zh14.5zM16.25 3A3.75 3.75 0 0 1 20 6.75v8.5A3.75 3.75 0 0 1 16.25 19h-8.5A3.75 3.75 0 0 1 4 15.25v-8.5A3.75 3.75 0 0 1 7.75 3z"]));

@@ -1,0 +1,15 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Autopilot32Filled = exports.Autopilot32Regular = exports.Autopilot28Filled = exports.Autopilot28Regular = exports.Autopilot24Filled = exports.Autopilot24Regular = exports.Autopilot20Filled = exports.Autopilot20Regular = exports.AutopilotRegular = exports.AutopilotFilled = void 0;
+const createFluentFontIcon_1 = require("../../headless/fonts/createFluentFontIcon.cjs");
+exports.AutopilotFilled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("AutopilotFilled", "", 2, undefined));
+exports.AutopilotRegular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("AutopilotRegular", "", 2, undefined));
+exports.Autopilot20Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("Autopilot20Regular", "󰳜", 1, 20));
+exports.Autopilot20Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("Autopilot20Filled", "󰵙", 0, 20));
+exports.Autopilot24Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("Autopilot24Regular", "󰴚", 1, 24));
+exports.Autopilot24Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("Autopilot24Filled", "󰶗", 0, 24));
+exports.Autopilot28Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("Autopilot28Regular", "󰴛", 1, 28));
+exports.Autopilot28Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("Autopilot28Filled", "󰶘", 0, 28));
+exports.Autopilot32Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("Autopilot32Regular", "󰴜", 1, 32));
+exports.Autopilot32Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("Autopilot32Filled", "󰶙", 0, 32));

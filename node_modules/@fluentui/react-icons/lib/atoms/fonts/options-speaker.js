@@ -1,0 +1,12 @@
+"use client";
+import { createFluentFontIcon } from '../../utils/fonts/createFluentFontIcon.js';
+export const OptionsSpeakerFilled = ( /*#__PURE__*/createFluentFontIcon("OptionsSpeakerFilled", "", 2, undefined));
+export const OptionsSpeakerRegular = ( /*#__PURE__*/createFluentFontIcon("OptionsSpeakerRegular", "", 2, undefined));
+export const OptionsSpeaker16Regular = ( /*#__PURE__*/createFluentFontIcon("OptionsSpeaker16Regular", "󰴋", 1, 16));
+export const OptionsSpeaker16Filled = ( /*#__PURE__*/createFluentFontIcon("OptionsSpeaker16Filled", "󰶈", 0, 16));
+export const OptionsSpeaker20Regular = ( /*#__PURE__*/createFluentFontIcon("OptionsSpeaker20Regular", "󰴌", 1, 20));
+export const OptionsSpeaker20Filled = ( /*#__PURE__*/createFluentFontIcon("OptionsSpeaker20Filled", "󰶉", 0, 20));
+export const OptionsSpeaker24Regular = ( /*#__PURE__*/createFluentFontIcon("OptionsSpeaker24Regular", "󰴍", 1, 24));
+export const OptionsSpeaker24Filled = ( /*#__PURE__*/createFluentFontIcon("OptionsSpeaker24Filled", "󰶊", 0, 24));
+export const OptionsSpeaker28Regular = ( /*#__PURE__*/createFluentFontIcon("OptionsSpeaker28Regular", "󰴎", 1, 28));
+export const OptionsSpeaker28Filled = ( /*#__PURE__*/createFluentFontIcon("OptionsSpeaker28Filled", "󰶋", 0, 28));

@@ -1,0 +1,9 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.BubbleMultiple20Filled = exports.BubbleMultiple20Regular = exports.BubbleMultipleRegular = exports.BubbleMultipleFilled = void 0;
+const createFluentIcon_1 = require("../../utils/createFluentIcon.cjs");
+exports.BubbleMultipleFilled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('BubbleMultipleFilled', "1em", ["M19 4.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0M9.17 15.6a3.5 3.5 0 1 0 3.74-4.58 6 6 0 0 1-3.74 4.57M12 10a5 5 0 1 1-10 0 5 5 0 0 1 10 0M7.03 7.5a.5.5 0 0 0 .3.64 2.5 2.5 0 0 1 1.53 1.53.5.5 0 1 0 .94-.34A3.5 3.5 0 0 0 7.67 7.2a.5.5 0 0 0-.64.3"]));
+exports.BubbleMultipleRegular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('BubbleMultipleRegular', "1em", ["M15.5 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M12 4.5a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0M3 10a4 4 0 1 1 8 0 4 4 0 0 1-8 0m4-5a5 5 0 1 0 0 10A5 5 0 0 0 7 5m5.5 13a3.5 3.5 0 0 1-3.33-2.4q.49-.2.91-.45A2.5 2.5 0 1 0 12.66 12q.16-.47.25-.98A3.5 3.5 0 0 1 12.5 18M7.67 7.2a.5.5 0 1 0-.34.94 2.5 2.5 0 0 1 1.53 1.53.5.5 0 1 0 .94-.34A3.5 3.5 0 0 0 7.67 7.2"]));
+exports.BubbleMultiple20Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('BubbleMultiple20Regular', "20", ["M15.5 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M12 4.5a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0M3 10a4 4 0 1 1 8 0 4 4 0 0 1-8 0m4-5a5 5 0 1 0 0 10A5 5 0 0 0 7 5m5.5 13a3.5 3.5 0 0 1-3.33-2.4q.49-.2.91-.45A2.5 2.5 0 1 0 12.66 12q.16-.47.25-.98A3.5 3.5 0 0 1 12.5 18M7.67 7.2a.5.5 0 1 0-.34.94 2.5 2.5 0 0 1 1.53 1.53.5.5 0 1 0 .94-.34A3.5 3.5 0 0 0 7.67 7.2"]));
+exports.BubbleMultiple20Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('BubbleMultiple20Filled', "20", ["M19 4.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0M9.17 15.6a3.5 3.5 0 1 0 3.74-4.58 6 6 0 0 1-3.74 4.57M12 10a5 5 0 1 1-10 0 5 5 0 0 1 10 0M7.03 7.5a.5.5 0 0 0 .3.64 2.5 2.5 0 0 1 1.53 1.53.5.5 0 1 0 .94-.34A3.5 3.5 0 0 0 7.67 7.2a.5.5 0 0 0-.64.3"]));

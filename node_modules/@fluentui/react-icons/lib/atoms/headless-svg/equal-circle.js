@@ -1,0 +1,10 @@
+"use client";
+import { createFluentIcon } from '../../headless/createFluentIcon.js';
+export const EqualCircleFilled = ( /*#__PURE__*/createFluentIcon('EqualCircleFilled', "1em", ["M10 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16m3.5 7a.5.5 0 0 0 0-1h-7a.5.5 0 0 0 0 1zm0 3a.5.5 0 0 0 0-1h-7a.5.5 0 0 0 0 1z"]));
+export const EqualCircleRegular = ( /*#__PURE__*/createFluentIcon('EqualCircleRegular', "1em", ["M13.5 9a.5.5 0 0 0 0-1h-7a.5.5 0 0 0 0 1zm0 3a.5.5 0 0 0 0-1h-7a.5.5 0 0 0 0 1zm4.5-2a8 8 0 1 0-16 0 8 8 0 0 0 16 0m-8-7a7 7 0 1 1 0 14 7 7 0 0 1 0-14"]));
+export const EqualCircle16Regular = ( /*#__PURE__*/createFluentIcon('EqualCircle16Regular', "16", ["M2 8a6 6 0 1 1 12 0A6 6 0 0 1 2 8m6-7a7 7 0 1 0 0 14A7 7 0 0 0 8 1M4.5 6.5c0-.28.22-.5.5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5m0 3c0-.28.22-.5.5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5"]));
+export const EqualCircle16Filled = ( /*#__PURE__*/createFluentIcon('EqualCircle16Filled', "16", ["M15 8A7 7 0 1 1 1 8a7 7 0 0 1 14 0M4.5 6.5c0 .28.22.5.5.5h6a.5.5 0 0 0 0-1H5a.5.5 0 0 0-.5.5M5 9a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1z"]));
+export const EqualCircle20Regular = ( /*#__PURE__*/createFluentIcon('EqualCircle20Regular', "20", ["M13.5 9a.5.5 0 0 0 0-1h-7a.5.5 0 0 0 0 1zm0 3a.5.5 0 0 0 0-1h-7a.5.5 0 0 0 0 1zm4.5-2a8 8 0 1 0-16 0 8 8 0 0 0 16 0m-8-7a7 7 0 1 1 0 14 7 7 0 0 1 0-14"]));
+export const EqualCircle20Filled = ( /*#__PURE__*/createFluentIcon('EqualCircle20Filled', "20", ["M10 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16m3.5 7a.5.5 0 0 0 0-1h-7a.5.5 0 0 0 0 1zm0 3a.5.5 0 0 0 0-1h-7a.5.5 0 0 0 0 1z"]));
+export const EqualCircle24Regular = ( /*#__PURE__*/createFluentIcon('EqualCircle24Regular', "24", ["M16.26 10.5a.75.75 0 0 0 0-1.5H7.77a.75.75 0 0 0 0 1.5zm0 4.5a.75.75 0 0 0 0-1.5H7.77a.75.75 0 0 0 0 1.5zM22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0M12 3.5a8.5 8.5 0 1 1 0 17 8.5 8.5 0 0 1 0-17"]));
+export const EqualCircle24Filled = ( /*#__PURE__*/createFluentIcon('EqualCircle24Filled', "24", ["M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0m-5.75-1.5h-8.5a.75.75 0 0 1 0-1.5h8.5a.75.75 0 0 1 0 1.5m0 4.5h-8.5a.75.75 0 0 1 0-1.5h8.5a.75.75 0 0 1 0 1.5"]));

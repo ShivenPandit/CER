@@ -1,0 +1,10 @@
+"use client";
+import { createFluentFontIcon } from '../../utils/fonts/createFluentFontIcon.js';
+export const TableSelectRangeFilled = ( /*#__PURE__*/createFluentFontIcon("TableSelectRangeFilled", "", 2, undefined));
+export const TableSelectRangeRegular = ( /*#__PURE__*/createFluentFontIcon("TableSelectRangeRegular", "", 2, undefined));
+export const TableSelectRange16Regular = ( /*#__PURE__*/createFluentFontIcon("TableSelectRange16Regular", "󰳩", 1, 16));
+export const TableSelectRange16Filled = ( /*#__PURE__*/createFluentFontIcon("TableSelectRange16Filled", "󰵦", 0, 16));
+export const TableSelectRange20Regular = ( /*#__PURE__*/createFluentFontIcon("TableSelectRange20Regular", "󰳪", 1, 20));
+export const TableSelectRange20Filled = ( /*#__PURE__*/createFluentFontIcon("TableSelectRange20Filled", "󰵧", 0, 20));
+export const TableSelectRange24Regular = ( /*#__PURE__*/createFluentFontIcon("TableSelectRange24Regular", "󰳫", 1, 24));
+export const TableSelectRange24Filled = ( /*#__PURE__*/createFluentFontIcon("TableSelectRange24Filled", "󰵨", 0, 24));

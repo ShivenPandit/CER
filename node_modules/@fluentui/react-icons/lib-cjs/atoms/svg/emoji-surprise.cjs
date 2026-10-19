@@ -1,0 +1,11 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.EmojiSurprise24Filled = exports.EmojiSurprise24Regular = exports.EmojiSurprise20Filled = exports.EmojiSurprise20Regular = exports.EmojiSurpriseRegular = exports.EmojiSurpriseFilled = void 0;
+const createFluentIcon_1 = require("../../utils/createFluentIcon.cjs");
+exports.EmojiSurpriseFilled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('EmojiSurpriseFilled', "1em", ["M2 10a8 8 0 1 1 16 0 8 8 0 0 1-16 0m5.5-.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2m4.25 3a1.75 1.75 0 1 0-3.5 0 1.75 1.75 0 0 0 3.5 0m.75-3a1 1 0 1 0 0-2 1 1 0 0 0 0 2"]));
+exports.EmojiSurpriseRegular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('EmojiSurpriseRegular', "1em", ["M7.5 9.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2m4.25 3a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0m.75-3a1 1 0 1 0 0-2 1 1 0 0 0 0 2M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16m-7 8a7 7 0 1 1 14 0 7 7 0 0 1-14 0"]));
+exports.EmojiSurprise20Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('EmojiSurprise20Regular', "20", ["M7.5 9.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2m4.25 3a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0m.75-3a1 1 0 1 0 0-2 1 1 0 0 0 0 2M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16m-7 8a7 7 0 1 1 14 0 7 7 0 0 1-14 0"]));
+exports.EmojiSurprise20Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('EmojiSurprise20Filled', "20", ["M2 10a8 8 0 1 1 16 0 8 8 0 0 1-16 0m5.5-.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2m4.25 3a1.75 1.75 0 1 0-3.5 0 1.75 1.75 0 0 0 3.5 0m.75-3a1 1 0 1 0 0-2 1 1 0 0 0 0 2"]));
+exports.EmojiSurprise24Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('EmojiSurprise24Regular', "24", ["M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20m0 1.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17m0 9.5a2.25 2.25 0 1 1 0 4.5 2.25 2.25 0 0 1 0-4.5M9 8.75a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5m6 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5"]));
+exports.EmojiSurprise24Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('EmojiSurprise24Filled', "24", ["M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20m0 11a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5M9 8.75a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5m6 0a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5"]));

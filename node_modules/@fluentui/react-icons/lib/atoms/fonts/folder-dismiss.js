@@ -1,0 +1,10 @@
+"use client";
+import { createFluentFontIcon } from '../../utils/fonts/createFluentFontIcon.js';
+export const FolderDismissFilled = ( /*#__PURE__*/createFluentFontIcon("FolderDismissFilled", "", 2, undefined));
+export const FolderDismissRegular = ( /*#__PURE__*/createFluentFontIcon("FolderDismissRegular", "", 2, undefined));
+export const FolderDismiss16Regular = ( /*#__PURE__*/createFluentFontIcon("FolderDismiss16Regular", "󰳒", 1, 16));
+export const FolderDismiss16Filled = ( /*#__PURE__*/createFluentFontIcon("FolderDismiss16Filled", "󰵏", 0, 16));
+export const FolderDismiss20Regular = ( /*#__PURE__*/createFluentFontIcon("FolderDismiss20Regular", "󰳓", 1, 20));
+export const FolderDismiss20Filled = ( /*#__PURE__*/createFluentFontIcon("FolderDismiss20Filled", "󰵐", 0, 20));
+export const FolderDismiss24Regular = ( /*#__PURE__*/createFluentFontIcon("FolderDismiss24Regular", "󰳔", 1, 24));
+export const FolderDismiss24Filled = ( /*#__PURE__*/createFluentFontIcon("FolderDismiss24Filled", "󰵑", 0, 24));

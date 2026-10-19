@@ -1,0 +1,15 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.FilmstripArrowUp32Filled = exports.FilmstripArrowUp32Regular = exports.FilmstripArrowUp24Filled = exports.FilmstripArrowUp24Regular = exports.FilmstripArrowUp20Filled = exports.FilmstripArrowUp20Regular = exports.FilmstripArrowUp16Filled = exports.FilmstripArrowUp16Regular = exports.FilmstripArrowUpRegular = exports.FilmstripArrowUpFilled = void 0;
+const createFluentFontIcon_1 = require("../../headless/fonts/createFluentFontIcon.cjs");
+exports.FilmstripArrowUpFilled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripArrowUpFilled", "", 2, undefined));
+exports.FilmstripArrowUpRegular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripArrowUpRegular", "", 2, undefined));
+exports.FilmstripArrowUp16Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripArrowUp16Regular", "󰳟", 1, 16));
+exports.FilmstripArrowUp16Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripArrowUp16Filled", "󰵜", 0, 16));
+exports.FilmstripArrowUp20Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripArrowUp20Regular", "󰳠", 1, 20));
+exports.FilmstripArrowUp20Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripArrowUp20Filled", "󰵝", 0, 20));
+exports.FilmstripArrowUp24Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripArrowUp24Regular", "󰳡", 1, 24));
+exports.FilmstripArrowUp24Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripArrowUp24Filled", "󰵞", 0, 24));
+exports.FilmstripArrowUp32Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripArrowUp32Regular", "󰳢", 1, 32));
+exports.FilmstripArrowUp32Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilmstripArrowUp32Filled", "󰵟", 0, 32));

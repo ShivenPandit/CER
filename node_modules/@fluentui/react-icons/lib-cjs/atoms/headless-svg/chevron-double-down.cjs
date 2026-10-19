@@ -1,0 +1,11 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ChevronDoubleDown20Filled = exports.ChevronDoubleDown20Regular = exports.ChevronDoubleDown16Filled = exports.ChevronDoubleDown16Regular = exports.ChevronDoubleDownRegular = exports.ChevronDoubleDownFilled = void 0;
+const createFluentIcon_1 = require("../../headless/createFluentIcon.cjs");
+exports.ChevronDoubleDownFilled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ChevronDoubleDownFilled', "1em", ["M14.72 9.97a.75.75 0 1 1 1.06 1.06l-5.25 5.25c-.3.3-.77.3-1.06 0l-5.25-5.25a.75.75 0 1 1 1.06-1.06L10 14.69zm0-5.5a.75.75 0 1 1 1.06 1.06l-5.25 5.25c-.3.3-.77.3-1.06 0L4.22 5.53a.75.75 0 1 1 1.06-1.06L10 9.19z"]));
+exports.ChevronDoubleDownRegular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ChevronDoubleDownRegular', "1em", ["M15.15 9.65a.5.5 0 1 1 .7.7l-5.5 5.5a.5.5 0 0 1-.7 0l-5.5-5.5a.5.5 0 1 1 .7-.7L10 14.79zm0-5a.5.5 0 1 1 .7.7l-5.5 5.5a.5.5 0 0 1-.7 0l-5.5-5.5a.5.5 0 1 1 .7-.7L10 9.79z"]));
+exports.ChevronDoubleDown16Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ChevronDoubleDown16Regular', "16", ["M3.15 7.65c.2-.2.5-.2.7 0L8 11.79l4.15-4.14a.5.5 0 0 1 .7.7l-4.5 4.5-.07.07a.5.5 0 0 1-.63-.07l-4.5-4.5a.5.5 0 0 1 0-.7m0-4c.2-.2.5-.2.7 0L8 7.79l4.15-4.14a.5.5 0 0 1 .7.7l-4.5 4.5-.07.07a.5.5 0 0 1-.63-.07l-4.5-4.5-.07-.07a.5.5 0 0 1 .07-.63"]));
+exports.ChevronDoubleDown16Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ChevronDoubleDown16Filled', "16", ["M11.72 7.97a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L3.22 9.03a.75.75 0 1 1 1.06-1.06L8 11.69zm0-4.5a.75.75 0 1 1 1.06 1.06L8.53 8.78a.75.75 0 0 1-1.06 0L3.22 4.53a.75.75 0 1 1 1.06-1.06L8 7.19z"]));
+exports.ChevronDoubleDown20Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ChevronDoubleDown20Regular', "20", ["M15.15 9.65a.5.5 0 1 1 .7.7l-5.5 5.5a.5.5 0 0 1-.7 0l-5.5-5.5a.5.5 0 1 1 .7-.7L10 14.79zm0-5a.5.5 0 1 1 .7.7l-5.5 5.5a.5.5 0 0 1-.7 0l-5.5-5.5a.5.5 0 1 1 .7-.7L10 9.79z"]));
+exports.ChevronDoubleDown20Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ChevronDoubleDown20Filled', "20", ["M14.72 9.97a.75.75 0 1 1 1.06 1.06l-5.25 5.25c-.3.3-.77.3-1.06 0l-5.25-5.25a.75.75 0 1 1 1.06-1.06L10 14.69zm0-5.5a.75.75 0 1 1 1.06 1.06l-5.25 5.25c-.3.3-.77.3-1.06 0L4.22 5.53a.75.75 0 1 1 1.06-1.06L10 9.19z"]));

@@ -1,0 +1,12 @@
+"use client";
+import { createFluentIcon } from '../../utils/createFluentIcon.js';
+export const LineFlowDiagonalUpRightFilled = ( /*#__PURE__*/createFluentIcon('LineFlowDiagonalUpRightFilled', "1em", ["M15.85 4.85a.5.5 0 0 0-.7-.7l-7.41 7.4a3 3 0 1 0 .7.7z"], { flipInRtl: true }));
+export const LineFlowDiagonalUpRightRegular = ( /*#__PURE__*/createFluentIcon('LineFlowDiagonalUpRightRegular', "1em", ["M15.85 4.85a.5.5 0 0 0-.7-.7l-7.41 7.4a3 3 0 1 0 .7.7zM4 14a2 2 0 1 1 4 0 2 2 0 0 1-4 0"], { flipInRtl: true }));
+export const LineFlowDiagonalUpRight16Regular = ( /*#__PURE__*/createFluentIcon('LineFlowDiagonalUpRight16Regular', "16", ["M12.85 3.85a.5.5 0 0 0-.7-.7L5.88 9.4q-.6-.4-1.38-.41a2.5 2.5 0 1 0 2.09 1.12zM3 11.5a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0"], { flipInRtl: true }));
+export const LineFlowDiagonalUpRight16Filled = ( /*#__PURE__*/createFluentIcon('LineFlowDiagonalUpRight16Filled', "16", ["M12.85 3.85a.5.5 0 0 0-.7-.7L5.88 9.4q-.6-.4-1.38-.41a2.5 2.5 0 1 0 2.09 1.12z"], { flipInRtl: true }));
+export const LineFlowDiagonalUpRight20Regular = ( /*#__PURE__*/createFluentIcon('LineFlowDiagonalUpRight20Regular', "20", ["M15.85 4.85a.5.5 0 0 0-.7-.7l-7.41 7.4a3 3 0 1 0 .7.7zM4 14a2 2 0 1 1 4 0 2 2 0 0 1-4 0"], { flipInRtl: true }));
+export const LineFlowDiagonalUpRight20Filled = ( /*#__PURE__*/createFluentIcon('LineFlowDiagonalUpRight20Filled', "20", ["M15.85 4.85a.5.5 0 0 0-.7-.7l-7.41 7.4a3 3 0 1 0 .7.7z"], { flipInRtl: true }));
+export const LineFlowDiagonalUpRight24Regular = ( /*#__PURE__*/createFluentIcon('LineFlowDiagonalUpRight24Regular', "24", ["M19.78 5.28a.75.75 0 0 0-1.06-1.06l-9.47 9.47a4 4 0 1 0 1.06 1.06zM4.5 17a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0"], { flipInRtl: true }));
+export const LineFlowDiagonalUpRight24Filled = ( /*#__PURE__*/createFluentIcon('LineFlowDiagonalUpRight24Filled', "24", ["M19.78 5.28a.75.75 0 0 0-1.06-1.06l-9.47 9.47a4 4 0 1 0 1.06 1.06z"], { flipInRtl: true }));
+export const LineFlowDiagonalUpRight32Regular = ( /*#__PURE__*/createFluentIcon('LineFlowDiagonalUpRight32Regular', "32", ["M26.7 6.7a1 1 0 0 0-1.4-1.4L11.61 18.96a5.5 5.5 0 1 0 1.41 1.41zM5 23.5a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"], { flipInRtl: true }));
+export const LineFlowDiagonalUpRight32Filled = ( /*#__PURE__*/createFluentIcon('LineFlowDiagonalUpRight32Filled', "32", ["M26.7 6.7a1 1 0 0 0-1.4-1.4L11.61 18.96a5.5 5.5 0 1 0 1.41 1.41z"], { flipInRtl: true }));

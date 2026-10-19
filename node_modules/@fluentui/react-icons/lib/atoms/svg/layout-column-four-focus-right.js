@@ -1,0 +1,6 @@
+"use client";
+import { createFluentIcon } from '../../utils/createFluentIcon.js';
+export const LayoutColumnFourFocusRightFilled = ( /*#__PURE__*/createFluentIcon('LayoutColumnFourFocusRightFilled', "1em", ["M6 3a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3zM4 6c0-1.1.9-2 2-2h.5v12H6a2 2 0 0 1-2-2zm3.5 10V4H10v12zm6 0H11V4h2.5z"]));
+export const LayoutColumnFourFocusRight16Filled = ( /*#__PURE__*/createFluentIcon('LayoutColumnFourFocusRight16Filled', "16", ["M4.5 2A2.5 2.5 0 0 0 2 4.5v7A2.5 2.5 0 0 0 4.5 14h7a2.5 2.5 0 0 0 2.5-2.5v-7A2.5 2.5 0 0 0 11.5 2zM3 4.5C3 3.67 3.67 3 4.5 3H5v10h-.5A1.5 1.5 0 0 1 3 11.5zM6 13V3h2v10zm5 0H9V3h2z"]));
+export const LayoutColumnFourFocusRight20Filled = ( /*#__PURE__*/createFluentIcon('LayoutColumnFourFocusRight20Filled', "20", ["M6 3a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3zM4 6c0-1.1.9-2 2-2h.5v12H6a2 2 0 0 1-2-2zm3.5 10V4H10v12zm6 0H11V4h2.5z"]));
+export const LayoutColumnFourFocusRight24Filled = ( /*#__PURE__*/createFluentIcon('LayoutColumnFourFocusRight24Filled', "24", ["M6.25 3A3.25 3.25 0 0 0 3 6.25v11.5C3 19.55 4.46 21 6.25 21h11.5c1.8 0 3.25-1.46 3.25-3.25V6.25C21 4.45 19.54 3 17.75 3zM4.5 6.25c0-.97.78-1.75 1.75-1.75H7.5v15H6.25c-.97 0-1.75-.78-1.75-1.75zM9 19.5v-15h2.5v15zm7 0h-3v-15h3z"]));

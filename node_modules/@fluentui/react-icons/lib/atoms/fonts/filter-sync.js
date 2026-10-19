@@ -1,0 +1,10 @@
+"use client";
+import { createFluentFontIcon } from '../../utils/fonts/createFluentFontIcon.js';
+export const FilterSyncFilled = ( /*#__PURE__*/createFluentFontIcon("FilterSyncFilled", "", 2, undefined));
+export const FilterSyncRegular = ( /*#__PURE__*/createFluentFontIcon("FilterSyncRegular", "", 2, undefined));
+export const FilterSync16Regular = ( /*#__PURE__*/createFluentFontIcon("FilterSync16Regular", "󰳹", 1, 16));
+export const FilterSync16Filled = ( /*#__PURE__*/createFluentFontIcon("FilterSync16Filled", "󰵶", 0, 16));
+export const FilterSync20Regular = ( /*#__PURE__*/createFluentFontIcon("FilterSync20Regular", "", 1, 20));
+export const FilterSync20Filled = ( /*#__PURE__*/createFluentFontIcon("FilterSync20Filled", "", 0, 20));
+export const FilterSync24Regular = ( /*#__PURE__*/createFluentFontIcon("FilterSync24Regular", "", 1, 24));
+export const FilterSync24Filled = ( /*#__PURE__*/createFluentFontIcon("FilterSync24Filled", "", 0, 24));

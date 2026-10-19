@@ -1,0 +1,9 @@
+import type { FluentIcon } from '../../headless/createFluentIcon.cjs';
+export declare const LightbulbSparkleFilled: FluentIcon;
+export declare const LightbulbSparkleRegular: FluentIcon;
+export declare const LightbulbSparkle16Regular: FluentIcon;
+export declare const LightbulbSparkle16Filled: FluentIcon;
+export declare const LightbulbSparkle20Regular: FluentIcon;
+export declare const LightbulbSparkle20Filled: FluentIcon;
+export declare const LightbulbSparkle24Regular: FluentIcon;
+export declare const LightbulbSparkle24Filled: FluentIcon;

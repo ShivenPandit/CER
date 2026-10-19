@@ -1,0 +1,12 @@
+"use client";
+import { createFluentFontIcon } from '../../headless/fonts/createFluentFontIcon.js';
+export const FilmstripArrowUpFilled = ( /*#__PURE__*/createFluentFontIcon("FilmstripArrowUpFilled", "", 2, undefined));
+export const FilmstripArrowUpRegular = ( /*#__PURE__*/createFluentFontIcon("FilmstripArrowUpRegular", "", 2, undefined));
+export const FilmstripArrowUp16Regular = ( /*#__PURE__*/createFluentFontIcon("FilmstripArrowUp16Regular", "󰳟", 1, 16));
+export const FilmstripArrowUp16Filled = ( /*#__PURE__*/createFluentFontIcon("FilmstripArrowUp16Filled", "󰵜", 0, 16));
+export const FilmstripArrowUp20Regular = ( /*#__PURE__*/createFluentFontIcon("FilmstripArrowUp20Regular", "󰳠", 1, 20));
+export const FilmstripArrowUp20Filled = ( /*#__PURE__*/createFluentFontIcon("FilmstripArrowUp20Filled", "󰵝", 0, 20));
+export const FilmstripArrowUp24Regular = ( /*#__PURE__*/createFluentFontIcon("FilmstripArrowUp24Regular", "󰳡", 1, 24));
+export const FilmstripArrowUp24Filled = ( /*#__PURE__*/createFluentFontIcon("FilmstripArrowUp24Filled", "󰵞", 0, 24));
+export const FilmstripArrowUp32Regular = ( /*#__PURE__*/createFluentFontIcon("FilmstripArrowUp32Regular", "󰳢", 1, 32));
+export const FilmstripArrowUp32Filled = ( /*#__PURE__*/createFluentFontIcon("FilmstripArrowUp32Filled", "󰵟", 0, 32));

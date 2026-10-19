@@ -1,0 +1,14 @@
+import type { FluentFontIcon } from '../../utils/fonts/createFluentFontIcon.cjs';
+export declare const OmegaFilled: FluentFontIcon;
+export declare const OmegaRegular: FluentFontIcon;
+export declare const Omega16Regular: FluentFontIcon;
+export declare const Omega16Filled: FluentFontIcon;
+export declare const Omega20Regular: FluentFontIcon;
+export declare const Omega20Filled: FluentFontIcon;
+export declare const Omega24Regular: FluentFontIcon;
+export declare const Omega24Filled: FluentFontIcon;
+export declare const Omega28Regular: FluentFontIcon;
+export declare const Omega28Filled: FluentFontIcon;
+export declare const Omega32Regular: FluentFontIcon;
+export declare const Omega32Filled: FluentFontIcon;
+export declare const Omega32Light: FluentFontIcon;

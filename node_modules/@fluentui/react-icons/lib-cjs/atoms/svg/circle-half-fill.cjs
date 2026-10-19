@@ -1,0 +1,15 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.CircleHalfFill24Filled = exports.CircleHalfFill24Regular = exports.CircleHalfFill20Filled = exports.CircleHalfFill20Regular = exports.CircleHalfFill16Filled = exports.CircleHalfFill16Regular = exports.CircleHalfFill12Filled = exports.CircleHalfFill12Regular = exports.CircleHalfFillRegular = exports.CircleHalfFillFilled = void 0;
+const createFluentIcon_1 = require("../../utils/createFluentIcon.cjs");
+exports.CircleHalfFillFilled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('CircleHalfFillFilled', "1em", ["M3.5 10a6.5 6.5 0 0 1 13 0zM10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16"]));
+exports.CircleHalfFillRegular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('CircleHalfFillRegular', "1em", ["M3 10a7 7 0 0 1 14 0zm7-8a8 8 0 1 0 0 16 8 8 0 0 0 0-16"]));
+exports.CircleHalfFill12Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('CircleHalfFill12Regular', "12", ["M2 6a4 4 0 1 1 8 0zm4-5a5 5 0 1 0 0 10A5 5 0 0 0 6 1"]));
+exports.CircleHalfFill12Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('CircleHalfFill12Filled', "12", ["M1 6a5 5 0 1 1 10 0A5 5 0 0 1 1 6m1.5 0h7a3.5 3.5 0 1 0-7 0"]));
+exports.CircleHalfFill16Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('CircleHalfFill16Regular', "16", ["M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1m0 1a6 6 0 0 0-6 6h12a6 6 0 0 0-6-6"]));
+exports.CircleHalfFill16Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('CircleHalfFill16Filled', "16", ["M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1m0 1.5A5.5 5.5 0 0 0 2.5 8h11A5.5 5.5 0 0 0 8 2.5"]));
+exports.CircleHalfFill20Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('CircleHalfFill20Regular', "20", ["M3 10a7 7 0 0 1 14 0zm7-8a8 8 0 1 0 0 16 8 8 0 0 0 0-16"]));
+exports.CircleHalfFill20Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('CircleHalfFill20Filled', "20", ["M3.5 10a6.5 6.5 0 0 1 13 0zM10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16"]));
+exports.CircleHalfFill24Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('CircleHalfFill24Regular', "24", ["M3.5 12a8.5 8.5 0 0 1 17 0zM12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20"]));
+exports.CircleHalfFill24Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('CircleHalfFill24Filled', "24", ["M4 12a8 8 0 1 1 16 0zm8-10a10 10 0 1 0 0 20 10 10 0 0 0 0-20"]));

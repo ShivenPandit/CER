@@ -1,0 +1,16 @@
+"use client";
+import { createFluentFontIcon } from '../../headless/fonts/createFluentFontIcon.js';
+export const FlowArrowFilled = ( /*#__PURE__*/createFluentFontIcon("FlowArrowFilled", "", 2, undefined));
+export const FlowArrowRegular = ( /*#__PURE__*/createFluentFontIcon("FlowArrowRegular", "", 2, undefined));
+export const FlowArrow16Regular = ( /*#__PURE__*/createFluentFontIcon("FlowArrow16Regular", "󰳺", 1, 16));
+export const FlowArrow16Filled = ( /*#__PURE__*/createFluentFontIcon("FlowArrow16Filled", "󰵷", 0, 16));
+export const FlowArrow20Regular = ( /*#__PURE__*/createFluentFontIcon("FlowArrow20Regular", "󰳻", 1, 20));
+export const FlowArrow20Filled = ( /*#__PURE__*/createFluentFontIcon("FlowArrow20Filled", "󰵸", 0, 20));
+export const FlowArrow24Regular = ( /*#__PURE__*/createFluentFontIcon("FlowArrow24Regular", "󰳼", 1, 24));
+export const FlowArrow24Filled = ( /*#__PURE__*/createFluentFontIcon("FlowArrow24Filled", "󰵹", 0, 24));
+export const FlowArrow28Regular = ( /*#__PURE__*/createFluentFontIcon("FlowArrow28Regular", "󰳽", 1, 28));
+export const FlowArrow28Filled = ( /*#__PURE__*/createFluentFontIcon("FlowArrow28Filled", "󰵺", 0, 28));
+export const FlowArrow32Regular = ( /*#__PURE__*/createFluentFontIcon("FlowArrow32Regular", "󰳾", 1, 32));
+export const FlowArrow32Filled = ( /*#__PURE__*/createFluentFontIcon("FlowArrow32Filled", "󰵻", 0, 32));
+export const FlowArrow48Regular = ( /*#__PURE__*/createFluentFontIcon("FlowArrow48Regular", "󰳿", 1, 48));
+export const FlowArrow48Filled = ( /*#__PURE__*/createFluentFontIcon("FlowArrow48Filled", "󰵼", 0, 48));

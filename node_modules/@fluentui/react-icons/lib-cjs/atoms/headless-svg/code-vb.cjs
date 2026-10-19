@@ -1,0 +1,7 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.CodeVb16Filled = exports.CodeVb16Regular = void 0;
+const createFluentIcon_1 = require("../../headless/createFluentIcon.cjs");
+exports.CodeVb16Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('CodeVb16Regular', "16", ["M13.28 7.9A2.25 2.25 0 0 0 11.75 4H9.5a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5H12a2.25 2.25 0 0 0 1.28-4.1M13 6.25a1.25 1.25 0 0 1-1.25 1.25H10V5h1.75A1.25 1.25 0 0 1 13 6.25M12 11h-2V8.5h2a1.25 1.25 0 1 1 0 2.5M7.97 4.67l-2.5 7a.5.5 0 0 1-.94 0l-2.5-7a.5.5 0 1 1 .94-.34L5 10.01l2.03-5.68a.5.5 0 0 1 .94.34"]));
+exports.CodeVb16Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('CodeVb16Filled', "16", ["M7.18 3.82q.28-.13.57-.03a.75.75 0 0 1 .46.96l-2.5 7a.74.74 0 0 1-.71.5.75.75 0 0 1-.7-.5l-2.5-7a.76.76 0 0 1 .2-.8.75.75 0 0 1 1.2.3L5 9.27l1.8-5.02q.1-.29.38-.43m6.47 4.05A2.5 2.5 0 0 1 12 12.25H9.5a.75.75 0 0 1-.75-.75v-7a.75.75 0 0 1 .75-.75h2.26a2.5 2.5 0 0 1 2.43 3.06q-.15.6-.54 1.06m-3.4-2.62v2h1.5q.41 0 .7-.3a1 1 0 0 0-.7-1.7zm0 5.5H12a1 1 0 0 0 0-2h-1.75z"]));

@@ -1,0 +1,15 @@
+"use client";
+import { createFluentFontIcon } from '../../headless/fonts/createFluentFontIcon.js';
+export const OmegaFilled = ( /*#__PURE__*/createFluentFontIcon("OmegaFilled", "", 2, undefined));
+export const OmegaRegular = ( /*#__PURE__*/createFluentFontIcon("OmegaRegular", "", 2, undefined));
+export const Omega16Regular = ( /*#__PURE__*/createFluentFontIcon("Omega16Regular", "󰴆", 1, 16));
+export const Omega16Filled = ( /*#__PURE__*/createFluentFontIcon("Omega16Filled", "󰶃", 0, 16));
+export const Omega20Regular = ( /*#__PURE__*/createFluentFontIcon("Omega20Regular", "󰴇", 1, 20));
+export const Omega20Filled = ( /*#__PURE__*/createFluentFontIcon("Omega20Filled", "󰶄", 0, 20));
+export const Omega24Regular = ( /*#__PURE__*/createFluentFontIcon("Omega24Regular", "󰴈", 1, 24));
+export const Omega24Filled = ( /*#__PURE__*/createFluentFontIcon("Omega24Filled", "󰶅", 0, 24));
+export const Omega28Regular = ( /*#__PURE__*/createFluentFontIcon("Omega28Regular", "󰴉", 1, 28));
+export const Omega28Filled = ( /*#__PURE__*/createFluentFontIcon("Omega28Filled", "󰶆", 0, 28));
+export const Omega32Regular = ( /*#__PURE__*/createFluentFontIcon("Omega32Regular", "󰴊", 1, 32));
+export const Omega32Filled = ( /*#__PURE__*/createFluentFontIcon("Omega32Filled", "󰶇", 0, 32));
+export const Omega32Light = ( /*#__PURE__*/createFluentFontIcon("Omega32Light", "", 3, 32));

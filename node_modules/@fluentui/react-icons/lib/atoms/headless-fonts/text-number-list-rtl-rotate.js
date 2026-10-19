@@ -1,0 +1,12 @@
+"use client";
+import { createFluentFontIcon } from '../../headless/fonts/createFluentFontIcon.js';
+export const TextNumberListRtlRotate270Regular = ( /*#__PURE__*/createFluentFontIcon("TextNumberListRtlRotate270Regular", "", 2, undefined));
+export const TextNumberListRtlRotate270Filled = ( /*#__PURE__*/createFluentFontIcon("TextNumberListRtlRotate270Filled", "", 2, undefined));
+export const TextNumberListRtlRotate9028Regular = ( /*#__PURE__*/createFluentFontIcon("TextNumberListRtlRotate9028Regular", "󰴙", 1, 28));
+export const TextNumberListRtlRotate9028Filled = ( /*#__PURE__*/createFluentFontIcon("TextNumberListRtlRotate9028Filled", "󰶖", 0, 28));
+export const TextNumberListRtlRotate27020Regular = ( /*#__PURE__*/createFluentFontIcon("TextNumberListRtlRotate27020Regular", "", 1, 20));
+export const TextNumberListRtlRotate27020Filled = ( /*#__PURE__*/createFluentFontIcon("TextNumberListRtlRotate27020Filled", "", 0, 20));
+export const TextNumberListRtlRotate27024Regular = ( /*#__PURE__*/createFluentFontIcon("TextNumberListRtlRotate27024Regular", "", 1, 24));
+export const TextNumberListRtlRotate27024Filled = ( /*#__PURE__*/createFluentFontIcon("TextNumberListRtlRotate27024Filled", "", 0, 24));
+export const TextNumberListRtlRotate27028Regular = ( /*#__PURE__*/createFluentFontIcon("TextNumberListRtlRotate27028Regular", "󰴘", 1, 28));
+export const TextNumberListRtlRotate27028Filled = ( /*#__PURE__*/createFluentFontIcon("TextNumberListRtlRotate27028Filled", "󰶕", 0, 28));

@@ -1,0 +1,12 @@
+"use client";
+import { createFluentFontIcon } from '../../utils/fonts/createFluentFontIcon.js';
+export const RenameAFilled = ( /*#__PURE__*/createFluentFontIcon("RenameAFilled", "", 2, undefined));
+export const RenameARegular = ( /*#__PURE__*/createFluentFontIcon("RenameARegular", "", 2, undefined));
+export const RenameA16Regular = ( /*#__PURE__*/createFluentFontIcon("RenameA16Regular", "󰴡", 1, 16));
+export const RenameA16Filled = ( /*#__PURE__*/createFluentFontIcon("RenameA16Filled", "󰶞", 0, 16));
+export const RenameA20Regular = ( /*#__PURE__*/createFluentFontIcon("RenameA20Regular", "󰨹", 1, 20));
+export const RenameA20Filled = ( /*#__PURE__*/createFluentFontIcon("RenameA20Filled", "󰪵", 0, 20));
+export const RenameA24Regular = ( /*#__PURE__*/createFluentFontIcon("RenameA24Regular", "󰴢", 1, 24));
+export const RenameA24Filled = ( /*#__PURE__*/createFluentFontIcon("RenameA24Filled", "󰶟", 0, 24));
+export const RenameA28Regular = ( /*#__PURE__*/createFluentFontIcon("RenameA28Regular", "󰴣", 1, 28));
+export const RenameA28Filled = ( /*#__PURE__*/createFluentFontIcon("RenameA28Filled", "󰶠", 0, 28));

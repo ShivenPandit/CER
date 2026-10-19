@@ -1,0 +1,12 @@
+"use client";
+import { createFluentFontIcon } from '../../headless/fonts/createFluentFontIcon.js';
+export const FilmstripGlobeFilled = ( /*#__PURE__*/createFluentFontIcon("FilmstripGlobeFilled", "", 2, undefined));
+export const FilmstripGlobeRegular = ( /*#__PURE__*/createFluentFontIcon("FilmstripGlobeRegular", "", 2, undefined));
+export const FilmstripGlobe16Regular = ( /*#__PURE__*/createFluentFontIcon("FilmstripGlobe16Regular", "󰳣", 1, 16));
+export const FilmstripGlobe16Filled = ( /*#__PURE__*/createFluentFontIcon("FilmstripGlobe16Filled", "󰵠", 0, 16));
+export const FilmstripGlobe20Regular = ( /*#__PURE__*/createFluentFontIcon("FilmstripGlobe20Regular", "󰳤", 1, 20));
+export const FilmstripGlobe20Filled = ( /*#__PURE__*/createFluentFontIcon("FilmstripGlobe20Filled", "󰵡", 0, 20));
+export const FilmstripGlobe24Regular = ( /*#__PURE__*/createFluentFontIcon("FilmstripGlobe24Regular", "󰳥", 1, 24));
+export const FilmstripGlobe24Filled = ( /*#__PURE__*/createFluentFontIcon("FilmstripGlobe24Filled", "󰵢", 0, 24));
+export const FilmstripGlobe32Regular = ( /*#__PURE__*/createFluentFontIcon("FilmstripGlobe32Regular", "󰳦", 1, 32));
+export const FilmstripGlobe32Filled = ( /*#__PURE__*/createFluentFontIcon("FilmstripGlobe32Filled", "󰵣", 0, 32));

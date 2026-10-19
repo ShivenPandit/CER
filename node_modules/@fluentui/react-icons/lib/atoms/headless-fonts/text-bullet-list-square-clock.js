@@ -1,0 +1,12 @@
+"use client";
+import { createFluentFontIcon } from '../../headless/fonts/createFluentFontIcon.js';
+export const TextBulletListSquareClockFilled = ( /*#__PURE__*/createFluentFontIcon("TextBulletListSquareClockFilled", "", 2, undefined));
+export const TextBulletListSquareClockRegular = ( /*#__PURE__*/createFluentFontIcon("TextBulletListSquareClockRegular", "", 2, undefined));
+export const TextBulletListSquareClock16Regular = ( /*#__PURE__*/createFluentFontIcon("TextBulletListSquareClock16Regular", "󰴑", 1, 16));
+export const TextBulletListSquareClock16Filled = ( /*#__PURE__*/createFluentFontIcon("TextBulletListSquareClock16Filled", "󰶎", 0, 16));
+export const TextBulletListSquareClock20Regular = ( /*#__PURE__*/createFluentFontIcon("TextBulletListSquareClock20Regular", "", 1, 20));
+export const TextBulletListSquareClock20Filled = ( /*#__PURE__*/createFluentFontIcon("TextBulletListSquareClock20Filled", "", 0, 20));
+export const TextBulletListSquareClock24Regular = ( /*#__PURE__*/createFluentFontIcon("TextBulletListSquareClock24Regular", "󰴒", 1, 24));
+export const TextBulletListSquareClock24Filled = ( /*#__PURE__*/createFluentFontIcon("TextBulletListSquareClock24Filled", "󰶏", 0, 24));
+export const TextBulletListSquareClock28Regular = ( /*#__PURE__*/createFluentFontIcon("TextBulletListSquareClock28Regular", "󰴓", 1, 28));
+export const TextBulletListSquareClock28Filled = ( /*#__PURE__*/createFluentFontIcon("TextBulletListSquareClock28Filled", "󰶐", 0, 28));

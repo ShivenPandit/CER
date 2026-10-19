@@ -1,0 +1,12 @@
+"use client";
+import { createFluentIcon } from '../../utils/createFluentIcon.js';
+export const CircleLineFilled = ( /*#__PURE__*/createFluentIcon('CircleLineFilled', "1em", ["M17.98 10.5H2.02a8 8 0 0 0 15.96 0m0-1H2.02a8 8 0 0 1 15.96 0"]));
+export const CircleLineRegular = ( /*#__PURE__*/createFluentIcon('CircleLineRegular', "1em", ["M3.02 9.5h13.96a7 7 0 0 0-13.96 0M2 10a8 8 0 1 1 16 0 8 8 0 0 1-16 0m14.98.5H3.02a7 7 0 0 0 13.96 0"]));
+export const CircleLine12Regular = ( /*#__PURE__*/createFluentIcon('CircleLine12Regular', "12", ["M6 1a5 5 0 1 0 0 10A5 5 0 0 0 6 1M2 6a4 4 0 1 1 8 0zm.13 1h7.74a4 4 0 0 1-7.74 0"]));
+export const CircleLine12Filled = ( /*#__PURE__*/createFluentIcon('CircleLine12Filled', "12", ["M1 6a5 5 0 0 1 10 0zm.1 1a5 5 0 0 0 9.8 0z"]));
+export const CircleLine16Regular = ( /*#__PURE__*/createFluentIcon('CircleLine16Regular', "16", ["M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1M2.02 8.5a6 6 0 0 0 11.96 0zM8 2a6 6 0 0 0-5.98 5.5h11.96A6 6 0 0 0 8 2"]));
+export const CircleLine16Filled = ( /*#__PURE__*/createFluentIcon('CircleLine16Filled', "16", ["M14.98 8.5a7 7 0 0 1-13.96 0zM8 1a7 7 0 0 1 6.98 6.5H1.02A7 7 0 0 1 8 1"]));
+export const CircleLine20Regular = ( /*#__PURE__*/createFluentIcon('CircleLine20Regular', "20", ["M3.02 9.5h13.96a7 7 0 0 0-13.96 0M2 10a8 8 0 1 1 16 0 8 8 0 0 1-16 0m14.98.5H3.02a7 7 0 0 0 13.96 0"]));
+export const CircleLine20Filled = ( /*#__PURE__*/createFluentIcon('CircleLine20Filled', "20", ["M17.98 10.5H2.02a8 8 0 0 0 15.96 0m0-1H2.02a8 8 0 0 1 15.96 0"]));
+export const CircleLine24Regular = ( /*#__PURE__*/createFluentIcon('CircleLine24Regular', "24", ["M3.53 11.25h16.94a8.5 8.5 0 0 0-16.94 0m16.94 1.5H3.53a8.5 8.5 0 0 0 16.94 0M2 12a10 10 0 1 1 20 0 10 10 0 0 1-20 0"]));
+export const CircleLine24Filled = ( /*#__PURE__*/createFluentIcon('CircleLine24Filled', "24", ["M21.97 12.75H2.03a10 10 0 0 0 19.94 0m0-1.5H2.03a10 10 0 0 1 19.94 0"]));

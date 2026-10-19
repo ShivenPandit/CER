@@ -1,0 +1,9 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PersonDesktop20Filled = exports.PersonDesktop20Regular = exports.PersonDesktopRegular = exports.PersonDesktopFilled = void 0;
+const createFluentIcon_1 = require("../../utils/createFluentIcon.cjs");
+exports.PersonDesktopFilled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('PersonDesktopFilled', "1em", ["M10 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8m-5 9a2 2 0 0 0-2 2c0 1.7.83 2.97 2.13 3.8A9 9 0 0 0 10 18q.36 0 .72-.02A2 2 0 0 1 9 16v-4q0-.54.27-1zm5 1a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-2v1h.5a.5.5 0 0 1 0 1h-4a.5.5 0 0 1 0-1h.5v-1h-2a1 1 0 0 1-1-1z"]));
+exports.PersonDesktopRegular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('PersonDesktopRegular', "1em", ["M10 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8M7 6a3 3 0 1 1 6 0 3 3 0 0 1-6 0m-2 5a2 2 0 0 0-2 2c0 1.7.83 2.97 2.13 3.8A9 9 0 0 0 10 18q.36 0 .72-.02a2 2 0 0 1-1.47-1 7.6 7.6 0 0 1-3.58-1.03A3.4 3.4 0 0 1 4 13a1 1 0 0 1 1-1h4q0-.54.27-1zm5 1a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-2v1h.5a.5.5 0 0 1 0 1h-4a.5.5 0 0 1 0-1h.5v-1h-2a1 1 0 0 1-1-1z"]));
+exports.PersonDesktop20Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('PersonDesktop20Regular', "20", ["M10 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8M7 6a3 3 0 1 1 6 0 3 3 0 0 1-6 0m-2 5a2 2 0 0 0-2 2c0 1.7.83 2.97 2.13 3.8A9 9 0 0 0 10 18q.36 0 .72-.02a2 2 0 0 1-1.47-1 7.6 7.6 0 0 1-3.58-1.03A3.4 3.4 0 0 1 4 13a1 1 0 0 1 1-1h4q0-.54.27-1zm5 1a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-2v1h.5a.5.5 0 0 1 0 1h-4a.5.5 0 0 1 0-1h.5v-1h-2a1 1 0 0 1-1-1z"]));
+exports.PersonDesktop20Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('PersonDesktop20Filled', "20", ["M10 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8m-5 9a2 2 0 0 0-2 2c0 1.7.83 2.97 2.13 3.8A9 9 0 0 0 10 18q.36 0 .72-.02A2 2 0 0 1 9 16v-4q0-.54.27-1zm5 1a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-2v1h.5a.5.5 0 0 1 0 1h-4a.5.5 0 0 1 0-1h.5v-1h-2a1 1 0 0 1-1-1z"]));

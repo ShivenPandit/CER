@@ -1,0 +1,15 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.CallWarning28Filled = exports.CallWarning28Regular = exports.CallWarning24Filled = exports.CallWarning24Regular = exports.CallWarning20Filled = exports.CallWarning20Regular = exports.CallWarning16Filled = exports.CallWarning16Regular = exports.CallWarningRegular = exports.CallWarningFilled = void 0;
+const createFluentFontIcon_1 = require("../../headless/fonts/createFluentFontIcon.cjs");
+exports.CallWarningFilled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CallWarningFilled", "", 2, undefined));
+exports.CallWarningRegular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CallWarningRegular", "", 2, undefined));
+exports.CallWarning16Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CallWarning16Regular", "", 1, 16));
+exports.CallWarning16Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CallWarning16Filled", "", 0, 16));
+exports.CallWarning20Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CallWarning20Regular", "", 1, 20));
+exports.CallWarning20Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CallWarning20Filled", "", 0, 20));
+exports.CallWarning24Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CallWarning24Regular", "󰳝", 1, 24));
+exports.CallWarning24Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CallWarning24Filled", "󰵚", 0, 24));
+exports.CallWarning28Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CallWarning28Regular", "󰳞", 1, 28));
+exports.CallWarning28Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CallWarning28Filled", "󰵛", 0, 28));

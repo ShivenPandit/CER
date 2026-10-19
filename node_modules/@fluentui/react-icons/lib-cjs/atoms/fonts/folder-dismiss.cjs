@@ -1,0 +1,13 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.FolderDismiss24Filled = exports.FolderDismiss24Regular = exports.FolderDismiss20Filled = exports.FolderDismiss20Regular = exports.FolderDismiss16Filled = exports.FolderDismiss16Regular = exports.FolderDismissRegular = exports.FolderDismissFilled = void 0;
+const createFluentFontIcon_1 = require("../../utils/fonts/createFluentFontIcon.cjs");
+exports.FolderDismissFilled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FolderDismissFilled", "", 2, undefined));
+exports.FolderDismissRegular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FolderDismissRegular", "", 2, undefined));
+exports.FolderDismiss16Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FolderDismiss16Regular", "󰳒", 1, 16));
+exports.FolderDismiss16Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FolderDismiss16Filled", "󰵏", 0, 16));
+exports.FolderDismiss20Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FolderDismiss20Regular", "󰳓", 1, 20));
+exports.FolderDismiss20Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FolderDismiss20Filled", "󰵐", 0, 20));
+exports.FolderDismiss24Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FolderDismiss24Regular", "󰳔", 1, 24));
+exports.FolderDismiss24Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FolderDismiss24Filled", "󰵑", 0, 24));

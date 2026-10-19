@@ -1,0 +1,9 @@
+import type { FluentIcon } from '../../utils/createFluentIcon.cjs';
+export declare const FolderDismissFilled: FluentIcon;
+export declare const FolderDismissRegular: FluentIcon;
+export declare const FolderDismiss16Regular: FluentIcon;
+export declare const FolderDismiss16Filled: FluentIcon;
+export declare const FolderDismiss20Regular: FluentIcon;
+export declare const FolderDismiss20Filled: FluentIcon;
+export declare const FolderDismiss24Regular: FluentIcon;
+export declare const FolderDismiss24Filled: FluentIcon;

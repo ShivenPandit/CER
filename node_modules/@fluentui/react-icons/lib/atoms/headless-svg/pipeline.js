@@ -1,0 +1,10 @@
+"use client";
+import { createFluentIcon } from '../../headless/createFluentIcon.js';
+export const PipelineFilled = ( /*#__PURE__*/createFluentIcon('PipelineFilled', "1em", ["M2 5.5a1.5 1.5 0 0 1 3 0v9a1.5 1.5 0 0 1-3 0zm13 0v9a1.5 1.5 0 0 0 3 0v-9a1.5 1.5 0 0 0-3 0M14 14V6H6v8z"]));
+export const PipelineRegular = ( /*#__PURE__*/createFluentIcon('PipelineRegular', "1em", ["M2 5.5a1.5 1.5 0 1 1 3 0V6h10v-.5a1.5 1.5 0 0 1 3 0v9a1.5 1.5 0 0 1-3 0V14H5v.5a1.5 1.5 0 0 1-3 0zm2 0a.5.5 0 0 0-1 0v9a.5.5 0 0 0 1 0zM15 7H5v6h10zm2-1.5a.5.5 0 0 0-1 0v9a.5.5 0 0 0 1 0z"]));
+export const Pipeline20Regular = ( /*#__PURE__*/createFluentIcon('Pipeline20Regular', "20", ["M2 5.5a1.5 1.5 0 1 1 3 0V6h10v-.5a1.5 1.5 0 0 1 3 0v9a1.5 1.5 0 0 1-3 0V14H5v.5a1.5 1.5 0 0 1-3 0zm2 0a.5.5 0 0 0-1 0v9a.5.5 0 0 0 1 0zM15 7H5v6h10zm2-1.5a.5.5 0 0 0-1 0v9a.5.5 0 0 0 1 0z"]));
+export const Pipeline20Filled = ( /*#__PURE__*/createFluentIcon('Pipeline20Filled', "20", ["M2 5.5a1.5 1.5 0 0 1 3 0v9a1.5 1.5 0 0 1-3 0zm13 0v9a1.5 1.5 0 0 0 3 0v-9a1.5 1.5 0 0 0-3 0M14 14V6H6v8z"]));
+export const Pipeline24Regular = ( /*#__PURE__*/createFluentIcon('Pipeline24Regular', "24", ["M2 6.25A2.25 2.25 0 0 1 6.49 6H17.5a2.25 2.25 0 0 1 4.49.25v10.5a2.25 2.25 0 0 1-4.49.25H6.5A2.25 2.25 0 0 1 2 16.75zm3 0a.75.75 0 0 0-1.5 0v10.5a.75.75 0 0 0 1.5 0zm1.5 9.25h11v-8h-11zm14-9.25a.75.75 0 0 0-1.5 0v10.5a.75.75 0 0 0 1.5 0z"]));
+export const Pipeline24Filled = ( /*#__PURE__*/createFluentIcon('Pipeline24Filled', "24", ["M2 6a2 2 0 1 1 4 0v11a2 2 0 1 1-4 0zm16 0a2 2 0 1 1 4 0v11a2 2 0 1 1-4 0zm-1.5 0h-9v11h9z"]));
+export const Pipeline32Regular = ( /*#__PURE__*/createFluentIcon('Pipeline32Regular', "32", ["M2 9a3 3 0 0 1 6 0h16a3 3 0 1 1 6 0v14a3 3 0 1 1-6 0H8a3 3 0 1 1-6 0zm4 0a1 1 0 0 0-2 0v14a1 1 0 1 0 2 0zm2 12h16V11H8zM28 9a1 1 0 1 0-2 0v14a1 1 0 1 0 2 0z"]));
+export const Pipeline32Filled = ( /*#__PURE__*/createFluentIcon('Pipeline32Filled', "32", ["M2 8a2 2 0 1 1 4 0v16a2 2 0 1 1-4 0zm24 0a2 2 0 1 1 4 0v16a2 2 0 1 1-4 0zm-2 1H8v14h16z"]));

@@ -1,0 +1,1 @@
+function e(e){const n=!e||e.length<=0,o=null==e?void 0:e.indexOf("@"),t=null==e?void 0:e.indexOf(".",o);if(n||-1===o||-1===t)throw new Error("Input email address does not have the correct format.")}export{e as validateEmailAddress};

@@ -1,0 +1,13 @@
+"use client";
+import { createFluentFontIcon } from '../../headless/fonts/createFluentFontIcon.js';
+export const TextAddTFilled = ( /*#__PURE__*/createFluentFontIcon("TextAddTFilled", "", 2, undefined));
+export const TextAddTRegular = ( /*#__PURE__*/createFluentFontIcon("TextAddTRegular", "", 2, undefined));
+export const TextAddT20Regular = ( /*#__PURE__*/createFluentFontIcon("TextAddT20Regular", "", 1, 20));
+export const TextAddT20Filled = ( /*#__PURE__*/createFluentFontIcon("TextAddT20Filled", "", 0, 20));
+export const TextAddT24Regular = ( /*#__PURE__*/createFluentFontIcon("TextAddT24Regular", "", 1, 24));
+export const TextAddT24Filled = ( /*#__PURE__*/createFluentFontIcon("TextAddT24Filled", "", 0, 24));
+export const TextAddT28Regular = ( /*#__PURE__*/createFluentFontIcon("TextAddT28Regular", "󰳗", 1, 28));
+export const TextAddT28Filled = ( /*#__PURE__*/createFluentFontIcon("TextAddT28Filled", "󰵔", 0, 28));
+export const TextAddT32Regular = ( /*#__PURE__*/createFluentFontIcon("TextAddT32Regular", "󰳘", 1, 32));
+export const TextAddT32Filled = ( /*#__PURE__*/createFluentFontIcon("TextAddT32Filled", "󰵕", 0, 32));
+export const TextAddT32Light = ( /*#__PURE__*/createFluentFontIcon("TextAddT32Light", "", 3, 32));

@@ -1,0 +1,1 @@
+export { ImageSwatch, imageSwatchClassNames, renderImageSwatch_unstable, useImageSwatchStyles_unstable, useImageSwatch_unstable, useImageSwatchBase_unstable } from "./components/ImageSwatch/index.js";

@@ -1,0 +1,11 @@
+import type { FluentIcon } from '../../headless/createFluentIcon.cjs';
+export declare const CalendarAgendaClockFilled: FluentIcon;
+export declare const CalendarAgendaClockRegular: FluentIcon;
+export declare const CalendarAgendaClock16Regular: FluentIcon;
+export declare const CalendarAgendaClock16Filled: FluentIcon;
+export declare const CalendarAgendaClock20Regular: FluentIcon;
+export declare const CalendarAgendaClock20Filled: FluentIcon;
+export declare const CalendarAgendaClock24Regular: FluentIcon;
+export declare const CalendarAgendaClock24Filled: FluentIcon;
+export declare const CalendarAgendaClock28Regular: FluentIcon;
+export declare const CalendarAgendaClock28Filled: FluentIcon;

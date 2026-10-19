@@ -1,0 +1,9 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.WindowHeaderHorizontalOff20Filled = exports.WindowHeaderHorizontalOff20Regular = exports.WindowHeaderHorizontalOffRegular = exports.WindowHeaderHorizontalOffFilled = void 0;
+const createFluentIcon_1 = require("../../headless/createFluentIcon.cjs");
+exports.WindowHeaderHorizontalOffFilled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('WindowHeaderHorizontalOffFilled', "1em", ["M2.85 2.15a.5.5 0 1 0-.7.7L3.4 4.12q-.4.6-.41 1.38v9A2.5 2.5 0 0 0 5.5 17h9q.77-.01 1.38-.41l1.27 1.26a.5.5 0 0 0 .7-.7zm11.9 13.32-.25.03h-9a1 1 0 0 1-1-1V7h1.8zM15.5 7v6.38l1.48 1.47.02-.35v-9A2.5 2.5 0 0 0 14.5 3h-9q-.18 0-.35.02L9.12 7z"]));
+exports.WindowHeaderHorizontalOffRegular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('WindowHeaderHorizontalOffRegular', "1em", ["M2.85 2.15a.5.5 0 1 0-.7.7L3.4 4.12q-.4.6-.41 1.38v9A2.5 2.5 0 0 0 5.5 17h9q.77-.01 1.38-.41l1.27 1.26a.5.5 0 0 0 .7-.7zm12.3 13.7q-.3.15-.65.15h-9A1.5 1.5 0 0 1 4 14.5V7h2.3zM16 7v6.88l.98.97.02-.35v-9A2.5 2.5 0 0 0 14.5 3h-9q-.18 0-.35.02L9.12 7z"]));
+exports.WindowHeaderHorizontalOff20Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('WindowHeaderHorizontalOff20Regular', "20", ["M2.85 2.15a.5.5 0 1 0-.7.7L3.4 4.12q-.4.6-.41 1.38v9A2.5 2.5 0 0 0 5.5 17h9q.77-.01 1.38-.41l1.27 1.26a.5.5 0 0 0 .7-.7zm12.3 13.7q-.3.15-.65.15h-9A1.5 1.5 0 0 1 4 14.5V7h2.3zM16 7v6.88l.98.97.02-.35v-9A2.5 2.5 0 0 0 14.5 3h-9q-.18 0-.35.02L9.12 7z"]));
+exports.WindowHeaderHorizontalOff20Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('WindowHeaderHorizontalOff20Filled', "20", ["M2.85 2.15a.5.5 0 1 0-.7.7L3.4 4.12q-.4.6-.41 1.38v9A2.5 2.5 0 0 0 5.5 17h9q.77-.01 1.38-.41l1.27 1.26a.5.5 0 0 0 .7-.7zm11.9 13.32-.25.03h-9a1 1 0 0 1-1-1V7h1.8zM15.5 7v6.38l1.48 1.47.02-.35v-9A2.5 2.5 0 0 0 14.5 3h-9q-.18 0-.35.02L9.12 7z"]));

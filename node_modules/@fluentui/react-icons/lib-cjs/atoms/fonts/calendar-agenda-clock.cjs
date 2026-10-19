@@ -1,0 +1,15 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.CalendarAgendaClock28Filled = exports.CalendarAgendaClock28Regular = exports.CalendarAgendaClock24Filled = exports.CalendarAgendaClock24Regular = exports.CalendarAgendaClock20Filled = exports.CalendarAgendaClock20Regular = exports.CalendarAgendaClock16Filled = exports.CalendarAgendaClock16Regular = exports.CalendarAgendaClockRegular = exports.CalendarAgendaClockFilled = void 0;
+const createFluentFontIcon_1 = require("../../utils/fonts/createFluentFontIcon.cjs");
+exports.CalendarAgendaClockFilled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CalendarAgendaClockFilled", "", 2, undefined));
+exports.CalendarAgendaClockRegular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CalendarAgendaClockRegular", "", 2, undefined));
+exports.CalendarAgendaClock16Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CalendarAgendaClock16Regular", "󰳌", 1, 16));
+exports.CalendarAgendaClock16Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CalendarAgendaClock16Filled", "󰵉", 0, 16));
+exports.CalendarAgendaClock20Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CalendarAgendaClock20Regular", "󰳏", 1, 20));
+exports.CalendarAgendaClock20Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CalendarAgendaClock20Filled", "󰵌", 0, 20));
+exports.CalendarAgendaClock24Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CalendarAgendaClock24Regular", "󰳐", 1, 24));
+exports.CalendarAgendaClock24Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CalendarAgendaClock24Filled", "󰵍", 0, 24));
+exports.CalendarAgendaClock28Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CalendarAgendaClock28Regular", "󰳑", 1, 28));
+exports.CalendarAgendaClock28Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("CalendarAgendaClock28Filled", "󰵎", 0, 28));

@@ -1,0 +1,9 @@
+import type { FluentFontIcon } from '../../headless/fonts/createFluentFontIcon.cjs';
+export declare const PivotFilled: FluentFontIcon;
+export declare const PivotRegular: FluentFontIcon;
+export declare const Pivot16Regular: FluentFontIcon;
+export declare const Pivot16Filled: FluentFontIcon;
+export declare const Pivot20Regular: FluentFontIcon;
+export declare const Pivot20Filled: FluentFontIcon;
+export declare const Pivot24Regular: FluentFontIcon;
+export declare const Pivot24Filled: FluentFontIcon;

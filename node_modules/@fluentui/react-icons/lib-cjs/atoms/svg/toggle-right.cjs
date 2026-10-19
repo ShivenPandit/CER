@@ -1,0 +1,17 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ToggleRight48Filled = exports.ToggleRight48Regular = exports.ToggleRight28Filled = exports.ToggleRight28Regular = exports.ToggleRight24Filled = exports.ToggleRight24Regular = exports.ToggleRight20Filled = exports.ToggleRight20Regular = exports.ToggleRight16Filled = exports.ToggleRight16Regular = exports.ToggleRightRegular = exports.ToggleRightFilled = void 0;
+const createFluentIcon_1 = require("../../utils/createFluentIcon.cjs");
+exports.ToggleRightFilled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ToggleRightFilled', "1em", ["M6 6a4 4 0 1 0 0 8h8a4 4 0 0 0 0-8zm8 6a2 2 0 1 1 0-4 2 2 0 0 1 0 4"]));
+exports.ToggleRightRegular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ToggleRightRegular', "1em", ["M14 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4M2 10a4 4 0 0 1 4-4h8a4 4 0 0 1 0 8H6a4 4 0 0 1-4-4m4-3a3 3 0 0 0 0 6h8a3 3 0 1 0 0-6z"]));
+exports.ToggleRight16Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ToggleRight16Regular', "16", ["M11 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4M1 8a4 4 0 0 1 4-4h6a4 4 0 0 1 0 8H5a4 4 0 0 1-4-4m4-3a3 3 0 0 0 0 6h6a3 3 0 1 0 0-6z"]));
+exports.ToggleRight16Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ToggleRight16Filled', "16", ["M5 4a4 4 0 1 0 0 8h6a4 4 0 0 0 0-8zm6 6a2 2 0 1 1 0-4 2 2 0 0 1 0 4"]));
+exports.ToggleRight20Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ToggleRight20Regular', "20", ["M14 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4M2 10a4 4 0 0 1 4-4h8a4 4 0 0 1 0 8H6a4 4 0 0 1-4-4m4-3a3 3 0 0 0 0 6h8a3 3 0 1 0 0-6z"]));
+exports.ToggleRight20Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ToggleRight20Filled', "20", ["M6 6a4 4 0 1 0 0 8h8a4 4 0 0 0 0-8zm8 6a2 2 0 1 1 0-4 2 2 0 0 1 0 4"]));
+exports.ToggleRight24Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ToggleRight24Regular', "24", ["M16.75 14.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5M2 12a5 5 0 0 1 5-5h10a5 5 0 0 1 0 10H7a5 5 0 0 1-5-5m5-3.5a3.5 3.5 0 1 0 0 7h10a3.5 3.5 0 1 0 0-7z"]));
+exports.ToggleRight24Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ToggleRight24Filled', "24", ["M7 7a5 5 0 0 0 0 10h10a5 5 0 0 0 0-10zm9.75 7.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5"]));
+exports.ToggleRight28Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ToggleRight28Regular', "28", ["M19 17a3 3 0 1 1 0-6 3 3 0 0 1 0 6m1-9a6 6 0 0 1 0 12H8A6 6 0 0 1 8 8zm4.5 6A4.5 4.5 0 0 0 20 9.5H8a4.5 4.5 0 1 0 0 9h12a4.5 4.5 0 0 0 4.5-4.5"]));
+exports.ToggleRight28Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ToggleRight28Filled', "28", ["M26 14a6 6 0 0 0-6-6H8a6 6 0 0 0 0 12h12a6 6 0 0 0 6-6m-7 3a3 3 0 1 1 0-6 3 3 0 0 1 0 6"]));
+exports.ToggleRight48Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ToggleRight48Regular', "48", ["M38.5 24a5 5 0 1 0-10 0 5 5 0 0 0 10 0m5.5 0a10 10 0 0 0-10-10H14a10 10 0 0 0 0 20h20a10 10 0 0 0 10-10m-10-7.5a7.5 7.5 0 0 1 0 15H14a7.5 7.5 0 0 1 0-15z"]));
+exports.ToggleRight48Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('ToggleRight48Filled', "48", ["M44 24a10 10 0 0 0-10-10H14a10 10 0 0 0 0 20h20a10 10 0 0 0 10-10m-5.5 0a5 5 0 1 1-10 0 5 5 0 0 1 10 0"]));

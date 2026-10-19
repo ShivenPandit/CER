@@ -1,0 +1,11 @@
+import type { FluentFontIcon } from '../../utils/fonts/createFluentFontIcon.cjs';
+export declare const OptionsSpeakerFilled: FluentFontIcon;
+export declare const OptionsSpeakerRegular: FluentFontIcon;
+export declare const OptionsSpeaker16Regular: FluentFontIcon;
+export declare const OptionsSpeaker16Filled: FluentFontIcon;
+export declare const OptionsSpeaker20Regular: FluentFontIcon;
+export declare const OptionsSpeaker20Filled: FluentFontIcon;
+export declare const OptionsSpeaker24Regular: FluentFontIcon;
+export declare const OptionsSpeaker24Filled: FluentFontIcon;
+export declare const OptionsSpeaker28Regular: FluentFontIcon;
+export declare const OptionsSpeaker28Filled: FluentFontIcon;

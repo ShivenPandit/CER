@@ -1,0 +1,62 @@
+'use client';
+import { getPartitionedNativeProps, useId, slot } from "@fluentui/react-utilities";
+import { useAlphaSliderState_unstable } from "./useAlphaSliderState.js";
+import { useColorPickerContextValue_unstable } from "../../contexts/colorPicker.js";
+/**
+ * Create the state required to render AlphaSlider.
+ *
+ * The returned state can be modified with hooks such as useAlphaSliderStyles_unstable,
+ * before being passed to renderAlphaSlider_unstable.
+ *
+ * @param props - props from this instance of AlphaSlider
+ * @param ref - reference to root HTMLInputElement of AlphaSlider
+ */ export const useAlphaSlider_unstable = (props, ref)=>{
+    const shapeFromContext = useColorPickerContextValue_unstable((ctx)=>ctx.shape);
+    const { shape = shapeFromContext, ...baseProps } = props;
+    return {
+        ...useAlphaSliderBase_unstable(baseProps, ref),
+        shape
+    };
+};
+export const useAlphaSliderBase_unstable = (props, ref)=>{
+    const nativeProps = getPartitionedNativeProps({
+        props,
+        primarySlotTagName: 'input',
+        excludedPropNames: [
+            'onChange',
+            'color'
+        ]
+    });
+    const { vertical, // Slots
+    root, input, rail, thumb } = props;
+    const state = {
+        vertical,
+        components: {
+            input: 'input',
+            rail: 'div',
+            root: 'div',
+            thumb: 'div'
+        },
+        root: slot.always(root, {
+            defaultProps: nativeProps.root,
+            elementType: 'div'
+        }),
+        input: slot.always(input, {
+            defaultProps: {
+                id: useId('slider-', props.id),
+                ref,
+                ...nativeProps.primary,
+                type: 'range'
+            },
+            elementType: 'input'
+        }),
+        rail: slot.always(rail, {
+            elementType: 'div'
+        }),
+        thumb: slot.always(thumb, {
+            elementType: 'div'
+        })
+    };
+    useAlphaSliderState_unstable(state, props);
+    return state;
+};

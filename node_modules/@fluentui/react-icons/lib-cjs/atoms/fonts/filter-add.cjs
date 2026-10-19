@@ -1,0 +1,13 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.FilterAdd24Filled = exports.FilterAdd24Regular = exports.FilterAdd20Filled = exports.FilterAdd20Regular = exports.FilterAdd16Filled = exports.FilterAdd16Regular = exports.FilterAddRegular = exports.FilterAddFilled = void 0;
+const createFluentFontIcon_1 = require("../../utils/fonts/createFluentFontIcon.cjs");
+exports.FilterAddFilled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilterAddFilled", "", 2, undefined));
+exports.FilterAddRegular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilterAddRegular", "", 2, undefined));
+exports.FilterAdd16Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilterAdd16Regular", "󰳷", 1, 16));
+exports.FilterAdd16Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilterAdd16Filled", "󰵴", 0, 16));
+exports.FilterAdd20Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilterAdd20Regular", "", 1, 20));
+exports.FilterAdd20Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilterAdd20Filled", "", 0, 20));
+exports.FilterAdd24Regular = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilterAdd24Regular", "󰳸", 1, 24));
+exports.FilterAdd24Filled = ( /*#__PURE__*/createFluentFontIcon_1.createFluentFontIcon("FilterAdd24Filled", "󰵵", 0, 24));

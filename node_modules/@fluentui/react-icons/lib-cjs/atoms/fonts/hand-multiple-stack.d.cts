@@ -1,0 +1,9 @@
+import type { FluentFontIcon } from '../../utils/fonts/createFluentFontIcon.cjs';
+export declare const HandMultipleStackFilled: FluentFontIcon;
+export declare const HandMultipleStackRegular: FluentFontIcon;
+export declare const HandMultipleStack20Regular: FluentFontIcon;
+export declare const HandMultipleStack20Filled: FluentFontIcon;
+export declare const HandMultipleStack24Regular: FluentFontIcon;
+export declare const HandMultipleStack24Filled: FluentFontIcon;
+export declare const HandMultipleStack28Regular: FluentFontIcon;
+export declare const HandMultipleStack28Filled: FluentFontIcon;

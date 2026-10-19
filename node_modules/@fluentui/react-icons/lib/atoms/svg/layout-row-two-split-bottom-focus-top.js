@@ -1,0 +1,6 @@
+"use client";
+import { createFluentIcon } from '../../utils/createFluentIcon.js';
+export const LayoutRowTwoSplitBottomFocusTopFilled = ( /*#__PURE__*/createFluentIcon('LayoutRowTwoSplitBottomFocusTopFilled', "1em", ["M3 6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zm13 4h-5.5v6H14a2 2 0 0 0 2-2zm-6.5 0H4v4c0 1.1.9 2 2 2h3.5z"]));
+export const LayoutRowTwoSplitBottomFocusTop16Filled = ( /*#__PURE__*/createFluentIcon('LayoutRowTwoSplitBottomFocusTop16Filled', "16", ["M2 4.5A2.5 2.5 0 0 1 4.5 2h7A2.5 2.5 0 0 1 14 4.5v7a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 11.5zM13 8H8.5v5h3c.83 0 1.5-.67 1.5-1.5zM7.5 8H3v3.5c0 .83.67 1.5 1.5 1.5h3z"]));
+export const LayoutRowTwoSplitBottomFocusTop20Filled = ( /*#__PURE__*/createFluentIcon('LayoutRowTwoSplitBottomFocusTop20Filled', "20", ["M3 6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zm13 4h-5.5v6H14a2 2 0 0 0 2-2zm-6.5 0H4v4c0 1.1.9 2 2 2h3.5z"]));
+export const LayoutRowTwoSplitBottomFocusTop24Filled = ( /*#__PURE__*/createFluentIcon('LayoutRowTwoSplitBottomFocusTop24Filled', "24", ["M3 6.25C3 4.45 4.46 3 6.25 3h11.5C19.55 3 21 4.46 21 6.25v11.5c0 1.8-1.46 3.25-3.25 3.25H6.25A3.25 3.25 0 0 1 3 17.75zM19.5 12h-6.75v7.5h5c.97 0 1.75-.78 1.75-1.75zm-8.25 0H4.5v5.75c0 .97.78 1.75 1.75 1.75h5z"]));

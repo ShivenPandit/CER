@@ -1,0 +1,15 @@
+import type { FluentFontIcon } from '../../utils/fonts/createFluentFontIcon.cjs';
+export declare const CoworkFilled: FluentFontIcon;
+export declare const CoworkRegular: FluentFontIcon;
+export declare const Cowork16Regular: FluentFontIcon;
+export declare const Cowork16Filled: FluentFontIcon;
+export declare const Cowork20Regular: FluentFontIcon;
+export declare const Cowork20Filled: FluentFontIcon;
+export declare const Cowork24Regular: FluentFontIcon;
+export declare const Cowork24Filled: FluentFontIcon;
+export declare const Cowork28Regular: FluentFontIcon;
+export declare const Cowork28Filled: FluentFontIcon;
+export declare const Cowork32Regular: FluentFontIcon;
+export declare const Cowork32Filled: FluentFontIcon;
+export declare const Cowork48Regular: FluentFontIcon;
+export declare const Cowork48Filled: FluentFontIcon;

@@ -1,0 +1,6 @@
+"use client";
+import { createFluentIcon } from '../../headless/createFluentIcon.js';
+export const LayoutColumnTwoSplitRightFocusLeftFilled = ( /*#__PURE__*/createFluentIcon('LayoutColumnTwoSplitRightFocusLeftFilled', "1em", ["M3 6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zm7-2v5.5h6V6a2 2 0 0 0-2-2zm0 6.5V16h4a2 2 0 0 0 2-2v-3.5z"]));
+export const LayoutColumnTwoSplitRightFocusLeft16Filled = ( /*#__PURE__*/createFluentIcon('LayoutColumnTwoSplitRightFocusLeft16Filled', "16", ["M2 4.5A2.5 2.5 0 0 1 4.5 2h7A2.5 2.5 0 0 1 14 4.5v7a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 11.5zM8 3v4.5h5v-3c0-.83-.67-1.5-1.5-1.5zm0 5.5V13h3.5c.83 0 1.5-.67 1.5-1.5v-3z"]));
+export const LayoutColumnTwoSplitRightFocusLeft20Filled = ( /*#__PURE__*/createFluentIcon('LayoutColumnTwoSplitRightFocusLeft20Filled', "20", ["M3 6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zm7-2v5.5h6V6a2 2 0 0 0-2-2zm0 6.5V16h4a2 2 0 0 0 2-2v-3.5z"]));
+export const LayoutColumnTwoSplitRightFocusLeft24Filled = ( /*#__PURE__*/createFluentIcon('LayoutColumnTwoSplitRightFocusLeft24Filled', "24", ["M3 6.25C3 4.45 4.46 3 6.25 3h11.5C19.55 3 21 4.46 21 6.25v11.5c0 1.8-1.46 3.25-3.25 3.25H6.25A3.25 3.25 0 0 1 3 17.75zm9-1.75v6.75h7.5v-5c0-.97-.78-1.75-1.75-1.75zm0 8.25v6.75h5.75c.97 0 1.75-.78 1.75-1.75v-5z"]));

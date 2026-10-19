@@ -1,0 +1,11 @@
+import type { FluentFontIcon } from '../../headless/fonts/createFluentFontIcon.cjs';
+export declare const TextNumberListRtlRotate270Regular: FluentFontIcon;
+export declare const TextNumberListRtlRotate270Filled: FluentFontIcon;
+export declare const TextNumberListRtlRotate9028Regular: FluentFontIcon;
+export declare const TextNumberListRtlRotate9028Filled: FluentFontIcon;
+export declare const TextNumberListRtlRotate27020Regular: FluentFontIcon;
+export declare const TextNumberListRtlRotate27020Filled: FluentFontIcon;
+export declare const TextNumberListRtlRotate27024Regular: FluentFontIcon;
+export declare const TextNumberListRtlRotate27024Filled: FluentFontIcon;
+export declare const TextNumberListRtlRotate27028Regular: FluentFontIcon;
+export declare const TextNumberListRtlRotate27028Filled: FluentFontIcon;

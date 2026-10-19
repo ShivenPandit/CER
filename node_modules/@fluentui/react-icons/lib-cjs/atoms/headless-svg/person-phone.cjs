@@ -1,0 +1,7 @@
+"use client";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PersonPhone24Filled = exports.PersonPhone24Regular = void 0;
+const createFluentIcon_1 = require("../../headless/createFluentIcon.cjs");
+exports.PersonPhone24Regular = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('PersonPhone24Regular', "24", ["M14 15.5V14H4.25C3.01 14 2 15 2 16.25v.58c0 .89.32 1.75.9 2.43Q5.27 22.01 10 22q2.27 0 4-.63v-1.62q-1.62.75-4 .75c-2.74 0-4.7-.74-5.96-2.21-.34-.41-.54-.93-.54-1.46v-.58c0-.41.34-.75.75-.75zM10 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10m0 1.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7M21.25 10c.97 0 1.75.78 1.75 1.75v9.5c0 .97-.78 1.75-1.75 1.75h-4.5c-.97 0-1.75-.78-1.75-1.75v-9.5c0-.97.78-1.75 1.75-1.75zm-2 9h-.6a.75.75 0 0 0 .1 1.5h.5l.1-.01a.75.75 0 0 0-.1-1.5"]));
+exports.PersonPhone24Filled = ( /*#__PURE__*/createFluentIcon_1.createFluentIcon('PersonPhone24Filled', "24", ["M14 21.37V14H4.25C3.01 14 2 15 2 16.25v.92q0 .88.51 1.6Q4.85 22 10 22q2.27 0 4-.63M10 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10m11.25 8c.97 0 1.75.78 1.75 1.75v9.5c0 .97-.78 1.75-1.75 1.75h-4.5c-.97 0-1.75-.78-1.75-1.75v-9.5c0-.97.78-1.75 1.75-1.75zm-2 9h-.6a.75.75 0 0 0 .1 1.5h.5l.1-.01a.75.75 0 0 0-.1-1.5"]));
