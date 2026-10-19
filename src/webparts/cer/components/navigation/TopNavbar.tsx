@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   Search,
   Bell,
-  HelpCircle,
   UserCheck,
   ChevronDown,
 } from "lucide-react";
@@ -12,7 +11,6 @@ interface ITopNavbarProps {
   currentUser: IAppUser;
   onSelectUser: (user: IAppUser) => void;
   onOpenNotifications: () => void;
-  onOpenCategoryHelp: () => void;
   onQuickSearch: (cerprno: string) => void;
   notificationCount: number;
 }
@@ -21,14 +19,13 @@ export const TopNavbar: React.FC<ITopNavbarProps> = ({
   currentUser,
   onSelectUser,
   onOpenNotifications,
-  onOpenCategoryHelp,
   onQuickSearch,
   notificationCount,
 }) => {
   const [searchInput, setSearchInput] = useState("");
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
+  const handleSearchSubmit = (e: React.FormEvent): void => {
     e.preventDefault();
     if (searchInput.trim()) {
       onQuickSearch(searchInput.trim());
@@ -36,7 +33,7 @@ export const TopNavbar: React.FC<ITopNavbarProps> = ({
     }
   };
 
-  const getRoleBadgeStyle = (role: UserRole) => {
+  const getRoleBadgeStyle = (role: UserRole): string => {
     switch (role) {
       case "Admin":
         return "bg-purple-50 text-purple-700 border-purple-200";
@@ -66,16 +63,6 @@ export const TopNavbar: React.FC<ITopNavbarProps> = ({
 
       {/* Right Controls */}
       <div className="flex items-center gap-3">
-        {/* Category Definitions Button */}
-        <button
-          onClick={onOpenCategoryHelp}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors"
-          title="View Category Definitions (Vital / Essential / Desirable)"
-        >
-          <HelpCircle className="w-4 h-4 text-slate-500" />
-          <span className="hidden sm:inline">Category Guide</span>
-        </button>
-
         {/* Notifications Bell */}
         <button
           onClick={onOpenNotifications}

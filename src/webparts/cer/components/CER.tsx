@@ -9,7 +9,6 @@ import { ICERDataService } from "../services/ICERDataService";
 // Navigation
 import { Sidebar, NavView } from "./navigation/Sidebar";
 import { TopNavbar } from "./navigation/TopNavbar";
-import { Breadcrumbs } from "./navigation/Breadcrumbs";
 
 // Views
 import { DashboardView } from "./dashboard/DashboardView";
@@ -24,15 +23,56 @@ import { ReportsView } from "./reports/ReportsView";
 import { AuditTrailView } from "./audit/AuditTrailView";
 
 // Common Modals
-import { CategoryDefinitionModal } from "./common/CategoryDefinitionModal";
 import { NotificationCenter } from "./common/NotificationCenter";
 import { RemarksHistoryModal } from "./audit/RemarksHistoryModal";
 
 const CER: React.FC<ICERProps> = (props) => {
   const [dataService] = useState<ICERDataService>(() => DataServiceFactory.getService(props));
   const [proposals, setProposals] = useState<ICERProposal[]>([]);
-  const [currentView, setCurrentView] = useState<NavView>("dashboard");
-  const [activeProposalId, setActiveProposalId] = useState<string | undefined>(undefined);
+  // Helper to parse current URL hash into view & proposalId for deep-linking
+  const parseHash = (): { view: NavView; proposalId?: string } => {
+    const rawHash = window.location.hash.replace(/^#\/?/, "");
+    if (!rawHash) return { view: "dashboard" };
+    const parts = rawHash.split("/");
+    const viewName = parts[0] as NavView;
+    const propId = parts.length > 1 ? decodeURIComponent(parts.slice(1).join("/")) : undefined;
+    const validViews: NavView[] = [
+      "dashboard",
+      "create",
+      "change",
+      "my-proposals",
+      "all-proposals",
+      "pending-approvals",
+      "approval-history",
+      "display",
+      "reports",
+      "audit-trail",
+      "workflow-config",
+    ];
+    if (validViews.indexOf(viewName) !== -1) {
+      return { view: viewName, proposalId: propId };
+    }
+    return { view: "dashboard" };
+  };
+
+  const initialRoute = parseHash();
+  const [currentView, setCurrentView] = useState<NavView>(initialRoute.view);
+  const [activeProposalId, setActiveProposalId] = useState<string | undefined>(initialRoute.proposalId);
+  // Full navigation history stack so clicking Cancel or Back returns to the exact previous view
+  interface IHistoryEntry {
+    view: NavView;
+    proposalId?: string;
+  }
+  const [historyStack, setHistoryStack] = useState<IHistoryEntry[]>([]);
+
+  // Track origin navigation view so when displaying/changing a proposal,
+  // the corresponding parent list (e.g. "all-proposals" or "my-proposals") remains highlighted in the sidebar
+  const [activeParentView, setActiveParentView] = useState<NavView>(() => {
+    if (initialRoute.view === "display" || initialRoute.view === "change") {
+      return "all-proposals";
+    }
+    return initialRoute.view;
+  });
 
   // Initialize current user from SharePoint context or default to Initiator demo persona
   const [currentUser, setCurrentUser] = useState<IAppUser>(() => {
@@ -51,9 +91,6 @@ const CER: React.FC<ICERProps> = (props) => {
   // Notifications
   const [notifications, setNotifications] = useState<INotificationLog[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-
-  // Category Modal
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   // Remarks History Modal
   const [remarksHistoryCerprno, setRemarksHistoryCerprno] = useState<string | null>(null);
@@ -75,6 +112,21 @@ const CER: React.FC<ICERProps> = (props) => {
     loadInitialData().catch((e) => console.error(e));
   }, []);
 
+  // Listen to browser hash changes (Back / Forward button, manual URL changes)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const route = parseHash();
+      setCurrentView(route.view);
+      setActiveProposalId(route.proposalId);
+      if (route.view !== "display" && route.view !== "change") {
+        setActiveParentView(route.view);
+      }
+    };
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
   const handleRefreshProposals = async (): Promise<void> => {
     try {
       const [propsList, notifs] = await Promise.all([
@@ -88,14 +140,104 @@ const CER: React.FC<ICERProps> = (props) => {
     }
   };
 
-  const handleNavigate = (view: NavView, proposalId?: string): void => {
+  const handleNavigate = (view: NavView, proposalId?: string, isBackNavigation: boolean = false): void => {
+    if (!isBackNavigation) {
+      // Record previous screen into history stack if it's a new screen
+      if (currentView !== view || activeProposalId !== proposalId) {
+        setHistoryStack((prev) => [...prev, { view: currentView, proposalId: activeProposalId }].slice(-25));
+      }
+    }
+
+    if (view === "display" || view === "change") {
+      // Retain parent list if navigating into proposal display or change
+      if (currentView !== "display" && currentView !== "change") {
+        setActiveParentView(currentView);
+      }
+    } else {
+      setActiveParentView(view);
+    }
+
     setCurrentView(view);
     setActiveProposalId(proposalId);
+    // Sync browser address bar URL hash
+    const targetHash = proposalId ? `#${view}/${encodeURIComponent(proposalId)}` : `#${view}`;
+    if (window.location.hash !== targetHash) {
+      window.location.hash = targetHash;
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Dedicated back / cancel handler that navigates back to where the user came from
+  const handleGoBack = (): void => {
+    if (historyStack.length > 0) {
+      const prev = historyStack[historyStack.length - 1];
+      setHistoryStack((prevStack) => prevStack.slice(0, -1));
+      handleNavigate(prev.view, prev.proposalId, true);
+      return;
+    }
+
+    // Fallback if no history recorded (e.g., user directly loaded or refreshed the URL)
+    if (currentView === "change" && activeProposalId) {
+      handleNavigate("display", activeProposalId, true);
+    } else if (currentView === "display" || currentView === "change") {
+      if (activeProposalId && proposals.length > 0) {
+        const found = proposals.find((p) => p.cerprno === activeProposalId);
+        if (
+          found &&
+          (found.owname.toLowerCase() === currentUser.name.toLowerCase() ||
+            found.owner_email.toLowerCase() === currentUser.email.toLowerCase())
+        ) {
+          handleNavigate("my-proposals", undefined, true);
+          return;
+        }
+      }
+      const target =
+        activeParentView && activeParentView !== "display" && activeParentView !== "change"
+          ? activeParentView
+          : "all-proposals";
+      handleNavigate(target, undefined, true);
+    } else if (currentView === "create") {
+      const target =
+        activeParentView && activeParentView !== "create" ? activeParentView : "dashboard";
+      handleNavigate(target, undefined, true);
+    } else if (currentView === "audit-trail") {
+      if (activeProposalId) {
+        handleNavigate("display", activeProposalId, true);
+      } else {
+        handleNavigate(
+          activeParentView && activeParentView !== "audit-trail" ? activeParentView : "dashboard",
+          undefined,
+          true
+        );
+      }
+    } else {
+      handleNavigate("dashboard", undefined, true);
+    }
   };
 
   const handleQuickSearch = (cerprno: string): void => {
     handleNavigate("display", cerprno);
+  };
+
+  // Compute active sidebar navigation item
+  const getSidebarActiveView = (): NavView => {
+    if (currentView === "display" || currentView === "change") {
+      if (activeParentView && activeParentView !== "display" && activeParentView !== "change") {
+        return activeParentView;
+      }
+      if (activeProposalId && proposals.length > 0) {
+        const found = proposals.find((p) => p.cerprno === activeProposalId);
+        if (
+          found &&
+          (found.owname.toLowerCase() === currentUser.name.toLowerCase() ||
+            found.owner_email.toLowerCase() === currentUser.email.toLowerCase())
+        ) {
+          return "my-proposals";
+        }
+      }
+      return "all-proposals";
+    }
+    return currentView;
   };
 
   // Pending tasks count for badge
@@ -112,7 +254,7 @@ const CER: React.FC<ICERProps> = (props) => {
     <div className="flex min-h-screen bg-slate-100 font-sans text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
       {/* Enterprise Sidebar */}
       <Sidebar
-        currentView={currentView}
+        currentView={getSidebarActiveView()}
         onNavigate={handleNavigate}
         userRole={currentUser.role}
         pendingApprovalsCount={pendingCount}
@@ -125,19 +267,12 @@ const CER: React.FC<ICERProps> = (props) => {
           currentUser={currentUser}
           onSelectUser={(u) => setCurrentUser(u)}
           onOpenNotifications={() => setIsNotificationsOpen(true)}
-          onOpenCategoryHelp={() => setIsCategoryModalOpen(true)}
           onQuickSearch={handleQuickSearch}
           notificationCount={notifications.length}
         />
 
         {/* View Container */}
         <main className="flex-1 p-6 lg:p-8 max-w-7xl w-full mx-auto">
-          {/* Breadcrumbs */}
-          <Breadcrumbs
-            currentView={currentView}
-            proposalId={activeProposalId}
-            onNavigate={(v) => handleNavigate(v)}
-          />
 
           {/* Active View Router */}
           {currentView === "dashboard" && (
@@ -152,7 +287,7 @@ const CER: React.FC<ICERProps> = (props) => {
             <CreateCERView
               dataService={dataService}
               currentUser={currentUser}
-              onCancel={() => handleNavigate("dashboard")}
+              onCancel={handleGoBack}
               onSuccess={(cerprno) => {
                 handleRefreshProposals().catch((e) => console.error(e));
                 handleNavigate("display", cerprno);
@@ -165,7 +300,7 @@ const CER: React.FC<ICERProps> = (props) => {
               dataService={dataService}
               currentUser={currentUser}
               initialProposalId={activeProposalId}
-              onCancel={() => handleNavigate("dashboard")}
+              onCancel={handleGoBack}
               onSuccess={(cerprno) => {
                 handleRefreshProposals().catch((e) => console.error(e));
                 handleNavigate("display", cerprno);
@@ -179,7 +314,7 @@ const CER: React.FC<ICERProps> = (props) => {
               dataService={dataService}
               currentUser={currentUser}
               initialProposalId={activeProposalId}
-              onCancel={() => handleNavigate("dashboard")}
+              onCancel={handleGoBack}
               onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
               onNavigateToAudit={(cerprno) => handleNavigate("audit-trail", cerprno)}
               onViewRemarksHistory={(cerprno) => setRemarksHistoryCerprno(cerprno)}
@@ -239,6 +374,7 @@ const CER: React.FC<ICERProps> = (props) => {
               dataService={dataService}
               initialProposalId={activeProposalId}
               onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
+              onCancel={handleGoBack}
             />
           )}
 
@@ -249,10 +385,6 @@ const CER: React.FC<ICERProps> = (props) => {
       </div>
 
       {/* Global Modals */}
-      <CategoryDefinitionModal
-        isOpen={isCategoryModalOpen}
-        onClose={() => setIsCategoryModalOpen(false)}
-      />
 
       <NotificationCenter
         isOpen={isNotificationsOpen}

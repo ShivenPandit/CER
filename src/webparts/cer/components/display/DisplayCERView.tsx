@@ -134,7 +134,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
           <button
             onClick={onCancel}
             className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-            title="Return to Dashboard"
+            title="Go back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -284,61 +284,91 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
 
           {/* Section A & B: Project Info and Financial Benefits Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Project Info Card */}
+            {/* Section A: Project Details Card */}
             <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-4">
               <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
                 <FolderGit2 className="w-5 h-5 text-blue-600" />
-                <h3 className="font-bold text-slate-900 text-sm">Project Details & Dates</h3>
+                <h3 className="font-bold text-slate-900 text-sm">Section A — Project identification and scope</h3>
               </div>
 
               <div className="grid grid-cols-2 gap-4 text-xs">
-                <div>
-                  <p className="text-slate-400 font-medium">Business Object</p>
-                  <p className="font-semibold text-slate-800 mt-0.5">{proposal.object || "N/A"}</p>
+                <div className="col-span-2">
+                  <p className="text-slate-400 font-medium">Name of Project</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">{proposal.pr_name}</p>
                 </div>
                 <div>
-                  <p className="text-slate-400 font-medium">Strategic Business Unit</p>
+                  <p className="text-slate-400 font-medium">CER Proposal No.</p>
+                  <p className="font-mono font-bold text-blue-700 mt-0.5">{proposal.cerprno}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">CER Owner Name</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">{proposal.owname}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">Block/SBU/Field</p>
                   <p className="font-semibold text-slate-800 mt-0.5">{proposal.sbu}</p>
                 </div>
                 <div>
-                  <p className="text-slate-400 font-medium">Project Start Date</p>
+                  <p className="text-slate-400 font-medium">Category</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">{proposal.cat}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">Start Date of Project</p>
                   <p className="font-semibold text-slate-800 mt-0.5">{proposal.st_date}</p>
                 </div>
                 <div>
-                  <p className="text-slate-400 font-medium">Project Completion Date</p>
+                  <p className="text-slate-400 font-medium">Completion Date of Project</p>
                   <p className="font-semibold text-slate-800 mt-0.5">{proposal.com_date}</p>
                 </div>
                 <div>
-                  <p className="text-slate-400 font-medium">Duration</p>
+                  <p className="text-slate-400 font-medium">Total Duration</p>
                   <p className="font-semibold text-slate-800 mt-0.5">{proposal.duration_months} Months</p>
                 </div>
                 <div>
-                  <p className="text-slate-400 font-medium">Initiator Email</p>
+                  <p className="text-slate-400 font-medium">Owner Email</p>
                   <p className="font-semibold text-slate-800 mt-0.5 truncate">{proposal.owner_email}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-slate-400 font-medium">Objectives of CER</p>
+                  <p className="font-medium text-slate-800 mt-0.5 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    {proposal.object || "N/A"}
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Financial Benefits Card */}
+            {/* Section B: Financial Benefits Card */}
             <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-4">
               <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
                 <DollarSign className="w-5 h-5 text-emerald-600" />
-                <h3 className="font-bold text-slate-900 text-sm">Financial Valuation & Return</h3>
+                <h3 className="font-bold text-slate-900 text-sm">Section B — Financial benefits and payback</h3>
               </div>
 
               <div className="grid grid-cols-2 gap-4 text-xs">
                 <div>
-                  <p className="text-slate-400 font-medium">Payback Classification</p>
-                  <p className="font-semibold text-slate-800 mt-0.5">{proposal.payable}</p>
-                </div>
-                <div>
-                  <p className="text-slate-400 font-medium">Net Present Value (NPV)</p>
-                  <p className="font-bold text-emerald-600 mt-0.5 text-sm">
-                    {proposal.ben_npv ? `$${proposal.ben_npv} MM` : "N/A"}
+                  <p className="text-slate-400 font-medium">Amount of CER</p>
+                  <p className="font-bold text-emerald-600 mt-0.5 text-base">
+                    {proposal.currency} {proposal.amount.toLocaleString()}
                   </p>
                 </div>
                 <div>
-                  <p className="text-slate-400 font-medium">Internal Rate of Return (IRR)</p>
+                  <p className="text-slate-400 font-medium">Payback/Non Payback</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">{proposal.payable}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">Payback Period (in no. of Quarters)</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">
+                    {proposal.payback_quarters ? `${proposal.payback_quarters} Quarters` : "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">Financial Benefits – NPV ($mm)</p>
+                  <p className="font-bold text-emerald-600 mt-0.5 text-sm">
+                    {proposal.ben_npv ? `$${proposal.ben_npv} mm` : "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">Financial Benefit – IRR (%)</p>
                   <p className="font-bold text-blue-600 mt-0.5 text-sm">
                     {proposal.ben_irr ? `${proposal.ben_irr}%` : "N/A"}
                   </p>
@@ -348,7 +378,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                   <p className="font-semibold text-slate-800 mt-0.5">{proposal.revision_count || 0}</p>
                 </div>
                 <div className="col-span-2">
-                  <p className="text-slate-400 font-medium">Key Assumptions</p>
+                  <p className="text-slate-400 font-medium">Key Assumptions to Financial Benefit/Costs</p>
                   <p className="font-medium text-slate-700 mt-0.5 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                     {proposal.cost_assumptions || "None recorded."}
                   </p>
@@ -362,21 +392,21 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
             <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-4">
               <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
                 <Landmark className="w-5 h-5 text-purple-600" />
-                <h3 className="font-bold text-slate-900 text-sm">Corporate Budget</h3>
+                <h3 className="font-bold text-slate-900 text-sm">Section C — Corporate budget</h3>
               </div>
               <div className="grid grid-cols-2 gap-4 text-xs">
                 <div>
-                  <p className="text-slate-400 font-medium">Budget Status</p>
+                  <p className="text-slate-400 font-medium">Corporate Budget (Yes/No)</p>
                   <p className="font-semibold text-slate-800 mt-0.5">{proposal.cbudget}</p>
                 </div>
                 <div>
-                  <p className="text-slate-400 font-medium">Budgeted Amount</p>
+                  <p className="text-slate-400 font-medium">Corporate Budget Amount ($mm)</p>
                   <p className="font-semibold text-slate-800 mt-0.5">
-                    {proposal.cb_currency} {proposal.cb_amnt.toLocaleString()}
+                    ${proposal.cb_amnt.toLocaleString()} mm
                   </p>
                 </div>
                 <div className="col-span-2">
-                  <p className="text-slate-400 font-medium">Budget Variance Reason</p>
+                  <p className="text-slate-400 font-medium">Reason if not/partially budgeted</p>
                   <p className="font-medium text-slate-700 mt-0.5 text-xs bg-slate-50 p-2 rounded-lg">
                     {proposal.reason || "Within standard budgetary envelope."}
                   </p>
@@ -387,33 +417,31 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
             <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-4">
               <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
                 <DollarSign className="w-5 h-5 text-amber-600" />
-                <h3 className="font-bold text-slate-900 text-sm">Joint Venture Details</h3>
+                <h3 className="font-bold text-slate-900 text-sm">Section D — Joint venture details</h3>
               </div>
               <div className="grid grid-cols-2 gap-4 text-xs">
                 <div>
-                  <p className="text-slate-400 font-medium">JV Alignment</p>
+                  <p className="text-slate-400 font-medium">Aligned with JV (Yes/No/Under Discussion)</p>
                   <p className="font-semibold text-slate-800 mt-0.5">{proposal.jv}</p>
                 </div>
                 <div>
-                  <p className="text-slate-400 font-medium">JV Cost Share</p>
-                  <p className="font-semibold text-slate-800 mt-0.5">
-                    {proposal.currency} {proposal.jv_cost.toLocaleString()}
-                  </p>
+                  <p className="text-slate-400 font-medium">JV Cost Recoverable (Yes/No)</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">{proposal.jv_recoverable || "No"}</p>
                 </div>
                 <div>
-                  <p className="text-slate-400 font-medium">JV Budget Status</p>
+                  <p className="text-slate-400 font-medium">JV Budget (Yes/No)</p>
                   <p className="font-semibold text-slate-800 mt-0.5">{proposal.jv_budget}</p>
                 </div>
                 <div>
-                  <p className="text-slate-400 font-medium">JV Budget Amount</p>
+                  <p className="text-slate-400 font-medium">JV Budget Amount ($mm)</p>
                   <p className="font-semibold text-slate-800 mt-0.5">
-                    {proposal.currency} {proposal.jv_amnt.toLocaleString()}
+                    ${proposal.jv_amnt.toLocaleString()} mm
                   </p>
                 </div>
                 <div className="col-span-2">
-                  <p className="text-slate-400 font-medium">JV Justification</p>
+                  <p className="text-slate-400 font-medium">Reason if not/partially budgeted</p>
                   <p className="font-medium text-slate-700 mt-0.5 text-xs bg-slate-50 p-2 rounded-lg">
-                    {proposal.jv_reason || "100% Vedanta operating block."}
+                    {proposal.jv_reason || "Approved by Operating Committee / TCM."}
                   </p>
                 </div>
               </div>
@@ -424,22 +452,22 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
           <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-4">
             <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
               <BarChart2 className="w-5 h-5 text-indigo-600" />
-              <h3 className="font-bold text-slate-900 text-sm">Expenditure Phasing Matrix</h3>
+              <h3 className="font-bold text-slate-900 text-sm">Section E — Expenditure phasing</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left">
                 <thead>
-                  <tr className="border-b border-slate-200 text-slate-500 font-semibold bg-slate-50">
-                    <th className="py-2.5 px-3">Category</th>
-                    <th className="py-2.5 px-3 text-right">{proposal.ph_till_label}</th>
-                    <th className="py-2.5 px-3 text-right">{proposal.ph_fy_label}</th>
-                    <th className="py-2.5 px-3 text-right">{proposal.ph_beyond_label}</th>
+                  <tr className="border-b border-slate-200 text-slate-600 font-bold bg-slate-50">
+                    <th className="py-2.5 px-3">Expenditure stream</th>
+                    <th className="py-2.5 px-3 text-right">{proposal.ph_till_label || "Till Mar'26"}</th>
+                    <th className="py-2.5 px-3 text-right">{proposal.ph_fy_label || "FY 26-27"}</th>
+                    <th className="py-2.5 px-3 text-right">{proposal.ph_beyond_label || "Beyond FY'27"}</th>
                     <th className="py-2.5 px-3 text-right font-bold text-slate-800">Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   <tr>
-                    <td className="py-2.5 px-3 font-semibold text-slate-700">Production</td>
+                    <td className="py-2.5 px-3 font-semibold text-slate-700">Production (in mmbbls)</td>
                     <td className="py-2.5 px-3 text-right">{proposal.prod_till.toLocaleString()}</td>
                     <td className="py-2.5 px-3 text-right">{proposal.prod_fy.toLocaleString()}</td>
                     <td className="py-2.5 px-3 text-right">{proposal.prod_beyond.toLocaleString()}</td>
@@ -448,7 +476,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                     </td>
                   </tr>
                   <tr>
-                    <td className="py-2.5 px-3 font-semibold text-slate-700">CAPEX</td>
+                    <td className="py-2.5 px-3 font-semibold text-slate-700">Capex ($mm)</td>
                     <td className="py-2.5 px-3 text-right">{proposal.capex_till.toLocaleString()}</td>
                     <td className="py-2.5 px-3 text-right">{proposal.capex_fy.toLocaleString()}</td>
                     <td className="py-2.5 px-3 text-right">{proposal.capex_beyond.toLocaleString()}</td>
@@ -457,7 +485,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                     </td>
                   </tr>
                   <tr>
-                    <td className="py-2.5 px-3 font-semibold text-slate-700">OPEX</td>
+                    <td className="py-2.5 px-3 font-semibold text-slate-700">Opex ($mm)</td>
                     <td className="py-2.5 px-3 text-right">{proposal.opex_till.toLocaleString()}</td>
                     <td className="py-2.5 px-3 text-right">{proposal.opex_fy.toLocaleString()}</td>
                     <td className="py-2.5 px-3 text-right">{proposal.opex_beyond.toLocaleString()}</td>
@@ -470,47 +498,47 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
             </div>
           </div>
 
-          {/* Section F: Cost Breakdown */}
+          {/* Section F: CAPEX Cost Estimates Basis */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-4">
             <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
               <Calculator className="w-5 h-5 text-slate-900" />
-              <h3 className="font-bold text-slate-900 text-sm">Cost Breakdown by Component</h3>
+              <h3 className="font-bold text-slate-900 text-sm">Section F — CAPEX cost estimates basis</h3>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                 <span className="text-slate-400 block text-[11px]">Engineering</span>
                 <span className="font-bold text-slate-900 mt-1 block">
-                  {proposal.engineer.toLocaleString()}
+                  ${proposal.engineer.toLocaleString()} mm
                 </span>
               </div>
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="text-slate-400 block text-[11px]">Site Facilities</span>
+                <span className="text-slate-400 block text-[11px]">Surface Facilities</span>
                 <span className="font-bold text-slate-900 mt-1 block">
-                  {proposal.s_fac.toLocaleString()}
+                  ${proposal.s_fac.toLocaleString()} mm
                 </span>
               </div>
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                 <span className="text-slate-400 block text-[11px]">Commissioning</span>
                 <span className="font-bold text-slate-900 mt-1 block">
-                  {proposal.comis.toLocaleString()}
+                  ${proposal.comis.toLocaleString()} mm
                 </span>
               </div>
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="text-slate-400 block text-[11px]">Pre-Operating</span>
+                <span className="text-slate-400 block text-[11px]">Pre Operations</span>
                 <span className="font-bold text-slate-900 mt-1 block">
-                  {proposal.preop.toLocaleString()}
+                  ${proposal.preop.toLocaleString()} mm
                 </span>
               </div>
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                 <span className="text-slate-400 block text-[11px]">Others</span>
                 <span className="font-bold text-slate-900 mt-1 block">
-                  {proposal.others.toLocaleString()}
+                  ${proposal.others.toLocaleString()} mm
                 </span>
               </div>
               <div className="p-3 bg-slate-900 text-white rounded-xl">
-                <span className="text-slate-300 block text-[11px]">Total Cost</span>
+                <span className="text-slate-300 block text-[11px]">Total</span>
                 <span className="font-bold text-white mt-1 block text-sm">
-                  {proposal.total.toLocaleString()}
+                  ${proposal.total.toLocaleString()} mm
                 </span>
               </div>
             </div>
@@ -521,7 +549,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <MessageSquare className="w-5 h-5 text-blue-600" />
-                <h3 className="font-bold text-slate-900 text-sm">Business Remarks & Narrative</h3>
+                <h3 className="font-bold text-slate-900 text-sm">Section G — Remarks and justification</h3>
               </div>
               <button
                 onClick={() => onViewRemarksHistory(proposal.cerprno)}
@@ -532,11 +560,11 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
               </button>
             </div>
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/60 text-xs text-slate-800 leading-relaxed">
-              <p className="font-semibold text-slate-900 mb-1">Business Justification:</p>
+              <p className="font-semibold text-slate-900 mb-1">Remarks (including Justification for Non Payback expenditure, etc.):</p>
               <p>{proposal.remarks || "No narrative remarks provided."}</p>
               {proposal.remarks_jv && (
                 <div className="mt-3 pt-3 border-t border-slate-200">
-                  <p className="font-semibold text-slate-900 mb-1">Joint Venture Risk Remarks:</p>
+                  <p className="font-semibold text-slate-900 mb-1">Remarks on JV Risk (including risk carrying period):</p>
                   <p>{proposal.remarks_jv}</p>
                 </div>
               )}

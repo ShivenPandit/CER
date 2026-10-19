@@ -10,6 +10,7 @@ import {
   User,
   ArrowUpDown,
   Lock,
+  ArrowLeft,
 } from "lucide-react";
 import { ICERAuditRecord } from "../../models/AuditModel";
 import { ICERDataService } from "../../services/ICERDataService";
@@ -19,12 +20,14 @@ interface IAuditTrailViewProps {
   dataService: ICERDataService;
   initialProposalId?: string;
   onNavigateToDisplay?: (cerprno: string) => void;
+  onCancel?: () => void;
 }
 
 export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
   dataService,
   initialProposalId,
   onNavigateToDisplay,
+  onCancel,
 }) => {
   const [auditRows, setAuditRows] = useState<ICERAuditRecord[]>([]);
   const [filterProposal, setFilterProposal] = useState(initialProposalId || "");
@@ -117,19 +120,30 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-              <Lock className="w-3 h-3 text-emerald-600" /> Immutable Audit Ledger
-            </span>
-            <span className="text-xs text-slate-400">FR-06 & FR-07 Compliant</span>
+        <div className="flex items-center gap-3">
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+              title="Go back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                <Lock className="w-3 h-3 text-emerald-600" /> Immutable Audit Ledger
+              </span>
+              <span className="text-xs text-slate-400">FR-06 & FR-07 Compliant</span>
+            </div>
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+              Field-Level Audit Trail & Change History
+            </h2>
+            <p className="text-xs text-slate-500">
+              Granular ledger tracking every field modification with old value, new value, user, and timestamp
+            </p>
           </div>
-          <h2 className="text-lg font-bold text-slate-900 tracking-tight">
-            Field-Level Audit Trail & Change History
-          </h2>
-          <p className="text-xs text-slate-500">
-            Granular ledger tracking every field modification with old value, new value, user, and timestamp
-          </p>
         </div>
 
         {/* Proposal Filter Form */}

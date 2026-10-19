@@ -1,6 +1,7 @@
 import { LocalMockCERDataService } from "../services/LocalMockCERDataService";
 import { ICERProposal, CATEGORY_DEFINITIONS, SBU_OPTIONS } from "../models/CERModel";
 import { AUDIT_FIELD_DESCRIPTIONS, EXCLUDED_AUDIT_FIELDS } from "../models/AuditModel";
+import { validateField, validateAll } from "../utils/cerValidation";
 
 // Lightweight Test Harness for Node 22 execution
 let passed = 0;
@@ -206,12 +207,49 @@ async function runAllVerificationTests(): Promise<void> {
   console.log("\nTest Suite 5: Business Rules — Master Data & Categories");
   assert(SBU_OPTIONS.indexOf("RJ North") !== -1, "SBU 'RJ North' is configured");
   assert(SBU_OPTIONS.indexOf("RJ South") !== -1, "SBU 'RJ South' is configured");
+  assert(SBU_OPTIONS.indexOf("CBOS") !== -1, "SBU 'CBOS' is configured");
+  assert(SBU_OPTIONS.indexOf("RAVA") !== -1, "SBU 'RAVA' is configured");
   assert((SBU_OPTIONS as string[]).indexOf("RJ01") === -1, "Legacy 'RJ01' option is omitted");
   assert((SBU_OPTIONS as string[]).indexOf("RJ Oil & Gas") === -1, "Legacy 'RJ Oil & Gas' option is omitted");
+  assert(SBU_OPTIONS.length === 4, "SBU options strictly contain only the 4 approved options from requirement doc");
 
   assert(CATEGORY_DEFINITIONS.Vital !== undefined, "Vital Category definition present");
   assert(CATEGORY_DEFINITIONS.Essential !== undefined, "Essential Category definition present");
   assert(CATEGORY_DEFINITIONS.Desirable !== undefined, "Desirable Category definition present");
+
+  // ---------------------------------------------------------------------------------------------
+  // Test Suite 6: CER Form Field Mapping & Inline Validation Requirements
+  // ---------------------------------------------------------------------------------------------
+  console.log("\nTest Suite 6: CER Form Field Mapping & Validation Rules");
+
+  // Section A: Project Name bounds
+  assert(validateField("pr_name", "AB", testProp) !== undefined, "Project Name < 3 chars rejected");
+  assert(validateField("pr_name", "Valid Project Name", testProp) === undefined, "Project Name valid");
+  assert(validateField("com_date", "2026-01-01", { ...testProp, st_date: "2026-06-01" }) !== undefined, "Completion date earlier than start date rejected");
+  assert(validateField("object", "Short", testProp) !== undefined, "Objectives of CER < 10 chars rejected");
+
+  // Section B: Amount & Payback Quarters
+  assert(validateField("amount", 0, testProp) !== undefined, "Amount <= 0 rejected");
+  assert(validateField("amount", 5000000, testProp) === undefined, "Valid positive amount accepted");
+  assert(validateField("payback_quarters", 0, { ...testProp, payable: "Payback" }) !== undefined, "Payback quarters <= 0 rejected when Payback is selected");
+  assert(validateField("payback_quarters", 8, { ...testProp, payable: "Payback" }) === undefined, "Valid positive quarters accepted");
+  assert(validateField("ben_irr", 150, testProp) !== undefined, "IRR > 100% rejected");
+
+  // Section C: Corporate Budget Reason
+  assert(validateField("reason", "", { ...testProp, cbudget: "No" }) !== undefined, "Reason required when corporate budget is No");
+
+  // Section D: JV Budget Reason & Recoverable
+  assert(validateField("jv_reason", "", { ...testProp, jv_budget: "No" }) !== undefined, "Reason required when JV budget is No");
+  assert(validateField("jv_recoverable", "Yes", testProp) === undefined, "JV Cost Recoverable valid value");
+
+  // Full form submission vs draft
+  const draftRes = validateAll({ ...testProp, pr_name: "", amount: 0 }, true);
+  assert(draftRes.isValid === true, "Save Draft allows incomplete form data");
+
+  const submitInvalidRes = validateAll({ ...testProp, pr_name: "", amount: 0 }, false);
+  assert(submitInvalidRes.isValid === false, "Submit for Approval blocks invalid/incomplete form data");
+  assert(submitInvalidRes.errors.pr_name !== undefined, "Missing Project Name flagged in submit errors");
+  assert(submitInvalidRes.errors.amount !== undefined, "Missing Amount flagged in submit errors");
 
   // ---------------------------------------------------------------------------------------------
   // Test Results Summary

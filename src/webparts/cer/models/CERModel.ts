@@ -7,43 +7,45 @@ export type CERStatus =
   | "Rejected"
   | "Revised";
 
-export type CERPayable = "Payback" | "Non-Payback";
+export type CERPayable = "Payback" | "Non Payback" | "Non-Payback";
 
-export type SBUOption = "RJ North" | "RJ South" | "Suvali" | "Ravva" | "CB-OS/2" | "Corporate";
+export type SBUOption = "RJ North" | "RJ South" | "CBOS" | "RAVA";
 
 export interface ICERProposal {
   id: string; // Internal unique ID / GUID
   cerprno: string; // CER Proposal Number (e.g. CER-2026-0001)
-  pr_name: string; // Project Name
+  pr_name: string; // Name of Project
   owname: string; // CER Owner Name
   owner_email: string;
-  sbu: SBUOption;
+  sbu: SBUOption; // Block/SBU/Field
   status: CERStatus;
-  object: string; // Business Object
+  object: string; // Objectives of CER
   amount: number; // Amount of CER
   currency: string; // USD or INR
   cat: CERCategory; // Vital | Essential | Desirable
-  payable: CERPayable;
+  payable: CERPayable; // Payback/Non Payback
   period: string; // Duration string or description
-  ben_npv: number; // Financial Benefits NPV ($mm)
-  ben_irr: number; // Financial Benefits IRR (%)
-  cost_assumptions: string; // Key assumptions for financial benefits & costs
-  st_date: string; // Project start date (YYYY-MM-DD)
-  com_date: string; // Project completion date (YYYY-MM-DD)
-  duration_months: number;
+  payback_quarters?: number; // Payback Period (in no. of Quarters)
+  ben_npv: number; // Financial Benefits – NPV ($mm)
+  ben_irr: number; // Financial Benefit – IRR (%)
+  cost_assumptions: string; // Key Assumptions to Financial Benefit/Costs
+  st_date: string; // Start Date of Project (YYYY-MM-DD)
+  com_date: string; // Completion Date of Project (YYYY-MM-DD)
+  duration_months: number; // Total Duration
 
   // Corporate Budget
-  cbudget: "Yes" | "No" | "Partially";
-  cb_amnt: number;
+  cbudget: "Yes" | "No" | "Partially"; // Corporate Budget (Yes/No)
+  cb_amnt: number; // Corporate Budget Amount ($mm)
   cb_currency: string;
-  reason: string; // Reason if not partially budgeted
+  reason: string; // Reason if not/partially budgeted
 
-  // Joint Venture
-  jv: "Yes" | "No";
+  // Joint Venture Details
+  jv: "Yes" | "No" | "Under Discussion"; // Aligned with JV (Yes/No/Under Discussion)
+  jv_recoverable?: "Yes" | "No"; // JV Cost Recoverable (Yes/No)
   jv_cost: number;
-  jv_budget: "Yes" | "No";
-  jv_amnt: number;
-  jv_reason: string; // JV Justification
+  jv_budget: "Yes" | "No"; // JV Budget (Yes/No)
+  jv_amnt: number; // JV Budget Amount ($mm)
+  jv_reason: string; // Reason if not/partially budgeted
 
   // Phasing Labels
   ph_till_label: string; // e.g. "Till FY25"
@@ -111,8 +113,6 @@ export const CATEGORY_DEFINITIONS: Record<CERCategory, { label: string; descript
 export const SBU_OPTIONS: SBUOption[] = [
   "RJ North",
   "RJ South",
-  "Suvali",
-  "Ravva",
-  "CB-OS/2",
-  "Corporate"
+  "CBOS",
+  "RAVA"
 ];

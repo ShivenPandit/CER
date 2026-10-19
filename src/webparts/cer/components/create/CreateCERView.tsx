@@ -11,7 +11,8 @@ import { PhasingSection } from "./PhasingSection";
 import { CostBreakdownSection } from "./CostBreakdownSection";
 import { RemarksSection } from "./RemarksSection";
 import { AttachmentSection } from "./AttachmentSection";
-import { CategoryDefinitionModal } from "../common/CategoryDefinitionModal";
+import { CategoryDefinitionSection } from "../common/CategoryDefinitionSection";
+import { FormErrors, validateField, validateAll } from "../../utils/cerValidation";
 
 interface ICreateCERViewProps {
   dataService: ICERDataService;
@@ -40,6 +41,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     cat: "Vital",
     payable: "Payback",
     period: "12 Months",
+    payback_quarters: 4,
     ben_npv: 0,
     ben_irr: 0,
     cost_assumptions: "",
@@ -51,13 +53,14 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     cb_currency: "USD",
     reason: "",
     jv: "No",
+    jv_recoverable: "No",
     jv_cost: 0,
     jv_budget: "No",
     jv_amnt: 0,
     jv_reason: "",
-    ph_till_label: "Till FY26",
+    ph_till_label: "Till Mar'26",
     ph_fy_label: "FY 26-27",
-    ph_beyond_label: "Beyond FY27",
+    ph_beyond_label: "Beyond FY'27",
     prod_till: 0,
     prod_fy: 0,
     prod_beyond: 0,
@@ -86,10 +89,11 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
   });
 
   const [attachments, setAttachments] = useState<ICERAttachment[]>([]);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   const generateProposalNumber = async (): Promise<void> => {
     try {
@@ -104,8 +108,39 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     generateProposalNumber().catch((e) => console.error(e));
   }, []);
 
+  // On change: update form data and revalidate the specific field if touched or previously errored
   const handleFieldChange = (field: keyof ICERProposal, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      const updated = { ...prev, [field]: value };
+      if (touched[field] || errors[field]) {
+        const error = validateField(field, value, updated, false);
+        setErrors((prevErrors) => {
+          const newErrors = { ...prevErrors };
+          if (error) {
+            newErrors[field] = error;
+          } else {
+            delete newErrors[field];
+          }
+          return newErrors;
+        });
+      }
+      return updated;
+    });
+  };
+
+  // On blur: mark field as touched and validate immediately
+  const handleFieldBlur = (field: keyof ICERProposal) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    const error = validateField(field, formData[field], formData, false);
+    setErrors((prev) => {
+      const updated = { ...prev };
+      if (error) {
+        updated[field] = error;
+      } else {
+        delete updated[field];
+      }
+      return updated;
+    });
   };
 
   const handleAddAttachment = (att: ICERAttachment) => {
@@ -116,35 +151,41 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   };
 
+  const scrollToFirstError = (fieldKey: string) => {
+    setTimeout(() => {
+      const targetElement = document.getElementById(`field-${fieldKey}`) || document.getElementById(fieldKey);
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        const focusable = targetElement.querySelector("input, select, textarea") as HTMLElement | null;
+        if (focusable) {
+          focusable.focus();
+        }
+      }
+    }, 100);
+  };
+
   const handleSubmit = async (isDraft: boolean = false) => {
     setErrorMessage(null);
 
-    // Validation
-    if (!formData.cerprno.trim()) {
-      setErrorMessage("Please enter or generate a valid CER Proposal Number.");
-      return;
-    }
-    if (!formData.pr_name.trim()) {
-      setErrorMessage("Please enter the Project Name.");
-      return;
-    }
-    if (!formData.owname.trim()) {
-      setErrorMessage("Please enter the CER Owner name.");
-      return;
-    }
-    if (!isDraft && (!formData.amount || formData.amount <= 0)) {
-      setErrorMessage("Please enter a valid CER Amount greater than 0.");
-      return;
-    }
-    if (!isDraft && !formData.remarks.trim()) {
-      setErrorMessage("Please provide Business Justification Remarks.");
-      return;
-    }
+    // Validate using modern rules
+    const { errors: validationErrors, isValid, firstErrorField } = validateAll(formData, isDraft);
 
-    // Word count check
-    const wordCount = formData.remarks ? formData.remarks.trim().split(/\s+/).filter(Boolean).length : 0;
-    if (!isDraft && wordCount > 400) {
-      setErrorMessage(`Business remarks exceed the 400-word limit (${wordCount} words entered). Please condense your remarks.`);
+    if (!isValid) {
+      setErrors(validationErrors);
+
+      // Mark all errored fields as touched
+      const newTouched: Record<string, boolean> = { ...touched };
+      Object.keys(validationErrors).forEach((key) => {
+        newTouched[key] = true;
+      });
+      setTouched(newTouched);
+
+      const firstErr = firstErrorField ? validationErrors[firstErrorField] : "Please correct validation errors.";
+      setErrorMessage(firstErr || "Please review the form for invalid or missing required entries.");
+
+      if (firstErrorField) {
+        scrollToFirstError(firstErrorField);
+      }
       return;
     }
 
@@ -181,7 +222,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
           <button
             onClick={onCancel}
             className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-            title="Return to Dashboard"
+            title="Go back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -217,39 +258,62 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         </div>
       )}
 
-      {/* Form Sections */}
+      {/* Section A — Project identification and scope */}
       <ProjectDetailsSection
         formData={formData}
         onChange={handleFieldChange}
+        onBlur={handleFieldBlur}
+        errors={errors}
+        touched={touched}
         onGenerateNewNumber={generateProposalNumber}
-        onOpenCategoryHelp={() => setShowCategoryModal(true)}
       />
 
+      {/* Section B — Financial benefits and payback */}
       <FinancialBenefitsSection
         formData={formData}
         onChange={handleFieldChange}
+        onBlur={handleFieldBlur}
+        errors={errors}
+        touched={touched}
       />
 
+      {/* Section C — Corporate budget & Section D — Joint venture details */}
       <BudgetJVSection
         formData={formData}
         onChange={handleFieldChange}
+        onBlur={handleFieldBlur}
+        errors={errors}
+        touched={touched}
       />
 
+      {/* Section E — Expenditure phasing */}
       <PhasingSection
         formData={formData}
         onChange={handleFieldChange}
+        onBlur={handleFieldBlur}
+        errors={errors}
+        touched={touched}
       />
 
+      {/* Section F — CAPEX cost estimates basis */}
       <CostBreakdownSection
         formData={formData}
         onChange={handleFieldChange}
+        onBlur={handleFieldBlur}
+        errors={errors}
+        touched={touched}
       />
 
+      {/* Section G — Remarks and justification */}
       <RemarksSection
         formData={formData}
         onChange={handleFieldChange}
+        onBlur={handleFieldBlur}
+        errors={errors}
+        touched={touched}
       />
 
+      {/* Section H — Supporting documents */}
       <AttachmentSection
         attachments={attachments}
         onAddAttachment={handleAddAttachment}
@@ -257,6 +321,9 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         cerprno={formData.cerprno}
         userName={currentUser.name}
       />
+
+      {/* Critical Client Requirement: Category Definition at the end of the Form */}
+      <CategoryDefinitionSection />
 
       {/* Sticky Bottom Actions Bar */}
       <div className="fixed bottom-0 left-64 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 px-8 py-3.5 flex items-center justify-between shadow-elevated z-30">
@@ -295,12 +362,6 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
           </button>
         </div>
       </div>
-
-      {/* Category Definitions Modal */}
-      <CategoryDefinitionModal
-        isOpen={showCategoryModal}
-        onClose={() => setShowCategoryModal(false)}
-      />
     </div>
   );
 };

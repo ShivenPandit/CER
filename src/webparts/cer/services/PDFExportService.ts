@@ -26,7 +26,7 @@ export class PDFExportService {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(14);
       doc.setTextColor(255, 255, 255);
-      doc.text("SPX — CAPITAL EXPENDITURE REQUEST (CER)", margin + 6, currentY + 9);
+      doc.text("CAPITAL EXPENDITURE REQUEST (CER)", margin + 6, currentY + 9);
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
@@ -71,16 +71,19 @@ export class PDFExportService {
 
       currentY += 15;
 
-      // Section A: Project Information
+      // Section A: Project Information & Scope
       autoTable(doc, {
         startY: currentY,
         margin: { left: margin, right: margin },
-        head: [["PROJECT INFORMATION & SCOPE", ""]],
+        head: [["SECTION A — PROJECT IDENTIFICATION & SCOPE", ""]],
         body: [
-          ["Project Name", proposal.pr_name],
-          ["CER Owner / Initiator", `${proposal.owname} (${proposal.owner_email})`],
-          ["Business Object", proposal.object || "N/A"],
-          ["Project Duration", `${proposal.st_date} to ${proposal.com_date} (${proposal.duration_months} Months)`],
+          ["Name of Project", proposal.pr_name],
+          ["CER Proposal No.", proposal.cerprno],
+          ["CER Owner Name", `${proposal.owname} (${proposal.owner_email})`],
+          ["Block/SBU/Field", proposal.sbu],
+          ["Category", proposal.cat],
+          ["Objectives of CER", proposal.object || "N/A"],
+          ["Project Schedule", `${proposal.st_date} to ${proposal.com_date} (${proposal.duration_months} Months)`],
         ],
         theme: "grid",
         headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: "bold", fontSize: 9 },
@@ -92,18 +95,21 @@ export class PDFExportService {
 
       currentY = (doc as any).lastAutoTable.finalY + 6;
 
-      // Section B: Financial Benefits & Corporate Budget
+      // Section B & C & D: Financial Benefits & Budget
       autoTable(doc, {
         startY: currentY,
         margin: { left: margin, right: margin },
-        head: [["FINANCIAL SUMMARY & BUDGET", ""]],
+        head: [["SECTION B, C & D — FINANCIAL EVALUATION & BUDGET", ""]],
         body: [
           ["Amount of CER", `${proposal.currency} ${proposal.amount.toLocaleString()}`],
-          ["Payback Classification", proposal.payable],
-          ["Financial Benefits — NPV", proposal.ben_npv ? `$${proposal.ben_npv} MM` : "N/A"],
-          ["Financial Benefits — IRR (%)", proposal.ben_irr ? `${proposal.ben_irr}%` : "N/A"],
-          ["Corporate Budget Status", `${proposal.cbudget} (Amount: ${proposal.cb_currency} ${proposal.cb_amnt.toLocaleString()})`],
-          ["Joint Venture (JV) Alignment", `${proposal.jv} (JV Cost: ${proposal.currency} ${proposal.jv_cost.toLocaleString()} | Budget: ${proposal.jv_budget})`],
+          ["Payback/Non Payback", proposal.payable],
+          ["Payback Period (Quarters)", proposal.payback_quarters ? `${proposal.payback_quarters} Quarters` : "N/A"],
+          ["Financial Benefits – NPV ($mm)", proposal.ben_npv ? `$${proposal.ben_npv} mm` : "N/A"],
+          ["Financial Benefit – IRR (%)", proposal.ben_irr ? `${proposal.ben_irr}%` : "N/A"],
+          ["Corporate Budget (Yes/No)", `${proposal.cbudget} (Amount: $${proposal.cb_amnt.toLocaleString()} mm)`],
+          ["Reason if not/partially budgeted", proposal.reason || "Within approved budget"],
+          ["Aligned with JV", `${proposal.jv} (JV Budget: ${proposal.jv_budget} | Amount: $${proposal.jv_amnt.toLocaleString()} mm)`],
+          ["JV Cost Recoverable", proposal.jv_recoverable || "No"],
           ["Key Assumptions", proposal.cost_assumptions || "None recorded"],
         ],
         theme: "grid",
@@ -116,28 +122,28 @@ export class PDFExportService {
 
       currentY = (doc as any).lastAutoTable.finalY + 6;
 
-      // Section C: Phasing Matrix
+      // Section E: Phasing Matrix
       autoTable(doc, {
         startY: currentY,
         margin: { left: margin, right: margin },
-        head: [["EXPENDITURE PHASING", proposal.ph_till_label, proposal.ph_fy_label, proposal.ph_beyond_label, "TOTAL"]],
+        head: [["EXPENDITURE PHASING", proposal.ph_till_label || "Till Mar'26", proposal.ph_fy_label || "FY 26-27", proposal.ph_beyond_label || "Beyond FY'27", "TOTAL"]],
         body: [
           [
-            "Production Expenditure",
+            "Production (in mmbbls)",
             proposal.prod_till.toLocaleString(),
             proposal.prod_fy.toLocaleString(),
             proposal.prod_beyond.toLocaleString(),
             (proposal.prod_till + proposal.prod_fy + proposal.prod_beyond).toLocaleString(),
           ],
           [
-            "CAPEX Expenditure",
+            "Capex ($mm)",
             proposal.capex_till.toLocaleString(),
             proposal.capex_fy.toLocaleString(),
             proposal.capex_beyond.toLocaleString(),
             (proposal.capex_till + proposal.capex_fy + proposal.capex_beyond).toLocaleString(),
           ],
           [
-            "OPEX Expenditure",
+            "Opex ($mm)",
             proposal.opex_till.toLocaleString(),
             proposal.opex_fy.toLocaleString(),
             proposal.opex_beyond.toLocaleString(),
@@ -154,18 +160,18 @@ export class PDFExportService {
 
       currentY = (doc as any).lastAutoTable.finalY + 6;
 
-      // Section D: Cost Breakdown
+      // Section F: CAPEX Cost Estimates Basis
       autoTable(doc, {
         startY: currentY,
         margin: { left: margin, right: margin },
-        head: [["COST BREAKDOWN COMPONENT", `AMOUNT (${proposal.currency})`, "% OF TOTAL"]],
+        head: [["CAPEX COST ESTIMATES BASIS", `AMOUNT ($mm)`, "% OF TOTAL"]],
         body: [
           ["Engineering", proposal.engineer.toLocaleString(), `${((proposal.engineer / (proposal.total || 1)) * 100).toFixed(1)}%`],
-          ["Site Facilities", proposal.s_fac.toLocaleString(), `${((proposal.s_fac / (proposal.total || 1)) * 100).toFixed(1)}%`],
+          ["Surface Facilities", proposal.s_fac.toLocaleString(), `${((proposal.s_fac / (proposal.total || 1)) * 100).toFixed(1)}%`],
           ["Commissioning", proposal.comis.toLocaleString(), `${((proposal.comis / (proposal.total || 1)) * 100).toFixed(1)}%`],
-          ["Pre-Operating Costs", proposal.preop.toLocaleString(), `${((proposal.preop / (proposal.total || 1)) * 100).toFixed(1)}%`],
-          ["Others / Contingency", proposal.others.toLocaleString(), `${((proposal.others / (proposal.total || 1)) * 100).toFixed(1)}%`],
-          ["TOTAL ESTIMATED COST", proposal.total.toLocaleString(), "100.0%"],
+          ["Pre Operations", proposal.preop.toLocaleString(), `${((proposal.preop / (proposal.total || 1)) * 100).toFixed(1)}%`],
+          ["Others", proposal.others.toLocaleString(), `${((proposal.others / (proposal.total || 1)) * 100).toFixed(1)}%`],
+          ["TOTAL", proposal.total.toLocaleString(), "100.0%"],
         ],
         theme: "grid",
         headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 8.5 },
@@ -235,7 +241,7 @@ export class PDFExportService {
         doc.setFontSize(7.5);
         doc.setTextColor(148, 163, 184);
         doc.text(
-          `SPX CER Management System — Confidential Corporate Record — Page ${i} of ${totalPages}`,
+          `CER Management System — Confidential Corporate Record — Page ${i} of ${totalPages}`,
           pageWidth / 2,
           doc.internal.pageSize.getHeight() - 8,
           { align: "center" }

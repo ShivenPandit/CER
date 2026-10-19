@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, Save, ArrowLeft, CheckCircle2, AlertCircle, History, ShieldAlert } from "lucide-react";
+import { Search, Save, ArrowLeft, CheckCircle2, AlertCircle, ShieldAlert } from "lucide-react";
 import { ICERProposal } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
 import { ICERAttachment } from "../../models/AttachmentModel";
@@ -11,7 +11,8 @@ import { PhasingSection } from "../create/PhasingSection";
 import { CostBreakdownSection } from "../create/CostBreakdownSection";
 import { RemarksSection } from "../create/RemarksSection";
 import { AttachmentSection } from "../create/AttachmentSection";
-import { CategoryDefinitionModal } from "../common/CategoryDefinitionModal";
+import { CategoryDefinitionSection } from "../common/CategoryDefinitionSection";
+import { FormErrors, validateField, validateAll } from "../../utils/cerValidation";
 
 interface IChangeCERViewProps {
   dataService: ICERDataService;
@@ -34,11 +35,12 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
   const [formData, setFormData] = useState<ICERProposal | null>(null);
   const [originalProposal, setOriginalProposal] = useState<ICERProposal | null>(null);
   const [attachments, setAttachments] = useState<ICERAttachment[]>([]);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   const loadProposal = async (cerprno: string): Promise<void> => {
     // Specific mandatory validation as required by FR-02:
@@ -51,6 +53,8 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
     setIsLoading(true);
     setErrorMessage(null);
     setSuccessNotice(null);
+    setErrors({});
+    setTouched({});
 
     try {
       const found = await dataService.getProposalByNumber(cerprno.trim());
@@ -59,8 +63,17 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         setFormData(null);
         setOriginalProposal(null);
       } else {
-        setFormData({ ...found });
-        setOriginalProposal({ ...found });
+        // Ensure defaults for new fields if not present
+        const normalized: ICERProposal = {
+          ...found,
+          payback_quarters: found.payback_quarters || 4,
+          jv_recoverable: found.jv_recoverable || "No",
+          ph_till_label: found.ph_till_label || "Till Mar'26",
+          ph_fy_label: found.ph_fy_label || "FY 26-27",
+          ph_beyond_label: found.ph_beyond_label || "Beyond FY'27",
+        };
+        setFormData(normalized);
+        setOriginalProposal({ ...normalized });
 
         // Load attachments
         const atts = await dataService.getAttachments(found.cerprno);
@@ -86,7 +99,38 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
 
   const handleFieldChange = (field: keyof ICERProposal, value: any) => {
     if (!formData) return;
-    setFormData((prev) => (prev ? { ...prev, [field]: value } : null));
+    setFormData((prev) => {
+      if (!prev) return null;
+      const updated = { ...prev, [field]: value };
+      if (touched[field] || errors[field]) {
+        const error = validateField(field, value, updated, false);
+        setErrors((prevErrors) => {
+          const newErrors = { ...prevErrors };
+          if (error) {
+            newErrors[field] = error;
+          } else {
+            delete newErrors[field];
+          }
+          return newErrors;
+        });
+      }
+      return updated;
+    });
+  };
+
+  const handleFieldBlur = (field: keyof ICERProposal) => {
+    if (!formData) return;
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    const error = validateField(field, formData[field], formData, false);
+    setErrors((prev) => {
+      const updated = { ...prev };
+      if (error) {
+        updated[field] = error;
+      } else {
+        delete updated[field];
+      }
+      return updated;
+    });
   };
 
   const handleAddAttachment = async (att: ICERAttachment) => {
@@ -100,14 +144,40 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   };
 
+  const scrollToFirstError = (fieldKey: string) => {
+    setTimeout(() => {
+      const targetElement = document.getElementById(`field-${fieldKey}`) || document.getElementById(fieldKey);
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        const focusable = targetElement.querySelector("input, select, textarea") as HTMLElement | null;
+        if (focusable) {
+          focusable.focus();
+        }
+      }
+    }, 100);
+  };
+
   const handleSaveChange = async () => {
     if (!formData) return;
     setErrorMessage(null);
 
-    // Remarks word count check
-    const wordCount = formData.remarks ? formData.remarks.trim().split(/\s+/).filter(Boolean).length : 0;
-    if (wordCount > 400) {
-      setErrorMessage(`Business remarks exceed the 400-word limit (${wordCount} words entered). Please condense your remarks.`);
+    // Validate using modern rules
+    const { errors: validationErrors, isValid, firstErrorField } = validateAll(formData, false);
+
+    if (!isValid) {
+      setErrors(validationErrors);
+      const newTouched: Record<string, boolean> = { ...touched };
+      Object.keys(validationErrors).forEach((key) => {
+        newTouched[key] = true;
+      });
+      setTouched(newTouched);
+
+      const firstErr = firstErrorField ? validationErrors[firstErrorField] : "Please correct validation errors.";
+      setErrorMessage(firstErr || "Please review the form for invalid or missing required entries.");
+
+      if (firstErrorField) {
+        scrollToFirstError(firstErrorField);
+      }
       return;
     }
 
@@ -137,7 +207,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           <button
             onClick={onCancel}
             className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-            title="Return to Dashboard"
+            title="Go back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -204,41 +274,65 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
             </div>
           )}
 
+          {/* Section A — Project identification and scope */}
           <ProjectDetailsSection
             formData={formData}
             onChange={handleFieldChange}
+            onBlur={handleFieldBlur}
+            errors={errors}
+            touched={touched}
             isChangeMode={true}
-            onOpenCategoryHelp={() => setShowCategoryModal(true)}
           />
 
+          {/* Section B — Financial benefits and payback */}
           <FinancialBenefitsSection
             formData={formData}
             onChange={handleFieldChange}
+            onBlur={handleFieldBlur}
+            errors={errors}
+            touched={touched}
           />
 
+          {/* Section C — Corporate budget & Section D — Joint venture details */}
           <BudgetJVSection
             formData={formData}
             onChange={handleFieldChange}
+            onBlur={handleFieldBlur}
+            errors={errors}
+            touched={touched}
           />
 
+          {/* Section E — Expenditure phasing */}
           <PhasingSection
             formData={formData}
             onChange={handleFieldChange}
+            onBlur={handleFieldBlur}
+            errors={errors}
+            touched={touched}
           />
 
+          {/* Section F — CAPEX cost estimates basis */}
           <CostBreakdownSection
             formData={formData}
             onChange={handleFieldChange}
+            onBlur={handleFieldBlur}
+            errors={errors}
+            touched={touched}
           />
 
+          {/* Section G — Remarks and justification */}
           <RemarksSection
             formData={formData}
             onChange={handleFieldChange}
+            onBlur={handleFieldBlur}
+            errors={errors}
+            touched={touched}
             onViewRemarksHistory={
               onViewRemarksHistory ? () => onViewRemarksHistory(formData.cerprno) : undefined
             }
           />
 
+          {/* Section H — Supporting documents */}
           <AttachmentSection
             attachments={attachments}
             onAddAttachment={handleAddAttachment}
@@ -246,6 +340,9 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
             cerprno={formData.cerprno}
             userName={currentUser.name}
           />
+
+          {/* Critical Client Requirement: Category Definition at the end of the Form */}
+          <CategoryDefinitionSection />
 
           {/* Sticky Bottom Actions Bar */}
           <div className="fixed bottom-0 left-64 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 px-8 py-3.5 flex items-center justify-between shadow-elevated z-30">
@@ -276,12 +373,6 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           </div>
         </>
       )}
-
-      {/* Category Definitions Modal */}
-      <CategoryDefinitionModal
-        isOpen={showCategoryModal}
-        onClose={() => setShowCategoryModal(false)}
-      />
     </div>
   );
 };

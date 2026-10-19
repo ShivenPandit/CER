@@ -1,11 +1,15 @@
 import React from "react";
-import { MessageSquare, ShieldAlert, History } from "lucide-react";
+import { MessageSquare, History, AlertCircle, CheckCircle2 } from "lucide-react";
 import { ICERProposal } from "../../models/CERModel";
 import { WordCounter } from "../common/WordCounter";
+import { FormErrors } from "../../utils/cerValidation";
 
 interface IRemarksSectionProps {
   formData: ICERProposal;
   onChange: (field: keyof ICERProposal, value: any) => void;
+  onBlur?: (field: keyof ICERProposal) => void;
+  errors?: FormErrors;
+  touched?: Record<string, boolean>;
   isReadOnly?: boolean;
   onViewRemarksHistory?: () => void;
 }
@@ -13,11 +17,25 @@ interface IRemarksSectionProps {
 export const RemarksSection: React.FC<IRemarksSectionProps> = ({
   formData,
   onChange,
+  onBlur,
+  errors = {},
+  touched = {},
   isReadOnly = false,
   onViewRemarksHistory,
 }) => {
+  const isNonPayback = formData.payable === "Non Payback" || formData.payable === "Non-Payback";
+  const needsJvRisk = formData.jv === "Under Discussion" || formData.jv_budget === "No";
+
+  const getFieldError = (field: keyof ICERProposal): string | undefined => {
+    return touched[field] || errors[field] ? errors[field] : undefined;
+  };
+
+  const isFieldValid = (field: keyof ICERProposal): boolean => {
+    return !!touched[field] && !errors[field] && !!formData[field];
+  };
+
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-5">
+    <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-5" id="section-remarks">
       <div className="flex items-center justify-between pb-4 border-b border-slate-100">
         <div className="flex items-center gap-2.5">
           <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
@@ -25,7 +43,7 @@ export const RemarksSection: React.FC<IRemarksSectionProps> = ({
           </div>
           <div>
             <h3 className="font-bold text-slate-900 text-sm">
-              Section G: Business Justification & Remarks
+              Section G — Remarks and justification
             </h3>
             <p className="text-xs text-slate-500">
               Detailed narrative justification, non-payback rationale, and JV risk comments
@@ -44,44 +62,78 @@ export const RemarksSection: React.FC<IRemarksSectionProps> = ({
               <span>Remarks History</span>
             </button>
           )}
-          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-            FR-08
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-700">
+            Section G
           </span>
         </div>
       </div>
 
-      <div className="space-y-4 text-xs">
-        {/* Main Justification Remarks */}
-        <div>
-          <label className="block font-semibold text-slate-700 mb-1.5">
-            Business Justification Remarks (including Justification for Non Payback expenditure, etc.) <span className="text-rose-500">*</span>
+      <div className="space-y-5 text-xs">
+        {/* Remarks (including Justification for Non Payback expenditure, etc.) */}
+        <div id="field-remarks">
+          <label htmlFor="remarks" className="block font-semibold text-slate-700 mb-1.5">
+            Remarks (including Justification for Non Payback expenditure, etc.) <span className="text-rose-500">*</span>
           </label>
           <textarea
+            id="remarks"
             rows={5}
             disabled={isReadOnly}
             value={formData.remarks}
             onChange={(e) => onChange("remarks", e.target.value)}
-            placeholder="Enter thorough business background, technical necessity, operational urgency, and risk mitigation details (target: 350–400 words)..."
-            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-900 leading-relaxed resize-y"
+            onBlur={() => onBlur && onBlur("remarks")}
+            className={`w-full px-3.5 py-2.5 rounded-xl transition-all text-slate-900 leading-relaxed resize-y focus:outline-none ${
+              getFieldError("remarks")
+                ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            }`}
             required
+            aria-invalid={!!getFieldError("remarks")}
           />
-          {/* Real-time Word Counter adhering to 350–400 word rule */}
-          <WordCounter text={formData.remarks} minLimit={350} maxLimit={400} />
+          {getFieldError("remarks") ? (
+            <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>{getFieldError("remarks")}</span>
+            </p>
+          ) : isFieldValid("remarks") ? (
+            <p className="mt-1.5 text-xs text-emerald-600 flex items-center gap-1 font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              <span>Valid justification entered</span>
+            </p>
+          ) : null}
+          <div className="mt-2">
+            <WordCounter text={formData.remarks} minLimit={10} maxLimit={400} />
+          </div>
         </div>
 
-        {/* Remarks related to JV Risk */}
-        <div>
-          <label className="block font-semibold text-slate-700 mb-1.5">
-            Remarks Related to Joint Venture (JV) Risk
+        {/* Remarks on JV Risk (including risk carrying period) */}
+        <div id="field-remarks_jv">
+          <label htmlFor="remarks_jv" className="block font-semibold text-slate-700 mb-1.5">
+            Remarks on JV Risk (including risk carrying period) {needsJvRisk && <span className="text-rose-500">*</span>}
           </label>
           <textarea
-            rows={2}
+            id="remarks_jv"
+            rows={3}
             disabled={isReadOnly}
             value={formData.remarks_jv}
             onChange={(e) => onChange("remarks_jv", e.target.value)}
-            placeholder="Describe any partner alignment risks, cash call considerations, or regulatory consents..."
-            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-900 leading-relaxed resize-none"
+            onBlur={() => onBlur && onBlur("remarks_jv")}
+            className={`w-full px-3.5 py-2.5 rounded-xl transition-all text-slate-900 leading-relaxed resize-none focus:outline-none ${
+              getFieldError("remarks_jv")
+                ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            }`}
           />
+          {getFieldError("remarks_jv") ? (
+            <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>{getFieldError("remarks_jv")}</span>
+            </p>
+          ) : needsJvRisk && isFieldValid("remarks_jv") ? (
+            <p className="mt-1.5 text-xs text-emerald-600 flex items-center gap-1 font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              <span>Valid JV risk comments</span>
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

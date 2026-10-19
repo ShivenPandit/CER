@@ -49,7 +49,7 @@ export const Breadcrumbs: React.FC<IBreadcrumbsProps> = ({
         className="flex items-center gap-1 hover:text-blue-600 transition-colors"
       >
         <Home className="w-3.5 h-3.5" />
-        <span>SPX CER</span>
+        <span>CER</span>
       </button>
 
       {currentView !== "dashboard" && (

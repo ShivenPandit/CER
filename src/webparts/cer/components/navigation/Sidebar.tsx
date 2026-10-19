@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   Settings,
   ChevronRight,
-  Sparkles,
+  Layers,
 } from "lucide-react";
 import { UserRole } from "../../models/UserModel";
 
@@ -68,7 +68,7 @@ export const Sidebar: React.FC<ISidebarProps> = ({
       id: "all-proposals",
       label: "All CER Proposals",
       icon: Files,
-      visible: userRole !== "Initiator" || true, // Visible to all for transparency, filtered by role
+      visible: true,
     },
     {
       id: "pending-approvals",
@@ -106,9 +106,9 @@ export const Sidebar: React.FC<ISidebarProps> = ({
   return (
     <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 h-screen sticky top-0 border-r border-slate-800 select-none z-30">
       {/* Brand Header */}
-      <div className="p-5 border-b border-slate-800/80 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-          <Sparkles className="w-5 h-5" />
+      <div className="p-4 border-b border-slate-800 flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0">
+          <Layers className="w-4 h-4" />
         </div>
         <div>
           <h1 className="font-bold text-white text-base tracking-tight leading-none">
@@ -122,8 +122,8 @@ export const Sidebar: React.FC<ISidebarProps> = ({
 
       {/* Nav List */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        <div className="px-3 py-2 text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
-          Core Operations
+        <div className="px-3 py-1.5 text-[11px] font-medium text-slate-400">
+          Operations
         </div>
 
         {navItems
@@ -135,16 +135,16 @@ export const Sidebar: React.FC<ISidebarProps> = ({
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id as NavView)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all group ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors group ${
                   isActive
-                    ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
-                    : "text-slate-300 hover:bg-slate-800/70 hover:text-white"
+                    ? "bg-blue-600 text-white"
+                    : "text-slate-300 hover:bg-slate-800/60 hover:text-white"
                 }`}
               >
                 <div className="flex items-center gap-2.5">
                   <Icon
                     className={`w-4 h-4 transition-colors ${
-                      isActive ? "text-white" : "text-slate-400 group-hover:text-white"
+                      isActive ? "text-white" : "text-slate-400 group-hover:text-slate-200"
                     }`}
                   />
                   <span>{item.label}</span>
@@ -156,7 +156,7 @@ export const Sidebar: React.FC<ISidebarProps> = ({
                       className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
                         isActive
                           ? "bg-white text-blue-700"
-                          : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                          : "bg-blue-500/20 text-blue-300 border border-blue-500/30"
                       }`}
                     >
                       {item.badge}
@@ -170,19 +170,16 @@ export const Sidebar: React.FC<ISidebarProps> = ({
       </nav>
 
       {/* Environment Footer */}
-      <div className="p-4 border-t border-slate-800/80 bg-slate-950/40">
-        <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+      <div className="p-3.5 border-t border-slate-800 bg-slate-950/30">
+        <div className="flex items-center justify-between text-[11px] text-slate-400 mb-0.5">
           <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Vedanta SPX Online
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            Vedanta / Cairn
           </span>
-          <span className="text-[10px] font-mono bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">
+          <span className="text-[10px] font-mono bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">
             v1.0.0
           </span>
         </div>
-        <p className="text-[10px] text-slate-400 truncate">
-          Cairn Oil & Gas Enterprise Systems
-        </p>
       </div>
     </aside>
   );
