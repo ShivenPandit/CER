@@ -227,18 +227,18 @@ export const DashboardView: React.FC<IDashboardViewProps> = ({
               <>
                 {/* Desktop / Tablet Table (sm:block) */}
                 <div className="hidden sm:block overflow-x-auto">
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full text-left text-xs table-fixed">
                     <thead>
                       <tr className="border-b border-slate-100 text-slate-400 font-semibold text-[11px] uppercase tracking-wider">
-                        <th className="pb-2.5 pl-1 w-[130px]">Proposal No.</th>
+                        <th className="pb-2.5 pl-1 w-[125px]">Proposal No.</th>
                         <th className="pb-2.5">Project Name</th>
-                        <th className="pb-2.5 hidden xl:table-cell w-[140px]">Owner</th>
-                        <th className="pb-2.5 hidden 2xl:table-cell w-[90px]">SBU</th>
-                        <th className="pb-2.5 w-[90px]">Category</th>
-                        <th className="pb-2.5 text-right w-[120px]">Amount</th>
-                        <th className="pb-2.5 text-center w-[100px]">Status</th>
-                        <th className="pb-2.5 w-[110px]">Last Updated</th>
-                        <th className="pb-2.5 pr-1 text-right w-[70px]">Action</th>
+                        <th className="pb-2.5 hidden xl:table-cell w-[130px]">Owner</th>
+                        <th className="pb-2.5 hidden 2xl:table-cell w-[85px]">SBU</th>
+                        <th className="pb-2.5 w-[85px]">Category</th>
+                        <th className="pb-2.5 text-right w-[105px]">Amount</th>
+                        <th className="pb-2.5 text-center w-[95px]">Status</th>
+                        <th className="pb-2.5 w-[95px]">Last Updated</th>
+                        <th className="pb-2.5 pr-1 text-right w-[65px]">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">

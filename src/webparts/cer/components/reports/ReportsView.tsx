@@ -100,7 +100,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
   const pagination = useDynamicPagination({
     totalItems: sortedProposals.length,
     defaultRowHeight: 46,
-    bufferBottom: 32,
+    bufferBottom: 52,
   });
 
   const visibleProposals = pagination.paginateItems(sortedProposals);

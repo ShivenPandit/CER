@@ -57,7 +57,7 @@ export const ApprovalHistoryView: React.FC<IApprovalHistoryViewProps> = ({
   const pagination = useDynamicPagination({
     totalItems: filteredDecisions.length,
     defaultRowHeight: 46,
-    bufferBottom: 32,
+    bufferBottom: 52,
   });
 
   const visibleDecisions = pagination.paginateItems(filteredDecisions);

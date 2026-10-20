@@ -79,7 +79,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
   const pagination = useDynamicPagination({
     totalItems: pendingList.length,
     defaultRowHeight: 140,
-    bufferBottom: 32,
+    bufferBottom: 52,
   });
 
   const visiblePendingList = pagination.paginateItems(pendingList);

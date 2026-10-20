@@ -56,7 +56,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
   const pagination = useDynamicPagination({
     totalItems: filteredProposals.length,
     defaultRowHeight: 46,
-    bufferBottom: 32,
+    bufferBottom: 52,
   });
 
   const visibleProposals = pagination.paginateItems(filteredProposals);

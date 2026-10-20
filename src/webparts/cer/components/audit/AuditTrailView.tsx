@@ -114,8 +114,8 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
   // Fully Automatic Dynamic Table Pagination
   const pagination = useDynamicPagination({
     totalItems: sortedRows.length,
-    defaultRowHeight: 46,
-    bufferBottom: 32,
+    defaultRowHeight: 44,
+    bufferBottom: 52,
   });
 
   const visibleRows = pagination.paginateItems(sortedRows);
@@ -240,28 +240,28 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
                 </th>
                 <th
                   onClick={() => handleSort("field_desc")}
-                  className="py-2.5 px-3 w-[160px] cursor-pointer hover:text-slate-900"
+                  className="py-2.5 px-3 w-[180px] xl:w-[220px] cursor-pointer hover:text-slate-900"
                 >
                   <div className="flex items-center gap-1">
                     <span>Field Description</span>
                     <ArrowUpDown className="w-3 h-3 text-slate-400" />
                   </div>
                 </th>
-                <th className="py-2.5 px-3">Old Value</th>
-                <th className="py-2.5 px-3">New Value</th>
+                <th className="py-2.5 px-3 w-[110px] xl:w-[130px]">Old Value</th>
+                <th className="py-2.5 px-3 w-[110px] xl:w-[130px]">New Value</th>
                 <th
                   onClick={() => handleSort("audit_date")}
-                  className="py-2.5 px-2.5 w-[110px] cursor-pointer hover:text-slate-900"
+                  className="py-2.5 px-2.5 w-[100px] cursor-pointer hover:text-slate-900"
                 >
                   <div className="flex items-center gap-1">
                     <span>Date</span>
                     <ArrowUpDown className="w-3 h-3 text-slate-400" />
                   </div>
                 </th>
-                <th className="py-2.5 px-2 w-[75px]">Time</th>
+                <th className="py-2.5 px-2 w-[70px]">Time</th>
                 <th
                   onClick={() => handleSort("user_name")}
-                  className="py-2.5 px-3 w-[140px] cursor-pointer hover:text-slate-900"
+                  className="py-2.5 px-3 w-[160px] xl:w-[200px] cursor-pointer hover:text-slate-900"
                 >
                   <div className="flex items-center gap-1">
                     <span>User Name</span>
@@ -291,11 +291,11 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
                         index % 2 === 1 ? "bg-slate-50/50" : "bg-white"
                       }`}
                     >
-                      <td className="py-2.5 px-3 font-mono font-bold text-slate-900 whitespace-nowrap">
+                      <td className="py-2.5 px-3 font-mono font-bold text-slate-900 truncate">
                         {onNavigateToDisplay ? (
                           <button
                             onClick={() => onNavigateToDisplay(row.cerprno)}
-                            className="text-blue-600 hover:underline"
+                            className="text-blue-600 hover:underline truncate block"
                           >
                             {row.cerprno}
                           </button>
@@ -304,11 +304,13 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
                         )}
                       </td>
                       <td className="py-2.5 px-3 font-medium text-slate-800">
-                        {row.field_desc}
+                        <span className="truncate block" title={row.field_desc}>
+                          {row.field_desc}
+                        </span>
                       </td>
 
                       {/* Old Value Column */}
-                      <td className="py-2.5 px-3 max-w-[200px]">
+                      <td className="py-2.5 px-3">
                         {isLongRemarks ? (
                           <button
                             onClick={() => setActiveDiffRow(row)}
@@ -328,7 +330,7 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
                       </td>
 
                       {/* New Value Column */}
-                      <td className="py-2.5 px-3 max-w-[200px]">
+                      <td className="py-2.5 px-3">
                         {isLongRemarks ? (
                           <button
                             onClick={() => setActiveDiffRow(row)}
@@ -347,14 +349,16 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
                         )}
                       </td>
 
-                      <td className="py-2.5 px-2.5 text-slate-600 whitespace-nowrap">
+                      <td className="py-2.5 px-2.5 text-slate-600 truncate">
                         {row.audit_date}
                       </td>
-                      <td className="py-2.5 px-2 text-slate-500 whitespace-nowrap font-mono text-[11px]">
+                      <td className="py-2.5 px-2 text-slate-500 font-mono text-[11px] truncate">
                         {row.audit_time}
                       </td>
-                      <td className="py-2.5 px-3 text-slate-800 font-medium whitespace-nowrap">
-                        {row.user_name}
+                      <td className="py-2.5 px-3 text-slate-800 font-medium">
+                        <span className="truncate block" title={row.user_name}>
+                          {row.user_name}
+                        </span>
                       </td>
                     </tr>
                   );

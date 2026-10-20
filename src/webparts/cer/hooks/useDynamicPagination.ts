@@ -36,10 +36,10 @@ export interface IUseDynamicPaginationReturn {
 export function useDynamicPagination({
   totalItems,
   initialPageSize,
-  minPageSize = 5,
+  minPageSize = 3,
   maxPageSize = 100,
-  defaultRowHeight = 46,
-  bufferBottom = 28,
+  defaultRowHeight = 44,
+  bufferBottom = 52,
 }: IUseDynamicPaginationOptions): IUseDynamicPaginationReturn {
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
@@ -50,10 +50,10 @@ export function useDynamicPagination({
     const vh = window.innerHeight;
     if (vh >= 1800) return 36; // 4K display
     if (vh >= 1300) return 22; // 1440p QHD display
-    if (vh >= 950) return 15;  // 1080p display
-    if (vh >= 800) return 11;  // 900p display
-    if (vh >= 650) return 8;   // 768p laptop display
-    return 6;                  // small laptop/tablet
+    if (vh >= 950) return 14;  // 1080p display
+    if (vh >= 800) return 10;  // 900p display
+    if (vh >= 650) return 7;   // 768p laptop display
+    return 5;                  // small laptop/tablet
   };
 
   const [effectivePageSize, setEffectivePageSize] = useState<number>(getInitialEstimate);
@@ -88,17 +88,29 @@ export function useDynamicPagination({
       if (containerRect.height === 0 && containerRect.width === 0) return;
 
       // Available vertical space from top of table container to bottom of viewport (minus buffer)
-      const availableHeight = Math.max(150, viewportHeight - containerRect.top - bufferBottom);
+      const availableHeight = Math.max(120, viewportHeight - containerRect.top - bufferBottom);
 
       // Measure actual rendered header height
       const thead = container.querySelector("thead") as HTMLElement | null;
       const theadHeight = thead ? thead.offsetHeight : 40;
 
-      // Measure actual rendered pagination footer height
+      // Measure actual rendered non-table elements inside container (e.g. filter bars, search bars, footer)
+      let nonTableOverhead = 0;
+      Array.from(container.children).forEach((child) => {
+        const el = child as HTMLElement;
+        if (!el.querySelector("table") && el.tagName !== "TABLE") {
+          nonTableOverhead += el.offsetHeight;
+        }
+      });
+
+      // If nonTableOverhead didn't find pagination footer (e.g. if rendered inside table wrapper)
       const footer =
         (container.querySelector("[data-role='pagination-footer']") as HTMLElement | null) ||
         (container.querySelector(".border-t") as HTMLElement | null);
       const footerHeight = footer ? footer.offsetHeight : 46;
+      if (nonTableOverhead === 0) {
+        nonTableOverhead = footerHeight;
+      }
 
       // Measure actual rendered row heights (accounting for multiline cells/wrapping)
       let measuredRowHeight = defaultRowHeight;
@@ -123,8 +135,8 @@ export function useDynamicPagination({
         }
       }
 
-      // Overhead = header + footer + borders/padding
-      const overhead = theadHeight + footerHeight + 14;
+      // Overhead = nonTableOverhead + theadHeight + borders/safety margin
+      const overhead = nonTableOverhead + theadHeight + 10;
       const netRowSpace = Math.max(0, availableHeight - overhead);
 
       // Calculate optimal row count
