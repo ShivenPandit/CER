@@ -77,30 +77,28 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-5">
+      {/* Section Header */}
       <div className="flex items-center justify-between pb-4 border-b border-slate-100">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-slate-100 text-slate-800">
+          <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
             <Paperclip className="w-5 h-5" />
           </div>
           <div>
             <h3 className="font-bold text-slate-900 text-sm">
-              Section H: Supporting Documents & Attachments
+              Section H — Supporting documents and attachments
             </h3>
             <p className="text-xs text-slate-500">
               Technical datasheets, vendor quotes, reservoir models, and partner approvals
             </p>
           </div>
         </div>
-        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-          Doc §8 #8
-        </span>
       </div>
 
       {/* Upload Zone */}
       {!isReadOnly && (
         <div
           onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-slate-200 hover:border-blue-400 bg-slate-50/50 hover:bg-blue-50/20 rounded-2xl p-6 text-center cursor-pointer transition-all group"
+          className="border border-dashed border-slate-300 hover:border-blue-500 bg-slate-50/60 hover:bg-blue-50/30 rounded-xl p-5 text-center cursor-pointer transition-all group"
         >
           <input
             type="file"
@@ -109,14 +107,14 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
             multiple
             className="hidden"
           />
-          <div className="w-10 h-10 rounded-xl bg-white shadow-sm border border-slate-200 flex items-center justify-center text-blue-600 mx-auto group-hover:scale-110 transition-transform">
-            <Upload className="w-5 h-5" />
+          <div className="w-9 h-9 rounded-xl bg-white shadow-sm border border-slate-200 flex items-center justify-center text-blue-600 mx-auto group-hover:scale-105 transition-transform">
+            <Upload className="w-4 h-4" />
           </div>
-          <p className="text-xs font-semibold text-slate-800 mt-3">
+          <p className="text-xs font-semibold text-slate-800 mt-2.5">
             Click to browse or drag and drop supporting files
           </p>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Supports all formats: PDF, Word (.docx), Excel (.xlsx), Images (up to 25MB each)
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            Supports PDF, Word (.docx), Excel (.xlsx), Images (up to 25MB each)
           </p>
         </div>
       )}

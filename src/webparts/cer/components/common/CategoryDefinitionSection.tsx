@@ -2,9 +2,9 @@ import React from "react";
 
 export const CategoryDefinitionSection: React.FC = () => {
   return (
-    <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm">
-      <div className="mb-3.5 pb-2.5 border-b border-slate-100">
-        <h3 className="text-sm font-semibold text-slate-900">
+    <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-4">
+      <div className="pb-3 border-b border-slate-100">
+        <h3 className="text-sm font-bold text-slate-900">
           Category Definition
         </h3>
         <p className="text-xs text-slate-500 mt-0.5">

@@ -215,9 +215,9 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
   };
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6 pb-28 sm:pb-32">
       {/* View Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-subtle">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-subtle">
         <div className="flex items-center gap-3">
           <button
             onClick={onCancel}

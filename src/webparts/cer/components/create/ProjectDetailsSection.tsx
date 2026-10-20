@@ -82,9 +82,6 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             </p>
           </div>
         </div>
-        <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-700">
-          Section A
-        </span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 text-xs">

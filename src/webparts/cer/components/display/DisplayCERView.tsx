@@ -535,9 +535,9 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                   ${proposal.others.toLocaleString()} mm
                 </span>
               </div>
-              <div className="p-3 bg-slate-900 text-white rounded-xl">
-                <span className="text-slate-300 block text-[11px]">Total</span>
-                <span className="font-bold text-white mt-1 block text-sm">
+              <div className="p-3 bg-slate-50/90 rounded-xl border border-slate-200">
+                <span className="text-slate-500 font-semibold block text-[11px]">Total (auto-calculated)</span>
+                <span className="font-bold text-slate-900 mt-1 block text-sm font-mono">
                   ${proposal.total.toLocaleString()} mm
                 </span>
               </div>

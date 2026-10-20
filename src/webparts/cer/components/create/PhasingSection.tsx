@@ -56,9 +56,10 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-5" id="section-phasing">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+      {/* Section Header */}
+      <div className="flex items-center justify-between pb-4 border-b border-slate-100">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
+          <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
             <BarChart2 className="w-5 h-5" />
           </div>
           <div>
@@ -70,9 +71,6 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
             </p>
           </div>
         </div>
-        <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 self-start sm:self-auto">
-          Section E
-        </span>
       </div>
 
       {/* Capex Balance Banner */}
@@ -287,12 +285,12 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
             </tr>
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-slate-200 bg-slate-50 font-bold text-slate-900">
+            <tr className="border-t border-slate-200 bg-slate-50/90 font-semibold text-slate-900">
               <td className="py-3 px-3">Total Phased Outflow</td>
-              <td className="py-3 px-3 text-right">{tillTotal.toLocaleString()}</td>
-              <td className="py-3 px-3 text-right">{fyTotal.toLocaleString()}</td>
-              <td className="py-3 px-3 text-right">{beyondTotal.toLocaleString()}</td>
-              <td className="py-3 px-3 text-right text-blue-700 font-extrabold text-sm">
+              <td className="py-3 px-3 text-right font-mono">{tillTotal.toLocaleString()}</td>
+              <td className="py-3 px-3 text-right font-mono">{fyTotal.toLocaleString()}</td>
+              <td className="py-3 px-3 text-right font-mono">{beyondTotal.toLocaleString()}</td>
+              <td className="py-3 px-3 text-right text-blue-700 font-mono font-bold text-sm">
                 {grandTotal.toLocaleString()}
               </td>
             </tr>

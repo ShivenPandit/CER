@@ -200,9 +200,9 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
   };
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6 pb-28 sm:pb-32">
       {/* Search & Lookup Header */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
             onClick={onCancel}

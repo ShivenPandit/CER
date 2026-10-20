@@ -51,21 +51,16 @@ export const RemarksSection: React.FC<IRemarksSectionProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {onViewRemarksHistory && (
-            <button
-              type="button"
-              onClick={onViewRemarksHistory}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors"
-            >
-              <History className="w-3.5 h-3.5 text-slate-500" />
-              <span>Remarks History</span>
-            </button>
-          )}
-          <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-700">
-            Section G
-          </span>
-        </div>
+        {onViewRemarksHistory && (
+          <button
+            type="button"
+            onClick={onViewRemarksHistory}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors"
+          >
+            <History className="w-3.5 h-3.5 text-slate-500" />
+            <span>Remarks History</span>
+          </button>
+        )}
       </div>
 
       <div className="space-y-5 text-xs">

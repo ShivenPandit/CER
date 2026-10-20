@@ -43,9 +43,10 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-5" id="section-capex-estimates">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+      {/* Section Header */}
+      <div className="flex items-center justify-between pb-4 border-b border-slate-100">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-slate-900 text-white">
+          <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
             <Calculator className="w-5 h-5" />
           </div>
           <div>
@@ -57,9 +58,6 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             </p>
           </div>
         </div>
-        <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 self-start sm:self-auto">
-          Section F
-        </span>
       </div>
 
       {/* Reconciliation status banner */}
@@ -228,24 +226,34 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
         </div>
 
         {/* Total — Read-Only Auto-Calculated */}
-        <div className="p-3.5 bg-slate-900 text-white rounded-xl flex flex-col justify-between" id="field-total">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
-              Total (Auto-calculated)
-            </span>
-            {isBalanced ? (
-              <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Reconciled
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 text-[11px] text-amber-400 font-medium">
-                <AlertCircle className="w-3.5 h-3.5" /> Variance
-              </span>
+        <div id="field-total" className="flex flex-col justify-start">
+          <div className="flex items-center justify-between mb-1.5 min-h-[18px]">
+            <label className="block font-semibold text-slate-700">
+              Total (auto-calculated)
+            </label>
+            {cerAmount > 0 && (
+              isBalanced ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Reconciled
+                </span>
+              ) : hasMismatch ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-600" /> Variance
+                </span>
+              ) : null
             )}
           </div>
-          <div className="text-xl font-bold tracking-tight text-white mt-1">
-            ${computedTotal.toLocaleString()} mm
+          <div className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50/90 border border-slate-200 flex items-center justify-between min-h-[42px] transition-all">
+            <span className="font-mono font-bold text-slate-900 text-sm">
+              ${computedTotal.toLocaleString()} mm
+            </span>
+            <span className="text-[11px] font-medium text-slate-400">
+              Sum of components
+            </span>
           </div>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Read-only summary synced with CAPEX breakdown
+          </p>
         </div>
       </div>
     </div>

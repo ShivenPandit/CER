@@ -44,7 +44,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
       <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-5">
         <div className="flex items-center justify-between pb-4 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-purple-50 text-purple-600">
+            <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
               <Landmark className="w-5 h-5" />
             </div>
             <div>
@@ -56,9 +56,6 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
               </p>
             </div>
           </div>
-          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-            Section C
-          </span>
         </div>
 
         <div className="space-y-4 text-xs">
@@ -74,7 +71,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 value={formData.cbudget}
                 onChange={(e) => onChange("cbudget", e.target.value)}
                 onBlur={() => onBlur && onBlur("cbudget")}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium text-slate-900"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900"
               >
                 <option value="Yes">Yes</option>
                 <option value="No">No</option>
@@ -107,7 +104,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                     ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
                     : getFieldError("cb_amnt")
                     ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                    : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                    : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 }`}
               />
               {getFieldError("cb_amnt") && (
@@ -134,7 +131,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
               className={`w-full px-3.5 py-2.5 rounded-xl transition-all text-slate-900 focus:outline-none resize-none ${
                 getFieldError("reason")
                   ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                  : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                  : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               }`}
             />
             {getFieldError("reason") ? (
@@ -158,7 +155,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
       <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-5">
         <div className="flex items-center justify-between pb-4 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
+            <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
               <Users className="w-5 h-5" />
             </div>
             <div>
@@ -170,9 +167,6 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
               </p>
             </div>
           </div>
-          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-            Section D
-          </span>
         </div>
 
         <div className="space-y-4 text-xs">
@@ -188,7 +182,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 value={formData.jv}
                 onChange={(e) => onChange("jv", e.target.value)}
                 onBlur={() => onBlur && onBlur("jv")}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium text-slate-900"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900"
               >
                 <option value="Yes">Yes</option>
                 <option value="No">No</option>
@@ -213,7 +207,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 value={formData.jv_recoverable || "No"}
                 onChange={(e) => onChange("jv_recoverable", e.target.value)}
                 onBlur={() => onBlur && onBlur("jv_recoverable")}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium text-slate-900"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900"
               >
                 <option value="Yes">Yes</option>
                 <option value="No">No</option>
@@ -239,7 +233,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 value={formData.jv_budget}
                 onChange={(e) => onChange("jv_budget", e.target.value)}
                 onBlur={() => onBlur && onBlur("jv_budget")}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium text-slate-900"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900"
               >
                 <option value="Yes">Yes</option>
                 <option value="No">No</option>
@@ -271,7 +265,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                     ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
                     : getFieldError("jv_amnt")
                     ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                    : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                    : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 }`}
               />
               {getFieldError("jv_amnt") && (
@@ -298,7 +292,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
               className={`w-full px-3.5 py-2.5 rounded-xl transition-all text-slate-900 focus:outline-none ${
                 getFieldError("jv_reason")
                   ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                  : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               }`}
             />
             {getFieldError("jv_reason") && (

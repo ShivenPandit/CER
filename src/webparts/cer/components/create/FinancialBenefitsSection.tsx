@@ -35,7 +35,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
       {/* Section Header */}
       <div className="flex items-center justify-between pb-4 border-b border-slate-100">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+          <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
             <DollarSign className="w-5 h-5" />
           </div>
           <div>
@@ -47,9 +47,6 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             </p>
           </div>
         </div>
-        <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-700">
-          Section B
-        </span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 text-xs">
@@ -63,7 +60,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
               disabled={isReadOnly}
               value={formData.currency}
               onChange={(e) => onChange("currency", e.target.value)}
-              className="w-24 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 focus:bg-white"
+              className="w-24 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
             >
               <option value="USD">USD ($)</option>
               <option value="INR">INR (₹)</option>
@@ -80,7 +77,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
               className={`flex-1 px-3.5 py-2.5 rounded-xl font-bold text-slate-900 text-sm transition-all focus:outline-none ${
                 getFieldError("amount")
                   ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                  : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               }`}
               required
             />
