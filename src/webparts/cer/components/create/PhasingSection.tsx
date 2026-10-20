@@ -124,10 +124,10 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   value={formData.prod_till === 0 ? "" : formData.prod_till}
                   onChange={(e) => onChange("prod_till", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("prod_till")}
-                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-all ${
+                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                     getCellError("prod_till")
-                      ? "bg-rose-50 border border-rose-300"
-                      : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-1 focus:ring-blue-500"
+                      ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
                   }`}
                 />
               </td>
@@ -140,10 +140,10 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   value={formData.prod_fy === 0 ? "" : formData.prod_fy}
                   onChange={(e) => onChange("prod_fy", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("prod_fy")}
-                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-all ${
+                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                     getCellError("prod_fy")
-                      ? "bg-rose-50 border border-rose-300"
-                      : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-1 focus:ring-blue-500"
+                      ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
                   }`}
                 />
               </td>
@@ -156,10 +156,10 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   value={formData.prod_beyond === 0 ? "" : formData.prod_beyond}
                   onChange={(e) => onChange("prod_beyond", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("prod_beyond")}
-                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-all ${
+                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                     getCellError("prod_beyond")
-                      ? "bg-rose-50 border border-rose-300"
-                      : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-1 focus:ring-blue-500"
+                      ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
                   }`}
                 />
               </td>
@@ -182,10 +182,10 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   value={formData.capex_till === 0 ? "" : formData.capex_till}
                   onChange={(e) => onChange("capex_till", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("capex_till")}
-                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-all ${
+                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                     getCellError("capex_till")
-                      ? "bg-rose-50 border border-rose-300"
-                      : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-1 focus:ring-blue-500"
+                      ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
                   }`}
                 />
               </td>
@@ -198,10 +198,10 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   value={formData.capex_fy === 0 ? "" : formData.capex_fy}
                   onChange={(e) => onChange("capex_fy", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("capex_fy")}
-                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-all ${
+                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                     getCellError("capex_fy")
-                      ? "bg-rose-50 border border-rose-300"
-                      : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-1 focus:ring-blue-500"
+                      ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
                   }`}
                 />
               </td>
@@ -214,10 +214,10 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   value={formData.capex_beyond === 0 ? "" : formData.capex_beyond}
                   onChange={(e) => onChange("capex_beyond", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("capex_beyond")}
-                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-all ${
+                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                     getCellError("capex_beyond")
-                      ? "bg-rose-50 border border-rose-300"
-                      : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-1 focus:ring-blue-500"
+                      ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
                   }`}
                 />
               </td>
@@ -240,10 +240,10 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   value={formData.opex_till === 0 ? "" : formData.opex_till}
                   onChange={(e) => onChange("opex_till", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("opex_till")}
-                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-all ${
+                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                     getCellError("opex_till")
-                      ? "bg-rose-50 border border-rose-300"
-                      : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-1 focus:ring-blue-500"
+                      ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
                   }`}
                 />
               </td>
@@ -256,10 +256,10 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   value={formData.opex_fy === 0 ? "" : formData.opex_fy}
                   onChange={(e) => onChange("opex_fy", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("opex_fy")}
-                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-all ${
+                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                     getCellError("opex_fy")
-                      ? "bg-rose-50 border border-rose-300"
-                      : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-1 focus:ring-blue-500"
+                      ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
                   }`}
                 />
               </td>
@@ -272,10 +272,10 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   value={formData.opex_beyond === 0 ? "" : formData.opex_beyond}
                   onChange={(e) => onChange("opex_beyond", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("opex_beyond")}
-                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-all ${
+                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                     getCellError("opex_beyond")
-                      ? "bg-rose-50 border border-rose-300"
-                      : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-1 focus:ring-blue-500"
+                      ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
                   }`}
                 />
               </td>

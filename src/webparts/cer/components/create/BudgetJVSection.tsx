@@ -71,7 +71,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 value={formData.cbudget}
                 onChange={(e) => onChange("cbudget", e.target.value)}
                 onBlur={() => onBlur && onBlur("cbudget")}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900"
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-colors font-medium text-slate-900"
               >
                 <option value="Yes">Yes</option>
                 <option value="No">No</option>
@@ -99,12 +99,12 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 value={formData.cb_amnt === 0 ? "" : formData.cb_amnt}
                 onChange={(e) => onChange("cb_amnt", e.target.value === "" ? 0 : Number(e.target.value))}
                 onBlur={() => onBlur && onBlur("cb_amnt")}
-                className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none ${
+                className={`w-full px-3.5 py-2.5 rounded-xl transition-colors font-medium text-slate-900 focus:outline-none ${
                   formData.cbudget === "No"
-                    ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                    ? "bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed shadow-none"
                     : getFieldError("cb_amnt")
-                    ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                    : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                    : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
                 }`}
               />
               {getFieldError("cb_amnt") && (
@@ -128,10 +128,10 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
               value={formData.reason}
               onChange={(e) => onChange("reason", e.target.value)}
               onBlur={() => onBlur && onBlur("reason")}
-              className={`w-full px-3.5 py-2.5 rounded-xl transition-all text-slate-900 focus:outline-none resize-none ${
+              className={`w-full px-3.5 py-2.5 rounded-xl transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none resize-none ${
                 getFieldError("reason")
-                  ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                  : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
               }`}
             />
             {getFieldError("reason") ? (
@@ -182,7 +182,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 value={formData.jv}
                 onChange={(e) => onChange("jv", e.target.value)}
                 onBlur={() => onBlur && onBlur("jv")}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900"
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-colors font-medium text-slate-900"
               >
                 <option value="Yes">Yes</option>
                 <option value="No">No</option>
@@ -207,7 +207,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 value={formData.jv_recoverable || "No"}
                 onChange={(e) => onChange("jv_recoverable", e.target.value)}
                 onBlur={() => onBlur && onBlur("jv_recoverable")}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900"
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-colors font-medium text-slate-900"
               >
                 <option value="Yes">Yes</option>
                 <option value="No">No</option>
@@ -233,7 +233,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 value={formData.jv_budget}
                 onChange={(e) => onChange("jv_budget", e.target.value)}
                 onBlur={() => onBlur && onBlur("jv_budget")}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900"
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-colors font-medium text-slate-900"
               >
                 <option value="Yes">Yes</option>
                 <option value="No">No</option>
@@ -260,12 +260,12 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 value={formData.jv_amnt === 0 ? "" : formData.jv_amnt}
                 onChange={(e) => onChange("jv_amnt", e.target.value === "" ? 0 : Number(e.target.value))}
                 onBlur={() => onBlur && onBlur("jv_amnt")}
-                className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none ${
+                className={`w-full px-3.5 py-2.5 rounded-xl transition-colors font-medium text-slate-900 focus:outline-none ${
                   !isJvBudgeted
-                    ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                    ? "bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed shadow-none"
                     : getFieldError("jv_amnt")
-                    ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                    : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                    : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
                 }`}
               />
               {getFieldError("jv_amnt") && (
@@ -289,10 +289,10 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
               value={formData.jv_reason}
               onChange={(e) => onChange("jv_reason", e.target.value)}
               onBlur={() => onBlur && onBlur("jv_reason")}
-              className={`w-full px-3.5 py-2.5 rounded-xl transition-all text-slate-900 focus:outline-none ${
+              className={`w-full px-3.5 py-2.5 rounded-xl transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none ${
                 getFieldError("jv_reason")
-                  ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                  : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
               }`}
             />
             {getFieldError("jv_reason") && (

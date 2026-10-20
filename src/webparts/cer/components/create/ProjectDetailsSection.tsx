@@ -97,10 +97,10 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.pr_name}
             onChange={(e) => onChange("pr_name", e.target.value)}
             onBlur={() => onBlur && onBlur("pr_name")}
-            className={`w-full px-3.5 py-2.5 rounded-xl font-medium transition-all text-slate-900 focus:outline-none ${
+            className={`w-full px-3.5 py-2.5 rounded-xl font-medium transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none ${
               getFieldError("pr_name")
-                ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
             }`}
             required
             aria-invalid={!!getFieldError("pr_name")}
@@ -144,10 +144,10 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.cerprno}
             onChange={(e) => onChange("cerprno", e.target.value)}
             onBlur={() => onBlur && onBlur("cerprno")}
-            className={`w-full px-3.5 py-2.5 rounded-xl font-mono font-semibold transition-all ${
+            className={`w-full px-3.5 py-2.5 rounded-xl font-mono font-semibold transition-colors focus:outline-none ${
               isReadOnly || isChangeMode
-                ? "bg-slate-100 border border-slate-200 text-slate-700 cursor-not-allowed"
-                : "bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                ? "bg-slate-100 border border-slate-200 text-slate-500 cursor-not-allowed shadow-none"
+                : "bg-white border border-slate-300 hover:border-slate-400 text-slate-900 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
             }`}
             required
           />
@@ -170,10 +170,10 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.owname}
             onChange={(e) => onChange("owname", e.target.value)}
             onBlur={() => onBlur && onBlur("owname")}
-            className={`w-full px-3.5 py-2.5 rounded-xl font-medium transition-all text-slate-900 focus:outline-none ${
+            className={`w-full px-3.5 py-2.5 rounded-xl font-medium transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none ${
               getFieldError("owname")
-                ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
             }`}
             required
           />
@@ -196,7 +196,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.sbu}
             onChange={(e) => onChange("sbu", e.target.value as SBUOption)}
             onBlur={() => onBlur && onBlur("sbu")}
-            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900"
+            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-colors font-medium text-slate-900 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
           >
             {SBU_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>
@@ -223,7 +223,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.cat}
             onChange={(e) => onChange("cat", e.target.value as CERCategory)}
             onBlur={() => onBlur && onBlur("cat")}
-            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900"
+            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-colors font-medium text-slate-900 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
           >
             <option value="Vital">Vital</option>
             <option value="Essential">Essential</option>
@@ -249,10 +249,10 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.st_date}
             onChange={(e) => handleDateChange(true, e.target.value)}
             onBlur={() => onBlur && onBlur("st_date")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-all text-slate-900 focus:outline-none ${
+            className={`w-full px-3.5 py-2.5 rounded-xl transition-colors text-slate-900 focus:outline-none ${
               getFieldError("st_date")
-                ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
             }`}
             required
           />
@@ -282,10 +282,10 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             min={formData.st_date}
             onChange={(e) => handleDateChange(false, e.target.value)}
             onBlur={() => onBlur && onBlur("com_date")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-all text-slate-900 focus:outline-none ${
+            className={`w-full px-3.5 py-2.5 rounded-xl transition-colors text-slate-900 focus:outline-none ${
               getFieldError("com_date")
-                ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
             }`}
             required
           />
@@ -314,7 +314,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
               readOnly
               disabled
               value={formData.duration_months ? `${Math.round(formData.duration_months * 30.44)} Days (${formData.duration_months} Months)` : "0"}
-              className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl font-semibold text-slate-700 cursor-not-allowed"
+              className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl font-semibold text-slate-500 cursor-not-allowed shadow-none"
             />
           </div>
         </div>
@@ -336,10 +336,10 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.object}
             onChange={(e) => onChange("object", e.target.value)}
             onBlur={() => onBlur && onBlur("object")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-all text-slate-900 focus:outline-none resize-y ${
+            className={`w-full px-3.5 py-2.5 rounded-xl transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none resize-y ${
               getFieldError("object")
-                ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
             }`}
             required
           />

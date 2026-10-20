@@ -99,10 +99,10 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             value={formData.engineer === 0 ? "" : formData.engineer}
             onChange={(e) => onChange("engineer", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("engineer")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none ${
+            className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("engineer")
-                ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
             }`}
           />
           {getFieldError("engineer") && (
@@ -127,10 +127,10 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             value={formData.s_fac === 0 ? "" : formData.s_fac}
             onChange={(e) => onChange("s_fac", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("s_fac")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none ${
+            className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("s_fac")
-                ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
             }`}
           />
           {getFieldError("s_fac") && (
@@ -155,10 +155,10 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             value={formData.comis === 0 ? "" : formData.comis}
             onChange={(e) => onChange("comis", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("comis")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none ${
+            className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("comis")
-                ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
             }`}
           />
           {getFieldError("comis") && (
@@ -183,10 +183,10 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             value={formData.preop === 0 ? "" : formData.preop}
             onChange={(e) => onChange("preop", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("preop")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none ${
+            className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("preop")
-                ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
             }`}
           />
           {getFieldError("preop") && (
@@ -211,10 +211,10 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             value={formData.others === 0 ? "" : formData.others}
             onChange={(e) => onChange("others", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("others")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none ${
+            className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("others")
-                ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
             }`}
           />
           {getFieldError("others") && (
@@ -243,7 +243,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
               ) : null
             )}
           </div>
-          <div className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50/90 border border-slate-200 flex items-center justify-between min-h-[42px] transition-all">
+          <div className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50/90 border border-slate-300/80 flex items-center justify-between min-h-[42px] transition-all">
             <span className="font-mono font-bold text-slate-900 text-sm">
               ${computedTotal.toLocaleString()} mm
             </span>

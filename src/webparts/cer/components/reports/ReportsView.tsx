@@ -183,7 +183,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                   pagination.setCurrentPage(1);
                 }}
                 placeholder="Search..."
-                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
               />
             </div>
           </div>
@@ -199,7 +199,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                 setStatusFilter(e.target.value);
                 pagination.setCurrentPage(1);
               }}
-              className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
             >
               <option value="ALL">All Statuses</option>
               <option value="In Approval">In Approval</option>
@@ -221,7 +221,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                 setCategoryFilter(e.target.value);
                 pagination.setCurrentPage(1);
               }}
-              className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
             >
               <option value="ALL">All Categories</option>
               <option value="Vital">Vital</option>
@@ -241,7 +241,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                 setSbuFilter(e.target.value);
                 pagination.setCurrentPage(1);
               }}
-              className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
             >
               <option value="ALL">All SBUs</option>
               {SBU_OPTIONS.map((opt) => (
@@ -265,7 +265,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                 pagination.setCurrentPage(1);
               }}
               placeholder="e.g. Shiven..."
-              className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
             />
           </div>
 
@@ -281,7 +281,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                 setDateFrom(e.target.value);
                 pagination.setCurrentPage(1);
               }}
-              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-2.5 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
             />
           </div>
 
@@ -297,7 +297,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                 setDateTo(e.target.value);
                 pagination.setCurrentPage(1);
               }}
-              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-2.5 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
             />
           </div>
         </div>

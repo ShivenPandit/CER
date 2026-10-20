@@ -76,10 +76,10 @@ export const RemarksSection: React.FC<IRemarksSectionProps> = ({
             value={formData.remarks}
             onChange={(e) => onChange("remarks", e.target.value)}
             onBlur={() => onBlur && onBlur("remarks")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-all text-slate-900 leading-relaxed resize-y focus:outline-none ${
+            className={`w-full px-3.5 py-2.5 rounded-xl transition-all text-slate-900 leading-relaxed resize-y focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("remarks")
-                ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
             }`}
             required
             aria-invalid={!!getFieldError("remarks")}
@@ -112,10 +112,10 @@ export const RemarksSection: React.FC<IRemarksSectionProps> = ({
             value={formData.remarks_jv}
             onChange={(e) => onChange("remarks_jv", e.target.value)}
             onBlur={() => onBlur && onBlur("remarks_jv")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-all text-slate-900 leading-relaxed resize-none focus:outline-none ${
+            className={`w-full px-3.5 py-2.5 rounded-xl transition-all text-slate-900 leading-relaxed resize-none focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("remarks_jv")
-                ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
             }`}
           />
           {getFieldError("remarks_jv") ? (

@@ -60,7 +60,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
               disabled={isReadOnly}
               value={formData.currency}
               onChange={(e) => onChange("currency", e.target.value)}
-              className="w-24 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              className="w-24 px-3 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-colors"
             >
               <option value="USD">USD ($)</option>
               <option value="INR">INR (₹)</option>
@@ -74,10 +74,10 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
               value={formData.amount === 0 ? "" : formData.amount}
               onChange={(e) => onChange("amount", e.target.value === "" ? 0 : Number(e.target.value))}
               onBlur={() => onBlur && onBlur("amount")}
-              className={`flex-1 px-3.5 py-2.5 rounded-xl font-bold text-slate-900 text-sm transition-all focus:outline-none ${
+              className={`flex-1 px-3.5 py-2.5 rounded-xl font-bold text-slate-900 text-sm transition-colors focus:outline-none ${
                 getFieldError("amount")
-                  ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                  : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
               }`}
               required
             />
@@ -106,7 +106,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             value={formData.payable === "Non-Payback" ? "Non Payback" : formData.payable}
             onChange={(e) => onChange("payable", e.target.value as CERPayable)}
             onBlur={() => onBlur && onBlur("payable")}
-            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900"
+            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-colors font-medium text-slate-900"
           >
             <option value="Payback">Payback</option>
             <option value="Non Payback">Non Payback</option>
@@ -133,12 +133,12 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             value={formData.payback_quarters || ""}
             onChange={(e) => onChange("payback_quarters", e.target.value === "" ? 0 : parseInt(e.target.value, 10))}
             onBlur={() => onBlur && onBlur("payback_quarters")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none ${
+            className={`w-full px-3.5 py-2.5 rounded-xl transition-colors font-medium text-slate-900 focus:outline-none ${
               !isPayback
-                ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                ? "bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed shadow-none"
                 : getFieldError("payback_quarters")
-                ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
             }`}
           />
           {getFieldError("payback_quarters") ? (
@@ -167,10 +167,10 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             value={formData.ben_npv === 0 ? "" : formData.ben_npv}
             onChange={(e) => onChange("ben_npv", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("ben_npv")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none ${
+            className={`w-full px-3.5 py-2.5 rounded-xl transition-colors font-medium text-slate-900 focus:outline-none ${
               getFieldError("ben_npv")
-                ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
             }`}
           />
           {getFieldError("ben_npv") && (
@@ -196,10 +196,10 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             value={formData.ben_irr === 0 ? "" : formData.ben_irr}
             onChange={(e) => onChange("ben_irr", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("ben_irr")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none ${
+            className={`w-full px-3.5 py-2.5 rounded-xl transition-colors font-medium text-slate-900 focus:outline-none ${
               getFieldError("ben_irr")
-                ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
             }`}
           />
           {getFieldError("ben_irr") ? (
@@ -227,10 +227,10 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             value={formData.cost_assumptions}
             onChange={(e) => onChange("cost_assumptions", e.target.value)}
             onBlur={() => onBlur && onBlur("cost_assumptions")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-all text-slate-900 focus:outline-none ${
+            className={`w-full px-3.5 py-2.5 rounded-xl transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none ${
               getFieldError("cost_assumptions")
-                ? "bg-rose-50/30 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
             }`}
             required
           />

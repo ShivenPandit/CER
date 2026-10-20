@@ -70,15 +70,12 @@ export const TopNavbar: React.FC<ITopNavbarProps> = ({
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 sm:gap-2">
             <h1 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight leading-none truncate">
-              Capital Expenditure System
+              Capital Expenditure Request
             </h1>
             <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 leading-none shrink-0">
               CER
             </span>
           </div>
-          <p className="text-[11px] text-slate-500 mt-1 leading-none hidden md:block">
-            Proposal & Multilevel Workflow Management
-          </p>
         </div>
       </div>
 

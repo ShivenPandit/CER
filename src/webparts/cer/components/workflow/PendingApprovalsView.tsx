@@ -137,7 +137,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
                 pagination.setCurrentPage(1);
               }}
               placeholder="Search queue..."
-              className="w-full sm:w-48 pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full sm:w-48 pl-8 pr-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
             />
           </div>
 

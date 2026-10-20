@@ -164,7 +164,7 @@ export const WorkflowConfigView: React.FC<IWorkflowConfigViewProps> = ({
                   type="text"
                   value={lvl.level_name}
                   onChange={(e) => handleUpdateField(index, "level_name", e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-slate-900 font-medium"
+                  className="w-full px-3.5 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
                 />
               </div>
 
@@ -176,7 +176,7 @@ export const WorkflowConfigView: React.FC<IWorkflowConfigViewProps> = ({
                   type="text"
                   value={lvl.role_title}
                   onChange={(e) => handleUpdateField(index, "role_title", e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-slate-900 font-medium"
+                  className="w-full px-3.5 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
                 />
               </div>
 
@@ -188,7 +188,7 @@ export const WorkflowConfigView: React.FC<IWorkflowConfigViewProps> = ({
                   type="text"
                   value={lvl.approver_name}
                   onChange={(e) => handleUpdateField(index, "approver_name", e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-slate-900"
+                  className="w-full px-3.5 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
                 />
               </div>
 
@@ -200,7 +200,7 @@ export const WorkflowConfigView: React.FC<IWorkflowConfigViewProps> = ({
                   type="email"
                   value={lvl.approver_email}
                   onChange={(e) => handleUpdateField(index, "approver_email", e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-slate-900"
+                  className="w-full px-3.5 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
                 />
               </div>
             </div>

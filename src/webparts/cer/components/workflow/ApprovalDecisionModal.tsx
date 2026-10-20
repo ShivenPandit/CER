@@ -201,7 +201,7 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
                   ? "Enter optional endorsement notes or approval conditions..."
                   : "State specific reason for rejection, missing documentation, or necessary adjustments..."
               }
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-900 resize-none text-xs"
+              className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all text-slate-900 placeholder:text-slate-400 resize-none text-xs"
               required={decision === "REJECTED"}
             />
           </div>
