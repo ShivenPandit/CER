@@ -129,38 +129,38 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
   return (
     <div className="space-y-6 pb-20">
       {/* Top Bar with Lookup & Actions */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
         <div className="flex items-center gap-3">
           <button
             onClick={onCancel}
-            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0"
             title="Go back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
               Display Capital Expenditure Request (CER)
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 mt-0.5">
               Form FR-03: Official read-only proposal record, approval stages, and export tools
             </p>
           </div>
         </div>
 
         {/* Lookup / Retrieve Form */}
-        <form onSubmit={handleLookup} className="flex items-center gap-2">
+        <form onSubmit={handleLookup} className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
           <input
             type="text"
             value={proposalNumberInput}
             onChange={(e) => setProposalNumberInput(e.target.value)}
             placeholder="Enter Proposal No..."
-            className="w-48 sm:w-56 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            className="flex-1 sm:w-56 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
           />
           <button
             type="submit"
             disabled={isLoading}
-            className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium rounded-xl shadow-sm transition-colors"
+            className="flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium rounded-xl shadow-sm transition-colors shrink-0"
           >
             <Search className="w-3.5 h-3.5" />
             <span>{isLoading ? "Loading..." : "Retrieve"}</span>
@@ -187,9 +187,9 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
       {proposal && (
         <div className="space-y-6">
           {/* Executive Summary Card & Quick Action Buttons */}
-          <div className="p-6 bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl text-white shadow-card flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="p-4 sm:p-6 bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl text-white shadow-card flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
             <div className="space-y-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-md bg-white/10 text-white border border-white/20">
                   {proposal.cerprno}
                 </span>
@@ -197,11 +197,11 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                 <StatusBadge status={proposal.status} size="sm" />
               </div>
 
-              <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight text-white leading-snug">
                 {proposal.pr_name}
               </h1>
 
-              <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-slate-300">
+              <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs text-slate-300">
                 <span>Owner: <strong>{proposal.owname}</strong></span>
                 <span>•</span>
                 <span>SBU: <strong>{proposal.sbu}</strong></span>
@@ -215,17 +215,17 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
             </div>
 
             {/* Financial Badge & Actions */}
-            <div className="flex flex-col items-start md:items-end gap-3 shrink-0">
-              <div className="text-left md:text-right">
+            <div className="flex flex-col items-start lg:items-end gap-3 shrink-0">
+              <div className="text-left lg:text-right">
                 <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                   Sanction Amount
                 </p>
-                <p className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+                <p className="text-xl sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight">
                   {proposal.currency} {proposal.amount.toLocaleString()}
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 print:hidden">
                 <button
                   onClick={handleDownloadPDF}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg shadow-sm transition-all"

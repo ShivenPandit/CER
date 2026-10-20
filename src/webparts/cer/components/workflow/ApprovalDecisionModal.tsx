@@ -89,7 +89,7 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200 text-slate-600">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-200 text-slate-600">
               <div>
                 <span className="text-slate-400 font-medium">Category:</span>{" "}
                 <strong className="text-slate-800">{proposal.cat}</strong>

@@ -326,17 +326,17 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
       <CategoryDefinitionSection />
 
       {/* Sticky Bottom Actions Bar */}
-      <div className="fixed bottom-0 left-64 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 px-8 py-3.5 flex items-center justify-between shadow-elevated z-30">
-        <div className="text-xs text-slate-500 hidden sm:block">
+      <div className="fixed bottom-0 left-0 lg:left-64 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 sm:px-8 py-3 flex items-center justify-between shadow-elevated z-30">
+        <div className="text-xs text-slate-500 hidden md:block">
           All changes are tracked in the field-level audit trail upon submission.
         </div>
 
-        <div className="flex items-center gap-3 ml-auto">
+        <div className="flex items-center gap-2 sm:gap-3 ml-auto flex-wrap justify-end w-full sm:w-auto">
           <button
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
-            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
+            className="px-3 sm:px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
           >
             Cancel
           </button>
@@ -345,7 +345,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
             type="button"
             onClick={() => handleSubmit(true)}
             disabled={isSubmitting}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
           >
             <Save className="w-4 h-4" />
             <span>Save Draft</span>
@@ -355,7 +355,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
             type="button"
             onClick={() => handleSubmit(false)}
             disabled={isSubmitting}
-            className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-600/30 transition-all hover:scale-[1.02] disabled:opacity-50"
+            className="flex items-center gap-2 px-4 sm:px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-600/30 transition-all hover:scale-[1.02] disabled:opacity-50"
           >
             <Send className="w-4 h-4" />
             <span>{isSubmitting ? "Submitting..." : "Submit for Approval"}</span>

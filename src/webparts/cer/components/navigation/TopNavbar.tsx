@@ -4,6 +4,7 @@ import {
   UserCheck,
   ChevronDown,
   Layers,
+  Menu,
 } from "lucide-react";
 import { IAppUser, DEMO_USERS, UserRole } from "../../models/UserModel";
 
@@ -13,6 +14,7 @@ interface ITopNavbarProps {
   onOpenNotifications: () => void;
   onQuickSearch?: (cerprno: string) => void;
   notificationCount: number;
+  onToggleMobileMenu?: () => void;
 }
 
 export const TopNavbar: React.FC<ITopNavbarProps> = ({
@@ -20,6 +22,7 @@ export const TopNavbar: React.FC<ITopNavbarProps> = ({
   onSelectUser,
   onOpenNotifications,
   notificationCount,
+  onToggleMobileMenu,
 }) => {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
@@ -37,35 +40,56 @@ export const TopNavbar: React.FC<ITopNavbarProps> = ({
     }
   };
 
+  const cleanName = currentUser.name.replace(/\s*\([^)]*\)/g, "").trim();
+  const initials = cleanName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .substring(0, 2)
+    .toUpperCase();
+
   return (
-    <header className="h-16 bg-white/95 backdrop-blur-md border-b border-slate-200 px-6 flex items-center justify-between shrink-0 shadow-subtle z-20 sticky top-0">
-      {/* System Title: Capital Expenditure System (CER) */}
-      <div className="flex items-center gap-3">
+    <header className="h-16 bg-white/95 backdrop-blur-md border-b border-slate-200 px-3 sm:px-6 flex items-center justify-between shrink-0 shadow-subtle z-20 sticky top-0">
+      {/* Left: Mobile Hamburger & System Title */}
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        {onToggleMobileMenu && (
+          <button
+            onClick={onToggleMobileMenu}
+            className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0"
+            title="Open navigation menu"
+            aria-label="Open navigation menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
+
         <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-sm">
           <Layers className="w-4 h-4" />
         </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-sm font-bold text-slate-900 tracking-tight leading-none">
+
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <h1 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight leading-none truncate">
               Capital Expenditure System
             </h1>
-            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 leading-none">
+            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 leading-none shrink-0">
               CER
             </span>
           </div>
-          <p className="text-[11px] text-slate-500 mt-1 leading-none hidden sm:block">
+          <p className="text-[11px] text-slate-500 mt-1 leading-none hidden md:block">
             Proposal & Multilevel Workflow Management
           </p>
         </div>
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
         {/* Notifications Bell */}
         <button
           onClick={onOpenNotifications}
           className="relative p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
           title="Workflow Notification History"
+          aria-label="Workflow notifications"
         >
           <Bell className="w-4 h-4" />
           {notificationCount > 0 && (
@@ -73,7 +97,7 @@ export const TopNavbar: React.FC<ITopNavbarProps> = ({
           )}
         </button>
 
-        <div className="h-6 w-px bg-slate-200 mx-1" />
+        <div className="h-6 w-px bg-slate-200 mx-0.5 sm:mx-1" />
 
         {/* Minimal Persona / Role Switcher */}
         <div className="relative">
@@ -88,7 +112,7 @@ export const TopNavbar: React.FC<ITopNavbarProps> = ({
           {/* Profile Pill Button */}
           <button
             onClick={() => setShowUserDropdown(!showUserDropdown)}
-            className={`relative z-50 flex items-center gap-2.5 py-1 pl-1 pr-3 rounded-full border transition-all text-left ${
+            className={`relative z-50 flex items-center gap-1.5 sm:gap-2.5 py-1 pl-1 pr-2 sm:pr-3 rounded-full border transition-all text-left ${
               showUserDropdown
                 ? "bg-slate-100 border-slate-300 ring-2 ring-slate-200"
                 : "bg-white hover:bg-slate-50 border-slate-200/90 shadow-sm"
@@ -96,23 +120,16 @@ export const TopNavbar: React.FC<ITopNavbarProps> = ({
           >
             {/* Circular Monogram Avatar */}
             <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center font-semibold text-[11px] tracking-tight shrink-0 shadow-sm">
-              {currentUser.name
-                .replace(/\s*\([^)]*\)/g, "")
-                .trim()
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
-                .substring(0, 2)
-                .toUpperCase()}
+              {initials}
             </div>
 
             {/* User Name & Role Pill */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-800 leading-none">
-                {currentUser.name.replace(/\s*\([^)]*\)/g, "").trim()}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-slate-800 leading-none max-w-[90px] sm:max-w-none truncate">
+                {cleanName}
               </span>
               <span
-                className={`text-[10px] font-medium px-2 py-0.5 rounded-full leading-none border ${getRoleBadgeStyle(
+                className={`text-[10px] font-medium px-2 py-0.5 rounded-full leading-none border hidden sm:inline-block ${getRoleBadgeStyle(
                   currentUser.role
                 )}`}
               >
@@ -129,23 +146,16 @@ export const TopNavbar: React.FC<ITopNavbarProps> = ({
 
           {/* Persona Menu Dropdown */}
           {showUserDropdown && (
-            <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-elevated border border-slate-200 p-2.5 z-50 animate-fade-in">
+            <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-elevated border border-slate-200 p-2.5 z-50 animate-fade-in max-w-[90vw]">
               {/* Active User Card Header */}
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 mb-2">
                 <div className="flex items-center gap-2.5 mb-2">
                   <div className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
-                    {currentUser.name
-                      .replace(/\s*\([^)]*\)/g, "")
-                      .trim()
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .substring(0, 2)
-                      .toUpperCase()}
+                    {initials}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-slate-900 truncate">
-                      {currentUser.name.replace(/\s*\([^)]*\)/g, "").trim()}
+                      {cleanName}
                     </p>
                     <p className="text-[11px] text-slate-500 truncate">
                       {currentUser.email}
@@ -221,8 +231,8 @@ export const TopNavbar: React.FC<ITopNavbarProps> = ({
               </div>
 
               <div className="p-2 border-t border-slate-100 mt-2 bg-slate-50/80 rounded-xl text-[10px] text-slate-500 flex items-center gap-1.5">
-                <UserCheck className="w-3.5 h-3.5 text-blue-600" />
-                <span>Enterprise Role-Based Access Control (RBAC)</span>
+                <UserCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <span className="truncate">Enterprise Role-Based Access Control</span>
               </div>
             </div>
           )}

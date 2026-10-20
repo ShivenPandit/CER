@@ -61,7 +61,7 @@ export const DashboardView: React.FC<IDashboardViewProps> = ({
   // Recent Proposals (sorted by modified date)
   const recentProposals = [...proposals]
     .sort((a, b) => new Date(b.modified_date).getTime() - new Date(a.modified_date).getTime())
-    .slice(0, 5);
+    .slice(0, 8);
 
   // Category Breakdown Counts
   const vitalCount = proposals.filter((p) => p.cat === "Vital").length;
@@ -149,7 +149,7 @@ export const DashboardView: React.FC<IDashboardViewProps> = ({
       </div>
 
       {/* 2B: KPI Summary (Row of 4 Metrics) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 2xl:gap-6">
         <StatCard
           title="Total CER Proposals"
           value={totalCount}
@@ -193,90 +193,141 @@ export const DashboardView: React.FC<IDashboardViewProps> = ({
         />
       </div>
 
-      {/* 2C: Main Content (Two-Column Layout) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Left Column: Recent CER Proposals (2 cols) */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200/80 p-4 shadow-sm flex flex-col justify-between">
+      {/* 2C: Main Content (Fluid Responsive Layout for Widescreen & 4K) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-5 2xl:gap-6">
+        {/* Left Column: Recent CER Proposals (Uses 3 cols on xl/2xl) */}
+        <div className="lg:col-span-2 xl:col-span-3 2xl:col-span-3 bg-white rounded-2xl border border-slate-200/80 p-5 shadow-subtle flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-3.5 pb-2.5 border-b border-slate-100">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
               <div>
-                <h3 className="font-semibold text-slate-900 text-sm">
+                <h3 className="font-bold text-slate-900 text-sm sm:text-base">
                   Recent CER Proposals
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Latest capital expenditure requests across business units
+                  Latest capital expenditure requests across strategic business units
                 </p>
               </div>
               <button
                 onClick={() => onNavigate("all-proposals")}
-                className="text-xs font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 hover:underline"
               >
                 <span>View all ({totalCount})</span>
-                <ArrowRight className="w-3 h-3" />
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {recentProposals.length === 0 ? (
-              <div className="py-10 text-center text-slate-400">
+              <div className="py-12 text-center text-slate-400">
                 <p className="text-xs font-medium text-slate-600">No proposals available</p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
                   Click 'Create CER' to initiate your first proposal.
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-slate-400 font-medium text-[11px]">
-                      <th className="pb-2.5 pl-1">Proposal No.</th>
-                      <th className="pb-2.5">Project Name</th>
-                      <th className="pb-2.5">Category</th>
-                      <th className="pb-2.5 text-right">Amount</th>
-                      <th className="pb-2.5 text-center">Status</th>
-                      <th className="pb-2.5">Last Updated</th>
-                      <th className="pb-2.5 pr-1 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {recentProposals.map((prop) => (
-                      <tr
-                        key={prop.id}
-                        className="hover:bg-slate-50/70 transition-colors"
-                      >
-                        <td className="py-2.5 pl-1 font-semibold text-slate-900 whitespace-nowrap">
-                          {prop.cerprno}
-                        </td>
-                        <td
-                          className="py-2.5 font-medium text-slate-800 max-w-[200px] truncate"
-                          title={prop.pr_name}
-                        >
-                          {prop.pr_name}
-                        </td>
-                        <td className="py-2.5">
-                          <CategoryBadge category={prop.cat} />
-                        </td>
-                        <td className="py-2.5 text-right font-medium text-slate-900 whitespace-nowrap">
-                          {formatCurrency(prop.amount, prop.currency)}
-                        </td>
-                        <td className="py-2.5 text-center whitespace-nowrap">
-                          <StatusBadge status={prop.status} size="sm" />
-                        </td>
-                        <td className="py-2.5 text-slate-500 whitespace-nowrap">
-                          {formatDate(prop.modified_date)}
-                        </td>
-                        <td className="py-2.5 pr-1 text-right whitespace-nowrap">
-                          <button
-                            onClick={() => onNavigate("display", prop.cerprno)}
-                            className="px-2.5 py-1 text-xs font-medium text-slate-700 hover:text-blue-600 hover:bg-slate-100 rounded border border-slate-200 transition-colors"
-                          >
-                            Open
-                          </button>
-                        </td>
+              <>
+                {/* Desktop / Tablet Table (sm:block) */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-slate-400 font-semibold text-[11px] uppercase tracking-wider">
+                        <th className="pb-2.5 pl-1 w-[130px]">Proposal No.</th>
+                        <th className="pb-2.5">Project Name</th>
+                        <th className="pb-2.5 hidden xl:table-cell w-[140px]">Owner</th>
+                        <th className="pb-2.5 hidden 2xl:table-cell w-[90px]">SBU</th>
+                        <th className="pb-2.5 w-[90px]">Category</th>
+                        <th className="pb-2.5 text-right w-[120px]">Amount</th>
+                        <th className="pb-2.5 text-center w-[100px]">Status</th>
+                        <th className="pb-2.5 w-[110px]">Last Updated</th>
+                        <th className="pb-2.5 pr-1 text-right w-[70px]">Action</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {recentProposals.map((prop) => (
+                        <tr
+                          key={prop.id}
+                          className="hover:bg-slate-50/70 transition-colors"
+                        >
+                          <td className="py-2.5 pl-1 font-mono font-bold text-slate-900 whitespace-nowrap">
+                            <button
+                              onClick={() => onNavigate("display", prop.cerprno)}
+                              className="hover:text-blue-600 transition-colors text-left"
+                            >
+                              {prop.cerprno}
+                            </button>
+                          </td>
+                          <td
+                            className="py-2.5 font-medium text-slate-800 truncate"
+                            title={prop.pr_name}
+                          >
+                            {prop.pr_name}
+                          </td>
+                          <td className="py-2.5 text-slate-600 hidden xl:table-cell whitespace-nowrap truncate max-w-[140px]" title={prop.owname}>
+                            {prop.owname}
+                          </td>
+                          <td className="py-2.5 text-slate-600 hidden 2xl:table-cell whitespace-nowrap">
+                            {prop.sbu}
+                          </td>
+                          <td className="py-2.5 whitespace-nowrap">
+                            <CategoryBadge category={prop.cat} />
+                          </td>
+                          <td className="py-2.5 text-right font-bold text-slate-900 whitespace-nowrap">
+                            {formatCurrency(prop.amount, prop.currency)}
+                          </td>
+                          <td className="py-2.5 text-center whitespace-nowrap">
+                            <StatusBadge status={prop.status} size="sm" />
+                          </td>
+                          <td className="py-2.5 text-slate-500 whitespace-nowrap">
+                            {formatDate(prop.modified_date)}
+                          </td>
+                          <td className="py-2.5 pr-1 text-right whitespace-nowrap">
+                            <button
+                              onClick={() => onNavigate("display", prop.cerprno)}
+                              className="px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors shadow-2xs"
+                            >
+                              Open
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Cards (sm:hidden) */}
+                <div className="sm:hidden divide-y divide-slate-100">
+                  {recentProposals.map((prop) => (
+                    <div key={prop.id} className="py-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono font-bold text-xs text-slate-900 bg-slate-100 px-2 py-0.5 rounded">
+                          {prop.cerprno}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <CategoryBadge category={prop.cat} />
+                          <StatusBadge status={prop.status} size="sm" />
+                        </div>
+                      </div>
+
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-xs text-slate-900 line-clamp-1">
+                            {prop.pr_name}
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            {formatCurrency(prop.amount, prop.currency)} • {formatDate(prop.modified_date)}
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={() => onNavigate("display", prop.cerprno)}
+                          className="px-3 py-1 text-xs font-semibold text-slate-700 hover:text-blue-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors shrink-0"
+                        >
+                          Open
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </div>

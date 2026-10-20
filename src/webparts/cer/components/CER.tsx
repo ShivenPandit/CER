@@ -92,6 +92,9 @@ const CER: React.FC<ICERProps> = (props) => {
   const [notifications, setNotifications] = useState<INotificationLog[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
+  // Mobile navigation drawer toggle
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
   // Remarks History Modal
   const [remarksHistoryCerprno, setRemarksHistoryCerprno] = useState<string | null>(null);
 
@@ -251,27 +254,30 @@ const CER: React.FC<ICERProps> = (props) => {
   }).length;
 
   return (
-    <div className="flex min-h-screen bg-slate-100 font-sans text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
+    <div className="flex h-screen overflow-hidden bg-slate-100 font-sans text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
       {/* Enterprise Sidebar */}
       <Sidebar
         currentView={getSidebarActiveView()}
         onNavigate={handleNavigate}
         userRole={currentUser.role}
         pendingApprovalsCount={pendingCount}
+        isMobileOpen={isMobileNavOpen}
+        onCloseMobile={() => setIsMobileNavOpen(false)}
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         {/* Top Navbar */}
         <TopNavbar
           currentUser={currentUser}
           onSelectUser={(u) => setCurrentUser(u)}
           onOpenNotifications={() => setIsNotificationsOpen(true)}
           notificationCount={notifications.length}
+          onToggleMobileMenu={() => setIsMobileNavOpen(!isMobileNavOpen)}
         />
 
         {/* View Container */}
-        <main className="flex-1 p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-5 lg:p-6 2xl:p-8 w-full">
 
           {/* Active View Router */}
           {currentView === "dashboard" && (

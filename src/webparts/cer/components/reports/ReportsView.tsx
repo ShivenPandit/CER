@@ -3,8 +3,6 @@ import {
   Search,
   Filter,
   FileSpreadsheet,
-  ChevronLeft,
-  ChevronRight,
   ArrowUpDown,
   RotateCcw,
   Eye,
@@ -15,6 +13,8 @@ import { IAppUser } from "../../models/UserModel";
 import { StatusBadge } from "../common/StatusBadge";
 import { CategoryBadge } from "../common/CategoryBadge";
 import { ExcelExportService } from "../../services/ExcelExportService";
+import { useDynamicPagination } from "../../hooks/useDynamicPagination";
+import { DataTablePagination } from "../common/DataTablePagination";
 
 interface IReportsViewProps {
   proposals: ICERProposal[];
@@ -38,9 +38,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  // Pagination & Sorting
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  // Sorting
   const [sortField, setSortField] = useState<keyof ICERProposal>("created_date");
   const [sortAsc, setSortAsc] = useState(false);
 
@@ -98,12 +96,14 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
     return list;
   }, [filteredProposals, sortField, sortAsc]);
 
-  // Pagination calculation
-  const totalPages = Math.ceil(sortedProposals.length / pageSize) || 1;
-  const paginatedProposals = sortedProposals.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
+  // Fully Automatic Dynamic Table Pagination
+  const pagination = useDynamicPagination({
+    totalItems: sortedProposals.length,
+    defaultRowHeight: 46,
+    bufferBottom: 32,
+  });
+
+  const visibleProposals = pagination.paginateItems(sortedProposals);
 
   const handleSort = (field: keyof ICERProposal) => {
     if (sortField === field) {
@@ -122,7 +122,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
     setOwnerFilter("");
     setDateFrom("");
     setDateTo("");
-    setCurrentPage(1);
+    pagination.setCurrentPage(1);
   };
 
   const handleExportExcel = () => {
@@ -130,14 +130,14 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* View Header */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
             CER Proposal Reports & Strategic Analytics
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 mt-0.5">
             Form FR-04: Multi-parameter query, audit-grade tabular views, and Excel spreadsheet export
           </p>
         </div>
@@ -145,15 +145,15 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
         <button
           onClick={handleExportExcel}
           disabled={sortedProposals.length === 0}
-          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-emerald-600/20 transition-all disabled:opacity-50"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-emerald-600/20 transition-all disabled:opacity-50 shrink-0"
         >
           <FileSpreadsheet className="w-4 h-4" />
           <span>Export to Excel ({sortedProposals.length})</span>
         </button>
       </div>
 
-      {/* Filter Panel */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-subtle space-y-4">
+      {/* Responsive Filter Panel */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-4">
         <div className="flex items-center justify-between text-xs font-semibold text-slate-800 pb-2 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-blue-600" />
@@ -167,20 +167,23 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7 gap-3 text-xs">
           {/* Search Term */}
           <div>
             <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-              Proposal No / Project Name
+              Proposal / Project
             </label>
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search keywords..."
-                className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800"
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  pagination.setCurrentPage(1);
+                }}
+                placeholder="Search..."
+                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -192,8 +195,11 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
             </label>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800 font-medium"
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                pagination.setCurrentPage(1);
+              }}
+              className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="ALL">All Statuses</option>
               <option value="In Approval">In Approval</option>
@@ -211,8 +217,11 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
             </label>
             <select
               value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800 font-medium"
+              onChange={(e) => {
+                setCategoryFilter(e.target.value);
+                pagination.setCurrentPage(1);
+              }}
+              className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="ALL">All Categories</option>
               <option value="Vital">Vital</option>
@@ -224,12 +233,15 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
           {/* SBU Filter */}
           <div>
             <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-              Strategic Business Unit (SBU)
+              SBU
             </label>
             <select
               value={sbuFilter}
-              onChange={(e) => setSbuFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800 font-medium"
+              onChange={(e) => {
+                setSbuFilter(e.target.value);
+                pagination.setCurrentPage(1);
+              }}
+              className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="ALL">All SBUs</option>
               {SBU_OPTIONS.map((opt) => (
@@ -248,9 +260,12 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
             <input
               type="text"
               value={ownerFilter}
-              onChange={(e) => setOwnerFilter(e.target.value)}
+              onChange={(e) => {
+                setOwnerFilter(e.target.value);
+                pagination.setCurrentPage(1);
+              }}
               placeholder="e.g. Shiven..."
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800"
+              className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
@@ -262,8 +277,11 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
             <input
               type="date"
               value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800"
+              onChange={(e) => {
+                setDateFrom(e.target.value);
+                pagination.setCurrentPage(1);
+              }}
+              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
@@ -275,27 +293,29 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
             <input
               type="date"
               value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800"
+              onChange={(e) => {
+                setDateTo(e.target.value);
+                pagination.setCurrentPage(1);
+              }}
+              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
-          </div>
-
-          {/* Active Summary */}
-          <div className="flex items-end pb-1 text-slate-500 text-xs">
-            Found <strong>&nbsp;{filteredProposals.length}&nbsp;</strong> matching proposals
           </div>
         </div>
       </div>
 
-      {/* Results Table */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+      {/* Results Container */}
+      <div
+        ref={pagination.tableContainerRef}
+        className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden flex flex-col"
+      >
+        {/* Desktop / Tablet Table */}
+        <div className="hidden sm:block overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse table-fixed">
             <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider select-none">
+              <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider select-none">
                 <th
                   onClick={() => handleSort("cerprno")}
-                  className="py-3 px-4 cursor-pointer hover:text-slate-900"
+                  className="py-2.5 px-3 w-[125px] cursor-pointer hover:text-slate-900"
                 >
                   <div className="flex items-center gap-1">
                     <span>Proposal No</span>
@@ -304,68 +324,88 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                 </th>
                 <th
                   onClick={() => handleSort("pr_name")}
-                  className="py-3 px-3 cursor-pointer hover:text-slate-900"
+                  className="py-2.5 px-3 cursor-pointer hover:text-slate-900"
                 >
                   <div className="flex items-center gap-1">
                     <span>Project Name</span>
                     <ArrowUpDown className="w-3 h-3 text-slate-400" />
                   </div>
                 </th>
-                <th className="py-3 px-3">Owner</th>
-                <th className="py-3 px-3">SBU</th>
-                <th className="py-3 px-3">Category</th>
+                <th className="py-2.5 px-2.5 w-[120px]">Owner</th>
+                <th className="py-2.5 px-2 w-[75px]">SBU</th>
+                <th className="py-2.5 px-2 w-[85px]">Category</th>
                 <th
                   onClick={() => handleSort("amount")}
-                  className="py-3 px-3 text-right cursor-pointer hover:text-slate-900"
+                  className="py-2.5 px-3 text-right w-[125px] cursor-pointer hover:text-slate-900"
                 >
                   <div className="flex items-center justify-end gap-1">
                     <span>Amount</span>
                     <ArrowUpDown className="w-3 h-3 text-slate-400" />
                   </div>
                 </th>
-                <th className="py-3 px-3 text-center">Status</th>
-                <th className="py-3 px-3">Stage / Approver</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                <th className="py-2.5 px-2 text-center w-[95px]">Status</th>
+                <th className="py-2.5 px-2.5 w-[165px]">Stage / Approver</th>
+                <th className="py-2.5 px-3 text-right w-[80px]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {paginatedProposals.length === 0 ? (
+              {visibleProposals.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-400 text-xs">
-                    No proposals found matching the specified filters.
+                    No proposals found matching the selected criteria.
                   </td>
                 </tr>
               ) : (
-                paginatedProposals.map((prop) => (
+                visibleProposals.map((prop) => (
                   <tr
                     key={prop.id}
-                    className="hover:bg-slate-50/80 transition-colors group"
+                    className="hover:bg-slate-50/70 transition-colors"
                   >
-                    <td className="py-3 px-4 font-mono font-bold text-slate-900">
-                      {prop.cerprno}
+                    <td className="py-2.5 px-3 font-mono font-bold text-slate-900 whitespace-nowrap">
+                      <button
+                        onClick={() => onNavigateToDisplay(prop.cerprno)}
+                        className="hover:text-blue-600 transition-colors text-left"
+                      >
+                        {prop.cerprno}
+                      </button>
                     </td>
-                    <td className="py-3 px-3 font-medium text-slate-800 max-w-[220px] truncate" title={prop.pr_name}>
-                      {prop.pr_name}
+                    <td className="py-2.5 px-3 font-medium text-slate-800">
+                      <span className="truncate block" title={prop.pr_name}>
+                        {prop.pr_name}
+                      </span>
                     </td>
-                    <td className="py-3 px-3 text-slate-600">{prop.owname}</td>
-                    <td className="py-3 px-3 text-slate-600">{prop.sbu}</td>
-                    <td className="py-3 px-3">
+                    <td className="py-2.5 px-2.5 text-slate-600">
+                      <span className="truncate block" title={prop.owname}>
+                        {prop.owname}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-2 text-slate-600 whitespace-nowrap">{prop.sbu}</td>
+                    <td className="py-2.5 px-2 whitespace-nowrap">
                       <CategoryBadge category={prop.cat} />
                     </td>
-                    <td className="py-3 px-3 text-right font-bold text-slate-900">
+                    <td className="py-2.5 px-3 text-right font-bold text-slate-900 whitespace-nowrap">
                       {prop.currency} {prop.amount.toLocaleString()}
                     </td>
-                    <td className="py-3 px-3 text-center">
+                    <td className="py-2.5 px-2 text-center whitespace-nowrap">
                       <StatusBadge status={prop.status} size="sm" />
                     </td>
-                    <td className="py-3 px-3 text-slate-500">
-                      {prop.status === "Approved" ? (
-                        <span className="text-emerald-700 font-semibold">Fully Approved</span>
-                      ) : (
-                        `L${prop.current_level} - ${prop.pending_with_role}`
-                      )}
+                    <td className="py-2.5 px-2.5 text-slate-500">
+                      <span
+                        className="truncate block"
+                        title={
+                          prop.status === "Approved"
+                            ? "Fully Approved"
+                            : `L${prop.current_level} - ${prop.pending_with_role}`
+                        }
+                      >
+                        {prop.status === "Approved" ? (
+                          <span className="text-emerald-700 font-semibold">Fully Approved</span>
+                        ) : (
+                          `L${prop.current_level} - ${prop.pending_with_role}`
+                        )}
+                      </span>
                     </td>
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-2.5 px-3 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => onNavigateToDisplay(prop.cerprno)}
@@ -392,40 +432,93 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
           </table>
         </div>
 
-        {/* Pagination Bar */}
-        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between text-xs text-slate-500">
-          <div>
-            Showing{" "}
-            <strong>
-              {sortedProposals.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}
-            </strong>{" "}
-            to{" "}
-            <strong>
-              {Math.min(currentPage * pageSize, sortedProposals.length)}
-            </strong>{" "}
-            of <strong>{sortedProposals.length}</strong> proposals
-          </div>
+        {/* Mobile View (< 640px) */}
+        <div className="sm:hidden divide-y divide-slate-100">
+          {visibleProposals.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 text-xs px-4">
+              No proposals found matching the selected criteria.
+            </div>
+          ) : (
+            visibleProposals.map((prop) => (
+              <div key={prop.id} className="p-4 space-y-2.5 hover:bg-slate-50/60 transition-colors">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono font-bold text-xs text-slate-900 bg-slate-100 px-2 py-0.5 rounded">
+                    {prop.cerprno}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <CategoryBadge category={prop.cat} />
+                    <StatusBadge status={prop.status} size="sm" />
+                  </div>
+                </div>
 
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-white disabled:opacity-40 transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="px-3 font-semibold text-slate-800">
-              Page {currentPage} of {totalPages}
-            </span>
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-white disabled:opacity-40 transition-colors"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+                <div>
+                  <h4 className="font-semibold text-slate-900 text-xs leading-snug">
+                    {prop.pr_name}
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {prop.owname} • SBU: {prop.sbu}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+                      Amount
+                    </span>
+                    <span className="font-bold text-slate-900">
+                      {prop.currency} {prop.amount.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+                      Pending
+                    </span>
+                    <span className="text-slate-600 text-[11px]">
+                      {prop.status === "Approved" ? "Approved" : `L${prop.current_level} Review`}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-1.5 pt-1">
+                  <button
+                    onClick={() => onNavigateToDisplay(prop.cerprno)}
+                    className="flex-1 py-1.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-center flex items-center justify-center gap-1 text-[11px] transition-colors"
+                  >
+                    <Eye className="w-3 h-3" />
+                    <span>Display CER</span>
+                  </button>
+                  {(currentUser.role === "Initiator" || currentUser.role === "Admin") && (
+                    <button
+                      onClick={() => onNavigateToChange(prop.cerprno)}
+                      className="flex-1 py-1.5 px-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-lg text-center flex items-center justify-center gap-1 text-[11px] transition-colors"
+                    >
+                      <Edit className="w-3 h-3" />
+                      <span>Change CER</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
+
+        {/* Dynamic Pagination Bar */}
+        <DataTablePagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={sortedProposals.length}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          pageSizeSetting={pagination.pageSizeSetting}
+          effectivePageSize={pagination.effectivePageSize}
+          onPageChange={pagination.setCurrentPage}
+          onPageSizeChange={pagination.setPageSizeSetting}
+          onPrevPage={pagination.goToPrevPage}
+          onNextPage={pagination.goToNextPage}
+          onFirstPage={pagination.goToFirstPage}
+          onLastPage={pagination.goToLastPage}
+          itemName="proposals"
+        />
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Settings,
   ChevronRight,
+  X,
 } from "lucide-react";
 import { UserRole } from "../../models/UserModel";
 import { VedantaLogo } from "../common/VedantaLogo";
@@ -32,6 +33,8 @@ interface ISidebarProps {
   onNavigate: (view: NavView, proposalId?: string) => void;
   userRole: UserRole;
   pendingApprovalsCount: number;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export const Sidebar: React.FC<ISidebarProps> = ({
@@ -39,6 +42,8 @@ export const Sidebar: React.FC<ISidebarProps> = ({
   onNavigate,
   userRole,
   pendingApprovalsCount,
+  isMobileOpen = false,
+  onCloseMobile,
 }) => {
   // Authorization checks for navigation items
   const canCreate = userRole === "Initiator" || userRole === "Admin";
@@ -103,11 +108,29 @@ export const Sidebar: React.FC<ISidebarProps> = ({
     },
   ];
 
-  return (
-    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 h-screen sticky top-0 border-r border-slate-800 select-none z-30">
+  const handleItemClick = (id: NavView) => {
+    onNavigate(id);
+    if (onCloseMobile) {
+      onCloseMobile();
+    }
+  };
+
+  const navContent = (
+    <>
       {/* Brand Header — Vedanta Logo & Name */}
-      <div className="p-4 border-b border-slate-800 flex items-center justify-start">
+      <div className="p-4 border-b border-slate-800 flex items-center justify-between">
         <VedantaLogo height={32} theme="dark" />
+        {/* Mobile close button */}
+        {onCloseMobile && (
+          <button
+            onClick={onCloseMobile}
+            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            title="Close navigation menu"
+            aria-label="Close navigation menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Nav List */}
@@ -124,23 +147,23 @@ export const Sidebar: React.FC<ISidebarProps> = ({
             return (
               <button
                 key={item.id}
-                onClick={() => onNavigate(item.id as NavView)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors group ${
+                onClick={() => handleItemClick(item.id as NavView)}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-colors group ${
                   isActive
-                    ? "bg-blue-600 text-white"
+                    ? "bg-blue-600 text-white shadow-sm"
                     : "text-slate-300 hover:bg-slate-800/60 hover:text-white"
                 }`}
               >
                 <div className="flex items-center gap-2.5">
                   <Icon
-                    className={`w-4 h-4 transition-colors ${
+                    className={`w-4 h-4 transition-colors shrink-0 ${
                       isActive ? "text-white" : "text-slate-400 group-hover:text-slate-200"
                     }`}
                   />
-                  <span>{item.label}</span>
+                  <span className="truncate">{item.label}</span>
                 </div>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 shrink-0">
                   {item.badge !== undefined && (
                     <span
                       className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
@@ -158,6 +181,32 @@ export const Sidebar: React.FC<ISidebarProps> = ({
             );
           })}
       </nav>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop Persistent Sidebar */}
+      <aside className="hidden lg:flex w-64 bg-slate-900 text-slate-300 flex-col shrink-0 h-screen sticky top-0 border-r border-slate-800 select-none z-30">
+        {navContent}
+      </aside>
+
+      {/* Mobile / Tablet Navigation Drawer */}
+      {isMobileOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex">
+          {/* Backdrop Overlay */}
+          <div
+            className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity animate-fade-in"
+            onClick={onCloseMobile}
+            aria-hidden="true"
+          />
+
+          {/* Drawer Content */}
+          <aside className="relative w-72 max-w-[85vw] bg-slate-900 text-slate-300 flex flex-col h-full shadow-2xl border-r border-slate-800 z-50 select-none">
+            {navContent}
+          </aside>
+        </div>
+      )}
+    </>
   );
 };
