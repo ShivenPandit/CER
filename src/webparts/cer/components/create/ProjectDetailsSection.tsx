@@ -2,6 +2,7 @@ import React from "react";
 import { FolderGit2, RefreshCw, AlertCircle, CheckCircle2 } from "lucide-react";
 import { ICERProposal, CERCategory, SBUOption, SBU_OPTIONS } from "../../models/CERModel";
 import { FormErrors } from "../../utils/cerValidation";
+import { calculateExactDays, calculateMonthsFromDays, formatDuration } from "../../utils/dateUtils";
 
 interface IProjectDetailsSectionProps {
   formData: ICERProposal;
@@ -24,38 +25,25 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
   isChangeMode = false,
   onGenerateNewNumber,
 }) => {
-  // Handle date change and auto-calculate duration in days and months
+  // Duration display unit state: default to "days" per requirements
+  const [durationUnit, setDurationUnit] = React.useState<"days" | "months">("days");
+
+  // Handle date change and auto-calculate exact duration in days and months
   const handleDateChange = (isStart: boolean, dateVal: string) => {
-    if (isStart) {
-      onChange("st_date", dateVal);
-      if (formData.com_date && dateVal) {
-        const start = new Date(dateVal);
-        const end = new Date(formData.com_date);
-        const diffMs = end.getTime() - start.getTime();
-        const diffDays = Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)));
-        const diffMonths = Math.max(
-          1,
-          Math.round(diffMs / (1000 * 60 * 60 * 24 * 30.44))
-        );
-        onChange("duration_months", diffMonths);
-        onChange("period", `${diffDays} Days (${diffMonths} Months)`);
-      }
-    } else {
-      onChange("com_date", dateVal);
-      if (formData.st_date && dateVal) {
-        const start = new Date(formData.st_date);
-        const end = new Date(dateVal);
-        const diffMs = end.getTime() - start.getTime();
-        const diffDays = Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)));
-        const diffMonths = Math.max(
-          1,
-          Math.round(diffMs / (1000 * 60 * 60 * 24 * 30.44))
-        );
-        onChange("duration_months", diffMonths);
-        onChange("period", `${diffDays} Days (${diffMonths} Months)`);
-      }
+    const newStDate = isStart ? dateVal : formData.st_date;
+    const newComDate = isStart ? formData.com_date : dateVal;
+
+    onChange(isStart ? "st_date" : "com_date", dateVal);
+
+    if (newStDate && newComDate) {
+      const days = calculateExactDays(newStDate, newComDate);
+      const months = calculateMonthsFromDays(days);
+      onChange("duration_months", months);
+      onChange("period", `${days} ${days === 1 ? "Day" : "Days"}`);
     }
   };
+
+  const exactDays = calculateExactDays(formData.st_date, formData.com_date);
 
   const getFieldError = (field: keyof ICERProposal): string | undefined => {
     return touched[field] || errors[field] ? errors[field] : undefined;
@@ -304,17 +292,45 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
 
         {/* Total Duration */}
         <div id="field-duration_months">
-          <label htmlFor="duration_months" className="block font-semibold text-slate-700 mb-1.5">
-            Total Duration
-          </label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label htmlFor="duration_months" className="block font-semibold text-slate-700">
+              Total Duration
+            </label>
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+              <button
+                type="button"
+                onClick={() => setDurationUnit("days")}
+                title="Display duration in exact days (Default)"
+                className={`px-2.5 py-0.5 rounded-md font-medium transition-colors ${
+                  durationUnit === "days"
+                    ? "bg-white text-slate-800 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Days
+              </button>
+              <button
+                type="button"
+                onClick={() => setDurationUnit("months")}
+                title="Display duration in months"
+                className={`px-2.5 py-0.5 rounded-md font-medium transition-colors ${
+                  durationUnit === "months"
+                    ? "bg-white text-slate-800 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Months
+              </button>
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <input
               id="duration_months"
               type="text"
               readOnly
               disabled
-              value={formData.duration_months ? `${Math.round(formData.duration_months * 30.44)} Days (${formData.duration_months} Months)` : "0"}
-              className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl font-semibold text-slate-500 cursor-not-allowed shadow-none"
+              value={formatDuration(exactDays, durationUnit)}
+              className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl font-semibold text-slate-700 cursor-not-allowed shadow-none"
             />
           </div>
         </div>

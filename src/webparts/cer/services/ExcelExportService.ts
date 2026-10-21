@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import { ICERProposal } from "../models/CERModel";
+import { calculateExactDays } from "../utils/dateUtils";
 
 export class ExcelExportService {
   /**
@@ -45,7 +46,7 @@ export class ExcelExportService {
         "Key Assumptions to Financial Benefit/Costs": this.sanitizeFormula(proposal.cost_assumptions),
         "Start Date of Project": this.sanitizeFormula(proposal.st_date),
         "Completion Date of Project": this.sanitizeFormula(proposal.com_date),
-        "Total Duration (Months)": proposal.duration_months,
+        "Total Duration (Days)": calculateExactDays(proposal.st_date, proposal.com_date),
         "Corporate Budget (Yes/No)": this.sanitizeFormula(proposal.cbudget),
         "Corporate Budget Amount ($mm)": proposal.cb_amnt,
         "Reason if not/partially budgeted": this.sanitizeFormula(proposal.reason),
@@ -117,7 +118,7 @@ export class ExcelExportService {
       "Total Cost": p.total,
       "Start Date": this.sanitizeFormula(p.st_date),
       "Completion Date": this.sanitizeFormula(p.com_date),
-      "Duration (Mos)": p.duration_months,
+      "Duration (Days)": calculateExactDays(p.st_date, p.com_date),
       "Current Level": p.current_level,
       "Pending With": this.sanitizeFormula(p.pending_with_role),
       "Created Date": p.created_date ? p.created_date.split("T")[0] : ""

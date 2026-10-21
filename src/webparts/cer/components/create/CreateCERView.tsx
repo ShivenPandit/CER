@@ -40,7 +40,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     currency: "USD",
     cat: "Vital",
     payable: "Payback",
-    period: "12 Months",
+    period: "365 Days",
     payback_quarters: 4,
     ben_npv: 0,
     ben_irr: 0,

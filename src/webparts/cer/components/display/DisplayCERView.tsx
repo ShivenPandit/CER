@@ -28,6 +28,7 @@ import { ExcelExportService } from "../../services/ExcelExportService";
 import { StatusBadge } from "../common/StatusBadge";
 import { CategoryBadge } from "../common/CategoryBadge";
 import { ApprovalProgressTracker } from "./ApprovalProgressTracker";
+import { calculateExactDays } from "../../utils/dateUtils";
 
 interface IDisplayCERViewProps {
   dataService: ICERDataService;
@@ -206,7 +207,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                 <span>•</span>
                 <span>SBU: <strong>{proposal.sbu}</strong></span>
                 <span>•</span>
-                <span>Duration: <strong>{proposal.period}</strong></span>
+                <span>Duration: <strong>{proposal.period || (proposal.st_date && proposal.com_date ? `${calculateExactDays(proposal.st_date, proposal.com_date)} Days` : `${proposal.duration_months} Months`)}</strong></span>
                 <span>•</span>
                 <span>
                   Pending: <strong className="text-blue-300">Level {proposal.current_level} ({proposal.pending_with_role})</strong>
@@ -322,7 +323,11 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                 </div>
                 <div>
                   <p className="text-slate-400 font-medium">Total Duration</p>
-                  <p className="font-semibold text-slate-800 mt-0.5">{proposal.duration_months} Months</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">
+                    {proposal.st_date && proposal.com_date
+                      ? `${calculateExactDays(proposal.st_date, proposal.com_date)} Days`
+                      : (proposal.period || `${proposal.duration_months} Months`)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-slate-400 font-medium">Owner Email</p>

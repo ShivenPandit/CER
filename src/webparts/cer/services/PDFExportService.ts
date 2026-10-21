@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ICERProposal } from "../models/CERModel";
 import { IApprovalDecision } from "../models/WorkflowModel";
+import { calculateExactDays } from "../utils/dateUtils";
 
 export class PDFExportService {
   public static async generateCERPdf(
@@ -83,7 +84,7 @@ export class PDFExportService {
           ["Block/SBU/Field", proposal.sbu],
           ["Category", proposal.cat],
           ["Objectives of CER", proposal.object || "N/A"],
-          ["Project Schedule", `${proposal.st_date} to ${proposal.com_date} (${proposal.duration_months} Months)`],
+          ["Project Schedule", `${proposal.st_date} to ${proposal.com_date} (${calculateExactDays(proposal.st_date, proposal.com_date)} Days)`],
         ],
         theme: "grid",
         headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: "bold", fontSize: 9 },

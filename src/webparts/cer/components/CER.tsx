@@ -7,11 +7,11 @@ import { DataServiceFactory } from "../services/DataServiceFactory";
 import { ICERDataService } from "../services/ICERDataService";
 
 // Navigation
-import { Sidebar, NavView } from "./navigation/Sidebar";
-import { TopNavbar } from "./navigation/TopNavbar";
+import { NavView } from "./navigation/Sidebar";
+import { AppHeader } from "./navigation/AppHeader";
 
 // Views
-import { DashboardView } from "./dashboard/DashboardView";
+import { HomeView } from "./home/HomeView";
 import { CreateCERView } from "./create/CreateCERView";
 import { ChangeCERView } from "./change/ChangeCERView";
 import { DisplayCERView } from "./display/DisplayCERView";
@@ -25,6 +25,7 @@ import { AuditTrailView } from "./audit/AuditTrailView";
 // Common Modals
 import { NotificationCenter } from "./common/NotificationCenter";
 import { RemarksHistoryModal } from "./audit/RemarksHistoryModal";
+import { UserManualModal } from "./manual/UserManualModal";
 
 const CER: React.FC<ICERProps> = (props) => {
   const [dataService] = useState<ICERDataService>(() => DataServiceFactory.getService(props));
@@ -98,6 +99,12 @@ const CER: React.FC<ICERProps> = (props) => {
   // Remarks History Modal
   const [remarksHistoryCerprno, setRemarksHistoryCerprno] = useState<string | null>(null);
 
+  // User Manual Modal
+  const [isUserManualOpen, setIsUserManualOpen] = useState(false);
+
+  // Main scrollable container reference
+  const mainScrollRef = React.useRef<HTMLElement | null>(null);
+
   const loadInitialData = async (): Promise<void> => {
     try {
       const [propsList, notifs] = await Promise.all([
@@ -123,6 +130,9 @@ const CER: React.FC<ICERProps> = (props) => {
       setActiveProposalId(route.proposalId);
       if (route.view !== "display" && route.view !== "change") {
         setActiveParentView(route.view);
+      }
+      if (mainScrollRef.current) {
+        mainScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
       }
     };
 
@@ -167,7 +177,11 @@ const CER: React.FC<ICERProps> = (props) => {
     if (window.location.hash !== targetHash) {
       window.location.hash = targetHash;
     }
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   // Dedicated back / cancel handler that navigates back to where the user came from
@@ -254,140 +268,135 @@ const CER: React.FC<ICERProps> = (props) => {
   }).length;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-100 font-sans text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
-      {/* Enterprise Sidebar */}
-      <Sidebar
-        currentView={getSidebarActiveView()}
+    <div className="flex flex-col h-screen overflow-hidden bg-[#F8FAFC] font-sans text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
+      {/* Top Header matching reference screenshot */}
+      <AppHeader
+        currentUser={currentUser}
+        currentView={currentView}
         onNavigate={handleNavigate}
-        userRole={currentUser.role}
-        pendingApprovalsCount={pendingCount}
-        isMobileOpen={isMobileNavOpen}
-        onCloseMobile={() => setIsMobileNavOpen(false)}
+        onGoBack={handleGoBack}
+        canGoBack={historyStack.length > 0 || currentView !== "dashboard"}
+        onSelectUser={(u) => setCurrentUser(u)}
+        onOpenNotifications={() => setIsNotificationsOpen(true)}
+        notificationCount={notifications.length}
       />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-        {/* Top Navbar */}
-        <TopNavbar
-          currentUser={currentUser}
-          onSelectUser={(u) => setCurrentUser(u)}
-          onOpenNotifications={() => setIsNotificationsOpen(true)}
-          notificationCount={notifications.length}
-          onToggleMobileMenu={() => setIsMobileNavOpen(!isMobileNavOpen)}
-        />
+      {/* Main Content Area - Full Viewport Width */}
+      <main
+        ref={mainScrollRef as any}
+        className={`flex-1 overflow-y-auto overflow-x-hidden w-full ${
+          currentView === "dashboard" ? "p-0" : "p-3 sm:p-5 lg:p-6 2xl:p-8"
+        }`}
+      >
+        {/* Active View Router */}
+        {currentView === "dashboard" && (
+          <HomeView
+            currentUser={currentUser}
+            onNavigate={handleNavigate}
+            onOpenManual={() => setIsUserManualOpen(true)}
+            pendingCount={pendingCount}
+          />
+        )}
 
-        {/* View Container */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-5 lg:p-6 2xl:p-8 w-full">
+        {currentView === "create" && (
+          <CreateCERView
+            dataService={dataService}
+            currentUser={currentUser}
+            onCancel={handleGoBack}
+            onSuccess={(cerprno) => {
+              handleRefreshProposals().catch((e) => console.error(e));
+              handleNavigate("display", cerprno);
+            }}
+          />
+        )}
 
-          {/* Active View Router */}
-          {currentView === "dashboard" && (
-            <DashboardView
-              proposals={proposals}
-              currentUser={currentUser}
-              onNavigate={handleNavigate}
-            />
-          )}
+        {currentView === "change" && (
+          <ChangeCERView
+            dataService={dataService}
+            currentUser={currentUser}
+            initialProposalId={activeProposalId}
+            onCancel={handleGoBack}
+            onSuccess={(cerprno) => {
+              handleRefreshProposals().catch((e) => console.error(e));
+              handleNavigate("display", cerprno);
+            }}
+            onViewRemarksHistory={(cerprno) => setRemarksHistoryCerprno(cerprno)}
+          />
+        )}
 
-          {currentView === "create" && (
-            <CreateCERView
-              dataService={dataService}
-              currentUser={currentUser}
-              onCancel={handleGoBack}
-              onSuccess={(cerprno) => {
-                handleRefreshProposals().catch((e) => console.error(e));
-                handleNavigate("display", cerprno);
-              }}
-            />
-          )}
+        {currentView === "display" && (
+          <DisplayCERView
+            dataService={dataService}
+            currentUser={currentUser}
+            initialProposalId={activeProposalId}
+            onCancel={handleGoBack}
+            onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
+            onNavigateToAudit={(cerprno) => handleNavigate("audit-trail", cerprno)}
+            onViewRemarksHistory={(cerprno) => setRemarksHistoryCerprno(cerprno)}
+          />
+        )}
 
-          {currentView === "change" && (
-            <ChangeCERView
-              dataService={dataService}
-              currentUser={currentUser}
-              initialProposalId={activeProposalId}
-              onCancel={handleGoBack}
-              onSuccess={(cerprno) => {
-                handleRefreshProposals().catch((e) => console.error(e));
-                handleNavigate("display", cerprno);
-              }}
-              onViewRemarksHistory={(cerprno) => setRemarksHistoryCerprno(cerprno)}
-            />
-          )}
+        {currentView === "my-proposals" && (
+          <ProposalListView
+            proposals={proposals}
+            currentUser={currentUser}
+            mode="my"
+            onNavigateToCreate={() => handleNavigate("create")}
+            onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
+            onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
+          />
+        )}
 
-          {currentView === "display" && (
-            <DisplayCERView
-              dataService={dataService}
-              currentUser={currentUser}
-              initialProposalId={activeProposalId}
-              onCancel={handleGoBack}
-              onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
-              onNavigateToAudit={(cerprno) => handleNavigate("audit-trail", cerprno)}
-              onViewRemarksHistory={(cerprno) => setRemarksHistoryCerprno(cerprno)}
-            />
-          )}
+        {currentView === "all-proposals" && (
+          <ProposalListView
+            proposals={proposals}
+            currentUser={currentUser}
+            mode="all"
+            onNavigateToCreate={() => handleNavigate("create")}
+            onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
+            onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
+          />
+        )}
 
-          {currentView === "my-proposals" && (
-            <ProposalListView
-              proposals={proposals}
-              currentUser={currentUser}
-              mode="my"
-              onNavigateToCreate={() => handleNavigate("create")}
-              onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
-              onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
-            />
-          )}
+        {currentView === "pending-approvals" && (
+          <PendingApprovalsView
+            dataService={dataService}
+            currentUser={currentUser}
+            onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
+            onRefreshProposals={handleRefreshProposals}
+          />
+        )}
 
-          {currentView === "all-proposals" && (
-            <ProposalListView
-              proposals={proposals}
-              currentUser={currentUser}
-              mode="all"
-              onNavigateToCreate={() => handleNavigate("create")}
-              onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
-              onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
-            />
-          )}
+        {currentView === "approval-history" && (
+          <ApprovalHistoryView
+            dataService={dataService}
+            proposals={proposals}
+            onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
+          />
+        )}
 
-          {currentView === "pending-approvals" && (
-            <PendingApprovalsView
-              dataService={dataService}
-              currentUser={currentUser}
-              onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
-              onRefreshProposals={handleRefreshProposals}
-            />
-          )}
+        {currentView === "reports" && (
+          <ReportsView
+            proposals={proposals}
+            currentUser={currentUser}
+            onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
+            onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
+          />
+        )}
 
-          {currentView === "approval-history" && (
-            <ApprovalHistoryView
-              dataService={dataService}
-              proposals={proposals}
-              onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
-            />
-          )}
+        {currentView === "audit-trail" && (
+          <AuditTrailView
+            dataService={dataService}
+            initialProposalId={activeProposalId}
+            onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
+            onCancel={handleGoBack}
+          />
+        )}
 
-          {currentView === "reports" && (
-            <ReportsView
-              proposals={proposals}
-              currentUser={currentUser}
-              onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
-              onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
-            />
-          )}
-
-          {currentView === "audit-trail" && (
-            <AuditTrailView
-              dataService={dataService}
-              initialProposalId={activeProposalId}
-              onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
-              onCancel={handleGoBack}
-            />
-          )}
-
-          {currentView === "workflow-config" && (
-            <WorkflowConfigView dataService={dataService} />
-          )}
-        </main>
-      </div>
+        {currentView === "workflow-config" && (
+          <WorkflowConfigView dataService={dataService} />
+        )}
+      </main>
 
       {/* Global Modals */}
 
@@ -405,6 +414,11 @@ const CER: React.FC<ICERProps> = (props) => {
           dataService={dataService}
         />
       )}
+
+      <UserManualModal
+        isOpen={isUserManualOpen}
+        onClose={() => setIsUserManualOpen(false)}
+      />
     </div>
   );
 };
