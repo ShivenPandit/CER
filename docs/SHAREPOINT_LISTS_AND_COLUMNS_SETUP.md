@@ -17,7 +17,7 @@ This specification provides the comprehensive, field-by-field SharePoint Online 
 | 3   | **CER_RemarksHistory**      | `CER_RemarksHistory`       | Custom List          | **Mandatory**              | Immutable version history for 350–400 word business remarks (FR-08).             |
 | 4   | **CER_WorkflowLevels**      | `CER_WorkflowLevels`       | Custom List          | **Mandatory**              | Configurable sequential approval hierarchy and reviewer matrix (FR-05, BR-06).   |
 | 5   | **CER_ApprovalDecisions**   | `CER_ApprovalDecisions`    | Custom List          | **Mandatory**              | Reviewer decision log, approval comments, and rejection justifications (FR-05).  |
-| 6   | **CER_Attachments**         | `CER_Attachments`          | **Document Library** | **Mandatory**              | Document store for Section H attachments (PDFs, Word, Excel, images up to 25MB). |
+| 6   | **CER_Attachments**         | `CER_Attachments`          | **Document Library** | **Mandatory**              | Document store for Section H attachments (PDFs, Word, Excel, images: Max 10MB per file, Max 20MB total combined capacity). |
 | 7   | **CER_Notifications**       | `CER_Notifications`        | Custom List          | **Optional / Recommended** | Audit log for automated multi-party workflow email dispatches.                   |
 
 - **Total Confirmed Required Lists**: 5 Custom Lists
@@ -187,7 +187,7 @@ This specification provides the comprehensive, field-by-field SharePoint Online 
 
 - **Library Display Name**: `CER_Attachments`
 - **Internal Name**: `CER_Attachments`
-- **Purpose**: Dedicated Document Library for file attachments (PDF, DOCX, XLSX, images up to 25MB).
+- **Purpose**: Dedicated Document Library for file attachments (PDF, DOCX, XLSX, images: Max 10MB per file, Max 20MB total combined capacity).
 - **Referenced In Code**: `.env.example` (`SP_DOCLIB_ATTACHMENTS=CER_Attachments`), `AttachmentSection.tsx`.
 
 | #   | Column Display Name           | Internal Name | SharePoint Field Type | Required | Default Value | Unique | Indexed | Notes                                  | Source Model Field       |

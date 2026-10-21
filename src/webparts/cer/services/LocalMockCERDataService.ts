@@ -3,6 +3,7 @@ import { ICERProposal } from "../models/CERModel";
 import { ICERAuditRecord, ICERRemarksVersion, AUDIT_FIELD_DESCRIPTIONS, EXCLUDED_AUDIT_FIELDS } from "../models/AuditModel";
 import { IWorkflowLevel, IApprovalDecision, INotificationLog } from "../models/WorkflowModel";
 import { ICERAttachment } from "../models/AttachmentModel";
+import { validateAttachment } from "../utils/attachmentValidation";
 
 const STORAGE_KEYS = {
   PROPOSALS: "CER_APP_PROPOSALS",
@@ -805,6 +806,18 @@ export class LocalMockCERDataService implements ICERDataService {
   }
 
   public async addAttachment(attachment: ICERAttachment): Promise<void> {
+    const existing = await this.getAttachments(attachment.cerprno);
+    const existingSize = existing.reduce((sum, a) => sum + (a.size || 0), 0);
+
+    const validation = validateAttachment(
+      attachment,
+      existingSize,
+      existing.map((a) => a.name)
+    );
+    if (!validation.isValid) {
+      throw new Error(`[Attachment Policy Violation] ${validation.error}`);
+    }
+
     this._attachments.push(attachment);
     this._saveToStorage(STORAGE_KEYS.ATTACHMENTS, this._attachments);
   }

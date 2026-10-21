@@ -53,6 +53,14 @@ export function validateField(
       return undefined;
     }
 
+    case "owner_email": {
+      const trimmed = String(value || "").trim();
+      if (!trimmed) return "Owner Email is required.";
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(trimmed)) return "Please enter a valid email address.";
+      return undefined;
+    }
+
     case "sbu": {
       if (!value || SBU_OPTIONS.indexOf(value) === -1) {
         return "Please select an approved Block/SBU/Field.";
@@ -284,6 +292,7 @@ export function validateAll(formData: ICERProposal, isDraft: boolean = false): {
     "pr_name",
     "cerprno",
     "owname",
+    "owner_email",
     "sbu",
     "st_date",
     "com_date",

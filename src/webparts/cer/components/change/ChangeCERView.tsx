@@ -13,6 +13,7 @@ import { RemarksSection } from "../create/RemarksSection";
 import { AttachmentSection } from "../create/AttachmentSection";
 import { CategoryDefinitionSection } from "../common/CategoryDefinitionSection";
 import { FormErrors, validateField, validateAll } from "../../utils/cerValidation";
+import { MAX_TOTAL_SIZE_BYTES, formatBytes } from "../../utils/attachmentValidation";
 
 interface IChangeCERViewProps {
   dataService: ICERDataService;
@@ -39,6 +40,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
@@ -160,6 +162,19 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
   const handleSaveChange = async () => {
     if (!formData) return;
     setErrorMessage(null);
+
+    if (isUploadingAttachments) {
+      setErrorMessage("Please wait for all attachments to finish processing before saving.");
+      return;
+    }
+
+    const totalAttachmentBytes = attachments.reduce((sum, a) => sum + (a.size || 0), 0);
+    if (totalAttachmentBytes > MAX_TOTAL_SIZE_BYTES) {
+      setErrorMessage(
+        `Total attachment size (${formatBytes(totalAttachmentBytes)}) exceeds the allowed 20 MB limit.`
+      );
+      return;
+    }
 
     // Validate using modern rules
     const { errors: validationErrors, isValid, firstErrorField } = validateAll(formData, false);
@@ -339,6 +354,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
             onDeleteAttachment={handleDeleteAttachment}
             cerprno={formData.cerprno}
             userName={currentUser.name}
+            onUploadingChange={setIsUploadingAttachments}
           />
 
           {/* Critical Client Requirement: Category Definition at the end of the Form */}
@@ -354,8 +370,8 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
               <button
                 type="button"
                 onClick={onCancel}
-                disabled={isSubmitting}
-                className="px-3 sm:px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
+                disabled={isSubmitting || isUploadingAttachments}
+                className="px-3 sm:px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -363,11 +379,17 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
               <button
                 type="button"
                 onClick={handleSaveChange}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isUploadingAttachments}
                 className="flex items-center gap-2 px-4 sm:px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-600/30 transition-all hover:scale-[1.02] disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
-                <span>{isSubmitting ? "Saving & Re-triggering..." : "Save Changes & Re-trigger Workflow"}</span>
+                <span>
+                  {isSubmitting
+                    ? "Saving & Re-triggering..."
+                    : isUploadingAttachments
+                    ? "Processing Attachments..."
+                    : "Save Changes & Re-trigger Workflow"}
+                </span>
               </button>
             </div>
           </div>

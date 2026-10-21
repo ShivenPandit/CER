@@ -13,6 +13,7 @@ import { RemarksSection } from "./RemarksSection";
 import { AttachmentSection } from "./AttachmentSection";
 import { CategoryDefinitionSection } from "../common/CategoryDefinitionSection";
 import { FormErrors, validateField, validateAll } from "../../utils/cerValidation";
+import { MAX_TOTAL_SIZE_BYTES, formatBytes } from "../../utils/attachmentValidation";
 
 interface ICreateCERViewProps {
   dataService: ICERDataService;
@@ -89,6 +90,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
   });
 
   const [attachments, setAttachments] = useState<ICERAttachment[]>([]);
+  const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -166,6 +168,19 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
 
   const handleSubmit = async (isDraft: boolean = false) => {
     setErrorMessage(null);
+
+    if (isUploadingAttachments) {
+      setErrorMessage("Please wait for all attachments to finish processing before submitting.");
+      return;
+    }
+
+    const totalAttachmentBytes = attachments.reduce((sum, a) => sum + (a.size || 0), 0);
+    if (totalAttachmentBytes > MAX_TOTAL_SIZE_BYTES) {
+      setErrorMessage(
+        `Total attachment size (${formatBytes(totalAttachmentBytes)}) exceeds the allowed 20 MB limit.`
+      );
+      return;
+    }
 
     // Validate using modern rules
     const { errors: validationErrors, isValid, firstErrorField } = validateAll(formData, isDraft);
@@ -320,6 +335,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         onDeleteAttachment={handleDeleteAttachment}
         cerprno={formData.cerprno}
         userName={currentUser.name}
+        onUploadingChange={setIsUploadingAttachments}
       />
 
       {/* Critical Client Requirement: Category Definition at the end of the Form */}
@@ -335,8 +351,8 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
           <button
             type="button"
             onClick={onCancel}
-            disabled={isSubmitting}
-            className="px-3 sm:px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
+            disabled={isSubmitting || isUploadingAttachments}
+            className="px-3 sm:px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
@@ -344,8 +360,8 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
           <button
             type="button"
             onClick={() => handleSubmit(true)}
-            disabled={isSubmitting}
-            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+            disabled={isSubmitting || isUploadingAttachments}
+            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
             <span>Save Draft</span>
@@ -354,11 +370,17 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
           <button
             type="button"
             onClick={() => handleSubmit(false)}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isUploadingAttachments}
             className="flex items-center gap-2 px-4 sm:px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-600/30 transition-all hover:scale-[1.02] disabled:opacity-50"
           >
             <Send className="w-4 h-4" />
-            <span>{isSubmitting ? "Submitting..." : "Submit for Approval"}</span>
+            <span>
+              {isSubmitting
+                ? "Submitting..."
+                : isUploadingAttachments
+                ? "Processing Attachments..."
+                : "Submit for Approval"}
+            </span>
           </button>
         </div>
       </div>

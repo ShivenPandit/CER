@@ -5,6 +5,7 @@ import { ICERAuditRecord, ICERRemarksVersion } from "../models/AuditModel";
 import { IWorkflowLevel, IApprovalDecision, INotificationLog } from "../models/WorkflowModel";
 import { ICERAttachment } from "../models/AttachmentModel";
 import { LocalMockCERDataService } from "./LocalMockCERDataService";
+import { validateAttachment } from "../utils/attachmentValidation";
 
 export class SharePointCERDataService implements ICERDataService {
   private _spHttpClient: SPHttpClient;
@@ -138,6 +139,18 @@ export class SharePointCERDataService implements ICERDataService {
   }
 
   public async addAttachment(attachment: ICERAttachment): Promise<void> {
+    const existing = await this.getAttachments(attachment.cerprno);
+    const existingSize = existing.reduce((sum, a) => sum + (a.size || 0), 0);
+
+    const validation = validateAttachment(
+      attachment,
+      existingSize,
+      existing.map((a) => a.name)
+    );
+    if (!validation.isValid) {
+      throw new Error(`[SharePoint Attachment Policy Violation] ${validation.error}`);
+    }
+
     return this._fallbackMock.addAttachment(attachment);
   }
 
@@ -154,7 +167,7 @@ export class SharePointCERDataService implements ICERDataService {
       id: String(item.Id || item.id),
       cerprno: item.cerprno || item.Title,
       pr_name: item.pr_name || "",
-      owname: item.owname || "",
+      owname: item.owname || item.ownname || "",
       owner_email: item.owner_email || "",
       sbu: item.sbu || "RJ North",
       status: item.status || "In Approval",

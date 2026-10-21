@@ -252,8 +252,112 @@ async function runAllVerificationTests(): Promise<void> {
   assert(submitInvalidRes.errors.amount !== undefined, "Missing Amount flagged in submit errors");
 
   // ---------------------------------------------------------------------------------------------
-  // Test Results Summary
+  // Test Suite 7: Section H — Supporting Documents & Attachments Validation (10MB/20MB/Schema)
   // ---------------------------------------------------------------------------------------------
+  console.log("\nTest Suite 7: Section H — Supporting Documents & Attachments Validation (10MB / 20MB / Schema)");
+  const {
+    MAX_FILE_SIZE_BYTES,
+    MAX_TOTAL_SIZE_BYTES,
+    formatBytes,
+    validateAttachment,
+    validateBatchAttachments,
+    isFileTypeAllowed,
+  } = await import("../utils/attachmentValidation");
+
+  const MB = 1024 * 1024;
+
+  // Scenario 1: Upload a 5 MB file -> Accept
+  const file5MB = { name: "scope_doc.pdf", size: 5 * MB, type: "application/pdf" };
+  assert(validateAttachment(file5MB, 0, []).isValid === true, "Upload a 5 MB file: Accepted");
+
+  // Scenario 2: Upload a 10 MB file (exact limit) -> Accept
+  const file10MB = { name: "model_10mb.xlsx", size: 10 * MB, type: "application/vnd.ms-excel" };
+  assert(validateAttachment(file10MB, 0, []).isValid === true, "Upload a 10 MB file: Accepted");
+
+  // Scenario 3: Upload a 10.1 MB file -> Reject
+  const file10_1MB = { name: "oversized.pdf", size: Math.floor(10.1 * MB), type: "application/pdf" };
+  const res10_1 = validateAttachment(file10_1MB, 0, []);
+  assert(res10_1.isValid === false && res10_1.reason === "SIZE_PER_FILE", "Upload a 10.1 MB file: Rejected for exceeding 10 MB per-file limit");
+
+  // Scenario 4: Upload two 8 MB files -> Accept (16 MB <= 20 MB)
+  const file8MB_1 = { name: "spec_part1.docx", size: 8 * MB, type: "application/msword" };
+  const file8MB_2 = { name: "spec_part2.docx", size: 8 * MB, type: "application/msword" };
+  const batchTwo8MB = validateBatchAttachments([file8MB_1, file8MB_2], []);
+  assert(batchTwo8MB.accepted.length === 2 && batchTwo8MB.newTotalSize === 16 * MB, "Upload two 8 MB files: Both accepted (total 16 MB <= 20 MB)");
+
+  // Scenario 5: Upload two 10 MB files -> Accept (20 MB <= 20 MB)
+  const file10MB_1 = { name: "reservoir_model1.pdf", size: 10 * MB, type: "application/pdf" };
+  const file10MB_2 = { name: "reservoir_model2.pdf", size: 10 * MB, type: "application/pdf" };
+  const batchTwo10MB = validateBatchAttachments([file10MB_1, file10MB_2], []);
+  assert(batchTwo10MB.accepted.length === 2 && batchTwo10MB.newTotalSize === 20 * MB, "Upload two 10 MB files: Both accepted (total 20 MB <= 20 MB)");
+
+  // Scenario 6: Upload two 10 MB files and another file -> Reject the additional file
+  const fileExtra = { name: "summary.pdf", size: 1 * MB, type: "application/pdf" };
+  const resExtra = validateAttachment(fileExtra, 20 * MB, ["reservoir_model1.pdf", "reservoir_model2.pdf"]);
+  assert(resExtra.isValid === false && resExtra.reason === "SIZE_TOTAL", "Upload two 10 MB files and another file: Additional file rejected");
+
+  // Scenario 7: Upload a 9 MB file when 15 MB is already attached -> Reject
+  const file9MB = { name: "additional_quote.pdf", size: 9 * MB, type: "application/pdf" };
+  const res9MBOn15MB = validateAttachment(file9MB, 15 * MB, ["existing.pdf"]);
+  assert(res9MBOn15MB.isValid === false && res9MBOn15MB.reason === "SIZE_TOTAL", "Upload a 9 MB file when 15 MB is already attached: Rejected");
+
+  // Scenario 8: Upload a file with unsupported extension -> Reject
+  const fileExe = { name: "virus.exe", size: 1000, type: "application/x-msdownload" };
+  const resExe = validateAttachment(fileExe, 0, []);
+  assert(resExe.isValid === false && resExe.reason === "UNSUPPORTED_TYPE", "Upload a file with an unsupported extension (.exe): Rejected");
+
+  const fileZip = { name: "archive.zip", size: 1000, type: "application/zip" };
+  const resZip = validateAttachment(fileZip, 0, []);
+  assert(resZip.isValid === false && resZip.reason === "UNSUPPORTED_TYPE", "Upload a file with an unsupported extension (.zip): Rejected");
+
+  // Scenario 9: Supported extensions (PDF, DOCX, XLSX, PNG, JPG, WEBP) -> Accept
+  assert(isFileTypeAllowed("quote.pdf") === true, "Supported format: .pdf accepted");
+  assert(isFileTypeAllowed("datasheet.docx") === true, "Supported format: .docx accepted");
+  assert(isFileTypeAllowed("cost_model.xlsx") === true, "Supported format: .xlsx accepted");
+  assert(isFileTypeAllowed("platform_photo.jpg") === true, "Supported format: .jpg accepted");
+  assert(isFileTypeAllowed("rig_diagram.png") === true, "Supported format: .png accepted");
+
+  // Scenario 10: Duplicate attachment detection
+  const duplicateRes = validateAttachment({ name: "quote.pdf", size: 1 * MB, type: "application/pdf" }, 0, ["quote.pdf"]);
+  assert(duplicateRes.isValid === false && duplicateRes.reason === "DUPLICATE", "Duplicate file name rejected");
+
+  // Scenario 11: Upload multiple files whose combined size exceeds 20 MB (sequential calculation)
+  const mixedBatch = [
+    { name: "batch1.pdf", size: 8 * MB, type: "application/pdf" },
+    { name: "batch2.xlsx", size: 8 * MB, type: "application/vnd.ms-excel" },
+    { name: "batch3.docx", size: 6 * MB, type: "application/msword" }, // 8 + 8 + 6 = 22 MB -> batch3 rejected
+  ];
+  const mixedResult = validateBatchAttachments(mixedBatch, []);
+  assert(mixedResult.accepted.length === 2, "Batch upload: first two files (16 MB) accepted");
+  assert(mixedResult.rejected.length === 1 && mixedResult.rejected[0].name === "batch3.docx", "Batch upload: third file (6 MB) rejected because it exceeds remaining 4 MB");
+
+  // Scenario 12: Human-readable bytes format check
+  assert(formatBytes(0) === "0 B", "formatBytes(0) returns '0 B'");
+  assert(formatBytes(512 * 1024) === "512.0 KB", "formatBytes(512 KB) formatted properly");
+  assert(formatBytes(12.4 * MB) === "12.4 MB", "formatBytes(12.4 MB) formatted properly");
+
+  // Scenario 13: Backend service validation enforcement
+  const uniqueTestPr = "CER-2026-9999";
+  let backendThrewOnOversize = false;
+  try {
+    await service.addAttachment({
+      id: "att-oversize-1",
+      cerprno: uniqueTestPr,
+      name: "massive.pdf",
+      size: 15 * MB, // > 10 MB
+      type: "application/pdf",
+      uploaded_by: "Test User",
+      uploaded_date: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    backendThrewOnOversize = err.message.indexOf("10 MB") !== -1;
+  }
+  assert(backendThrewOnOversize === true, "Backend service rejected 15 MB file exceeding 10 MB per-file policy");
+
+  // Scenario 14: Owner email validation rule
+  assert(validateField("owner_email", "", testProp) !== undefined, "Owner Email is required");
+  assert(validateField("owner_email", "invalid-email", testProp) !== undefined, "Invalid email format rejected");
+  assert(validateField("owner_email", "user@vedanta.co.in", testProp) === undefined, "Valid email format accepted");
   console.log("\n================================================================================");
   console.log(`TEST SUMMARY: ${passed} PASSED | ${failed} FAILED | TOTAL: ${passed + failed}`);
   console.log("================================================================================\n");
