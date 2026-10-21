@@ -1,4 +1,4 @@
-# SPX — Capital Expenditure Request Management System (CER)
+# Capital Expenditure Request Management System (CER)
 ## Open Questions & Business Decision Register
 
 This document tracks unresolved business requirements, architectural assumptions, and decisions awaiting formal sign-off from the Business Owner / Product Sponsor.

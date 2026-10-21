@@ -1,9 +1,9 @@
-# SPX — Capital Expenditure Request Management System (CER)
+# Capital Expenditure Request Management System (CER)
 ## Technical Architecture Specification
 
 ### 1. Architectural Overview & Design Principles
 
-The SPX CER Management System is engineered as an enterprise Single-Page Application (SPA) designed to run both as a modern Microsoft SharePoint Framework (SPFx 1.24) Client-Side Web Part inside Microsoft 365 / SharePoint Online (`https://vedanta.sharepoint.com/sites/CERManagementSystem`) and in a self-contained local developer workbench.
+The CER Management System is engineered as an enterprise Single-Page Application (SPA) designed to run both as a modern Microsoft SharePoint Framework (SPFx 1.24) Client-Side Web Part inside Microsoft 365 / SharePoint Online (`https://vedanta.sharepoint.com/sites/CERManagementSystem`) and in a self-contained local developer workbench.
 
 ```mermaid
 graph TD
@@ -93,7 +93,7 @@ graph TD
 
 #### 3.1 PDF Document Engine (FR-09)
 - Client-side vector PDF generation using `jspdf` and `jspdf-autotable`.
-- Standard corporate CER document header (SPX / Vedanta branding, Proposal ID, Timestamp).
+- Standard corporate CER document header (Vedanta branding, Proposal ID, Timestamp).
 - Structured tabular sections: Project Summary, Financial Benefits, Phasing Matrix, Cost Breakdown, Approval Trail, and Business Justification.
 - Generates file naming format: `<CERPRNO>_<YYYYMMDD>_<HHMMSS>.pdf`.
 

@@ -1,8 +1,8 @@
-# SPX — Capital Expenditure Request Management System (CER)
+# Capital Expenditure Request Management System (CER)
 ## Project Understanding & Comprehensive Overview
 
 ### 1. Executive Summary & Purpose
-The **SPX — Capital Expenditure Request (CER) Management System** is an enterprise-grade business application developed for managing the end-to-end lifecycle of Capital Expenditure Requests within the organization (Vedanta SPX / Cairn Oil & Gas / Group entities).
+The **Capital Expenditure Request (CER) Management System** is an enterprise-grade business application developed for managing the end-to-end lifecycle of Capital Expenditure Requests within the organization (Vedanta / Cairn Oil & Gas / Group entities).
 
 The system replaces manual, ad-hoc, or legacy SAP transaction processes with a modern, responsive, auditable, and automated web-based solution integrated within Microsoft SharePoint Online and available as a dedicated full-screen enterprise application.
 

@@ -1,4 +1,4 @@
-# SPX — Capital Expenditure Request Management System (CER)
+# Capital Expenditure Request Management System (CER)
 ## Requirements Traceability Matrix (RTM)
 
 This document establishes the bidirectional traceability between the source requirements (`Requireemnt Doc V1.docx`), system specifications, technical implementations, and testable acceptance criteria.

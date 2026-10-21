@@ -1,4 +1,4 @@
-# SPX — Capital Expenditure Request Management System (CER)
+# Capital Expenditure Request Management System (CER)
 ## Implementation Plan & Roadmap
 
 ### 1. Executive Implementation Strategy

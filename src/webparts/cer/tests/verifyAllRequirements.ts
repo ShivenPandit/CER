@@ -19,7 +19,7 @@ function assert(condition: boolean, message: string): void {
 
 async function runAllVerificationTests(): Promise<void> {
   console.log("================================================================================");
-  console.log("SPX CER MANAGEMENT SYSTEM — COMPREHENSIVE REQUIREMENTS VERIFICATION SUITE");
+  console.log("CER MANAGEMENT SYSTEM — COMPREHENSIVE REQUIREMENTS VERIFICATION SUITE");
   console.log("================================================================================\n");
 
   const service = new LocalMockCERDataService();

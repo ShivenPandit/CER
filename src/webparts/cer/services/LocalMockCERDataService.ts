@@ -5,13 +5,13 @@ import { IWorkflowLevel, IApprovalDecision, INotificationLog } from "../models/W
 import { ICERAttachment } from "../models/AttachmentModel";
 
 const STORAGE_KEYS = {
-  PROPOSALS: "SPX_CER_PROPOSALS",
-  AUDIT: "SPX_CER_AUDIT",
-  REMARKS_HISTORY: "SPX_CER_REMARKS_HISTORY",
-  WORKFLOW_LEVELS: "SPX_CER_WORKFLOW_LEVELS",
-  APPROVAL_DECISIONS: "SPX_CER_APPROVAL_DECISIONS",
-  ATTACHMENTS: "SPX_CER_ATTACHMENTS",
-  NOTIFICATIONS: "SPX_CER_NOTIFICATIONS",
+  PROPOSALS: "CER_APP_PROPOSALS",
+  AUDIT: "CER_APP_AUDIT",
+  REMARKS_HISTORY: "CER_APP_REMARKS_HISTORY",
+  WORKFLOW_LEVELS: "CER_APP_WORKFLOW_LEVELS",
+  APPROVAL_DECISIONS: "CER_APP_APPROVAL_DECISIONS",
+  ATTACHMENTS: "CER_APP_ATTACHMENTS",
+  NOTIFICATIONS: "CER_APP_NOTIFICATIONS",
 };
 
 const DEFAULT_WORKFLOW_LEVELS: IWorkflowLevel[] = [
@@ -245,7 +245,29 @@ export class LocalMockCERDataService implements ICERDataService {
       return;
     }
     try {
-      const storedProps = localStorage.getItem(STORAGE_KEYS.PROPOSALS);
+      const getStoredItem = (key: string): string | null => {
+        const val = localStorage.getItem(key);
+        if (val) return val;
+        const suffix = key.replace("CER_APP", "");
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k !== key && k.endsWith(suffix)) {
+            const oldVal = localStorage.getItem(k);
+            if (oldVal) {
+              try {
+                localStorage.setItem(key, oldVal);
+                localStorage.removeItem(k);
+              } catch {
+                // ignore
+              }
+              return oldVal;
+            }
+          }
+        }
+        return null;
+      };
+
+      const storedProps = getStoredItem(STORAGE_KEYS.PROPOSALS);
       if (storedProps) {
         this._proposals = JSON.parse(storedProps);
       } else {
@@ -253,7 +275,7 @@ export class LocalMockCERDataService implements ICERDataService {
         this._saveToStorage(STORAGE_KEYS.PROPOSALS, this._proposals);
       }
 
-      const storedAudit = localStorage.getItem(STORAGE_KEYS.AUDIT);
+      const storedAudit = getStoredItem(STORAGE_KEYS.AUDIT);
       if (storedAudit) {
         this._auditTrail = JSON.parse(storedAudit);
       } else {
@@ -303,7 +325,7 @@ export class LocalMockCERDataService implements ICERDataService {
         this._saveToStorage(STORAGE_KEYS.AUDIT, this._auditTrail);
       }
 
-      const storedLevels = localStorage.getItem(STORAGE_KEYS.WORKFLOW_LEVELS);
+      const storedLevels = getStoredItem(STORAGE_KEYS.WORKFLOW_LEVELS);
       if (storedLevels) {
         this._workflowLevels = JSON.parse(storedLevels);
       } else {
@@ -311,7 +333,7 @@ export class LocalMockCERDataService implements ICERDataService {
         this._saveToStorage(STORAGE_KEYS.WORKFLOW_LEVELS, this._workflowLevels);
       }
 
-      const storedDecisions = localStorage.getItem(STORAGE_KEYS.APPROVAL_DECISIONS);
+      const storedDecisions = getStoredItem(STORAGE_KEYS.APPROVAL_DECISIONS);
       if (storedDecisions) {
         this._decisions = JSON.parse(storedDecisions);
       } else {
@@ -364,7 +386,7 @@ export class LocalMockCERDataService implements ICERDataService {
         this._saveToStorage(STORAGE_KEYS.APPROVAL_DECISIONS, this._decisions);
       }
 
-      const storedRemarksHist = localStorage.getItem(STORAGE_KEYS.REMARKS_HISTORY);
+      const storedRemarksHist = getStoredItem(STORAGE_KEYS.REMARKS_HISTORY);
       if (storedRemarksHist) {
         this._remarksHistory = JSON.parse(storedRemarksHist);
       } else {
@@ -393,7 +415,7 @@ export class LocalMockCERDataService implements ICERDataService {
         this._saveToStorage(STORAGE_KEYS.REMARKS_HISTORY, this._remarksHistory);
       }
 
-      const storedAttach = localStorage.getItem(STORAGE_KEYS.ATTACHMENTS);
+      const storedAttach = getStoredItem(STORAGE_KEYS.ATTACHMENTS);
       if (storedAttach) {
         this._attachments = JSON.parse(storedAttach);
       } else {
@@ -429,7 +451,7 @@ export class LocalMockCERDataService implements ICERDataService {
         this._saveToStorage(STORAGE_KEYS.ATTACHMENTS, this._attachments);
       }
 
-      const storedNotifs = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
+      const storedNotifs = getStoredItem(STORAGE_KEYS.NOTIFICATIONS);
       if (storedNotifs) {
         this._notifications = JSON.parse(storedNotifs);
       }

@@ -1,9 +1,9 @@
-# SPX — Capital Expenditure Request Management System (CER)
+# Capital Expenditure Request Management System (CER)
 ## Test Plan & Verification Strategy
 
 ### 1. Test Strategy Overview
 
-The testing strategy validates the end-to-end functional behavior, business logic accuracy, security controls, document generation, and responsive presentation of the SPX CER Management System.
+The testing strategy validates the end-to-end functional behavior, business logic accuracy, security controls, document generation, and responsive presentation of the CER Management System.
 
 ---
 

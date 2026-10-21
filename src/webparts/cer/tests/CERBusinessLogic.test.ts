@@ -2,7 +2,7 @@ import { LocalMockCERDataService } from "../services/LocalMockCERDataService";
 import { ICERProposal, CATEGORY_DEFINITIONS, SBU_OPTIONS } from "../models/CERModel";
 import { AUDIT_FIELD_DESCRIPTIONS, EXCLUDED_AUDIT_FIELDS } from "../models/AuditModel";
 
-describe("SPX CER Management System - Business Logic & Requirements Tests", () => {
+describe("CER Management System - Business Logic & Requirements Tests", () => {
   let service: LocalMockCERDataService;
 
   beforeEach(() => {

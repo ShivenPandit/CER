@@ -1,4 +1,4 @@
-# SPX — Capital Expenditure Request Management System (CER)
+# Capital Expenditure Request Management System (CER)
 ## Database & Entity Schema Design
 
 This document details the normalized relational data model and corresponding SharePoint Online list schemas for the CER Management System.
