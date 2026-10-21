@@ -510,42 +510,50 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
               <h3 className="font-bold text-slate-900 text-sm">Section F — CAPEX cost estimates basis</h3>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="text-slate-400 block text-[11px]">Engineering</span>
-                <span className="font-bold text-slate-900 mt-1 block">
-                  ${proposal.engineer.toLocaleString()} mm
-                </span>
-              </div>
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="text-slate-400 block text-[11px]">Surface Facilities</span>
-                <span className="font-bold text-slate-900 mt-1 block">
-                  ${proposal.s_fac.toLocaleString()} mm
-                </span>
-              </div>
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="text-slate-400 block text-[11px]">Commissioning</span>
-                <span className="font-bold text-slate-900 mt-1 block">
-                  ${proposal.comis.toLocaleString()} mm
-                </span>
-              </div>
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="text-slate-400 block text-[11px]">Pre Operations</span>
-                <span className="font-bold text-slate-900 mt-1 block">
-                  ${proposal.preop.toLocaleString()} mm
-                </span>
-              </div>
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="text-slate-400 block text-[11px]">Others</span>
-                <span className="font-bold text-slate-900 mt-1 block">
-                  ${proposal.others.toLocaleString()} mm
-                </span>
-              </div>
-              <div className="p-3 bg-slate-50/90 rounded-xl border border-slate-200">
-                <span className="text-slate-500 font-semibold block text-[11px]">Total (auto-calculated)</span>
-                <span className="font-bold text-slate-900 mt-1 block text-sm font-mono">
-                  ${proposal.total.toLocaleString()} mm
-                </span>
-              </div>
+              {(() => {
+                const sym = proposal.currency === "INR" ? "₹" : "$";
+                const unit = proposal.currency === "INR" ? "" : " mm";
+                return (
+                  <>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[11px]">Engineering</span>
+                      <span className="font-bold text-slate-900 mt-1 block">
+                        {sym}{proposal.engineer.toLocaleString()}{unit}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[11px]">Surface Facilities</span>
+                      <span className="font-bold text-slate-900 mt-1 block">
+                        {sym}{proposal.s_fac.toLocaleString()}{unit}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[11px]">Commissioning</span>
+                      <span className="font-bold text-slate-900 mt-1 block">
+                        {sym}{proposal.comis.toLocaleString()}{unit}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[11px]">Pre Operations</span>
+                      <span className="font-bold text-slate-900 mt-1 block">
+                        {sym}{proposal.preop.toLocaleString()}{unit}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[11px]">Others</span>
+                      <span className="font-bold text-slate-900 mt-1 block">
+                        {sym}{proposal.others.toLocaleString()}{unit}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50/90 rounded-xl border border-slate-200">
+                      <span className="text-slate-500 font-semibold block text-[11px]">Total (auto-calculated)</span>
+                      <span className="font-bold text-slate-900 mt-1 block text-sm font-mono">
+                        {sym}{proposal.total.toLocaleString()}{unit}
+                      </span>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
 

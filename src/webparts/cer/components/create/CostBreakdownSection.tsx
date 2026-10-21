@@ -37,6 +37,10 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
   const isBalanced = cerAmount > 0 && Math.abs(cerAmount - computedTotal) <= 0.01;
   const hasMismatch = cerAmount > 0 && Math.abs(cerAmount - computedTotal) > 0.01 && computedTotal > 0;
 
+  const isINR = formData.currency === "INR";
+  const currSymbol = isINR ? "₹" : "$";
+  const currUnit = isINR ? "" : " mm";
+
   const getFieldError = (field: keyof ICERProposal): string | undefined => {
     return touched[field] || errors[field] ? errors[field] : undefined;
   };
@@ -54,7 +58,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
               Section F — CAPEX cost estimates basis
             </h3>
             <p className="text-xs text-slate-500">
-              Activity components in USD millions ($mm). Total is auto-calculated and compared with Amount of CER
+              Activity components in {isINR ? "INR (₹)" : "USD millions ($mm)"}. Total is auto-calculated and compared with Amount of CER
             </p>
           </div>
         </div>
@@ -66,11 +70,11 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>
-              <strong>Cost Estimates Advisory:</strong> Calculated Total (${computedTotal.toLocaleString()} mm) differs from CER Amount (${cerAmount.toLocaleString()} mm).
+              <strong>Cost Estimates Advisory:</strong> Calculated Total ({currSymbol}{computedTotal.toLocaleString()}{currUnit}) differs from CER Amount ({currSymbol}{cerAmount.toLocaleString()}{currUnit}).
             </span>
           </div>
           <span className="font-mono text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
-            Variance: ${Math.abs(computedTotal - cerAmount).toLocaleString()} mm
+            Variance: {currSymbol}{Math.abs(computedTotal - cerAmount).toLocaleString()}{currUnit}
           </span>
         </div>
       )}
@@ -79,7 +83,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
         <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>
-            <strong>Estimates Balanced:</strong> Total CAPEX Cost Estimates reconciles with Amount of CER (${computedTotal.toLocaleString()} mm).
+            <strong>Estimates Balanced:</strong> Total CAPEX Cost Estimates reconciles with Amount of CER ({currSymbol}{computedTotal.toLocaleString()}{currUnit}).
           </span>
         </div>
       )}
@@ -245,7 +249,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
           </div>
           <div className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50/90 border border-slate-300/80 flex items-center justify-between min-h-[42px] transition-all">
             <span className="font-mono font-bold text-slate-900 text-sm">
-              ${computedTotal.toLocaleString()} mm
+              {currSymbol}{computedTotal.toLocaleString()}{currUnit}
             </span>
             <span className="text-[11px] font-medium text-slate-400">
               Sum of components

@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { IAppUser, DEMO_USERS, UserRole } from "../../models/UserModel";
 import { NavView } from "./Sidebar";
-import { RigHeaderIcon } from "../home/HomeIllustrations";
+import vedantaLogo from "../../assets/Vedanta1.png";
 
 interface IAppHeaderProps {
   currentUser: IAppUser;
@@ -94,11 +94,12 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
             tabIndex={0}
             title="Return to Home"
           >
-            {/* Offshore Rig Platform Silhouette Logo */}
-            <div className="shrink-0">
-              <RigHeaderIcon
-                size={32}
-                className="w-7 h-7 sm:w-9 sm:h-9 md:w-10 md:h-10 transform group-hover:scale-105 transition-transform"
+            {/* Official Vedanta Logo */}
+            <div className="shrink-0 flex items-center pr-1">
+              <img
+                src={vedantaLogo}
+                alt="Vedanta"
+                className="h-7 sm:h-8 md:h-9 w-auto max-w-[130px] sm:max-w-[150px] md:max-w-[170px] object-contain transform group-hover:scale-105 transition-transform"
               />
             </div>
 

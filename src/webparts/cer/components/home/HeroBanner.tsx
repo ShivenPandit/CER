@@ -33,7 +33,7 @@ export const HeroBanner: React.FC = () => {
   ];
 
   return (
-    <div className="relative w-full overflow-hidden bg-[#05162A] text-white select-none shadow-md">
+    <div className="relative w-full overflow-hidden bg-[#05162A] text-white select-none shadow-md touch-pan-y">
       {/* Background Oil Rig Image (Right Aligned, Responsive Cropping) */}
       <div className="absolute inset-y-0 right-0 w-full sm:w-4/5 md:w-3/4 lg:w-2/3 xl:w-3/5 h-full overflow-hidden pointer-events-none">
         <img
@@ -68,7 +68,7 @@ export const HeroBanner: React.FC = () => {
       </div>
 
       {/* Main Banner Content */}
-      <div className="relative z-20 w-full max-w-7xl xl:max-w-[1360px] 2xl:max-w-[1600px] 3xl:max-w-[1880px] mx-auto px-3.5 xs:px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-6 xs:py-7 sm:py-8 lg:py-10 2xl:py-14 flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
+      <div className="relative z-20 w-full max-w-none px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-4 xs:py-5 sm:py-6 lg:py-7 2xl:py-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6 min-w-0">
         {/* Left Column: Welcome & Core System Messaging */}
         <div className="max-w-2xl 2xl:max-w-3xl">
           {/* Gold Accent Bar */}

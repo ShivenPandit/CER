@@ -49,6 +49,7 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
   const cerAmount = Number(formData.amount || 0);
   const hasCapexMismatch = cerAmount > 0 && Math.abs(capexTotal - cerAmount) > 0.01 && capexTotal > 0;
   const isCapexBalanced = cerAmount > 0 && Math.abs(capexTotal - cerAmount) <= 0.01;
+  const currSymbol = formData.currency === "INR" ? "₹" : "$";
 
   const getCellError = (field: keyof ICERProposal): boolean => {
     return !!errors[field];
@@ -67,7 +68,7 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
               Section E — Expenditure phasing
             </h3>
             <p className="text-xs text-slate-500">
-              Distribution of Production (in mmbbls), Capex ($mm), and Opex ($mm) across project timeline
+              Distribution of Production (in mmbbls), Capex, and Opex across project timeline
             </p>
           </div>
         </div>
@@ -79,11 +80,11 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>
-              <strong>Phasing Advisory:</strong> Total phased Capex (${capexTotal.toLocaleString()}) differs from overall CER Amount (${cerAmount.toLocaleString()}).
+              <strong>Phasing Advisory:</strong> Total phased Capex ({currSymbol}{capexTotal.toLocaleString()}) differs from overall CER Amount ({currSymbol}{cerAmount.toLocaleString()}).
             </span>
           </div>
           <span className="font-mono text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
-            Variance: ${Math.abs(capexTotal - cerAmount).toLocaleString()}
+            Variance: {currSymbol}{Math.abs(capexTotal - cerAmount).toLocaleString()}
           </span>
         </div>
       )}
@@ -92,7 +93,7 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
         <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>
-            <strong>Phasing Balanced:</strong> Total phased Capex (${capexTotal.toLocaleString()}) reconciles with Amount of CER.
+            <strong>Phasing Balanced:</strong> Total phased Capex ({currSymbol}{capexTotal.toLocaleString()}) reconciles with Amount of CER.
           </span>
         </div>
       )}

@@ -6,7 +6,6 @@
     "node": ">=22.14.0"
   },
   "scripts": {
-    "dev": "vite",
     "build": "heft test --clean --production && heft package-solution --production",
     "start": "heft start --clean",
     "clean": "heft clean",
@@ -16,6 +15,7 @@
     "serve": "fast-serve",
     "serve:debug": "fast-serve --debug",
     "test:requirements": "tsx src/webparts/cer/tests/verifyAllRequirements.ts",
+    "trust-dev-cert": "heft trust-dev-cert",
     "setup": "node setup.js"
   },
   "dependencies": {
@@ -50,7 +50,6 @@
     "@types/react-dom": "^18.3.5",
     "@types/webpack-env": "~1.15.2",
     "@typescript-eslint/parser": "8.46.2",
-    "@vitejs/plugin-react": "^6.1.2",
     "autoprefixer": "^10.4.27",
     "css-loader": "~7.1.2",
     "eslint": "8.57.1",
@@ -60,7 +59,7 @@
     "tailwindcss": "^3.4.19",
     "tsx": "^4.23.15",
     "typescript": "~5.8.0",
-    "vite": "^8.3.4"
+    "webpack": "^5.105.4"
   },
   "overrides": {
     "@rushstack/heft": "1.1.2"

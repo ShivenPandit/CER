@@ -105,6 +105,12 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
   }
 
   public render(): void {
+    this.domElement.style.width = "100%";
+    this.domElement.style.maxWidth = "none";
+    this.domElement.style.boxSizing = "border-box";
+    this.domElement.style.margin = "0";
+    this.domElement.style.padding = "0";
+
     const element: React.ReactElement<ICERProps> =
       React.createElement(CER, {
         newcontext: this.context,
@@ -127,6 +133,8 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
 
   private _injectHideStyles(): void {
     const selectors = [
+      "#spCommandBar",
+      ".commandBarWrapper",
       "#spLeftNav",
       "#SuiteNavWrapper",
       "#CommentsWrapper",
@@ -147,6 +155,42 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
     this._injectedStyleElement.innerHTML = `
       ${selectors.join(", ")} {
         display: none !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .ControlZone, 
+      div[data-automation-id="CanvasControl"],
+      .CanvasZoneSectionContainer,
+      .CanvasZone,
+      #spPageCanvasContent,
+      .CanvasSection,
+      div[data-automation-id="CanvasZone"],
+      div[data-automation-id="CanvasSection"],
+      .CanvasComponent,
+      [class*="sp-pageLayout"],
+      .ms-Fabric,
+      .ms-Grid,
+      .appPart,
+      .webPartContainer,
+      .root-98 {
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+        border-top-left-radius: 0 !important;
+        border-top-right-radius: 0 !important;
+        border-bottom-left-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+        box-sizing: border-box !important;
+      }
+      .od-SiteNav-content, #spSiteHeader, #spCommandBar, [class*="Canvas"] {
+        margin: 0 !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+        border-radius: 0 !important;
       }
     `;
     document.head.appendChild(this._injectedStyleElement);
@@ -159,6 +203,7 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
       )
         .parent()
         .hide();
+      $("#spCommandBar, .commandBarWrapper").hide();
     };
 
     hideExtraNodes();

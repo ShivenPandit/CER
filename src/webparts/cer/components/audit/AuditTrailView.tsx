@@ -60,31 +60,6 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
     loadAuditTrail().catch((e) => console.error(e));
   }, [initialProposalId]);
 
-  const handleSearchByProposal = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    try {
-      const records = await dataService.getAuditTrail(filterProposal.trim() || undefined);
-      setAuditRows(records);
-      pagination.setCurrentPage(1);
-    } catch (e) {
-      console.error("Error filtering audit trail:", e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleReset = async () => {
-    setFilterProposal("");
-    setFilterUser("");
-    setFilterField("");
-    setIsLoading(true);
-    const records = await dataService.getAuditTrail();
-    setAuditRows(records);
-    pagination.setCurrentPage(1);
-    setIsLoading(false);
-  };
-
   // Filtered rows
   const filteredRows = useMemo(() => {
     return auditRows.filter((r) => {
@@ -117,6 +92,31 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
     defaultRowHeight: 44,
     bufferBottom: 52,
   });
+
+  const handleSearchByProposal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const records = await dataService.getAuditTrail(filterProposal.trim() || undefined);
+      setAuditRows(records);
+      pagination.setCurrentPage(1);
+    } catch (e) {
+      console.error("Error filtering audit trail:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleReset = async () => {
+    setFilterProposal("");
+    setFilterUser("");
+    setFilterField("");
+    setIsLoading(true);
+    const records = await dataService.getAuditTrail();
+    setAuditRows(records);
+    pagination.setCurrentPage(1);
+    setIsLoading(false);
+  };
 
   const visibleRows = pagination.paginateItems(sortedRows);
 

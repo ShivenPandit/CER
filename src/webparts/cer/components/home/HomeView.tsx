@@ -18,12 +18,12 @@ export const HomeView: React.FC<IHomeViewProps> = ({
   pendingCount = 0,
 }) => {
   return (
-    <div className="w-full min-h-full flex flex-col bg-[#F8FAFC]">
+    <div className="w-full max-w-none min-h-full flex flex-col bg-[#F8FAFC]">
       {/* 1. Full-Width Hero Banner Directly Below Header */}
       <HeroBanner />
 
       {/* 2. Six Pastel Navigation Cards in a 3-Column Grid */}
-      <div className="flex-1 w-full">
+      <div className="flex-1 w-full max-w-none min-w-0">
         <HomeCardGrid
           onNavigate={onNavigate}
           onOpenManual={onOpenManual}

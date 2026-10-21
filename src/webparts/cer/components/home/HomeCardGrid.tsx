@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
   FilePlus,
   ListFilter,
@@ -29,6 +29,37 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
   onOpenManual,
   pendingApprovalsCount = 0,
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(1200);
+
+  // Measure actual available container width inside SharePoint canvas
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    if (el.offsetWidth > 0) {
+      setContainerWidth(el.offsetWidth);
+    }
+
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          if (entry.contentRect.width > 0) {
+            setContainerWidth(entry.contentRect.width);
+          }
+        }
+      });
+      observer.observe(el);
+      return () => observer.disconnect();
+    }
+  }, []);
+
+  // Determine column count based on available container width:
+  // - Large width (>= 940px): 3 columns per row
+  // - Medium width (580px - 939px): 2 columns per row
+  // - Mobile / narrow (< 580px): 1 column per row
+  const cols = containerWidth >= 940 ? 3 : containerWidth >= 580 ? 2 : 1;
+
   const cards = [
     {
       id: "create",
@@ -99,7 +130,7 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
       actionLabel: "Go to Admin",
       bgGradient: "from-[#FFF1F2] via-[#FEECEF] to-[#FDDDE3]",
       borderClass: "border-[#FECDD3] hover:border-[#FDA4AF]",
-      iconBg: "bg-[#EF4444]",
+      iconBg: "bg-[#E11D48]",
       icon: Settings,
       dotColor: "text-[#FDA4AF]",
       actionColor: "text-[#E11D48]",
@@ -111,10 +142,10 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
       title: "User Manual",
       description:
         "Access user guides, process flows and help documentation.",
-      actionLabel: "View Manual",
-      bgGradient: "from-[#ECFEFF] via-[#E6FAFC] to-[#D5F6FA]",
+      actionLabel: "Read Guide",
+      bgGradient: "from-[#ECFEFF] via-[#E6FCFD] to-[#D0F7F9]",
       borderClass: "border-[#A5F3FC] hover:border-[#67E8F9]",
-      iconBg: "bg-[#06B6D4]",
+      iconBg: "bg-[#0891B2]",
       icon: BookOpen,
       dotColor: "text-[#67E8F9]",
       actionColor: "text-[#0891B2]",
@@ -124,9 +155,20 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
   ];
 
   return (
-    <div className="w-full max-w-7xl xl:max-w-[1360px] 2xl:max-w-[1600px] 3xl:max-w-[1880px] mx-auto px-3.5 xs:px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-6 sm:py-8 lg:py-10 2xl:py-14">
-      {/* 1 col (mobile) -> 2 cols (tablet) -> 3 cols (desktop/4K) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 xs:gap-5 sm:gap-6 2xl:gap-8">
+    <div
+      ref={containerRef}
+      className="w-full max-w-none px-3.5 xs:px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-4 sm:py-5 lg:py-6 2xl:py-8 min-w-0 touch-pan-y"
+    >
+      {/* Container-aware responsive card grid: 1 col (<580px), 2 cols (580px-939px), 3 cols (>=940px) */}
+      <div
+        className={`grid ${
+          cols === 3
+            ? "grid-cols-3"
+            : cols === 2
+            ? "grid-cols-2"
+            : "grid-cols-1"
+        } gap-4 xs:gap-5 sm:gap-6 2xl:gap-8 min-w-0 touch-pan-y`}
+      >
         {cards.map((card) => {
           const Icon = card.icon;
           const Illustration = card.illustration;
@@ -135,7 +177,7 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
             <div
               key={card.id}
               onClick={card.onClick}
-              className={`group relative flex flex-col justify-between p-4 xs:p-5 sm:p-6 2xl:p-7 rounded-2xl sm:rounded-3xl bg-gradient-to-br ${card.bgGradient} border ${card.borderClass} shadow-subtle hover:shadow-card hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden min-h-[195px] xs:min-h-[210px] sm:min-h-[225px] 2xl:min-h-[250px] select-none`}
+              className={`group relative flex flex-col justify-between p-4 xs:p-4.5 sm:p-5 2xl:p-6 rounded-2xl sm:rounded-3xl bg-gradient-to-br ${card.bgGradient} border ${card.borderClass} shadow-subtle hover:shadow-card hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden min-h-[185px] xs:min-h-[195px] sm:min-h-[210px] 2xl:min-h-[235px] select-none min-w-0 touch-pan-y`}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
@@ -153,7 +195,7 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
               </div>
 
               {/* Main Content Layout (Left Text, Right Illustration) */}
-              <div className="flex items-start justify-between gap-1 xs:gap-2 z-10 min-w-0">
+              <div className="flex items-start justify-between gap-2 z-10 min-w-0">
                 {/* Left Side: Icon, Title, Description */}
                 <div className="flex-1 pr-1 xs:pr-2 min-w-0">
                   {/* Circular Icon with Shadow */}
@@ -177,14 +219,14 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
                     {card.title}
                   </h3>
 
-                  {/* Description */}
-                  <p className="text-[11px] xs:text-xs sm:text-[13px] 2xl:text-sm text-slate-600 leading-relaxed mt-1 xs:mt-1.5 max-w-[280px] 2xl:max-w-[340px]">
+                  {/* Description - fluid text that wraps naturally without arbitrary max-width constraints */}
+                  <p className="text-[11px] xs:text-xs sm:text-[13px] 2xl:text-sm text-slate-600 leading-relaxed mt-1 xs:mt-1.5">
                     {card.description}
                   </p>
                 </div>
 
                 {/* Right Side: Themed Responsive Vector Illustration */}
-                <div className="shrink-0 flex items-center justify-end -mr-1 xs:-mr-2 sm:mr-0">
+                <div className="shrink-0 flex items-center justify-end -mr-1 xs:-mr-2 sm:mr-0 max-w-[38%] overflow-hidden">
                   <Illustration />
                 </div>
               </div>
