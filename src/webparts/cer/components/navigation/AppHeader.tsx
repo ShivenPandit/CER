@@ -5,8 +5,12 @@ import {
   Bell,
   ChevronDown,
   UserCheck,
+  ShieldCheck,
+  Building2,
+  Mail,
+  Shield,
 } from "lucide-react";
-import { IAppUser, DEMO_USERS, UserRole } from "../../models/UserModel";
+import { IAppUser, UserRole } from "../../models/UserModel";
 import { NavView } from "./Sidebar";
 import vedantaLogo from "../../assets/Vedanta.png";
 
@@ -16,7 +20,7 @@ interface IAppHeaderProps {
   onNavigate: (view: NavView, proposalId?: string) => void;
   onGoBack?: () => void;
   canGoBack?: boolean;
-  onSelectUser: (user: IAppUser) => void;
+  onSelectUser?: (user: IAppUser) => void;
   onOpenNotifications: () => void;
   notificationCount: number;
 }
@@ -184,95 +188,88 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
               />
             </button>
 
-            {/* Persona Switcher Dropdown */}
+            {/* Real Authenticated Profile Details Dropdown */}
             {showUserDropdown && (
-              <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-elevated border border-slate-200 p-2.5 z-50 animate-fade-in max-w-[92vw]">
+              <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-elevated border border-slate-200 p-3 z-50 animate-fade-in max-w-[92vw]">
                 {/* Active Profile Info */}
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 mb-2">
-                  <div className="flex items-center gap-2.5 mb-2">
-                    <div className="w-9 h-9 rounded-full bg-[#0A1E38] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+                <div className="p-3 bg-gradient-to-br from-slate-50 to-blue-50/40 rounded-xl border border-slate-200/80 mb-2.5">
+                  <div className="flex items-center gap-3 mb-2.5">
+                    <div className="w-10 h-10 rounded-full bg-[#0A1E38] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
                       {initials}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-bold text-slate-900 truncate">
                         {cleanName}
                       </p>
-                      <p className="text-[11px] text-slate-500 truncate">
-                        {currentUser.email}
+                      <p className="text-[11px] text-slate-500 truncate flex items-center gap-1 mt-0.5">
+                        <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span className="truncate">{currentUser.email || "No email registered"}</span>
                       </p>
                     </div>
                   </div>
-                  {currentUser.department && (
-                    <p className="text-[11px] text-slate-600 bg-white px-2 py-1 rounded-lg border border-slate-200/60 truncate font-medium">
-                      🏢 {currentUser.department}
-                    </p>
-                  )}
+
+                  <div className="space-y-1">
+                    {currentUser.department && (
+                      <p className="text-[11px] text-slate-600 bg-white/80 px-2 py-1 rounded-lg border border-slate-200/60 truncate flex items-center gap-1.5 font-medium">
+                        <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span className="truncate">{currentUser.department}</span>
+                      </p>
+                    )}
+                    {currentUser.sbu && (
+                      <p className="text-[11px] text-slate-600 bg-white/80 px-2 py-1 rounded-lg border border-slate-200/60 truncate flex items-center gap-1.5 font-medium">
+                        <span>📍</span>
+                        <span className="truncate">{currentUser.sbu}</span>
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                {/* Persona Testing Selector */}
-                <div className="px-2.5 py-1 mb-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Switch Persona (Role Testing)
+                {/* Assigned Enterprise Roles */}
+                <div className="px-1 py-1 mb-1.5">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    Assigned Enterprise Roles
                   </p>
-                </div>
-
-                <div className="space-y-1 max-h-60 overflow-y-auto pr-0.5">
-                  {DEMO_USERS.map((u) => {
-                    const isSelected = u.id === currentUser.id;
-                    const uInitials = u.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .substring(0, 2)
-                      .toUpperCase();
-
-                    return (
-                      <button
-                        key={u.id}
-                        onClick={() => {
-                          onSelectUser(u);
-                          setShowUserDropdown(false);
-                        }}
-                        className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition-colors text-left ${
-                          isSelected
-                            ? "bg-blue-50 text-blue-900 font-semibold"
-                            : "hover:bg-slate-50 text-slate-700"
-                        }`}
+                  <div className="flex flex-wrap gap-1.5">
+                    {(currentUser.roles && currentUser.roles.length > 0
+                      ? currentUser.roles
+                      : [currentUser.role]
+                    ).map((r) => (
+                      <span
+                        key={r}
+                        className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg border flex items-center gap-1 ${getRoleBadgeStyle(
+                          r
+                        )}`}
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div
-                            className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                              isSelected
-                                ? "bg-blue-600 text-white shadow-xs"
-                                : "bg-slate-200 text-slate-700"
-                            }`}
-                          >
-                            {uInitials}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-medium text-slate-900 truncate">
-                              {u.name}
-                            </p>
-                            <p className="text-[10px] text-slate-400 truncate">
-                              {u.department}
-                            </p>
-                          </div>
-                        </div>
-                        <span
-                          className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border ml-2 shrink-0 ${getRoleBadgeStyle(
-                            u.role
-                          )}`}
-                        >
-                          {u.role.replace("_", " & ")}
+                        <Shield className="w-3 h-3 shrink-0" />
+                        <span>
+                          {r === "Approver" && currentUser.approval_level
+                            ? `Approver (Level ${currentUser.approval_level})`
+                            : r.replace("_", " & ")}
                         </span>
-                      </button>
-                    );
-                  })}
+                      </span>
+                    ))}
+                    {currentUser.isSiteAdmin && (
+                      <span className="text-[10px] font-semibold px-2.5 py-1 rounded-lg border bg-amber-50 text-amber-800 border-amber-200 flex items-center gap-1">
+                        <span>⚡</span>
+                        <span>Site Collection Admin</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                <div className="p-2 border-t border-slate-100 mt-2 bg-slate-50/80 rounded-xl text-[10px] text-slate-500 flex items-center gap-1.5">
-                  <UserCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                  <span className="truncate">Enterprise Role-Based Access Control</span>
+                {/* Account Status Indicator */}
+                <div className="px-1 py-1.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500 font-medium">Account Status</span>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Active Account</span>
+                  </span>
+                </div>
+
+                {/* Authenticated Footer */}
+                <div className="p-2 border-t border-slate-100 mt-1 bg-slate-50/80 rounded-xl text-[10px] text-slate-500 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                  <span className="truncate">Authenticated via Microsoft SharePoint / Entra ID</span>
                 </div>
               </div>
             )}

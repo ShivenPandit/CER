@@ -102,7 +102,7 @@ export const Sidebar: React.FC<ISidebarProps> = ({
     },
     {
       id: "workflow-config",
-      label: "Workflow Configuration",
+      label: "Admin Console",
       icon: Settings,
       visible: canConfigWorkflow,
     },

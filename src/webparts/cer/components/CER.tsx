@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { ICERProps } from "./ICERProps";
 import { ICERProposal, IFieldChoices, DEFAULT_FIELD_CHOICES } from "../models/CERModel";
-import { IAppUser, DEMO_USERS } from "../models/UserModel";
+import { IAppUser } from "../models/UserModel";
 import { INotificationLog } from "../models/WorkflowModel";
 import { DataServiceFactory } from "../services/DataServiceFactory";
 import { ICERDataService } from "../services/ICERDataService";
+import { AuthService } from "../services/AuthService";
+import { PermissionService } from "../services/PermissionService";
 
 // Navigation
 import { NavView } from "./navigation/Sidebar";
@@ -18,11 +20,12 @@ import { DisplayCERView } from "./display/DisplayCERView";
 import { ProposalListView } from "./proposals/ProposalListView";
 import { PendingApprovalsView } from "./workflow/PendingApprovalsView";
 import { ApprovalHistoryView } from "./workflow/ApprovalHistoryView";
-import { WorkflowConfigView } from "./workflow/WorkflowConfigView";
+import { AdminConsoleView } from "./admin/AdminConsoleView";
 import { ReportsView } from "./reports/ReportsView";
 import { AuditTrailView } from "./audit/AuditTrailView";
 
 // Common Modals
+import { AccessDeniedView } from "./common/AccessDeniedView";
 import { NotificationCenter } from "./common/NotificationCenter";
 import { RemarksHistoryModal } from "./audit/RemarksHistoryModal";
 import { UserManualModal } from "./manual/UserManualModal";
@@ -76,19 +79,54 @@ const CER: React.FC<ICERProps> = (props) => {
     return initialRoute.view;
   });
 
-  // Initialize current user from SharePoint context or default to Initiator demo persona
-  const [currentUser, setCurrentUser] = useState<IAppUser>(() => {
-    if (props.newcurrentUserName && props.newcurrentUserName.trim()) {
-      return {
-        id: props.newcurrentUserId || 1,
-        name: props.newcurrentUserName,
-        email: props.newcurrentUserEmail || "",
-        role: "Initiator",
-        department: "CER Management Portal",
-      };
-    }
-    return DEMO_USERS[0];
-  });
+  // Initialize current user from authenticated SharePoint context
+  const [currentUser, setCurrentUser] = useState<IAppUser>(() => ({
+    id: props.newcurrentUserId || 1,
+    name: props.newcurrentUserName || "Authenticated Portal User",
+    email: props.newcurrentUserEmail || "",
+    loginName: props.newcurrentUserLoginName || "",
+    role: "Initiator",
+    roles: ["Initiator"],
+    is_active: true,
+    department: "CER Management Portal",
+    isSiteAdmin: props.newisSiteAdmin || false,
+  }));
+
+  // Resolve user's actual roles from CER_UserRoles with controlled first-Admin bootstrapping
+  useEffect(() => {
+    let isMounted = true;
+    const resolveSecurityContext = async () => {
+      try {
+        const resolution = await AuthService.resolveCurrentUser(
+          {
+            id: props.newcurrentUserId || 1,
+            name: props.newcurrentUserName || "SharePoint User",
+            email: props.newcurrentUserEmail || "",
+            loginName: props.newcurrentUserLoginName || "",
+            isSiteAdmin: props.newisSiteAdmin || false,
+          },
+          dataService
+        );
+        if (isMounted) {
+          setCurrentUser(resolution.user);
+        }
+      } catch (err) {
+        console.error("[CER] Error resolving user role context:", err);
+      }
+    };
+
+    resolveSecurityContext().catch((e) => console.error(e));
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    props.newcurrentUserId,
+    props.newcurrentUserName,
+    props.newcurrentUserEmail,
+    props.newcurrentUserLoginName,
+    props.newisSiteAdmin,
+    dataService,
+  ]);
 
   // Notifications
   const [notifications, setNotifications] = useState<INotificationLog[]>([]);
@@ -270,8 +308,9 @@ const CER: React.FC<ICERProps> = (props) => {
   // Pending tasks count for badge
   const pendingCount = proposals.filter((p) => {
     if (p.status !== "In Approval") return false;
-    if (currentUser.role === "Admin") return true;
-    if (currentUser.role === "Approver") {
+    const userRoles = currentUser.roles || [currentUser.role];
+    if (userRoles.indexOf("Admin") !== -1) return true;
+    if (userRoles.indexOf("Approver") !== -1) {
       return p.current_level === (currentUser.approval_level || 1);
     }
     return false;
@@ -314,16 +353,25 @@ const CER: React.FC<ICERProps> = (props) => {
         )}
 
         {currentView === "create" && (
-          <CreateCERView
-            dataService={dataService}
-            currentUser={currentUser}
-            fieldChoices={fieldChoices}
-            onCancel={handleGoBack}
-            onSuccess={(cerprno) => {
-              handleRefreshProposals().catch((e) => console.error(e));
-              handleNavigate("display", cerprno);
-            }}
-          />
+          PermissionService.canCreateCER(currentUser) ? (
+            <CreateCERView
+              dataService={dataService}
+              currentUser={currentUser}
+              fieldChoices={fieldChoices}
+              onCancel={handleGoBack}
+              onSuccess={(cerprno) => {
+                handleRefreshProposals().catch((e) => console.error(e));
+                handleNavigate("display", cerprno);
+              }}
+            />
+          ) : (
+            <AccessDeniedView
+              currentUser={currentUser}
+              attemptedView="create"
+              customMessage="You do not possess the required Initiator or Admin privileges to create capital expenditure proposals."
+              onGoHome={handleGoBack}
+            />
+          )
         )}
 
         {currentView === "change" && (
@@ -376,12 +424,21 @@ const CER: React.FC<ICERProps> = (props) => {
         )}
 
         {currentView === "pending-approvals" && (
-          <PendingApprovalsView
-            dataService={dataService}
-            currentUser={currentUser}
-            onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
-            onRefreshProposals={handleRefreshProposals}
-          />
+          PermissionService.canAccessView("pending-approvals", currentUser) ? (
+            <PendingApprovalsView
+              dataService={dataService}
+              currentUser={currentUser}
+              onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
+              onRefreshProposals={handleRefreshProposals}
+            />
+          ) : (
+            <AccessDeniedView
+              currentUser={currentUser}
+              attemptedView="pending-approvals"
+              customMessage="You do not possess the required Approver or Admin privileges to view pending approval queues."
+              onGoHome={handleGoBack}
+            />
+          )
         )}
 
         {currentView === "approval-history" && (
@@ -393,13 +450,22 @@ const CER: React.FC<ICERProps> = (props) => {
         )}
 
         {currentView === "reports" && (
-          <ReportsView
-            proposals={proposals}
-            currentUser={currentUser}
-            fieldChoices={fieldChoices}
-            onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
-            onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
-          />
+          PermissionService.canAccessView("reports", currentUser) ? (
+            <ReportsView
+              proposals={proposals}
+              currentUser={currentUser}
+              fieldChoices={fieldChoices}
+              onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
+              onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
+            />
+          ) : (
+            <AccessDeniedView
+              currentUser={currentUser}
+              attemptedView="reports"
+              customMessage="You do not possess the required Finance / Audit or Admin role to access reporting analytics."
+              onGoHome={handleGoBack}
+            />
+          )
         )}
 
         {currentView === "audit-trail" && (
@@ -412,7 +478,20 @@ const CER: React.FC<ICERProps> = (props) => {
         )}
 
         {currentView === "workflow-config" && (
-          <WorkflowConfigView dataService={dataService} />
+          PermissionService.canAccessView("workflow-config", currentUser) ? (
+            <AdminConsoleView
+              dataService={dataService}
+              currentUser={currentUser}
+              onCancel={handleGoBack}
+            />
+          ) : (
+            <AccessDeniedView
+              currentUser={currentUser}
+              attemptedView="workflow-config"
+              customMessage="Access to the Enterprise Administration Console is restricted to authorized System Administrators."
+              onGoHome={handleGoBack}
+            />
+          )
         )}
       </main>
 

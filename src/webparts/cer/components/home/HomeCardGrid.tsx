@@ -9,6 +9,8 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { NavView } from "../navigation/Sidebar";
+import { IAppUser } from "../../models/UserModel";
+import { PermissionService } from "../../services/PermissionService";
 import {
   CreateCERIllustration,
   MyRequestsIllustration,
@@ -19,12 +21,14 @@ import {
 } from "./HomeIllustrations";
 
 interface IHomeCardGridProps {
+  currentUser?: IAppUser;
   onNavigate: (view: NavView) => void;
   onOpenManual: () => void;
   pendingApprovalsCount?: number;
 }
 
 export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
+  currentUser,
   onNavigate,
   onOpenManual,
   pendingApprovalsCount = 0,
@@ -124,10 +128,10 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
     },
     {
       id: "workflow-config",
-      title: "Admin Page",
+      title: "Admin Console",
       description:
-        "Manage users, settings, masters and system configuration.",
-      actionLabel: "Go to Admin",
+        "Manage enterprise roles, approval hierarchy, master settings, and security audit log.",
+      actionLabel: "Open Admin Console",
       bgGradient: "from-[#FFF1F2] via-[#FEECEF] to-[#FDDDE3]",
       borderClass: "border-[#FECDD3] hover:border-[#FDA4AF]",
       iconBg: "bg-[#E11D48]",
@@ -154,6 +158,20 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
     },
   ];
 
+  // Role-based visibility filtering
+  const isApproverOrAdmin = currentUser
+    ? PermissionService.hasRole(currentUser, "Approver") || PermissionService.hasRole(currentUser, "Admin")
+    : true;
+  const isAdmin = currentUser ? PermissionService.canAccessAdmin(currentUser) : true;
+  const canCreate = currentUser ? PermissionService.canCreateCER(currentUser) : true;
+
+  const visibleCards = cards.filter((card) => {
+    if (card.id === "workflow-config" && !isAdmin) return false;
+    if (card.id === "pending-approvals" && !isApproverOrAdmin) return false;
+    if (card.id === "create" && !canCreate) return false;
+    return true;
+  });
+
   return (
     <div
       ref={containerRef}
@@ -169,7 +187,7 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
             : "grid-cols-1"
         } gap-3 sm:gap-4 lg:gap-4.5 2xl:gap-6 min-w-0 touch-pan-y`}
       >
-        {cards.map((card) => {
+        {visibleCards.map((card) => {
           const Icon = card.icon;
           const Illustration = card.illustration;
 

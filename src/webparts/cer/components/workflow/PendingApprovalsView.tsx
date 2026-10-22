@@ -18,6 +18,7 @@ import { CategoryBadge } from "../common/CategoryBadge";
 import { ApprovalDecisionModal } from "./ApprovalDecisionModal";
 import { useDynamicPagination } from "../../hooks/useDynamicPagination";
 import { DataTablePagination } from "../common/DataTablePagination";
+import { PermissionService } from "../../services/PermissionService";
 
 interface IPendingApprovalsViewProps {
   dataService: ICERDataService;
@@ -61,11 +62,15 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
     loadData().catch((e) => console.error(e));
   }, [currentUser]);
 
-  // Filter proposals awaiting action by current user or all in approval if Admin
+  // Filter proposals awaiting action by current user (Approver at current level or Admin)
+  // Finance_Audit role explicitly cannot approve proposals
   const pendingList = proposals.filter((p) => {
     if (p.status !== "In Approval") return false;
-    if (currentUser.role === "Admin" || currentUser.role === "Finance_Audit") return true;
-    if (currentUser.role === "Approver") {
+    const isAdmin = PermissionService.hasRole(currentUser, "Admin");
+    const isApprover = PermissionService.hasRole(currentUser, "Approver");
+
+    if (isAdmin) return true;
+    if (isApprover) {
       return p.current_level === (currentUser.approval_level || 1);
     }
     return false;

@@ -10,4 +10,6 @@ export interface ICERProps {
   newgroups?: any;
   newcurrentUserName?: string;
   newcurrentUserEmail?: string;
+  newcurrentUserLoginName?: string;
+  newisSiteAdmin?: boolean;
 }

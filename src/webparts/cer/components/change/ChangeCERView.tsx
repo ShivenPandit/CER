@@ -14,6 +14,7 @@ import { AttachmentSection } from "../create/AttachmentSection";
 import { CategoryDefinitionSection } from "../common/CategoryDefinitionSection";
 import { FormErrors, validateField, validateAll } from "../../utils/cerValidation";
 import { MAX_TOTAL_SIZE_BYTES, formatBytes } from "../../utils/attachmentValidation";
+import { PermissionService } from "../../services/PermissionService";
 
 interface IChangeCERViewProps {
   dataService: ICERDataService;
@@ -67,6 +68,15 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         setFormData(null);
         setOriginalProposal(null);
       } else {
+        // Enforce ownership and editable status check
+        const authCheck = PermissionService.canEditCER(found, currentUser);
+        if (!authCheck.allowed) {
+          setErrorMessage(authCheck.reason || "You are not authorized to modify this CER proposal.");
+          setFormData(null);
+          setOriginalProposal(null);
+          return;
+        }
+
         // Ensure defaults for new fields if not present
         const normalized: ICERProposal = {
           ...found,

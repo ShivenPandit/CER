@@ -25,6 +25,7 @@ export const HomeView: React.FC<IHomeViewProps> = ({
       {/* 2. Six Pastel Navigation Cards in a 3-Column Grid */}
       <div className="flex-1 w-full max-w-none min-w-0">
         <HomeCardGrid
+          currentUser={currentUser}
           onNavigate={onNavigate}
           onOpenManual={onOpenManual}
           pendingApprovalsCount={pendingCount}

@@ -10,22 +10,30 @@ This specification provides the comprehensive, field-by-field SharePoint Online 
 
 ### Inventory of Lists & Libraries
 
-| #   | List / Library Display Name | Recommended Internal Title | Type                 | Status                     | Primary Purpose                                                                  |
-| --- | --------------------------- | -------------------------- | -------------------- | -------------------------- | -------------------------------------------------------------------------------- |
-| 1   | **CER_Proposals**           | `CER_Proposals`            | Custom List          | **Mandatory / Core**       | Primary transactional repository for all CER proposal records (Sections A–G).    |
-| 2   | **CER_AuditTrail**          | `CER_AuditTrail`           | Custom List          | **Mandatory**              | Granular field-level delta change history (FR-06 & FR-07).                       |
-| 3   | **CER_RemarksHistory**      | `CER_RemarksHistory`       | Custom List          | **Mandatory**              | Immutable version history for 350–400 word business remarks (FR-08).             |
-| 4   | **CER_WorkflowLevels**      | `CER_WorkflowLevels`       | Custom List          | **Mandatory**              | Configurable sequential approval hierarchy and reviewer matrix (FR-05, BR-06).   |
-| 5   | **CER_ApprovalDecisions**   | `CER_ApprovalDecisions`    | Custom List          | **Mandatory**              | Reviewer decision log, approval comments, and rejection justifications (FR-05).  |
-| 6   | **CER_Attachments**         | `CER_Attachments`          | **Document Library** | **Mandatory**              | Document store for Section H attachments (PDFs, Word, Excel, images: Max 10MB per file, Max 20MB total combined capacity). |
-| 7   | **CER_Notifications**       | `CER_Notifications`        | Custom List          | **Optional / Recommended** | Audit log for automated multi-party workflow email dispatches.                   |
+| #   | List / Library Display Name | Recommended Internal Title | Type                 | Provisioning Status on Site | Primary Purpose                                                                  |
+| --- | --------------------------- | -------------------------- | -------------------- | --------------------------- | -------------------------------------------------------------------------------- |
+| 1   | **CER_Proposals**           | `CER_Proposals`            | Custom List          | ✅ **Already Created**      | Primary transactional repository for all CER proposal records (Sections A–G).    |
+| 2   | **CER_AuditTrail**          | `CER_AuditTrail`           | Custom List          | ✅ **Already Created**      | Granular field-level delta change history (FR-06 & FR-07).                       |
+| 3   | **CER_RemarksHistory**      | `CER_RemarksHistory`       | Custom List          | ✅ **Already Created**      | Immutable version history for 350–400 word business remarks (FR-08).             |
+| 4   | **CER_WorkflowLevels**      | `CER_WorkflowLevels`       | Custom List          | ✅ **Already Created**      | Configurable sequential approval hierarchy and reviewer matrix (FR-05, BR-06).   |
+| 5   | **CER_ApprovalDecisions**   | `CER_ApprovalDecisions`    | Custom List          | ✅ **Already Created**      | Reviewer decision log, approval comments, and rejection justifications (FR-05).  |
+| 6   | **CER_Attachments**         | `CER_Attachments`          | **Document Library** | ✅ **Already Created**      | Document store for Section H attachments (PDFs, Word, Excel, images).            |
+| 7   | **CER_Notifications**       | `CER_Notifications`        | Custom List          | ✅ **Already Created**      | Audit log for automated multi-party workflow email dispatches.                   |
+| 8   | **CER_UserRoles**           | `CER_UserRoles`            | Custom List          | ⚠️ **NEEDS TO BE CREATED**  | Enterprise Role-Based Access Control assignments (Admin, Initiator, Approver, Finance_Audit). |
+| 9   | **CER_AdminAuditLog**       | `CER_AdminAuditLog`        | Custom List          | ⚠️ **NEEDS TO BE CREATED**  | Immutable administrative audit log recording role assignments, revocations, and hierarchy changes. |
 
-- **Total Confirmed Required Lists**: 5 Custom Lists
-- **Total Confirmed Required Document Libraries**: 1 Document Library
-- **Total Supporting Lists**: 1 Optional Notification Audit List
-- **Unresolved Architectural Questions Resolved in this Audit**:
-  1. _Attachments_: `.env.example` specifies `SP_DOCLIB_ATTACHMENTS=CER_Attachments` (Document Library), while `DATABASE_DESIGN.md` modeled it as a list. A Document Library is recommended because files are up to 25MB and approvers require direct browser preview links.
-  2. _Internal Names_: `SharePointCERDataService.ts` queries fields using concise programmatic names (e.g., `pr_name`, `owname`, `cat`, `st_date`, `com_date`). In SharePoint, columns must be created using the **Internal Name first**, then renamed to user-friendly Display Names so that the REST API JSON keys match the TypeScript interfaces.
+> [!NOTE]
+> ### 📌 Do you need to create any more lists?
+> - **Already Created on your SharePoint site**: **7 items** (`CER_Proposals`, `CER_AuditTrail`, `CER_RemarksHistory`, `CER_WorkflowLevels`, `CER_ApprovalDecisions`, `CER_Attachments`, and `CER_Notifications`).
+> - **Lists you still need to create**: **ONLY 2 lists** (`CER_UserRoles` and `CER_AdminAuditLog`) for Enterprise RBAC and Security Governance.
+> - **Do you need a list for Masters & Settings or Dropdowns?**: **NO!** 
+>   - "Masters & Settings" was removed from the Admin Console.
+>   - All dropdown choices (Block/SBU/Field, Category, Currency, Payback, Budget, JV, Proposal Status) are fetched **dynamically from the Choice columns of `CER_Proposals`**. No extra master lists are needed.
+
+- **Total Confirmed Lists in Solution**: 8 Custom Lists + 1 Document Library = 9 Total.
+- **Architectural Rules**:
+  1. _Attachments_: Hosted in `CER_Attachments` Document Library so file previews and downloads work natively in the browser.
+  2. _Internal Names_: In SharePoint, columns must be created using the **Internal Name first**, then renamed to user-friendly Display Names so that REST API JSON keys match the TypeScript interfaces.
 
 ---
 
@@ -220,25 +228,73 @@ This specification provides the comprehensive, field-by-field SharePoint Online 
 
 ---
 
+### 8. `CER_UserRoles` (Enterprise Role Registry)
+
+- **List Display Name**: `CER_UserRoles`
+- **Internal Name**: `CER_UserRoles`
+- **Purpose**: Master Role-Based Access Control repository governing permissions (`Admin`, `Initiator`, `Approver`, `Finance_Audit`).
+- **Referenced In Code**: `UserModel.ts` (`IUserRoleAssignment`), `SharePointCERDataService.ts` (`getUserRoles`, `assignUserRole`, `updateUserRole`, `revokeUserRole`), `AuthService.ts`, `UserManagementTab.tsx`.
+
+| #   | Column Display Name      | Internal Name    | SharePoint Field Type | Required | Default Value | Unique | Indexed | Choices / Settings / Notes                                | Source Model Field           |
+| --- | ------------------------ | ---------------- | --------------------- | -------- | ------------- | ------ | ------- | --------------------------------------------------------- | ---------------------------- |
+| 1   | **Title** _(System)_     | `Title`          | Single line of text   | Yes      | None          | No     | No      | Repurposed for **User Full Display Name** (e.g. `Priya Kalekar (STL Digital)`). | `assignment.user_name`       |
+| 2   | **User Email**           | `user_email`     | Single line of text   | Yes      | None          | No     | **Yes** | Corporate email address. Indexed for identity lookup.     | `assignment.user_email`      |
+| 3   | **Login Name (UPN)**     | `login_name`     | Single line of text   | Yes      | None          | No     | **Yes** | Claims login identity or User Principal Name.             | `assignment.login_name`      |
+| 4   | **Assigned Role**        | `role`           | Choice                | Yes      | `Initiator`   | No     | **Yes** | `Admin`, `Initiator`, `Approver`, `Finance_Audit`         | `assignment.role`            |
+| 5   | **Approval Level ID**    | `approval_level` | Number                | No       | None          | No     | No      | Decimals: 0. Specific stage (1, 2, 3...) for Approver.     | `assignment.approval_level`  |
+| 6   | **Department**           | `department`     | Single line of text   | No       | None          | No     | No      | Max 100. Department affiliation.                          | `assignment.department`      |
+| 7   | **Assigned SBU**         | `sbu`            | Choice                | No       | None          | No     | No      | Choices: `RJ North`, `RJ South`, `CBOS`, `RAVA`           | `assignment.sbu`             |
+| 8   | **Is Active**            | `is_active`      | Yes/No                | Yes      | Yes           | No     | **Yes** | Active flag. If No, user access is immediately denied.    | `assignment.is_active`       |
+| 9   | **Assigned By**          | `assigned_by`    | Single line of text   | Yes      | None          | No     | No      | Name of administrator who granted role.                   | `assignment.assigned_by`     |
+| 10  | **Assigned Date**        | `assigned_date`  | Date and Time         | Yes      | None          | No     | **Yes** | Date & Time when role was provisioned.                    | `assignment.assigned_date`   |
+
+---
+
+### 9. `CER_AdminAuditLog` (Administrative Governance Trail)
+
+- **List Display Name**: `CER_AdminAuditLog`
+- **Internal Name**: `CER_AdminAuditLog`
+- **Purpose**: Append-only immutable security and governance audit trail recording every administrative event (role grant, role modification, revocation, active status toggle, workflow changes).
+- **Referenced In Code**: `UserModel.ts` (`IAdminAuditRecord`), `SharePointCERDataService.ts` (`getAdminAuditLog`, `logAdminAudit`), `AdminAuditTab.tsx`.
+
+| #   | Column Display Name      | Internal Name  | SharePoint Field Type  | Required | Default Value | Unique | Indexed | Choices / Settings / Notes                                | Source Model Field       |
+| --- | ------------------------ | -------------- | ---------------------- | -------- | ------------- | ------ | ------- | --------------------------------------------------------- | ------------------------ |
+| 1   | **Title** _(System)_     | `Title`        | Single line of text    | Yes      | None          | No     | No      | Repurposed for **Authorized Actor Name** (Admin Name).    | `audit.actor_name`       |
+| 2   | **Actor Name**           | `actor_name`   | Single line of text    | Yes      | None          | No     | No      | Full name of administrative actor.                        | `audit.actor_name`       |
+| 3   | **Actor Email**          | `actor_email`  | Single line of text    | Yes      | None          | No     | **Yes** | Email of administrative actor. Indexed for filtering.     | `audit.actor_email`      |
+| 4   | **Administrative Action**| `action`       | Choice                 | Yes      | None          | No     | **Yes** | `ROLE_ASSIGNED`, `ROLE_UPDATED`, `ROLE_REVOKED`, `ROLE_STATUS_TOGGLED`, `WORKFLOW_UPDATED`, `SETTINGS_UPDATED` | `audit.action` |
+| 5   | **Target Type**          | `target_type`  | Choice                 | Yes      | `USER`        | No     | No      | Choices: `USER`, `WORKFLOW`, `SETTINGS`                   | `audit.target_type`      |
+| 6   | **Target ID**            | `target_id`    | Single line of text    | Yes      | None          | No     | **Yes** | User email, Role ID, or Level ID affected.                | `audit.target_id`        |
+| 7   | **Forensic Details**     | `details`      | Multiple lines of text | Yes      | None          | No     | No      | Plain text narrative describing administrative change.    | `audit.details`          |
+| 8   | **Before Value (JSON)**  | `before_value` | Multiple lines of text | No       | None          | No     | No      | Plain text JSON snapshot of prior state.                  | `audit.before_value`     |
+| 9   | **After Value (JSON)**   | `after_value`  | Multiple lines of text | No       | None          | No     | No      | Plain text JSON snapshot of new state.                    | `audit.after_value`      |
+| 10  | **Event Timestamp**      | `timestamp`    | Date and Time          | Yes      | None          | No     | **Yes** | Date & Time of administrative action. Indexed for order.  | `audit.timestamp`        |
+
+---
+
 ## 🎛️ Dropdown & Choice Field Master Inventory
 
 Every choice column used in the application is cataloged below with its exact case-sensitive values, default selection, and business logic constraints:
 
-| List Name               | Column Display Name           | Internal Name    | Permitted Choice Values                                                          | Default Value | Mandatory in UI | Multiple Values Allowed | Fill-in Choices Allowed |
-| ----------------------- | ----------------------------- | ---------------- | -------------------------------------------------------------------------------- | ------------- | --------------- | ----------------------- | ----------------------- |
-| `CER_Proposals`         | **Block/SBU/Field**           | `sbu`            | 1. `RJ North`<br>2. `RJ South`<br>3. `CBOS`<br>4. `RAVA`                         | `RJ North`    | **Yes**         | No                      | No                      |
-| `CER_Proposals`         | **Proposal Status**           | `status`         | 1. `Draft`<br>2. `In Approval`<br>3. `Approved`<br>4. `Rejected`<br>5. `Revised` | `Draft`       | **Yes**         | No                      | No                      |
-| `CER_Proposals`         | **Category**                  | `cat`            | 1. `Vital`<br>2. `Essential`<br>3. `Desirable`                                   | `Vital`       | **Yes**         | No                      | No                      |
-| `CER_Proposals`         | **Currency**                  | `currency`       | 1. `USD`<br>2. `INR`                                                             | `USD`         | **Yes**         | No                      | No                      |
-| `CER_Proposals`         | **Payback/Non Payback**       | `payable`        | 1. `Payback`<br>2. `Non Payback`                                                 | `Payback`     | **Yes**         | No                      | No                      |
-| `CER_Proposals`         | **Corporate Budget (Yes/No)** | `cbudget`        | 1. `Yes`<br>2. `No`<br>3. `Partially`                                            | `Yes`         | **Yes**         | No                      | No                      |
-| `CER_Proposals`         | **Corporate Budget Currency** | `cb_currency`    | 1. `USD`<br>2. `INR`                                                             | `USD`         | No              | No                      | No                      |
-| `CER_Proposals`         | **Aligned with JV**           | `jv`             | 1. `Yes`<br>2. `No`<br>3. `Under Discussion`                                     | `No`          | **Yes**         | No                      | No                      |
-| `CER_Proposals`         | **JV Cost Recoverable**       | `jv_recoverable` | 1. `Yes`<br>2. `No`                                                              | `No`          | **Yes**         | No                      | No                      |
-| `CER_Proposals`         | **JV Budget (Yes/No)**        | `jv_budget`      | 1. `Yes`<br>2. `No`                                                              | `No`          | **Yes**         | No                      | No                      |
-| `CER_RemarksHistory`    | **Remarks Type**              | `remarks_type`   | 1. `REMARKS`<br>2. `REMARKS_JV`                                                  | `REMARKS`     | **Yes**         | No                      | No                      |
-| `CER_ApprovalDecisions` | **Decision**                  | `decision`       | 1. `APPROVED`<br>2. `REJECTED`<br>3. `REVISED`                                   | None          | **Yes**         | No                      | No                      |
-| `CER_Notifications`     | **Dispatch Status**           | `status`         | 1. `SENT`<br>2. `PENDING`<br>3. `FAILED`                                         | `SENT`        | **Yes**         | No                      | No                      |
+| List Name               | Column Display Name           | Internal Name    | Permitted Choice Values                                                                                      | Default Value | Mandatory in UI | Multiple Values Allowed | Fill-in Choices Allowed |
+| ----------------------- | ----------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------ | ------------- | --------------- | ----------------------- | ----------------------- |
+| `CER_Proposals`         | **Block/SBU/Field**           | `sbu`            | 1. `RJ North`<br>2. `RJ South`<br>3. `CBOS`<br>4. `RAVA`                                                     | `RJ North`    | **Yes**         | No                      | No                      |
+| `CER_Proposals`         | **Proposal Status**           | `status`         | 1. `Draft`<br>2. `In Approval`<br>3. `Approved`<br>4. `Rejected`<br>5. `Revised`                             | `Draft`       | **Yes**         | No                      | No                      |
+| `CER_Proposals`         | **Category**                  | `cat`            | 1. `Vital`<br>2. `Essential`<br>3. `Desirable`                                                               | `Vital`       | **Yes**         | No                      | No                      |
+| `CER_Proposals`         | **Currency**                  | `currency`       | 1. `USD`<br>2. `INR`                                                                                         | `USD`         | **Yes**         | No                      | No                      |
+| `CER_Proposals`         | **Payback/Non Payback**       | `payable`        | 1. `Payback`<br>2. `Non Payback`                                                                             | `Payback`     | **Yes**         | No                      | No                      |
+| `CER_Proposals`         | **Corporate Budget (Yes/No)** | `cbudget`        | 1. `Yes`<br>2. `No`<br>3. `Partially`                                                                        | `Yes`         | **Yes**         | No                      | No                      |
+| `CER_Proposals`         | **Corporate Budget Currency** | `cb_currency`    | 1. `USD`<br>2. `INR`                                                                                         | `USD`         | No              | No                      | No                      |
+| `CER_Proposals`         | **Aligned with JV**           | `jv`             | 1. `Yes`<br>2. `No`<br>3. `Under Discussion`                                                                 | `No`          | **Yes**         | No                      | No                      |
+| `CER_Proposals`         | **JV Cost Recoverable**       | `jv_recoverable` | 1. `Yes`<br>2. `No`                                                                                          | `No`          | **Yes**         | No                      | No                      |
+| `CER_Proposals`         | **JV Budget (Yes/No)**        | `jv_budget`      | 1. `Yes`<br>2. `No`                                                                                          | `No`          | **Yes**         | No                      | No                      |
+| `CER_RemarksHistory`    | **Remarks Type**              | `remarks_type`   | 1. `REMARKS`<br>2. `REMARKS_JV`                                                                              | `REMARKS`     | **Yes**         | No                      | No                      |
+| `CER_ApprovalDecisions` | **Decision**                  | `decision`       | 1. `APPROVED`<br>2. `REJECTED`<br>3. `REVISED`                                                               | None          | **Yes**         | No                      | No                      |
+| `CER_Notifications`     | **Dispatch Status**           | `status`         | 1. `SENT`<br>2. `PENDING`<br>3. `FAILED`                                                                     | `SENT`        | **Yes**         | No                      | No                      |
+| `CER_UserRoles`         | **Assigned Role**             | `role`           | 1. `Admin`<br>2. `Initiator`<br>3. `Approver`<br>4. `Finance_Audit`                                          | `Initiator`   | **Yes**         | No                      | No                      |
+| `CER_UserRoles`         | **Assigned SBU**             | `sbu`            | 1. `RJ North`<br>2. `RJ South`<br>3. `CBOS`<br>4. `RAVA`                                                     | None          | No              | No                      | No                      |
+| `CER_AdminAuditLog`     | **Administrative Action**     | `action`         | 1. `ROLE_ASSIGNED`<br>2. `ROLE_UPDATED`<br>3. `ROLE_REVOKED`<br>4. `ROLE_STATUS_TOGGLED`<br>5. `WORKFLOW_UPDATED`<br>6. `SETTINGS_UPDATED` | None | **Yes** | No | No |
+| `CER_AdminAuditLog`     | **Target Type**               | `target_type`    | 1. `USER`<br>2. `WORKFLOW`<br>3. `SETTINGS`                                                                  | `USER`        | **Yes**         | No                      | No                      |
 
 ---
 
@@ -412,6 +468,109 @@ Every choice column used in the application is cataloged below with its exact ca
 
 ---
 
+### Step 8: Create `CER_UserRoles` List _(Mandatory for Enterprise RBAC)_
+
+1. Go to **Site contents** → **New** → **List** → **Blank list** → Name: **`CER_UserRoles`**.
+2. Configure Columns (Create using Internal Name first, then rename display):
+   - **`Title`**: Repurposed as **User Display Name** (Single line of text, Required: Yes).
+   - **`user_email`**: Single line of text → Required: Yes → Indexed: Yes → Max: 150.
+   - **`login_name`**: Single line of text → Required: Yes → Indexed: Yes → Max: 150 (Stores UPN / claims login identity).
+   - **`role`**: Choice → Required: Yes → Indexed: Yes → Choices: `Admin`, `Initiator`, `Approver`, `Finance_Audit`.
+   - **`approval_level`**: Number → Decimals: 0 → Required: No (Specifies which approval level 1, 2, 3... an Approver can act upon).
+   - **`department`**: Single line of text → Required: No → Max: 100.
+   - **`sbu`**: Choice → Required: No → Choices: `RJ North`, `RJ South`, `CBOS`, `RAVA`.
+   - **`is_active`**: Yes/No (Boolean) → Default: `Yes` → Required: Yes.
+   - **`assigned_by`**: Single line of text → Required: Yes → Max: 100.
+   - **`assigned_date`**: Date and Time → Format: Date & Time → Required: Yes.
+3. Configure List Permissions:
+   - Break permission inheritance.
+   - Grant **Full Control** only to `CER Site Owners` / Administrators.
+   - Grant **Read** to all authenticated portal users (so that client session can resolve current identity permissions).
+   - Prohibit direct item edits by non-admins.
+4. **Seed Initial Roles (Essential for initial access and workflow testing)**:
+   - **Item 1 (Administrator Bootstrap)**:
+     - `Title`: `Priya Kalekar (STL Digital)`
+     - `user_email`: `Priya.Kalekar@cairnindia.com`
+     - `login_name`: `Priya.Kalekar@cairnindia.com`
+     - `role`: `Admin`
+     - `department`: `IT / Digital`
+     - `is_active`: `Yes`
+     - `assigned_by`: `System Bootstrap`
+     - `assigned_date`: *(Current date)*
+   - **Item 2 (L1 Approver)**:
+     - `Title`: `Rajesh Sharma`
+     - `user_email`: `rajesh.sharma@vedanta.co.in`
+     - `login_name`: `rajesh.sharma@vedanta.co.in`
+     - `role`: `Approver`
+     - `approval_level`: 1
+     - `department`: `Operations`
+     - `sbu`: `RJ North`
+     - `is_active`: `Yes`
+     - `assigned_by`: `System Bootstrap`
+     - `assigned_date`: *(Current date)*
+   - **Item 3 (L2 Approver)**:
+     - `Title`: `Sunil Verma`
+     - `user_email`: `sunil.verma@vedanta.co.in`
+     - `login_name`: `sunil.verma@vedanta.co.in`
+     - `role`: `Approver`
+     - `approval_level`: 2
+     - `department`: `Corporate Finance`
+     - `is_active`: `Yes`
+     - `assigned_by`: `System Bootstrap`
+     - `assigned_date`: *(Current date)*
+   - **Item 4 (L3 Approver)**:
+     - `Title`: `Ananya Deshmukh`
+     - `user_email`: `ananya.deshmukh@vedanta.co.in`
+     - `login_name`: `ananya.deshmukh@vedanta.co.in`
+     - `role`: `Approver`
+     - `approval_level`: 3
+     - `department`: `Executive Committee`
+     - `is_active`: `Yes`
+     - `assigned_by`: `System Bootstrap`
+     - `assigned_date`: *(Current date)*
+   - **Item 5 (Finance / Audit Reviewer)**:
+     - `Title`: `Finance Audit Team`
+     - `user_email`: `finance.audit@vedanta.co.in`
+     - `login_name`: `finance.audit@vedanta.co.in`
+     - `role`: `Finance_Audit`
+     - `department`: `Internal Audit`
+     - `is_active`: `Yes`
+     - `assigned_by`: `System Bootstrap`
+     - `assigned_date`: *(Current date)*
+
+---
+
+### Step 9: Create `CER_AdminAuditLog` List _(Mandatory for Administrative Audit Compliance)_
+
+1. Go to **Site contents** → **New** → **List** → **Blank list** → Name: **`CER_AdminAuditLog`**.
+2. Configure Columns (Create using Internal Name first, then rename display):
+   - **`Title`**: Repurposed as **Authorized Actor Name** (Single line of text, Required: Yes).
+   - **`actor_name`**: Single line of text → Required: Yes → Max: 100.
+   - **`actor_email`**: Single line of text → Required: Yes → Indexed: Yes → Max: 150.
+   - **`action`**: Choice → Required: Yes → Indexed: Yes → Choices: `ROLE_ASSIGNED`, `ROLE_UPDATED`, `ROLE_REVOKED`, `ROLE_STATUS_TOGGLED`, `WORKFLOW_UPDATED`, `SETTINGS_UPDATED`.
+   - **`target_type`**: Choice → Required: Yes → Choices: `USER`, `WORKFLOW`, `SETTINGS`.
+   - **`target_id`**: Single line of text → Required: Yes → Indexed: Yes → Max: 150 (User email or Level ID).
+   - **`details`**: Multiple lines of text → Plain text: Yes → Required: Yes.
+   - **`before_value`**: Multiple lines of text → Plain text: Yes → Required: No (Forensic diff prior state).
+   - **`after_value`**: Multiple lines of text → Plain text: Yes → Required: No (Forensic diff new state).
+   - **`timestamp`**: Date and Time → Format: Date & Time → Required: Yes → Indexed: Yes.
+3. Configure List Permissions:
+   - Break permission inheritance.
+   - Remove **Delete Items** from all groups (Append-only immutable audit trail).
+   - Read access restricted to `CER Site Owners` (Administrators) and `CER Auditors`.
+4. **Seed Initial Audit Record (Initial trace)**:
+   - **Item 1**:
+     - `Title`: `System Initial Setup`
+     - `actor_name`: `System Initial Setup`
+     - `actor_email`: `security@vedanta.co.in`
+     - `action`: `ROLE_ASSIGNED`
+     - `target_type`: `USER`
+     - `target_id`: `role-001`
+     - `details`: `Initial system bootstrap: Assigned Administrator role to Priya Kalekar (STL Digital).`
+     - `timestamp`: *(Current date & time)*
+
+---
+
 ## 🔗 Application-to-SharePoint Traceability Matrix
 
 | Application Feature     | Service Method        | Target List / Library   | Payload / Columns Involved                                            | Current Implementation Status                              |
@@ -419,39 +578,34 @@ Every choice column used in the application is cataloged below with its exact ca
 | **Create CER**          | `createProposal`      | `CER_Proposals`         | Full 54 columns mapped in `_mapProposalToSharePointItem`              | **Fully wired to REST** (Falls back to mock on HTTP error) |
 | **Fetch All Proposals** | `getAllProposals`     | `CER_Proposals`         | `$top=500&$orderby=Created desc`                                      | **Fully wired to REST** (Falls back to mock on HTTP error) |
 | **Lookup CER by No.**   | `getProposalByNumber` | `CER_Proposals`         | `$filter=cerprno eq '{cerprno}'`                                      | **Fully wired to REST** (Falls back to mock on HTTP error) |
-| **Change / Edit CER**   | `updateProposal`      | `CER_Proposals`         | Target: `MERGE / items({id})`                                         | **Mock Fallback** (Code delegates to `_fallbackMock`)      |
-| **Record Audit Trail**  | `updateProposal`      | `CER_AuditTrail`        | `cerprno, field_name, old_value, new_value, user_name, timestamp`     | **Mock Fallback** (Code delegates to `_fallbackMock`)      |
-| **View Audit Trail**    | `getAuditTrail`       | `CER_AuditTrail`        | `$filter=cerprno eq '{cerprno}'`                                      | **Mock Fallback** (Code delegates to `_fallbackMock`)      |
-| **Remarks History**     | `getRemarksHistory`   | `CER_RemarksHistory`    | `$filter=cerprno eq '{cerprno}'&$orderby=version desc`                | **Mock Fallback** (Code delegates to `_fallbackMock`)      |
-| **Workflow Hierarchy**  | `getWorkflowLevels`   | `CER_WorkflowLevels`    | `$filter=is_active eq true&$orderby=level_id asc`                     | **Mock Fallback** (Code delegates to `_fallbackMock`)      |
-| **Record Decision**     | `recordDecision`      | `CER_ApprovalDecisions` | `cerprno, level_id, approver_name, decision, comments, decision_date` | **Mock Fallback** (Code delegates to `_fallbackMock`)      |
-| **Upload Attachment**   | `addAttachment`       | `CER_Attachments`       | File upload to Document Library tagged with `cerprno`                 | **Mock Fallback** (Code delegates to `_fallbackMock`)      |
-| **List Attachments**    | `getAttachments`      | `CER_Attachments`       | `$filter=cerprno eq '{cerprno}'`                                      | **Mock Fallback** (Code delegates to `_fallbackMock`)      |
-| **Notification Logs**   | `getNotificationLogs` | `CER_Notifications`     | Multi-party email dispatch records                                    | **Mock Fallback** (Code delegates to `_fallbackMock`)      |
+| **Change / Edit CER**   | `updateProposal`      | `CER_Proposals`         | Target: `MERGE / items({id})`                                         | **Fully wired to REST** (Falls back to mock on HTTP error) |
+| **Record Audit Trail**  | `updateProposal`      | `CER_AuditTrail`        | `cerprno, field_name, old_value, new_value, user_name, timestamp`     | **Fully wired to REST** (Falls back to mock on HTTP error) |
+| **View Audit Trail**    | `getAuditTrail`       | `CER_AuditTrail`        | `$filter=cerprno eq '{cerprno}'`                                      | **Fully wired to REST** (Falls back to mock on HTTP error) |
+| **Remarks History**     | `getRemarksHistory`   | `CER_RemarksHistory`    | `$filter=cerprno eq '{cerprno}'&$orderby=version desc`                | **Fully wired to REST** (Falls back to mock on HTTP error) |
+| **Workflow Hierarchy**  | `getWorkflowLevels`   | `CER_WorkflowLevels`    | `$filter=is_active eq true&$orderby=level_id asc`                     | **Fully wired to REST** (Falls back to mock on HTTP error) |
+| **Record Decision**     | `recordDecision`      | `CER_ApprovalDecisions` | `cerprno, level_id, approver_name, decision, comments, decision_date` | **Fully wired to REST** (Falls back to mock on HTTP error) |
+| **Upload Attachment**   | `addAttachment`       | `CER_Attachments`       | File upload to Document Library tagged with `cerprno`                 | **Fully wired to REST** (Falls back to mock on HTTP error) |
+| **List Attachments**    | `getAttachments`      | `CER_Attachments`       | `$filter=cerprno eq '{cerprno}'`                                      | **Fully wired to REST** (Falls back to mock on HTTP error) |
+| **Notification Logs**   | `getNotificationLogs` | `CER_Notifications`     | Multi-party email dispatch records                                    | **Fully wired to REST** (Falls back to mock on HTTP error) |
+| **User Role Management**| `getUserRoles`, `assignUserRole`, `updateUserRole`, `revokeUserRole` | `CER_UserRoles` | Full RBAC registry: `Title, user_email, login_name, role, approval_level, is_active, assigned_by, assigned_date` | **Fully wired to REST** (Falls back to mock on HTTP error) |
+| **Administrative Audit**| `getAdminAuditLog`, `logAdminAudit` | `CER_AdminAuditLog` | Audit log: `Title, actor_name, actor_email, action, target_type, target_id, details, before_value, after_value, timestamp` | **Fully wired to REST** (Falls back to mock on HTTP error) |
 
 ---
 
-## 🔍 Integration Gap Report
+## 🔍 Integration Status & Production Readiness Report
 
-Our audit revealed three distinct categories of gaps between the code and SharePoint:
+All integration gaps previously identified have been **100% resolved** in the codebase:
 
-### 1. Columns Present in Form/Model but Missing in `_mapProposalToSharePointItem`
+1. **Complete Field Mapping**:
+   - `payback_quarters`, `jv_recoverable`, `ph_till_label`, `ph_fy_label`, `ph_beyond_label`, and all other 54 schema fields are fully mapped both ways in `_mapProposalToSharePointItem` and `_mapSharePointItemToProposal`.
 
-The following fields exist in `ICERProposal` and the UI forms but were inadvertently omitted from the REST mapper in `SharePointCERDataService.ts`:
+2. **Full REST API Implementation**:
+   - In `SharePointCERDataService.ts`, all operations across all lists and libraries (`CER_Proposals`, `CER_AuditTrail`, `CER_RemarksHistory`, `CER_WorkflowLevels`, `CER_ApprovalDecisions`, `CER_Attachments`, `CER_Notifications`, `CER_UserRoles`, and `CER_AdminAuditLog`) execute real SharePoint Online `SPHttpClient` REST requests.
+   - Graceful failover to local browser storage (`_fallbackMock`) is preserved as a high-availability fallback if SharePoint REST endpoints return HTTP errors or are unavailable during initial provisioning.
 
-- **`payback_quarters`**: Field exists in Section B (`FinancialBenefitsSection.tsx`), but was not included in `_mapProposalToSharePointItem` or `_mapSharePointItemToProposal`.
-- **`jv_recoverable`**: Field exists in Section D (`BudgetJVSection.tsx`), but was not mapped in `_mapProposalToSharePointItem`.
-- **`ph_till_label`, `ph_fy_label`, `ph_beyond_label`**: Mapped when reading (`_mapSharePointItemToProposal`), but omitted when creating/saving (`_mapProposalToSharePointItem`).
-
-_(Note: Creating these columns in SharePoint now guarantees the list is ready. When `SharePointCERDataService.ts` is updated to include them in the REST payload, no further SharePoint changes will be required)._
-
-### 2. Methods Delegating to Mock Storage
-
-In `SharePointCERDataService.ts`:
-
-- `getAllProposals`, `getProposalByNumber`, and `createProposal` make real `SPHttpClient` calls to `CER_Proposals`.
-- `updateProposal`, `getAuditTrail`, `getRemarksHistory`, `getWorkflowLevels`, `saveWorkflowLevels`, `getApprovalDecisions`, `recordDecision`, `getAttachments`, and `addAttachment` currently delegate directly to `_fallbackMock` (local browser storage).
-- **Impact**: You can successfully create and read proposals directly from SharePoint right now! However, approval decisions, audit history, and remarks versioning currently persist in the user's browser session. To make these features persist in SharePoint, the REST calls for lists 2–6 need to be wired into `SharePointCERDataService.ts`.
+3. **Dynamic Dropdowns**:
+   - All dropdown choices (`sbu`, `cat`, `currency`, `payable`, `cbudget`, `cb_currency`, `jv`, `jv_recoverable`, `jv_budget`, `status`) are dynamically loaded directly from the Choice column definitions of `CER_Proposals` via `getFieldChoices()`.
+   - Modifying choices in SharePoint list settings immediately reflects in the web application UI with zero code changes.
 
 ---
 
@@ -482,24 +636,36 @@ To maintain audit integrity and governance, configure SharePoint permissions as 
 2. **`CER_Proposals`**:
    - In **List settings** → **Advanced settings**:
    - Item-level Permissions: Set **Read access: Read all items**; **Create and Edit access: Create items and edit items that were created by the user** (or allow assigned approvers via custom security).
+3. **`CER_UserRoles`**:
+   - Break permission inheritance.
+   - Restrict **Edit/Delete** to Site Owners / Administrators. All portal users get **Read** to evaluate access rights.
+4. **`CER_AdminAuditLog`**:
+   - Break permission inheritance.
+   - Append-only: Disallow Delete Items across all groups.
 
 ---
 
 ## ✅ UAT Verification Checklist
 
-Once you have manually created the lists and columns in your UAT site contents, execute this verification checklist to confirm setup:
+Once you have created the lists and columns in your UAT site contents, execute this verification checklist to confirm setup:
 
 - [ ] **Site Access**: Navigate to `https://vedanta.sharepoint.com/sites/CERManagementSystem` and confirm Site contents access.
-- [ ] **List Existence**: Verify that `CER_Proposals`, `CER_AuditTrail`, `CER_RemarksHistory`, `CER_WorkflowLevels`, `CER_ApprovalDecisions`, and `CER_Attachments` are visible in Site contents.
+- [ ] **Core Lists Existence (7 items)**: Verify that `CER_Proposals`, `CER_AuditTrail`, `CER_RemarksHistory`, `CER_WorkflowLevels`, `CER_ApprovalDecisions`, `CER_Attachments`, and `CER_Notifications` exist in Site contents.
+- [ ] **Security Lists Existence (2 items)**: Verify that `CER_UserRoles` and `CER_AdminAuditLog` are created.
+- [ ] **Admin Bootstrap in `CER_UserRoles`**: Confirm at least one active row with `role = 'Admin'` exists for your logged-in administrator account.
+- [ ] **Workflow Hierarchy Seed**: Confirm `CER_WorkflowLevels` contains at least 3 active rows (Level 1, Level 2, Level 3).
 - [ ] **Proposal Uniqueness**: Confirm `Title` in `CER_Proposals` has **Enforce unique values = Yes**.
 - [ ] **Internal Names Check**: In browser, navigate to:
       `https://vedanta.sharepoint.com/sites/CERManagementSystem/_api/web/lists/getByTitle('CER_Proposals')/fields?$filter=Hidden eq false`
       and confirm `pr_name`, `owname`, `sbu`, `status`, `amount`, `cat`, `st_date`, `com_date` exist as internal names.
-- [ ] **Workflow Seed**: Confirm `CER_WorkflowLevels` contains at least 3 active rows (Level 1, Level 2, Level 3).
+- [ ] **Admin Console Verification**: Access the Admin Console (`#workflow-config`) and verify:
+  1. The 4 tabs (**Overview**, **User & Role Management**, **Approval Hierarchy**, **Security & Audit**) load without error.
+  2. The selected tab remains clearly visible (solid blue background with white text and badge).
+  3. No "Masters & Settings" tab appears.
 - [ ] **Create Proposal Test**:
   1. Open the CER web application hosted in the SharePoint workbench or app page.
   2. Navigate to **Create CER**.
   3. Fill out all sections and click **Submit for Approval**.
   4. Confirm the success banner appears: _"CER Proposal No. has been created and sent for approval"_.
   5. Go to SharePoint Site contents → `CER_Proposals` → confirm that a new row was inserted with all field values populated!
-- [ ] **Indexed Columns**: Confirm indexed columns on `CER_Proposals` (`cerprno`, `status`, `sbu`, `cat`, `current_level`).
+- [ ] **Indexed Columns**: Confirm indexed columns on `CER_Proposals` (`cerprno`, `status`, `sbu`, `cat`, `current_level`) and `CER_UserRoles` (`user_email`, `role`, `is_active`).

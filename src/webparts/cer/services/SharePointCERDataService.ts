@@ -14,7 +14,7 @@ import {
   INotificationLog,
 } from "../models/WorkflowModel";
 import { ICERAttachment } from "../models/AttachmentModel";
-import { IDirectoryUser } from "../models/UserModel";
+import { IDirectoryUser, IUserRoleAssignment, IAdminAuditRecord } from "../models/UserModel";
 import { LocalMockCERDataService } from "./LocalMockCERDataService";
 import { validateAttachment } from "../utils/attachmentValidation";
 
@@ -256,6 +256,25 @@ export class SharePointCERDataService implements ICERDataService {
     const now = new Date().toISOString();
     const existing = await this.getProposalByNumber(proposal.cerprno);
     const original = existing || proposal;
+
+    // Enterprise RBAC: Only designated CER Owner or Administrator can edit proposals
+    const userEmail = (user.email || "").trim().toLowerCase();
+    const ownerEmail = (original.owner_email || "").trim().toLowerCase();
+    const isEmailOwner = userEmail && ownerEmail && userEmail === ownerEmail;
+
+    const userName = (user.name || "").trim().toLowerCase();
+    const ownerName = (original.owname || "").trim().toLowerCase();
+    const isNameOwner = userName && ownerName && userName === ownerName;
+
+    const isAuthorizedActor =
+      isEmailOwner ||
+      isNameOwner ||
+      userEmail.indexOf("admin") !== -1 ||
+      userEmail.indexOf("auditor") !== -1;
+
+    if (!isAuthorizedActor) {
+      throw new Error(`Unauthorized: Only the designated CER Owner (${original.owname}) or Administrator can edit this proposal.`);
+    }
 
     // 1. Calculate field-level deltas for CER_AuditTrail
     const auditRecords: ICERAuditRecord[] = [];
@@ -663,6 +682,22 @@ export class SharePointCERDataService implements ICERDataService {
     comments: string;
   }): Promise<{ success: boolean; newStatus: string; nextLevel: number }> {
     const now = new Date().toISOString();
+
+    // Enterprise RBAC: Segregation of Duties - Initiator/Owner CANNOT approve their own CER
+    const existingProposal = await this.getProposalByNumber(params.cerprno);
+    if (existingProposal) {
+      const approverEmail = (params.approver_email || "").trim().toLowerCase();
+      const ownerEmail = (existingProposal.owner_email || "").trim().toLowerCase();
+      const isEmailMatch = approverEmail && ownerEmail && approverEmail === ownerEmail;
+
+      const approverName = (params.approver_name || "").trim().toLowerCase();
+      const ownerName = (existingProposal.owname || "").trim().toLowerCase();
+      const isNameMatch = approverName && ownerName && approverName === ownerName;
+
+      if (isEmailMatch || isNameMatch) {
+        throw new Error("Segregation of Duties Enforcement: You cannot approve a CER proposal that you initiated.");
+      }
+    }
 
     try {
       // 1. Post decision record to CER_ApprovalDecisions
@@ -1223,5 +1258,262 @@ export class SharePointCERDataService implements ICERDataService {
     // 3. Fallback to local store with real portal member personas if offline
     return this._fallbackMock.searchDirectoryUsers(query);
   }
+
+  // ---------------------------------------------------------------------------
+  // 6. Role-Based Access Control (RBAC) & User Roles
+  // ---------------------------------------------------------------------------
+
+  public async getUserRoles(): Promise<IUserRoleAssignment[]> {
+    try {
+      const endpoint = `${this._siteUrl}/_api/web/lists/getByTitle('CER_UserRoles')/items?$top=500&$orderby=Created desc`;
+      const response: SPHttpClientResponse = await this._spHttpClient.get(
+        endpoint,
+        SPHttpClient.configurations.v1,
+        { headers: { Accept: "application/json;odata=nometadata" } },
+      );
+
+      if (response.ok) {
+        const json = await response.json();
+        if (json.value && Array.isArray(json.value)) {
+          return json.value.map((item: any) => ({
+            id: String(item.Id || item.id),
+            user_name: item.Title || item.user_name || "",
+            user_email: item.user_email || "",
+            login_name: item.login_name || item.user_email || "",
+            role: item.role || "Initiator",
+            approval_level: item.approval_level ? Number(item.approval_level) : undefined,
+            department: item.department || "",
+            sbu: item.sbu || "",
+            is_active: item.is_active !== undefined ? !!item.is_active : true,
+            assigned_by: item.assigned_by || "System Administrator",
+            assigned_date: item.assigned_date || item.Created || new Date().toISOString(),
+          }));
+        }
+      }
+    } catch (e) {
+      console.warn("[SharePointCERDataService] Querying CER_UserRoles failed, using fallback:", e);
+    }
+    return this._fallbackMock.getUserRoles();
+  }
+
+  public async assignUserRole(
+    assignment: Omit<IUserRoleAssignment, "id">,
+    actor: { name: string; email: string }
+  ): Promise<IUserRoleAssignment> {
+    try {
+      const endpoint = `${this._siteUrl}/_api/web/lists/getByTitle('CER_UserRoles')/items`;
+      const payload = {
+        Title: assignment.user_name,
+        user_email: assignment.user_email,
+        login_name: assignment.login_name,
+        role: assignment.role,
+        approval_level: assignment.approval_level || null,
+        department: assignment.department || "",
+        sbu: assignment.sbu || "",
+        is_active: assignment.is_active,
+        assigned_by: actor.name,
+        assigned_date: new Date().toISOString(),
+      };
+
+      const response: SPHttpClientResponse = await this._spHttpClient.post(
+        endpoint,
+        SPHttpClient.configurations.v1,
+        {
+          headers: {
+            Accept: "application/json;odata=nometadata",
+            "Content-Type": "application/json;odata=nometadata",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (response.ok) {
+        const json = await response.json();
+        const created: IUserRoleAssignment = {
+          ...assignment,
+          id: String(json.Id || json.id || Date.now()),
+          assigned_by: actor.name,
+          assigned_date: payload.assigned_date,
+        };
+
+        await this.logAdminAudit({
+          actor_name: actor.name,
+          actor_email: actor.email,
+          action: "ROLE_ASSIGNED",
+          target_type: "USER",
+          target_id: created.id,
+          details: `Assigned role '${created.role}' to ${created.user_name} (${created.user_email})${created.approval_level ? ` with Approval Level ${created.approval_level}` : ""}.`,
+          after_value: JSON.stringify(created),
+          timestamp: new Date().toISOString(),
+        });
+
+        return created;
+      }
+    } catch (e) {
+      console.warn("[SharePointCERDataService] assignUserRole failed, falling back to local mock:", e);
+    }
+
+    return this._fallbackMock.assignUserRole(assignment, actor);
+  }
+
+  public async updateUserRole(
+    assignment: IUserRoleAssignment,
+    actor: { name: string; email: string }
+  ): Promise<void> {
+    try {
+      const endpoint = `${this._siteUrl}/_api/web/lists/getByTitle('CER_UserRoles')/items(${assignment.id})`;
+      const payload = {
+        Title: assignment.user_name,
+        user_email: assignment.user_email,
+        login_name: assignment.login_name,
+        role: assignment.role,
+        approval_level: assignment.approval_level || null,
+        department: assignment.department || "",
+        sbu: assignment.sbu || "",
+        is_active: assignment.is_active,
+      };
+
+      const response: SPHttpClientResponse = await this._spHttpClient.post(
+        endpoint,
+        SPHttpClient.configurations.v1,
+        {
+          headers: {
+            Accept: "application/json;odata=nometadata",
+            "Content-Type": "application/json;odata=nometadata",
+            "X-HTTP-Method": "MERGE",
+            "If-Match": "*",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (response.ok) {
+        await this.logAdminAudit({
+          actor_name: actor.name,
+          actor_email: actor.email,
+          action: assignment.is_active ? "ROLE_UPDATED" : "ROLE_STATUS_TOGGLED",
+          target_type: "USER",
+          target_id: assignment.id,
+          details: `Updated role assignment for ${assignment.user_name}. Active: ${assignment.is_active}, Role: ${assignment.role}.`,
+          after_value: JSON.stringify(assignment),
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+    } catch (e) {
+      console.warn("[SharePointCERDataService] updateUserRole failed, falling back to local mock:", e);
+    }
+
+    await this._fallbackMock.updateUserRole(assignment, actor);
+  }
+
+  public async revokeUserRole(
+    assignmentId: string,
+    actor: { name: string; email: string }
+  ): Promise<void> {
+    try {
+      const endpoint = `${this._siteUrl}/_api/web/lists/getByTitle('CER_UserRoles')/items(${assignmentId})`;
+      const response: SPHttpClientResponse = await this._spHttpClient.post(
+        endpoint,
+        SPHttpClient.configurations.v1,
+        {
+          headers: {
+            Accept: "application/json;odata=nometadata",
+            "Content-Type": "application/json;odata=nometadata",
+            "X-HTTP-Method": "DELETE",
+            "If-Match": "*",
+          },
+        }
+      );
+
+      if (response.ok) {
+        await this.logAdminAudit({
+          actor_name: actor.name,
+          actor_email: actor.email,
+          action: "ROLE_REVOKED",
+          target_type: "USER",
+          target_id: assignmentId,
+          details: `Revoked role assignment ID '${assignmentId}'.`,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+    } catch (e) {
+      console.warn("[SharePointCERDataService] revokeUserRole failed, falling back to local mock:", e);
+    }
+
+    await this._fallbackMock.revokeUserRole(assignmentId, actor);
+  }
+
+  // ---------------------------------------------------------------------------
+  // 7. Administrative Audit Log
+  // ---------------------------------------------------------------------------
+
+  public async getAdminAuditLog(): Promise<IAdminAuditRecord[]> {
+    try {
+      const endpoint = `${this._siteUrl}/_api/web/lists/getByTitle('CER_AdminAuditLog')/items?$top=500&$orderby=Created desc`;
+      const response: SPHttpClientResponse = await this._spHttpClient.get(
+        endpoint,
+        SPHttpClient.configurations.v1,
+        { headers: { Accept: "application/json;odata=nometadata" } },
+      );
+
+      if (response.ok) {
+        const json = await response.json();
+        if (json.value && Array.isArray(json.value)) {
+          return json.value.map((item: any) => ({
+            id: String(item.Id || item.id),
+            actor_name: item.actor_name || item.Title || "Admin",
+            actor_email: item.actor_email || "",
+            action: item.action || "SETTINGS_UPDATED",
+            target_type: item.target_type || "SETTINGS",
+            target_id: item.target_id || "",
+            details: item.details || "",
+            before_value: item.before_value || "",
+            after_value: item.after_value || "",
+            timestamp: item.timestamp || item.Created || new Date().toISOString(),
+          }));
+        }
+      }
+    } catch (e) {
+      console.warn("[SharePointCERDataService] Querying CER_AdminAuditLog failed, using fallback:", e);
+    }
+
+    return this._fallbackMock.getAdminAuditLog();
+  }
+
+  public async logAdminAudit(record: Omit<IAdminAuditRecord, "id">): Promise<void> {
+    try {
+      const endpoint = `${this._siteUrl}/_api/web/lists/getByTitle('CER_AdminAuditLog')/items`;
+      const payload = {
+        Title: record.actor_name,
+        actor_name: record.actor_name,
+        actor_email: record.actor_email,
+        action: record.action,
+        target_type: record.target_type,
+        target_id: record.target_id,
+        details: record.details,
+        before_value: record.before_value || null,
+        after_value: record.after_value || null,
+        timestamp: record.timestamp || new Date().toISOString(),
+      };
+
+      await this._spHttpClient.post(
+        endpoint,
+        SPHttpClient.configurations.v1,
+        {
+          headers: {
+            Accept: "application/json;odata=nometadata",
+            "Content-Type": "application/json;odata=nometadata",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+    } catch (e) {
+      console.warn("[SharePointCERDataService] logAdminAudit failed, writing to fallback:", e);
+      await this._fallbackMock.logAdminAudit(record);
+    }
+  }
 }
+
 

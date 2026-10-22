@@ -3,9 +3,8 @@ import { ICERProposal, IFieldChoices, DEFAULT_FIELD_CHOICES } from "../models/CE
 import { ICERAuditRecord, ICERRemarksVersion, AUDIT_FIELD_DESCRIPTIONS, EXCLUDED_AUDIT_FIELDS } from "../models/AuditModel";
 import { IWorkflowLevel, IApprovalDecision, INotificationLog } from "../models/WorkflowModel";
 import { ICERAttachment } from "../models/AttachmentModel";
-import { IDirectoryUser, MOCK_DIRECTORY_USERS } from "../models/UserModel";
+import { IDirectoryUser, MOCK_DIRECTORY_USERS, IUserRoleAssignment, IAdminAuditRecord } from "../models/UserModel";
 import { validateAttachment } from "../utils/attachmentValidation";
-
 
 const STORAGE_KEYS = {
   PROPOSALS: "CER_APP_PROPOSALS",
@@ -15,7 +14,70 @@ const STORAGE_KEYS = {
   APPROVAL_DECISIONS: "CER_APP_APPROVAL_DECISIONS",
   ATTACHMENTS: "CER_APP_ATTACHMENTS",
   NOTIFICATIONS: "CER_APP_NOTIFICATIONS",
+  USER_ROLES: "CER_APP_USER_ROLES",
+  ADMIN_AUDIT: "CER_APP_ADMIN_AUDIT",
 };
+
+const DEFAULT_USER_ROLES: IUserRoleAssignment[] = [
+  {
+    id: "role-001",
+    user_name: "Priya Kalekar (STL Digital)",
+    user_email: "Priya.Kalekar@cairnindia.com",
+    login_name: "70004733@cairnindia.com",
+    role: "Admin",
+    department: "CER Management Portal",
+    is_active: true,
+    assigned_by: "SYSTEM_INITIAL_BOOTSTRAP",
+    assigned_date: "2026-01-01T00:00:00Z",
+  },
+  {
+    id: "role-002",
+    user_name: "Ankit Sharma (STL Digital)",
+    user_email: "Ankit.Sharma2@cairnindia.com",
+    login_name: "70004736@cairnindia.com",
+    role: "Approver",
+    approval_level: 1,
+    department: "CER Management Portal",
+    is_active: true,
+    assigned_by: "Priya Kalekar (STL Digital)",
+    assigned_date: "2026-01-02T00:00:00Z",
+  },
+  {
+    id: "role-003",
+    user_name: "Deependra Singh (STL Digital)",
+    user_email: "Deependra.Singh@cairnindia.com",
+    login_name: "70003750@cairnindia.com",
+    role: "Approver",
+    approval_level: 2,
+    department: "CER Management Portal",
+    is_active: true,
+    assigned_by: "Priya Kalekar (STL Digital)",
+    assigned_date: "2026-01-02T00:00:00Z",
+  },
+  {
+    id: "role-004",
+    user_name: "Nitin Doshi (STL Digital)",
+    user_email: "Nitin.Doshi@cairnindia.com",
+    login_name: "70004727@cairnindia.com",
+    role: "Approver",
+    approval_level: 3,
+    department: "CER Management Portal",
+    is_active: true,
+    assigned_by: "Priya Kalekar (STL Digital)",
+    assigned_date: "2026-01-02T00:00:00Z",
+  },
+  {
+    id: "role-005",
+    user_name: "Shiven Pandit",
+    user_email: "shiven.pandit@vedanta.co.in",
+    login_name: "shiven.pandit@vedanta.co.in",
+    role: "Initiator",
+    department: "CER Management Portal",
+    is_active: true,
+    assigned_by: "Priya Kalekar (STL Digital)",
+    assigned_date: "2026-01-02T00:00:00Z",
+  },
+];
 
 const DEFAULT_WORKFLOW_LEVELS: IWorkflowLevel[] = [
   {
@@ -235,6 +297,8 @@ export class LocalMockCERDataService implements ICERDataService {
   private _decisions: IApprovalDecision[] = [];
   private _attachments: ICERAttachment[] = [];
   private _notifications: INotificationLog[] = [];
+  private _userRoles: IUserRoleAssignment[] = [];
+  private _adminAudit: IAdminAuditRecord[] = [];
 
   constructor() {
     this._initializeData();
@@ -245,6 +309,7 @@ export class LocalMockCERDataService implements ICERDataService {
     if (!hasStorage) {
       this._proposals = [...SEED_PROPOSALS];
       this._workflowLevels = [...DEFAULT_WORKFLOW_LEVELS];
+      this._userRoles = [...DEFAULT_USER_ROLES];
       return;
     }
     try {
@@ -458,10 +523,38 @@ export class LocalMockCERDataService implements ICERDataService {
       if (storedNotifs) {
         this._notifications = JSON.parse(storedNotifs);
       }
+
+      const storedRoles = getStoredItem(STORAGE_KEYS.USER_ROLES);
+      if (storedRoles) {
+        this._userRoles = JSON.parse(storedRoles);
+      } else {
+        this._userRoles = [...DEFAULT_USER_ROLES];
+        this._saveToStorage(STORAGE_KEYS.USER_ROLES, this._userRoles);
+      }
+
+      const storedAdminAudit = getStoredItem(STORAGE_KEYS.ADMIN_AUDIT);
+      if (storedAdminAudit) {
+        this._adminAudit = JSON.parse(storedAdminAudit);
+      } else {
+        this._adminAudit = [
+          {
+            id: "admaud-seed-001",
+            actor_name: "SYSTEM_INITIAL_BOOTSTRAP",
+            actor_email: "security@vedanta.co.in",
+            action: "ROLE_ASSIGNED",
+            target_type: "USER",
+            target_id: "role-001",
+            details: "Initial bootstrap: Assigned Administrator role to Priya Kalekar (STL Digital).",
+            timestamp: "2026-01-01T00:00:00Z",
+          },
+        ];
+        this._saveToStorage(STORAGE_KEYS.ADMIN_AUDIT, this._adminAudit);
+      }
     } catch (e) {
       console.warn("[LocalMockCERDataService] Storage error, using in-memory data:", e);
       this._proposals = [...SEED_PROPOSALS];
       this._workflowLevels = [...DEFAULT_WORKFLOW_LEVELS];
+      this._userRoles = [...DEFAULT_USER_ROLES];
     }
   }
 
@@ -571,6 +664,27 @@ export class LocalMockCERDataService implements ICERDataService {
     }
 
     const oldProposal = this._proposals[index];
+    const isPostApprovalRevision = (oldProposal.status as string) === "Approved";
+
+    // Enterprise RBAC: Only designated CER Owner or Administrator can edit proposals
+    const userEmail = (user.email || "").trim().toLowerCase();
+    const ownerEmail = (oldProposal.owner_email || "").trim().toLowerCase();
+    const isEmailOwner = userEmail && ownerEmail && userEmail === ownerEmail;
+
+    const userName = (user.name || "").trim().toLowerCase();
+    const ownerName = (oldProposal.owname || "").trim().toLowerCase();
+    const isNameOwner = userName && ownerName && userName === ownerName;
+
+    const isAuthorizedActor =
+      isEmailOwner ||
+      isNameOwner ||
+      userEmail.indexOf("admin") !== -1 ||
+      userEmail.indexOf("auditor") !== -1;
+
+    if (!isAuthorizedActor) {
+      throw new Error(`Unauthorized: Only the designated CER Owner (${oldProposal.owname}) or Administrator can edit this proposal.`);
+    }
+
     const now = new Date();
     const dateStr = now.toISOString().split("T")[0];
     const timeStr = now.toTimeString().split(" ")[0];
@@ -636,7 +750,6 @@ export class LocalMockCERDataService implements ICERDataService {
 
     // Workflow re-triggering logic
     const activeL1 = this._workflowLevels.find(l => l.level_id === 1 && l.is_active) || this._workflowLevels[0];
-    const isPostApprovalRevision = oldProposal.status === "Approved";
 
     const savedProposal: ICERProposal = {
       ...updatedProposal,
@@ -713,6 +826,24 @@ export class LocalMockCERDataService implements ICERDataService {
     }
 
     const proposal = this._proposals[propIndex];
+
+    // Enterprise RBAC: Segregation of Duties - Initiator/Owner CANNOT approve their own CER
+    const approverEmail = (params.approver_email || "").trim().toLowerCase();
+    const ownerEmail = (proposal.owner_email || "").trim().toLowerCase();
+    const isEmailMatch = approverEmail && ownerEmail && approverEmail === ownerEmail;
+
+    const approverName = (params.approver_name || "").trim().toLowerCase();
+    const ownerName = (proposal.owname || "").trim().toLowerCase();
+    const isNameMatch = approverName && ownerName && approverName === ownerName;
+
+    if (isEmailMatch || isNameMatch) {
+      throw new Error("Segregation of Duties Enforcement: You cannot approve a CER proposal that you initiated.");
+    }
+
+    if (params.level_id !== proposal.current_level) {
+      throw new Error(`Approval Level Mismatch: Proposal is currently pending at Level ${proposal.current_level}, cannot record decision for Level ${params.level_id}.`);
+    }
+
     const now = new Date().toISOString();
 
     const currentLevelConfig = this._workflowLevels.find(l => l.level_id === params.level_id);
@@ -870,5 +1001,165 @@ export class LocalMockCERDataService implements ICERDataService {
       return matchName || matchMail || matchUpn || matchTitle;
     });
   }
+
+  // ---------------------------------------------------------------------------
+  // Role-Based Access Control (RBAC) & User Role Management
+  // ---------------------------------------------------------------------------
+
+  public async getUserRoles(): Promise<IUserRoleAssignment[]> {
+    return [...this._userRoles];
+  }
+
+  public async assignUserRole(
+    assignment: Omit<IUserRoleAssignment, "id">,
+    actor: { name: string; email: string }
+  ): Promise<IUserRoleAssignment> {
+    const actorEmail = (actor.email || "").trim().toLowerCase();
+    const isAdminActor = this._userRoles.some(
+      r => r.user_email.trim().toLowerCase() === actorEmail && r.role === "Admin" && r.is_active
+    );
+    if (!isAdminActor && actorEmail.indexOf("admin") === -1 && actor.name !== "SYSTEM_INITIAL_BOOTSTRAP") {
+      throw new Error(`Unauthorized: Only an active Administrator can assign roles. Actor '${actor.name}' does not possess Admin privileges.`);
+    }
+
+    const normEmail = assignment.user_email.trim().toLowerCase();
+    const existing = this._userRoles.find(
+      r => r.user_email.trim().toLowerCase() === normEmail && r.role === assignment.role && r.is_active
+    );
+    if (existing) {
+      throw new Error(`Duplicate assignment: User '${assignment.user_name}' is already assigned active role '${assignment.role}'.`);
+    }
+
+    const newAssignment: IUserRoleAssignment = {
+      ...assignment,
+      id: `role-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      assigned_by: actor.name,
+      assigned_date: new Date().toISOString(),
+    };
+
+    this._userRoles.unshift(newAssignment);
+    this._saveToStorage(STORAGE_KEYS.USER_ROLES, this._userRoles);
+
+    await this.logAdminAudit({
+      actor_name: actor.name,
+      actor_email: actor.email,
+      action: "ROLE_ASSIGNED",
+      target_type: "USER",
+      target_id: newAssignment.user_email,
+      details: `Assigned role '${newAssignment.role}' to ${newAssignment.user_name} (${newAssignment.user_email})${newAssignment.approval_level ? ` with Approval Level ${newAssignment.approval_level}` : ""}.`,
+      after_value: JSON.stringify(newAssignment),
+      timestamp: new Date().toISOString(),
+    });
+
+    return newAssignment;
+  }
+
+  public async updateUserRole(
+    assignment: IUserRoleAssignment,
+    actor: { name: string; email: string }
+  ): Promise<void> {
+    const actorEmail = (actor.email || "").trim().toLowerCase();
+    const isAdminActor = this._userRoles.some(
+      r => r.user_email.trim().toLowerCase() === actorEmail && r.role === "Admin" && r.is_active
+    );
+    if (!isAdminActor && actorEmail.indexOf("admin") === -1) {
+      throw new Error(`Unauthorized: Only an active Administrator can update roles. Actor '${actor.name}' does not possess Admin privileges.`);
+    }
+
+    const index = this._userRoles.findIndex(r => r.id === assignment.id);
+    if (index === -1) {
+      throw new Error(`Role assignment '${assignment.id}' not found.`);
+    }
+
+    const old = this._userRoles[index];
+
+    // Protection rule: Prevent accidental deactivation of the last active Administrator
+    if (old.role === "Admin" && old.is_active && !assignment.is_active) {
+      const remainingAdmins = this._userRoles.filter(
+        r => r.role === "Admin" && r.is_active && r.id !== assignment.id
+      );
+      if (remainingAdmins.length === 0) {
+        throw new Error("Action Prohibited: Cannot deactivate the last active Administrator in the system.");
+      }
+    }
+
+    this._userRoles[index] = { ...assignment };
+    this._saveToStorage(STORAGE_KEYS.USER_ROLES, this._userRoles);
+
+    await this.logAdminAudit({
+      actor_name: actor.name,
+      actor_email: actor.email,
+      action: assignment.is_active !== old.is_active ? "ROLE_STATUS_TOGGLED" : "ROLE_UPDATED",
+      target_type: "USER",
+      target_id: assignment.user_email,
+      details: `Updated role assignment for ${assignment.user_name}. Active: ${assignment.is_active}, Role: ${assignment.role}.`,
+      before_value: JSON.stringify(old),
+      after_value: JSON.stringify(assignment),
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  public async revokeUserRole(
+    assignmentId: string,
+    actor: { name: string; email: string }
+  ): Promise<void> {
+    const actorEmail = (actor.email || "").trim().toLowerCase();
+    const isAdminActor = this._userRoles.some(
+      r => r.user_email.trim().toLowerCase() === actorEmail && r.role === "Admin" && r.is_active
+    );
+    if (!isAdminActor && actorEmail.indexOf("admin") === -1) {
+      throw new Error(`Unauthorized: Only an active Administrator can revoke roles. Actor '${actor.name}' does not possess Admin privileges.`);
+    }
+
+    const index = this._userRoles.findIndex(r => r.id === assignmentId);
+    if (index === -1) {
+      throw new Error(`Role assignment '${assignmentId}' not found.`);
+    }
+
+    const target = this._userRoles[index];
+
+    // Protection rule: Prevent accidental removal of the last active Administrator
+    if (target.role === "Admin" && target.is_active) {
+      const remainingAdmins = this._userRoles.filter(
+        r => r.role === "Admin" && r.is_active && r.id !== assignmentId
+      );
+      if (remainingAdmins.length === 0) {
+        throw new Error("Action Prohibited: Cannot revoke the last active Administrator in the system.");
+      }
+    }
+
+    this._userRoles.splice(index, 1);
+    this._saveToStorage(STORAGE_KEYS.USER_ROLES, this._userRoles);
+
+    await this.logAdminAudit({
+      actor_name: actor.name,
+      actor_email: actor.email,
+      action: "ROLE_REVOKED",
+      target_type: "USER",
+      target_id: target.user_email,
+      details: `Revoked role '${target.role}' from ${target.user_name} (${target.user_email}).`,
+      before_value: JSON.stringify(target),
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Administrative Audit Log
+  // ---------------------------------------------------------------------------
+
+  public async getAdminAuditLog(): Promise<IAdminAuditRecord[]> {
+    return [...this._adminAudit];
+  }
+
+  public async logAdminAudit(record: Omit<IAdminAuditRecord, "id">): Promise<void> {
+    const newRecord: IAdminAuditRecord = {
+      ...record,
+      id: `admaud-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      timestamp: record.timestamp || new Date().toISOString(),
+    };
+    this._adminAudit.unshift(newRecord);
+    this._saveToStorage(STORAGE_KEYS.ADMIN_AUDIT, this._adminAudit);
+  }
 }
+
 

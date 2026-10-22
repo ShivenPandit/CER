@@ -4,43 +4,94 @@ export interface IAppUser {
   id: number | string;
   name: string;
   email: string;
-  role: UserRole;
+  loginName?: string;
+  role: UserRole; // Primary active role (for backward compatibility)
+  roles: UserRole[]; // All assigned active roles
   department?: string;
+  sbu?: string;
   approval_level?: number; // If an Approver, which level they can act upon (1, 2, 3...)
+  is_active: boolean;
+  isSiteAdmin?: boolean;
 }
 
+export interface IUserRoleAssignment {
+  id: string; // SharePoint Item ID or UUID
+  user_name: string;
+  user_email: string;
+  login_name: string;
+  role: UserRole;
+  approval_level?: number;
+  department?: string;
+  sbu?: string;
+  is_active: boolean;
+  assigned_by: string;
+  assigned_date: string;
+}
+
+export type AdminAuditAction =
+  | "ROLE_ASSIGNED"
+  | "ROLE_UPDATED"
+  | "ROLE_REVOKED"
+  | "ROLE_STATUS_TOGGLED"
+  | "WORKFLOW_UPDATED"
+  | "SETTINGS_UPDATED";
+
+export interface IAdminAuditRecord {
+  id: string;
+  actor_name: string;
+  actor_email: string;
+  action: AdminAuditAction;
+  target_type: "USER" | "WORKFLOW" | "SETTINGS";
+  target_id: string;
+  details: string;
+  before_value?: string;
+  after_value?: string;
+  timestamp: string;
+}
+
+/**
+ * @deprecated For testing/fallback only. Production uses real SharePoint identity and CER_UserRoles list.
+ */
 export const DEMO_USERS: IAppUser[] = [
   {
     id: 12,
     name: "Priya Kalekar (STL Digital)",
     email: "Priya.Kalekar@cairnindia.com",
     role: "Initiator",
-    department: "CER Management Portal"
+    roles: ["Initiator"],
+    is_active: true,
+    department: "CER Management Portal",
   },
   {
     id: 15,
     name: "Ankit Sharma (STL Digital)",
     email: "Ankit.Sharma2@cairnindia.com",
     role: "Approver",
+    roles: ["Approver"],
+    is_active: true,
     department: "CER Management Portal",
-    approval_level: 1
+    approval_level: 1,
   },
   {
     id: 14,
     name: "Deependra Singh (STL Digital)",
     email: "Deependra.Singh@cairnindia.com",
     role: "Approver",
+    roles: ["Approver"],
+    is_active: true,
     department: "CER Management Portal",
-    approval_level: 2
+    approval_level: 2,
   },
   {
     id: 16,
     name: "Nitin Doshi (STL Digital)",
     email: "Nitin.Doshi@cairnindia.com",
     role: "Approver",
+    roles: ["Approver"],
+    is_active: true,
     department: "CER Management Portal",
-    approval_level: 3
-  }
+    approval_level: 3,
+  },
 ];
 
 export interface IDirectoryUser {

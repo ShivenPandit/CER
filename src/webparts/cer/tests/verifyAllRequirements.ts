@@ -2,7 +2,9 @@ import { LocalMockCERDataService } from "../services/LocalMockCERDataService";
 import { ICERProposal, CATEGORY_DEFINITIONS, SBU_OPTIONS } from "../models/CERModel";
 import { AUDIT_FIELD_DESCRIPTIONS, EXCLUDED_AUDIT_FIELDS } from "../models/AuditModel";
 import { validateField, validateAll } from "../utils/cerValidation";
-import { resolveDirectoryUserEmail } from "../models/UserModel";
+import { resolveDirectoryUserEmail, IAppUser, IUserRoleAssignment, UserRole } from "../models/UserModel";
+import { AuthService } from "../services/AuthService";
+import { PermissionService } from "../services/PermissionService";
 
 
 // Lightweight Test Harness for Node 22 execution
@@ -506,6 +508,423 @@ async function runAllVerificationTests(): Promise<void> {
   assert(Array.isArray(fieldChoices.cbudget) && fieldChoices.cbudget.length > 0, "Corporate budget choices fetched dynamically from list schema");
   assert(Array.isArray(fieldChoices.jv) && fieldChoices.jv.length > 0, "JV alignment choices fetched dynamically from list schema");
   assert(Array.isArray(fieldChoices.status) && fieldChoices.status.length > 0, "Proposal status choices fetched dynamically from list schema");
+
+  // ---------------------------------------------------------------------------------------------
+  // Test Suite 10: Enterprise RBAC, Identity Resolution, Segregation of Duties & Admin Governance
+  // ---------------------------------------------------------------------------------------------
+  console.log("\nTest Suite 10: Enterprise RBAC, Identity Resolution, Segregation of Duties & Admin Governance");
+
+  // Identities for testing
+  const initiatorUser: IAppUser = {
+    id: 101,
+    name: "Regular Initiator",
+    email: "initiator@cairnindia.com",
+    role: "Initiator",
+    roles: ["Initiator"],
+    is_active: true,
+  };
+
+  const approverL1: IAppUser = {
+    id: 102,
+    name: "Ankit Sharma (STL Digital)",
+    email: "Ankit.Sharma2@cairnindia.com",
+    role: "Approver",
+    roles: ["Approver"],
+    approval_level: 1,
+    is_active: true,
+  };
+
+  const approverL2: IAppUser = {
+    id: 103,
+    name: "Deependra Singh (STL Digital)",
+    email: "Deependra.Singh@cairnindia.com",
+    role: "Approver",
+    roles: ["Approver"],
+    approval_level: 2,
+    is_active: true,
+  };
+
+  const approverL3: IAppUser = {
+    id: 104,
+    name: "Nitin Doshi (STL Digital)",
+    email: "Nitin.Doshi@cairnindia.com",
+    role: "Approver",
+    roles: ["Approver"],
+    approval_level: 3,
+    is_active: true,
+  };
+
+  const financeUser: IAppUser = {
+    id: 105,
+    name: "Finance & Audit Analyst",
+    email: "finance.audit@cairnindia.com",
+    role: "Finance_Audit",
+    roles: ["Finance_Audit"],
+    is_active: true,
+  };
+
+  const adminUser: IAppUser = {
+    id: 106,
+    name: "Priya Kalekar (STL Digital)",
+    email: "Priya.Kalekar@cairnindia.com",
+    role: "Admin",
+    roles: ["Admin"],
+    is_active: true,
+    isSiteAdmin: true,
+  };
+
+  const inactiveUser: IAppUser = {
+    id: 107,
+    name: "Terminated Employee",
+    email: "terminated@cairnindia.com",
+    role: "Initiator",
+    roles: ["Initiator"],
+    is_active: false,
+  };
+
+  // Scenario 1: Initiator cannot open Admin routes
+  assert(
+    PermissionService.canAccessView("workflow-config", initiatorUser) === false,
+    "Scenario 1: Initiator is strictly blocked from opening Admin routes (#workflow-config)"
+  );
+
+  // Scenario 2: Initiator cannot edit another user's CER
+  const alicePropNo = await service.generateProposalNumber();
+  const aliceProposal: ICERProposal = {
+    ...testProp,
+    cerprno: alicePropNo,
+    owname: "Alice Initiator",
+    owner_email: "alice@cairnindia.com",
+    status: "Draft",
+  };
+  await service.createProposal(aliceProposal);
+
+  assert(
+    PermissionService.canEditCER(aliceProposal, initiatorUser).allowed === false,
+    "Scenario 2a: Initiator cannot edit proposal owned by another employee"
+  );
+
+  let updateBlocked = false;
+  try {
+    await service.updateProposal(aliceProposal, {
+      name: initiatorUser.name,
+      email: initiatorUser.email,
+    });
+  } catch (err: any) {
+    updateBlocked = true;
+  }
+  assert(updateBlocked, "Scenario 2b: Service layer enforces proposal ownership validation on update");
+
+  // Scenario 3: Approver cannot act on an unassigned approval stage
+  const stage1PropNo = await service.generateProposalNumber();
+  const stage1Proposal: ICERProposal = {
+    ...testProp,
+    cerprno: stage1PropNo,
+    owname: initiatorUser.name,
+    owner_email: initiatorUser.email,
+    status: "In Approval",
+    current_level: 1,
+  };
+  await service.createProposal(stage1Proposal);
+
+  assert(
+    PermissionService.canApproveCER(stage1Proposal, approverL2).allowed === false,
+    "Scenario 3a: Level 2 approver cannot act on Level 1 proposal stage"
+  );
+
+  let unassignedApprovalBlocked = false;
+  try {
+    await service.recordDecision({
+      cerprno: stage1PropNo,
+      decision: "APPROVED",
+      comments: "Unauthorized approval",
+      approver_name: approverL2.name,
+      approver_email: approverL2.email,
+      level_id: 2,
+    });
+  } catch (err) {
+    unassignedApprovalBlocked = true;
+  }
+  assert(unassignedApprovalBlocked, "Scenario 3b: Service layer rejects approval from mismatched level");
+
+  // Scenario 4: Finance / Audit cannot approve or modify proposals
+  assert(
+    PermissionService.canApproveCER(stage1Proposal, financeUser).allowed === false,
+    "Scenario 4a: Finance_Audit role cannot approve proposals"
+  );
+  assert(
+    PermissionService.canEditCER(aliceProposal, financeUser).allowed === false,
+    "Scenario 4b: Finance_Audit role cannot edit proposals"
+  );
+  assert(
+    PermissionService.canAccessView("reports", financeUser) === true,
+    "Scenario 4c: Finance_Audit role possesses authorized access to reporting"
+  );
+
+  // Scenario 5: A user cannot approve their own CER (Segregation of Duties)
+  const selfOwnedPropNo = await service.generateProposalNumber();
+  const selfOwnedProposal: ICERProposal = {
+    ...testProp,
+    cerprno: selfOwnedPropNo,
+    owname: approverL1.name,
+    owner_email: approverL1.email,
+    status: "In Approval",
+    current_level: 1,
+  };
+  await service.createProposal(selfOwnedProposal);
+
+  assert(
+    PermissionService.canApproveCER(selfOwnedProposal, approverL1).allowed === false,
+    "Scenario 5a: Approver is prohibited from approving their own CER proposal (Segregation of Duties)"
+  );
+
+  let selfApprovalBlocked = false;
+  try {
+    await service.recordDecision({
+      cerprno: selfOwnedPropNo,
+      decision: "APPROVED",
+      comments: "Attempting self approval",
+      approver_name: approverL1.name,
+      approver_email: approverL1.email,
+      level_id: 1,
+    });
+  } catch (err: any) {
+    if (err && err.message && err.message.indexOf("Segregation of Duties") !== -1) {
+      selfApprovalBlocked = true;
+    }
+  }
+  assert(selfApprovalBlocked, "Scenario 5b: Service layer enforces Segregation of Duties self-approval rejection");
+
+  // Scenario 6: Inactive users cannot perform protected actions
+  assert(
+    PermissionService.canCreateCER(inactiveUser) === false,
+    "Scenario 6a: Deactivated user cannot create new proposals"
+  );
+  assert(
+    PermissionService.canApproveCER(stage1Proposal, { ...approverL1, is_active: false }).allowed === false,
+    "Scenario 6b: Deactivated approver cannot approve proposals"
+  );
+  assert(
+    PermissionService.canAccessView("workflow-config", { ...adminUser, is_active: false }) === false,
+    "Scenario 6c: Deactivated admin cannot access Admin Console"
+  );
+
+  // Scenario 7: Unregistered users cannot obtain Admin privileges
+  const unregistered = await AuthService.resolveCurrentUser(
+    {
+      id: 999,
+      name: "New Unregistered Hire",
+      email: "newhire@cairnindia.com",
+    },
+    service
+  );
+  assert(
+    unregistered.user.role === "Initiator" &&
+      unregistered.user.roles.indexOf("Admin") === -1 &&
+      unregistered.isRegistered === false,
+    "Scenario 7: Unregistered user resolves safely to unprivileged Initiator without Admin privileges"
+  );
+
+  // Scenario 8: Unauthorized users cannot assign or revoke roles
+  assert(
+    PermissionService.canManageRoles(initiatorUser) === false,
+    "Scenario 8a: Initiator cannot manage enterprise roles"
+  );
+  assert(
+    PermissionService.canManageRoles(approverL1) === false,
+    "Scenario 8b: Approver cannot manage enterprise roles"
+  );
+  assert(
+    PermissionService.canManageRoles(financeUser) === false,
+    "Scenario 8c: Finance / Audit cannot manage enterprise roles"
+  );
+  assert(
+    PermissionService.canManageRoles(adminUser) === true,
+    "Scenario 8d: Admin possesses verified role management authority"
+  );
+
+  // Scenario 9: A user cannot promote themselves to Admin
+  let selfPromotionBlocked = false;
+  try {
+    await service.assignUserRole(
+      {
+        user_name: initiatorUser.name,
+        user_email: initiatorUser.email,
+        login_name: initiatorUser.email,
+        role: "Admin",
+        is_active: true,
+        assigned_by: initiatorUser.name,
+        assigned_date: new Date().toISOString(),
+      },
+      initiatorUser
+    );
+  } catch (err) {
+    selfPromotionBlocked = true;
+  }
+  assert(selfPromotionBlocked, "Scenario 9: Non-admin user cannot promote themselves to Administrator");
+
+  // Scenario 10: The last active Admin cannot be accidentally removed
+  const existingRoles = await service.getUserRoles();
+  const currentAdmins = existingRoles.filter((r) => r.role === "Admin" && r.is_active);
+  assert(currentAdmins.length >= 1, "Scenario 10a: Initial active Administrator exists in registry");
+
+  let lastAdminRevocationBlocked = false;
+  try {
+    // If only 1 admin, revoking it must throw
+    await service.revokeUserRole(currentAdmins[0].id, adminUser);
+  } catch (err: any) {
+    if (err && err.message && err.message.indexOf("last active Administrator") !== -1) {
+      lastAdminRevocationBlocked = true;
+    }
+  }
+  assert(lastAdminRevocationBlocked, "Scenario 10b: Accidental revocation of the last active Admin is strictly blocked");
+
+  // Scenario 11: Direct URL navigation does not bypass authorization
+  assert(
+    PermissionService.canAccessView("workflow-config", initiatorUser) === false,
+    "Scenario 11a: Direct URL hash navigation to #workflow-config blocked for Initiator"
+  );
+  assert(
+    PermissionService.canAccessView("pending-approvals", financeUser) === false,
+    "Scenario 11b: Direct URL hash navigation to #pending-approvals blocked for Finance_Audit"
+  );
+
+  // Scenario 12: Failed role resolution fails safely (fail-closed)
+  const failingService = {
+    ...service,
+    getUserRoles: async () => {
+      throw new Error("Simulated SharePoint REST 500 internal server failure");
+    },
+  } as any;
+  const failClosedResolution = await AuthService.resolveCurrentUser(
+    {
+      id: 888,
+      name: "Offline Employee",
+      email: "offline@cairnindia.com",
+    },
+    failingService
+  );
+  assert(
+    failClosedResolution.user.role === "Initiator" &&
+      failClosedResolution.user.roles.indexOf("Admin") === -1,
+    "Scenario 12: Network/API failure fails safely (fail-closed) to unprivileged Initiator"
+  );
+
+  // Scenario 13: Directory selection resolves the correct user identity
+  const directoryResults = await service.searchDirectoryUsers("Ankit");
+  assert(
+    directoryResults.length > 0 &&
+      directoryResults[0].mail === "Ankit.Sharma2@cairnindia.com" &&
+      directoryResults[0].displayName.indexOf("Ankit Sharma") !== -1,
+    "Scenario 13: Directory search resolves accurate display name and corporate email"
+  );
+
+  // Scenario 14: Role changes are persisted and audited
+  const testNewRole: Omit<IUserRoleAssignment, "id"> = {
+    user_name: "Gaurav Joshi",
+    user_email: "gaurav.joshi@vedanta.co.in",
+    login_name: "gaurav.joshi",
+    role: "Approver",
+    approval_level: 2,
+    department: "Commercial Operations",
+    is_active: true,
+    assigned_by: adminUser.name,
+    assigned_date: new Date().toISOString(),
+  };
+
+  const assignedRole = await service.assignUserRole(testNewRole, adminUser);
+  assert(assignedRole.id !== "", "Scenario 14a: Role successfully assigned and persisted");
+
+  const auditRecords = await service.getAdminAuditLog();
+  const matchedAudit = auditRecords.find(
+    (a) => a.target_id === "gaurav.joshi@vedanta.co.in" && a.action === "ROLE_ASSIGNED"
+  );
+  assert(
+    matchedAudit !== undefined &&
+      matchedAudit.actor_name === adminUser.name &&
+      matchedAudit.actor_email === adminUser.email,
+    "Scenario 14b: Role assignment creates an audit log entry with actor attribution and forensics"
+  );
+
+  // Scenario 15: Existing CER creation and multi-tier approval workflows continue to function
+  const lifecyclePropNo = await service.generateProposalNumber();
+  const lifecycleProp: ICERProposal = {
+    ...testProp,
+    cerprno: lifecyclePropNo,
+    owname: initiatorUser.name,
+    owner_email: initiatorUser.email,
+    status: "In Approval",
+    current_level: 1,
+  };
+  await service.createProposal(lifecycleProp);
+
+  // Level 1 Approval
+  const l1Dec = await service.recordDecision({
+    cerprno: lifecyclePropNo,
+    decision: "APPROVED",
+    comments: "L1 Commercial Feasibility Approved",
+    approver_name: approverL1.name,
+    approver_email: approverL1.email,
+    level_id: 1,
+  });
+  assert(l1Dec.success, "Scenario 15a: Level 1 approval recorded successfully");
+  const postL1 = await service.getProposalByNumber(lifecyclePropNo);
+  assert(postL1 !== null && postL1.current_level === 2, "Scenario 15b: Proposal advanced to Level 2 stage");
+
+  // Level 2 Approval
+  const l2Dec = await service.recordDecision({
+    cerprno: lifecyclePropNo,
+    decision: "APPROVED",
+    comments: "L2 Engineering Approved",
+    approver_name: approverL2.name,
+    approver_email: approverL2.email,
+    level_id: 2,
+  });
+  assert(l2Dec.success, "Scenario 15c: Level 2 approval recorded successfully");
+  const postL2 = await service.getProposalByNumber(lifecyclePropNo);
+  assert(postL2 !== null && postL2.current_level === 3, "Scenario 15d: Proposal advanced to Level 3 stage");
+
+  // Level 3 Approval (Final)
+  const l3Dec = await service.recordDecision({
+    cerprno: lifecyclePropNo,
+    decision: "APPROVED",
+    comments: "L3 Executive Committee Approved",
+    approver_name: approverL3.name,
+    approver_email: approverL3.email,
+    level_id: 3,
+  });
+  assert(l3Dec.success, "Scenario 15e: Level 3 approval recorded successfully");
+  const postL3 = await service.getProposalByNumber(lifecyclePropNo);
+  assert(postL3 !== null && postL3.status === "Approved", "Scenario 15f: Multi-tier approval completes with Approved status");
+
+  // Scenario 16: Duplicate assignment prevention & Multiple role support
+  let duplicateBlocked = false;
+  try {
+    await service.assignUserRole(testNewRole, adminUser);
+  } catch (err: any) {
+    if (err && err.message && err.message.indexOf("already assigned") !== -1) {
+      duplicateBlocked = true;
+    }
+  }
+  assert(duplicateBlocked, "Scenario 16a: Duplicate active role assignment for same employee is rejected");
+
+  const dualRoleEmployee: IAppUser = {
+    id: 990,
+    name: "Dual Role Employee",
+    email: "dual.role@cairnindia.com",
+    role: "Initiator",
+    roles: ["Initiator", "Approver"],
+    approval_level: 1,
+    is_active: true,
+  };
+  assert(
+    PermissionService.canCreateCER(dualRoleEmployee) === true,
+    "Scenario 16b: Dual-role employee has active Initiator capability"
+  );
+  assert(
+    PermissionService.canApproveCER(stage1Proposal, dualRoleEmployee).allowed === true,
+    "Scenario 16c: Dual-role employee has active Approver capability"
+  );
 
   console.log("\n================================================================================");
   console.log(`TEST SUMMARY: ${passed} PASSED | ${failed} FAILED | TOTAL: ${passed + failed}`);

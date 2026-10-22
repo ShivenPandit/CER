@@ -2,11 +2,21 @@ import { ICERProposal, IFieldChoices } from "../models/CERModel";
 import { ICERAuditRecord, ICERRemarksVersion } from "../models/AuditModel";
 import { IWorkflowLevel, IApprovalDecision, INotificationLog } from "../models/WorkflowModel";
 import { ICERAttachment } from "../models/AttachmentModel";
-import { IDirectoryUser } from "../models/UserModel";
+import { IDirectoryUser, IUserRoleAssignment, IAdminAuditRecord } from "../models/UserModel";
 
 export interface ICERDataService {
   // Directory & Users
   searchDirectoryUsers(query: string): Promise<IDirectoryUser[]>;
+
+  // Role-Based Access Control (RBAC) & User Roles
+  getUserRoles(): Promise<IUserRoleAssignment[]>;
+  assignUserRole(assignment: Omit<IUserRoleAssignment, "id">, actor: { name: string; email: string }): Promise<IUserRoleAssignment>;
+  updateUserRole(assignment: IUserRoleAssignment, actor: { name: string; email: string }): Promise<void>;
+  revokeUserRole(assignmentId: string, actor: { name: string; email: string }): Promise<void>;
+
+  // Administrative Audit Log
+  getAdminAuditLog(): Promise<IAdminAuditRecord[]>;
+  logAdminAudit(record: Omit<IAdminAuditRecord, "id">): Promise<void>;
 
   // Dropdown Field Choices (Fetched directly from SharePoint list schema)
   getFieldChoices(): Promise<IFieldChoices>;
@@ -43,4 +53,5 @@ export interface ICERDataService {
   // Notifications
   getNotificationLogs(cerprno?: string): Promise<INotificationLog[]>;
 }
+
 

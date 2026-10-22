@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { CheckCircle2, XCircle, X, AlertTriangle, Paperclip, FileText, User } from "lucide-react";
+import { CheckCircle2, XCircle, X, AlertTriangle, Paperclip, FileText, User, ShieldAlert } from "lucide-react";
 import { ICERProposal } from "../../models/CERModel";
 import { ICERAttachment } from "../../models/AttachmentModel";
 import { IWorkflowLevel } from "../../models/WorkflowModel";
 import { IAppUser } from "../../models/UserModel";
+import { PermissionService } from "../../services/PermissionService";
 
 interface IApprovalDecisionModalProps {
   proposal: ICERProposal;
@@ -31,8 +32,14 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
 
   if (!isOpen) return null;
 
+  const authCheck = PermissionService.canApproveCER(proposal, currentUser);
+
   const handleSubmit = async () => {
     setError(null);
+    if (!authCheck.allowed) {
+      setError(authCheck.reason || "Unauthorized to act on this proposal.");
+      return;
+    }
     if (decision === "REJECTED" && !comments.trim()) {
       setError("Please provide a mandatory justification comment for rejecting this proposal.");
       return;
@@ -106,6 +113,17 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Authorization & Segregation of Duties Warning Banner */}
+          {!authCheck.allowed && (
+            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-start gap-2.5">
+              <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-rose-900">Segregation of Duties Enforcement</p>
+                <p className="text-rose-700 mt-0.5 leading-relaxed">{authCheck.reason}</p>
+              </div>
+            </div>
+          )}
 
           {/* Narrative Remarks Preview */}
           <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
@@ -234,11 +252,13 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={isSubmitting}
-              className={`px-5 py-2 text-xs font-semibold text-white rounded-lg shadow-sm transition-all ${
-                decision === "APPROVED"
-                  ? "bg-emerald-600 hover:bg-emerald-700"
-                  : "bg-rose-600 hover:bg-rose-700"
+              disabled={isSubmitting || !authCheck.allowed}
+              className={`px-5 py-2 text-xs font-semibold rounded-lg shadow-sm transition-all ${
+                !authCheck.allowed
+                  ? "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300"
+                  : decision === "APPROVED"
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                  : "bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
               }`}
             >
               {isSubmitting ? "Submitting Decision..." : `Confirm ${decision === "APPROVED" ? "Approval" : "Rejection"}`}

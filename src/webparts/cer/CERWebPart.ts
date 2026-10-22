@@ -27,6 +27,8 @@ interface IUserData {
   id: number;
   title: string;
   email: string;
+  loginName: string;
+  isSiteAdmin: boolean;
   groups: ISharePointUserGroup[];
 }
 
@@ -37,6 +39,8 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
     id: -1,
     title: "",
     email: "",
+    loginName: "",
+    isSiteAdmin: false,
     groups: [],
   };
   private _domObserver: MutationObserver | null = null;
@@ -48,7 +52,7 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
   ): Promise<IUserData> {
     try {
       const response: SPHttpClientResponse = await requester.get(
-        `${siteUrl}/_api/web/currentuser/?$select=Title,Email,LoginName,Id&$expand=groups`,
+        `${siteUrl}/_api/web/currentuser/?$select=Title,Email,LoginName,Id,IsSiteAdmin&$expand=groups`,
         SPHttpClient.configurations.v1,
         {
           headers: {
@@ -69,6 +73,8 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
         id: user?.Id ?? -1,
         title: user?.Title ?? "",
         email: this.context.pageContext.user.email || user?.Email || "",
+        loginName: user?.LoginName || this.context.pageContext.user.loginName || "",
+        isSiteAdmin: !!user?.IsSiteAdmin || !!(this.context.pageContext.legacyPageContext as any)?.isSiteAdmin,
         groups: user?.Groups?.results ?? [],
       };
     } catch (error: unknown) {
@@ -80,6 +86,8 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
         id: -1,
         title: "",
         email: this.context.pageContext.user.email || "",
+        loginName: this.context.pageContext.user.loginName || "",
+        isSiteAdmin: !!(this.context.pageContext.legacyPageContext as any)?.isSiteAdmin,
         groups: [],
       };
     }
@@ -134,6 +142,8 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
         newcurrentUserName: this._userData.title,
         newgroups: this._userData.groups,
         newcurrentUserEmail: this._userData.email,
+        newcurrentUserLoginName: this._userData.loginName,
+        newisSiteAdmin: this._userData.isSiteAdmin,
       });
 
     // React 18 createRoot
