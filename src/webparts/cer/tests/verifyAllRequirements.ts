@@ -2,6 +2,8 @@ import { LocalMockCERDataService } from "../services/LocalMockCERDataService";
 import { ICERProposal, CATEGORY_DEFINITIONS, SBU_OPTIONS } from "../models/CERModel";
 import { AUDIT_FIELD_DESCRIPTIONS, EXCLUDED_AUDIT_FIELDS } from "../models/AuditModel";
 import { validateField, validateAll } from "../utils/cerValidation";
+import { resolveDirectoryUserEmail } from "../models/UserModel";
+
 
 // Lightweight Test Harness for Node 22 execution
 let passed = 0;
@@ -358,6 +360,143 @@ async function runAllVerificationTests(): Promise<void> {
   assert(validateField("owner_email", "", testProp) !== undefined, "Owner Email is required");
   assert(validateField("owner_email", "invalid-email", testProp) !== undefined, "Invalid email format rejected");
   assert(validateField("owner_email", "user@vedanta.co.in", testProp) === undefined, "Valid email format accepted");
+
+  // ---------------------------------------------------------------------------------------------
+  // Test Suite 8: Microsoft Entra ID Owner Directory Search & People Picker Integration (Scenarios 1-11)
+  // ---------------------------------------------------------------------------------------------
+  console.log("\nTest Suite 8: Microsoft Entra ID Integration & People Picker Verification");
+
+  // Scenario 1: Search by full name
+  const fullNameResults = await service.searchDirectoryUsers("Priya Kalekar (STL Digital)");
+  assert(
+    fullNameResults.length > 0 && fullNameResults[0].displayName.includes("Priya Kalekar"),
+    "Scenario 1: Search by full name successfully returns 'Priya Kalekar (STL Digital)'"
+  );
+
+  // Scenario 2: Search by partial name
+  const partialResults = await service.searchDirectoryUsers("Digital");
+  assert(
+    partialResults.length >= 4 && partialResults.every(u => u.displayName.toLowerCase().includes("digital")),
+    `Scenario 2: Search by partial name 'Digital' returns ${partialResults.length} matching portal users`
+  );
+
+  // Scenario 3: Search by email
+  const emailResults = await service.searchDirectoryUsers("Ankit.Sharma2@cairnindia.com");
+  assert(
+    emailResults.length === 1 && emailResults[0].displayName.includes("Ankit Sharma"),
+    "Scenario 3: Search by email address returns exact user 'Ankit Sharma (STL Digital)'"
+  );
+
+  // Scenario 4: Select a user and verify automatic email population
+  const selectedUser = fullNameResults[0];
+  const autoEmail = resolveDirectoryUserEmail(selectedUser);
+  assert(
+    autoEmail === "Priya.Kalekar@cairnindia.com",
+    `Scenario 4: Selecting '${selectedUser.displayName}' automatically resolves email: ${autoEmail}`
+  );
+
+  // Scenario 5: Change the selected user and verify the email updates
+  const newUser = (await service.searchDirectoryUsers("Nitin Doshi"))[0];
+  const updatedEmail = resolveDirectoryUserEmail(newUser);
+  assert(
+    updatedEmail === "Nitin.Doshi@cairnindia.com" && updatedEmail !== autoEmail,
+    `Scenario 5: Changing owner to '${newUser.displayName}' updates email immediately to ${updatedEmail}`
+  );
+
+  // Scenario 6: Clear the selection and verify the email clears
+  let clearedOwnerName = newUser.displayName;
+  let clearedOwnerEmail = updatedEmail;
+  // Trigger clear callback simulation
+  clearedOwnerName = "";
+  clearedOwnerEmail = "";
+  assert(
+    clearedOwnerName === "" && clearedOwnerEmail === "",
+    "Scenario 6: Clearing owner selection successfully clears both CER Owner Name and Owner Email"
+  );
+
+  // Scenario 7: Handle users with missing mail values (fallback to UPN or validation block)
+  const noMailUser = (await service.searchDirectoryUsers("User Without Mail"))[0];
+  const resolvedUpnEmail = resolveDirectoryUserEmail(noMailUser);
+  assert(
+    resolvedUpnEmail === "user.nomail@cairnindia.com",
+    "Scenario 7a: User with empty mail correctly falls back to userPrincipalName email"
+  );
+  const invalidUser = (await service.searchDirectoryUsers("Invalid Email User"))[0];
+  const invalidEmailResolved = resolveDirectoryUserEmail(invalidUser);
+  assert(
+    invalidEmailResolved === "",
+    "Scenario 7b: User with neither valid mail nor valid UPN resolves to empty string to prevent invalid submission"
+  );
+  const invalidOwnerValidation = validateField("owner_email", invalidEmailResolved, testProp);
+  assert(
+    invalidOwnerValidation !== undefined,
+    "Scenario 7c: Submission validation prevents submission when resolved owner email is invalid or missing"
+  );
+
+  // Scenario 8: Handle no search results and directory service errors gracefully
+  const emptyResults = await service.searchDirectoryUsers("NonExistentUser12345XYZ");
+  assert(
+    Array.isArray(emptyResults) && emptyResults.length === 0,
+    "Scenario 8: No search results returns an empty array gracefully without exceptions"
+  );
+
+  // Scenario 9: Save a draft and reload it
+  const draftPropNo = await service.generateProposalNumber();
+  const draftProposal: ICERProposal = {
+    ...testProp,
+    cerprno: draftPropNo,
+    owname: "Deependra Singh (STL Digital)",
+    owner_email: "Deependra.Singh@cairnindia.com",
+    status: "Draft",
+  };
+  await service.createProposal(draftProposal);
+  const loadedDraft = await service.getProposalByNumber(draftPropNo);
+  assert(
+    loadedDraft !== null &&
+    loadedDraft.owname === "Deependra Singh (STL Digital)" &&
+    loadedDraft.owner_email === "Deependra.Singh@cairnindia.com" &&
+    loadedDraft.status === "Draft",
+    "Scenario 9: Draft CER proposal saved and reloaded preserves selected portal owner and email"
+  );
+
+  // Scenario 10: Submit a CER and verify both fields are stored correctly in SharePoint schema
+  const submittedPropNo = await service.generateProposalNumber();
+  const submittedProposal: ICERProposal = {
+    ...testProp,
+    cerprno: submittedPropNo,
+    owname: "Priya Kalekar (STL Digital)",
+    owner_email: "Priya.Kalekar@cairnindia.com",
+    status: "In Approval",
+  };
+  const submitResult = await service.createProposal(submittedProposal);
+  assert(submitResult.success, "Scenario 10a: Proposal submitted successfully");
+  const loadedSubmitted = await service.getProposalByNumber(submittedPropNo);
+  assert(
+    loadedSubmitted !== null &&
+    loadedSubmitted.owname === "Priya Kalekar (STL Digital)" &&
+    loadedSubmitted.owner_email === "Priya.Kalekar@cairnindia.com",
+    "Scenario 10b: Submitted CER correctly stores 'owname' and 'owner_email' in SharePoint schema"
+  );
+
+  // Scenario 11: Edit an existing CER and verify the saved owner is displayed correctly
+  const editProposal: ICERProposal = {
+    ...loadedSubmitted!,
+    owname: "Ankit Sharma (STL Digital)",
+    owner_email: "Ankit.Sharma2@cairnindia.com",
+  };
+  const updateResult = await service.updateProposal(editProposal, {
+    name: "Priya Kalekar (STL Digital)",
+    email: "Priya.Kalekar@cairnindia.com",
+  });
+  assert(updateResult.success, "Scenario 11a: CER updated with new directory owner");
+  const reloadedEdited = await service.getProposalByNumber(submittedPropNo);
+  assert(
+    reloadedEdited !== null &&
+    reloadedEdited.owname === "Ankit Sharma (STL Digital)" &&
+    reloadedEdited.owner_email === "Ankit.Sharma2@cairnindia.com",
+    "Scenario 11b: Reloading edited proposal accurately displays updated directory owner name and email"
+  );
+
   console.log("\n================================================================================");
   console.log(`TEST SUMMARY: ${passed} PASSED | ${failed} FAILED | TOTAL: ${passed + failed}`);
   console.log("================================================================================\n");

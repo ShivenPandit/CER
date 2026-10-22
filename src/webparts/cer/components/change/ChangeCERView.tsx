@@ -297,6 +297,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
             errors={errors}
             touched={touched}
             isChangeMode={true}
+            dataService={dataService}
           />
 
           {/* Section B — Financial benefits and payback */}

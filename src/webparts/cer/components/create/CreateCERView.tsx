@@ -32,8 +32,8 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     id: "",
     cerprno: "",
     pr_name: "",
-    owname: currentUser.name || "",
-    owner_email: currentUser.email || "",
+    owname: "",
+    owner_email: "",
     sbu: "RJ North",
     status: "Draft",
     object: "",
@@ -41,14 +41,14 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     currency: "USD",
     cat: "Vital",
     payable: "Payback",
-    period: "365 Days",
-    payback_quarters: 4,
+    period: "",
+    payback_quarters: 0,
     ben_npv: 0,
     ben_irr: 0,
     cost_assumptions: "",
-    st_date: new Date().toISOString().split("T")[0],
-    com_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-    duration_months: 12,
+    st_date: "",
+    com_date: "",
+    duration_months: 0,
     cbudget: "Yes",
     cb_amnt: 0,
     cb_currency: "USD",
@@ -281,6 +281,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         errors={errors}
         touched={touched}
         onGenerateNewNumber={generateProposalNumber}
+        dataService={dataService}
       />
 
       {/* Section B — Financial benefits and payback */}

@@ -17,6 +17,10 @@ export function validateField(
     if (field === "pr_name" && value && String(value).trim().length > 200) {
       return "Name of Project must not exceed 200 characters.";
     }
+    if (field === "owner_email" && value && String(value).trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(String(value).trim())) return "Selected directory owner does not have a valid email address.";
+    }
     if (field === "ben_irr" && value !== undefined && value !== null && value !== "") {
       const num = Number(value);
       if (num < 0 || num > 100) return "Financial Benefit – IRR (%) must be between 0% and 100%.";
@@ -49,15 +53,15 @@ export function validateField(
 
     case "owname": {
       const trimmed = String(value || "").trim();
-      if (!trimmed) return "CER Owner Name is required.";
+      if (!trimmed) return "CER Owner Name is required. Please select a user from the directory.";
       return undefined;
     }
 
     case "owner_email": {
       const trimmed = String(value || "").trim();
-      if (!trimmed) return "Owner Email is required.";
+      if (!trimmed) return "Owner Email is required. Please select a valid user from the directory.";
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(trimmed)) return "Please enter a valid email address.";
+      if (!emailRegex.test(trimmed)) return "Selected directory owner does not have a valid email address.";
       return undefined;
     }
 

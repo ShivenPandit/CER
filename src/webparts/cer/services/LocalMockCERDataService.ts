@@ -3,7 +3,9 @@ import { ICERProposal } from "../models/CERModel";
 import { ICERAuditRecord, ICERRemarksVersion, AUDIT_FIELD_DESCRIPTIONS, EXCLUDED_AUDIT_FIELDS } from "../models/AuditModel";
 import { IWorkflowLevel, IApprovalDecision, INotificationLog } from "../models/WorkflowModel";
 import { ICERAttachment } from "../models/AttachmentModel";
+import { IDirectoryUser, MOCK_DIRECTORY_USERS } from "../models/UserModel";
 import { validateAttachment } from "../utils/attachmentValidation";
+
 
 const STORAGE_KEYS = {
   PROPOSALS: "CER_APP_PROPOSALS",
@@ -500,13 +502,14 @@ export class LocalMockCERDataService implements ICERDataService {
     const now = new Date().toISOString();
     const activeL1 = this._workflowLevels.find(l => l.level_id === 1 && l.is_active) || this._workflowLevels[0];
 
+    const isDraft = proposal.status === "Draft";
     const newProposal: ICERProposal = {
       ...proposal,
       id: proposal.id || `prop-${Date.now()}`,
-      status: "In Approval",
-      current_level: 1,
-      pending_with_role: activeL1 ? activeL1.role_title : "L1 Approver",
-      pending_with_email: activeL1 ? activeL1.approver_email : "",
+      status: proposal.status || "In Approval",
+      current_level: isDraft ? 0 : 1,
+      pending_with_role: isDraft ? "Draft" : (activeL1 ? activeL1.role_title : "L1 Approver"),
+      pending_with_email: isDraft ? "" : (activeL1 ? activeL1.approver_email : ""),
       created_date: now,
       modified_date: now,
       revision_count: 0
@@ -531,21 +534,25 @@ export class LocalMockCERDataService implements ICERDataService {
       this._saveToStorage(STORAGE_KEYS.REMARKS_HISTORY, this._remarksHistory);
     }
 
-    // Trigger Notification to Creator & L1 Approver
-    const recipients = [newProposal.owner_email];
-    if (activeL1?.approver_email) recipients.push(activeL1.approver_email);
+    // Trigger Notification to Creator & L1 Approver (only when submitted for approval)
+    if (!isDraft) {
+      const recipients = [newProposal.owner_email];
+      if (activeL1?.approver_email) recipients.push(activeL1.approver_email);
 
-    this._recordNotification({
-      cerprno: newProposal.cerprno,
-      recipients,
-      subject: `[CER Action Required] New Proposal ${newProposal.cerprno} - ${newProposal.pr_name}`,
-      body: `CER Proposal ${newProposal.cerprno} (${newProposal.pr_name}) for ${newProposal.currency} ${newProposal.amount.toLocaleString()} has been submitted by ${newProposal.owname} and is awaiting Level 1 approval.`,
-      attachments_count: this._attachments.filter(a => a.cerprno === newProposal.cerprno).length
-    });
+      this._recordNotification({
+        cerprno: newProposal.cerprno,
+        recipients,
+        subject: `[CER Action Required] New Proposal ${newProposal.cerprno} - ${newProposal.pr_name}`,
+        body: `CER Proposal ${newProposal.cerprno} (${newProposal.pr_name}) for ${newProposal.currency} ${newProposal.amount.toLocaleString()} has been submitted by ${newProposal.owname} and is awaiting Level 1 approval.`,
+        attachments_count: this._attachments.filter(a => a.cerprno === newProposal.cerprno).length
+      });
+    }
 
     return {
       success: true,
-      message: "CER Proposal No. has been created and sent for approval",
+      message: isDraft
+        ? "CER Proposal draft has been saved successfully"
+        : "CER Proposal No. has been created and sent for approval",
       proposal: newProposal
     };
   }
@@ -845,4 +852,19 @@ export class LocalMockCERDataService implements ICERDataService {
     this._notifications.unshift(log);
     this._saveToStorage(STORAGE_KEYS.NOTIFICATIONS, this._notifications);
   }
+
+  public async searchDirectoryUsers(query: string): Promise<IDirectoryUser[]> {
+    const q = (query || "").trim().toLowerCase();
+    if (!q) {
+      return [...MOCK_DIRECTORY_USERS];
+    }
+    return MOCK_DIRECTORY_USERS.filter((user) => {
+      const matchName = user.displayName.toLowerCase().indexOf(q) !== -1;
+      const matchMail = (user.mail || "").toLowerCase().indexOf(q) !== -1;
+      const matchUpn = (user.userPrincipalName || "").toLowerCase().indexOf(q) !== -1;
+      const matchTitle = (user.jobTitle || "").toLowerCase().indexOf(q) !== -1;
+      return matchName || matchMail || matchUpn || matchTitle;
+    });
+  }
 }
+

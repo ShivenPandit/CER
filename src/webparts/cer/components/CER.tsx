@@ -79,11 +79,11 @@ const CER: React.FC<ICERProps> = (props) => {
   const [currentUser, setCurrentUser] = useState<IAppUser>(() => {
     if (props.newcurrentUserName && props.newcurrentUserName.trim()) {
       return {
-        id: props.newcurrentUserId || 101,
+        id: props.newcurrentUserId || 1,
         name: props.newcurrentUserName,
-        email: props.newcurrentUserEmail || "shiven.pandit@vedanta.co.in",
+        email: props.newcurrentUserEmail || "",
         role: "Initiator",
-        department: "Subsurface & Drilling Projects",
+        department: "CER Management Portal",
       };
     }
     return DEMO_USERS[0];

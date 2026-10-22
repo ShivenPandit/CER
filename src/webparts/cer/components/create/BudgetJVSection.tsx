@@ -1,5 +1,5 @@
 import React from "react";
-import { Landmark, Users, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Landmark, Users, AlertCircle } from "lucide-react";
 import { ICERProposal } from "../../models/CERModel";
 import { FormErrors } from "../../utils/cerValidation";
 
@@ -32,9 +32,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
     return touched[field] || errors[field] ? errors[field] : undefined;
   };
 
-  const isFieldValid = (field: keyof ICERProposal): boolean => {
-    return !!touched[field] && !errors[field] && formData[field] !== undefined && formData[field] !== null && formData[field] !== "";
-  };
+
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -134,17 +132,12 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                   : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
               }`}
             />
-            {getFieldError("reason") ? (
+            {getFieldError("reason") && (
               <p className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 <span>{getFieldError("reason")}</span>
               </p>
-            ) : needsCorporateReason && isFieldValid("reason") ? (
-              <p className="mt-1 text-xs text-emerald-600 flex items-center gap-1 font-medium">
-                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                <span>Valid explanation</span>
-              </p>
-            ) : null}
+            )}
           </div>
         </div>
       </div>

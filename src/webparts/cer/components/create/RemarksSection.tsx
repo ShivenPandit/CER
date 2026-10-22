@@ -1,5 +1,5 @@
 import React from "react";
-import { MessageSquare, History, AlertCircle, CheckCircle2 } from "lucide-react";
+import { MessageSquare, History, AlertCircle } from "lucide-react";
 import { ICERProposal } from "../../models/CERModel";
 import { WordCounter } from "../common/WordCounter";
 import { FormErrors } from "../../utils/cerValidation";
@@ -30,9 +30,7 @@ export const RemarksSection: React.FC<IRemarksSectionProps> = ({
     return touched[field] || errors[field] ? errors[field] : undefined;
   };
 
-  const isFieldValid = (field: keyof ICERProposal): boolean => {
-    return !!touched[field] && !errors[field] && !!formData[field];
-  };
+
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-5" id="section-remarks">
@@ -84,17 +82,12 @@ export const RemarksSection: React.FC<IRemarksSectionProps> = ({
             required
             aria-invalid={!!getFieldError("remarks")}
           />
-          {getFieldError("remarks") ? (
+          {getFieldError("remarks") && (
             <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{getFieldError("remarks")}</span>
             </p>
-          ) : isFieldValid("remarks") ? (
-            <p className="mt-1.5 text-xs text-emerald-600 flex items-center gap-1 font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              <span>Valid justification entered</span>
-            </p>
-          ) : null}
+          )}
           <div className="mt-2">
             <WordCounter text={formData.remarks} minLimit={10} maxLimit={400} />
           </div>
@@ -118,17 +111,12 @@ export const RemarksSection: React.FC<IRemarksSectionProps> = ({
                 : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
             }`}
           />
-          {getFieldError("remarks_jv") ? (
+          {getFieldError("remarks_jv") && (
             <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{getFieldError("remarks_jv")}</span>
             </p>
-          ) : needsJvRisk && isFieldValid("remarks_jv") ? (
-            <p className="mt-1.5 text-xs text-emerald-600 flex items-center gap-1 font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              <span>Valid JV risk comments</span>
-            </p>
-          ) : null}
+          )}
         </div>
       </div>
     </div>

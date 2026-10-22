@@ -1,5 +1,5 @@
 import React from "react";
-import { DollarSign, AlertCircle, CheckCircle2 } from "lucide-react";
+import { DollarSign, AlertCircle } from "lucide-react";
 import { ICERProposal, CERPayable } from "../../models/CERModel";
 import { FormErrors } from "../../utils/cerValidation";
 
@@ -26,9 +26,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
     return touched[field] || errors[field] ? errors[field] : undefined;
   };
 
-  const isFieldValid = (field: keyof ICERProposal): boolean => {
-    return !!touched[field] && !errors[field] && formData[field] !== undefined && formData[field] !== null && formData[field] !== "";
-  };
+
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-6">
@@ -82,17 +80,12 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
               required
             />
           </div>
-          {getFieldError("amount") ? (
+          {getFieldError("amount") && (
             <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{getFieldError("amount")}</span>
             </p>
-          ) : isFieldValid("amount") ? (
-            <p className="mt-1.5 text-xs text-emerald-600 flex items-center gap-1 font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              <span>Valid amount</span>
-            </p>
-          ) : null}
+          )}
         </div>
 
         {/* Payback/Non Payback */}
@@ -141,17 +134,12 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
                 : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
             }`}
           />
-          {getFieldError("payback_quarters") ? (
+          {getFieldError("payback_quarters") && (
             <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{getFieldError("payback_quarters")}</span>
             </p>
-          ) : isPayback && isFieldValid("payback_quarters") ? (
-            <p className="mt-1.5 text-xs text-emerald-600 flex items-center gap-1 font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              <span>Valid quarters count</span>
-            </p>
-          ) : null}
+          )}
         </div>
 
         {/* Financial Benefits – NPV ($mm) */}
@@ -202,17 +190,12 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
                 : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
             }`}
           />
-          {getFieldError("ben_irr") ? (
+          {getFieldError("ben_irr") && (
             <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{getFieldError("ben_irr")}</span>
             </p>
-          ) : isFieldValid("ben_irr") ? (
-            <p className="mt-1.5 text-xs text-emerald-600 flex items-center gap-1 font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              <span>Valid IRR percentage</span>
-            </p>
-          ) : null}
+          )}
         </div>
 
         {/* Key Assumptions to Financial Benefit/Costs */}
@@ -234,17 +217,12 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             }`}
             required
           />
-          {getFieldError("cost_assumptions") ? (
+          {getFieldError("cost_assumptions") && (
             <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{getFieldError("cost_assumptions")}</span>
             </p>
-          ) : isFieldValid("cost_assumptions") ? (
-            <p className="mt-1.5 text-xs text-emerald-600 flex items-center gap-1 font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              <span>Valid assumptions</span>
-            </p>
-          ) : null}
+          )}
         </div>
       </div>
     </div>

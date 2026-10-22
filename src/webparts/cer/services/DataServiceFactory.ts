@@ -18,6 +18,7 @@ export class DataServiceFactory {
         cachedService = new SharePointCERDataService(
           props.newspHttpClient,
           props.newsiteUrl,
+          props.newcontext
         );
       }
       return cachedService;

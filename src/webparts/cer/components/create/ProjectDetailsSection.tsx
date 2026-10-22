@@ -1,6 +1,10 @@
 import React from "react";
-import { FolderGit2, RefreshCw, AlertCircle, CheckCircle2 } from "lucide-react";
+import { FolderGit2, RefreshCw, AlertCircle } from "lucide-react";
 import { ICERProposal, CERCategory, SBUOption, SBU_OPTIONS } from "../../models/CERModel";
+import { IDirectoryUser } from "../../models/UserModel";
+import { ICERDataService } from "../../services/ICERDataService";
+import { LocalMockCERDataService } from "../../services/LocalMockCERDataService";
+import { DirectoryPeoplePicker } from "./DirectoryPeoplePicker";
 import { FormErrors } from "../../utils/cerValidation";
 import { calculateExactDays, calculateMonthsFromDays, formatDuration } from "../../utils/dateUtils";
 
@@ -13,6 +17,7 @@ interface IProjectDetailsSectionProps {
   isReadOnly?: boolean;
   isChangeMode?: boolean;
   onGenerateNewNumber?: () => void;
+  dataService?: ICERDataService;
 }
 
 export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
@@ -24,7 +29,10 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
   isReadOnly = false,
   isChangeMode = false,
   onGenerateNewNumber,
+  dataService,
 }) => {
+  const effectiveDataService = React.useMemo(() => dataService || new LocalMockCERDataService(), [dataService]);
+
   // Duration display unit state: default to "days" per requirements
   const [durationUnit, setDurationUnit] = React.useState<"days" | "months">("days");
 
@@ -49,9 +57,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
     return touched[field] || errors[field] ? errors[field] : undefined;
   };
 
-  const isFieldValid = (field: keyof ICERProposal): boolean => {
-    return !!touched[field] && !errors[field] && !!formData[field];
-  };
+
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-6">
@@ -94,17 +100,12 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             aria-invalid={!!getFieldError("pr_name")}
             aria-describedby={getFieldError("pr_name") ? "pr_name-error" : undefined}
           />
-          {getFieldError("pr_name") ? (
+          {getFieldError("pr_name") && (
             <p id="pr_name-error" className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{getFieldError("pr_name")}</span>
             </p>
-          ) : isFieldValid("pr_name") ? (
-            <p className="mt-1.5 text-xs text-emerald-600 flex items-center gap-1 font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              <span>Valid project name</span>
-            </p>
-          ) : null}
+          )}
         </div>
 
         {/* CER Proposal No. */}
@@ -146,31 +147,31 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
           </p>
         </div>
 
-        {/* CER Owner Name */}
+        {/* CER Owner Name — Directory Search */}
         <div id="field-owname">
-          <label htmlFor="owname" className="block font-semibold text-slate-700 mb-1.5">
+          <label htmlFor="owname-people-picker" className="block font-semibold text-slate-700 mb-1.5">
             CER Owner Name <span className="text-rose-500">*</span>
+            <span className="text-[10px] font-normal text-slate-400 ml-1.5">(Authorized Portal Members)</span>
           </label>
-          <input
-            id="owname"
-            type="text"
+          <DirectoryPeoplePicker
+            id="owname-people-picker"
+            dataService={effectiveDataService}
+            selectedName={formData.owname || ""}
+            selectedEmail={formData.owner_email || ""}
             disabled={isReadOnly}
-            value={formData.owname}
-            onChange={(e) => onChange("owname", e.target.value)}
+            required={true}
+            hasError={!!getFieldError("owname") || !!getFieldError("owner_email")}
+            errorMessage={getFieldError("owname") || getFieldError("owner_email")}
             onBlur={() => onBlur && onBlur("owname")}
-            className={`w-full px-3.5 py-2.5 rounded-xl font-medium transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none ${
-              getFieldError("owname")
-                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
-            }`}
-            required
+            onSelect={(user, resolvedEmail) => {
+              onChange("owname", user.displayName);
+              onChange("owner_email", resolvedEmail);
+            }}
+            onClear={() => {
+              onChange("owname", "");
+              onChange("owner_email", "");
+            }}
           />
-          {getFieldError("owname") && (
-            <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              <span>{getFieldError("owname")}</span>
-            </p>
-          )}
         </div>
 
         {/* Block/SBU/Field */}
@@ -244,17 +245,12 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             }`}
             required
           />
-          {getFieldError("st_date") ? (
+          {getFieldError("st_date") && (
             <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{getFieldError("st_date")}</span>
             </p>
-          ) : isFieldValid("st_date") ? (
-            <p className="mt-1.5 text-xs text-emerald-600 flex items-center gap-1 font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              <span>Valid date</span>
-            </p>
-          ) : null}
+          )}
         </div>
 
         {/* Completion Date of Project */}
@@ -277,17 +273,12 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             }`}
             required
           />
-          {getFieldError("com_date") ? (
+          {getFieldError("com_date") && (
             <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{getFieldError("com_date")}</span>
             </p>
-          ) : isFieldValid("com_date") ? (
-            <p className="mt-1.5 text-xs text-emerald-600 flex items-center gap-1 font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              <span>Valid completion date</span>
-            </p>
-          ) : null}
+          )}
         </div>
 
         {/* Total Duration */}
@@ -329,7 +320,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
               type="text"
               readOnly
               disabled
-              value={formatDuration(exactDays, durationUnit)}
+              value={exactDays > 0 ? formatDuration(exactDays, durationUnit) : "-"}
               className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl font-semibold text-slate-700 cursor-not-allowed shadow-none"
             />
           </div>
@@ -359,17 +350,12 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             }`}
             required
           />
-          {getFieldError("object") ? (
+          {getFieldError("object") && (
             <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{getFieldError("object")}</span>
             </p>
-          ) : isFieldValid("object") ? (
-            <p className="mt-1.5 text-xs text-emerald-600 flex items-center gap-1 font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              <span>Valid objectives entered</span>
-            </p>
-          ) : null}
+          )}
         </div>
       </div>
     </div>

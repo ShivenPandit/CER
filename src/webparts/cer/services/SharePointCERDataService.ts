@@ -1,4 +1,5 @@
-import { SPHttpClient, SPHttpClientResponse } from "@microsoft/sp-http";
+import { SPHttpClient, SPHttpClientResponse, MSGraphClientV3 } from "@microsoft/sp-http";
+import { WebPartContext } from "@microsoft/sp-webpart-base";
 import { ICERDataService } from "./ICERDataService";
 import { ICERProposal } from "../models/CERModel";
 import {
@@ -13,19 +14,23 @@ import {
   INotificationLog,
 } from "../models/WorkflowModel";
 import { ICERAttachment } from "../models/AttachmentModel";
+import { IDirectoryUser } from "../models/UserModel";
 import { LocalMockCERDataService } from "./LocalMockCERDataService";
 import { validateAttachment } from "../utils/attachmentValidation";
 
 export class SharePointCERDataService implements ICERDataService {
   private _spHttpClient: SPHttpClient;
   private _siteUrl: string;
+  private _context?: WebPartContext;
   private _fallbackMock: LocalMockCERDataService;
 
-  constructor(spHttpClient: SPHttpClient, siteUrl: string) {
+  constructor(spHttpClient: SPHttpClient, siteUrl: string, context?: WebPartContext) {
     this._spHttpClient = spHttpClient;
     this._siteUrl = siteUrl;
+    this._context = context;
     this._fallbackMock = new LocalMockCERDataService();
   }
+
 
   // ---------------------------------------------------------------------------
   // 1. CER_Proposals Operations
@@ -1045,4 +1050,125 @@ export class SharePointCERDataService implements ICERDataService {
       revision_count: Number(proposal.revision_count || 0),
     };
   }
+
+  // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Directory Search (Real Portal Users with Permissions to this Site)
+  // ---------------------------------------------------------------------------
+
+  public async searchDirectoryUsers(query: string): Promise<IDirectoryUser[]> {
+    const trimmed = (query || "").trim().toLowerCase();
+
+    // 1. Query REAL users who have permission to this SharePoint portal
+    try {
+      const endpoint = `${this._siteUrl}/_api/web/siteusers?$filter=PrincipalType eq 1 and Email ne ''&$select=Id,Title,Email,LoginName,IsSiteAdmin`;
+      const response: SPHttpClientResponse = await this._spHttpClient.get(
+        endpoint,
+        SPHttpClient.configurations.v1,
+        {
+          headers: {
+            Accept: "application/json;odata=nometadata",
+          },
+        }
+      );
+
+      if (response.ok) {
+        const json = await response.json();
+        if (json && json.value && Array.isArray(json.value) && json.value.length > 0) {
+          const siteUsers: IDirectoryUser[] = json.value.map((u: any) => {
+            const email = (u.Email || "").trim();
+            const upn = (u.LoginName && u.LoginName.indexOf("|") !== -1)
+              ? u.LoginName.split("|").pop()
+              : email;
+            return {
+              id: String(u.Id || email || u.Title),
+              displayName: u.Title || "",
+              mail: email,
+              userPrincipalName: upn || email,
+              jobTitle: u.IsSiteAdmin ? "Site Administrator" : "Portal Member",
+              department: "CER Management Portal",
+            };
+          });
+
+          // Filter by search query if provided, or return all portal users if empty
+          const filtered = !trimmed
+            ? siteUsers
+            : siteUsers.filter((u) => {
+                const matchName = u.displayName.toLowerCase().indexOf(trimmed) !== -1;
+                const matchMail = (u.mail || "").toLowerCase().indexOf(trimmed) !== -1;
+                const matchUpn = (u.userPrincipalName || "").toLowerCase().indexOf(trimmed) !== -1;
+                return matchName || matchMail || matchUpn;
+              });
+
+          if (filtered.length > 0 || !trimmed) {
+            return filtered;
+          }
+        }
+      }
+    } catch (siteUsersError) {
+      console.warn(
+        "[SharePointCERDataService] Querying siteusers failed, falling back to directory search:",
+        siteUsersError
+      );
+    }
+
+    // 2. Query ClientPeoplePickerSearchUser scoped to SharePoint site permissions (PrincipalSource: 1 = SPWeb)
+    try {
+      const endpoint = `${this._siteUrl}/_api/SP.UI.ApplicationPages.ClientPeoplePickerWebServiceInterface.ClientPeoplePickerSearchUser`;
+      const payload = {
+        queryParams: {
+          __metadata: { type: "SP.UI.ApplicationPages.ClientPeoplePickerQueryParameters" },
+          AllowEmailAddresses: true,
+          AllowMultipleEntities: false,
+          AllUrlZones: false,
+          MaximumEntitySuggestions: 15,
+          PrincipalSource: 1, // 1 = SPWeb only (users with permission to this site)
+          PrincipalType: 1, // Users
+          QueryString: trimmed,
+        },
+      };
+
+      const response: SPHttpClientResponse = await this._spHttpClient.post(
+        endpoint,
+        SPHttpClient.configurations.v1,
+        {
+          headers: {
+            Accept: "application/json;odata=verbose",
+            "Content-Type": "application/json;odata=verbose",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (response.ok) {
+        const json = await response.json();
+        const rawResults = json?.d?.ClientPeoplePickerSearchUser;
+        if (rawResults) {
+          const parsed = typeof rawResults === "string" ? JSON.parse(rawResults) : rawResults;
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.map((item: any) => {
+              const email = item.EntityData?.Email || (item.Description && item.Description.includes("@") ? item.Description : "");
+              const upn = (item.Key && item.Key.indexOf("|") !== -1)
+                ? item.Key.split("|").pop()
+                : (email || item.DisplayText);
+              return {
+                id: item.Key || email || item.DisplayText,
+                displayName: item.DisplayText || "",
+                mail: email || "",
+                userPrincipalName: upn || email || "",
+                jobTitle: item.EntityData?.Title || "Portal Member",
+                department: item.EntityData?.Department || "CER Management Portal",
+              };
+            });
+          }
+        }
+      }
+    } catch (spError) {
+      console.warn("[SharePointCERDataService] ClientPeoplePickerSearchUser failed:", spError);
+    }
+
+    // 3. Fallback to local store with real portal member personas if offline
+    return this._fallbackMock.searchDirectoryUsers(query);
+  }
 }
+
