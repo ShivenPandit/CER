@@ -1,4 +1,4 @@
-import { ICERProposal } from "../models/CERModel";
+import { ICERProposal, IFieldChoices } from "../models/CERModel";
 import { ICERAuditRecord, ICERRemarksVersion } from "../models/AuditModel";
 import { IWorkflowLevel, IApprovalDecision, INotificationLog } from "../models/WorkflowModel";
 import { ICERAttachment } from "../models/AttachmentModel";
@@ -7,6 +7,9 @@ import { IDirectoryUser } from "../models/UserModel";
 export interface ICERDataService {
   // Directory & Users
   searchDirectoryUsers(query: string): Promise<IDirectoryUser[]>;
+
+  // Dropdown Field Choices (Fetched directly from SharePoint list schema)
+  getFieldChoices(): Promise<IFieldChoices>;
 
   // Proposals
   getAllProposals(): Promise<ICERProposal[]>;

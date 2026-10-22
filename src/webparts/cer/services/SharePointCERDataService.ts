@@ -1,7 +1,7 @@
 import { SPHttpClient, SPHttpClientResponse, MSGraphClientV3 } from "@microsoft/sp-http";
 import { WebPartContext } from "@microsoft/sp-webpart-base";
 import { ICERDataService } from "./ICERDataService";
-import { ICERProposal } from "../models/CERModel";
+import { ICERProposal, IFieldChoices, DEFAULT_FIELD_CHOICES } from "../models/CERModel";
 import {
   ICERAuditRecord,
   ICERRemarksVersion,
@@ -23,12 +23,65 @@ export class SharePointCERDataService implements ICERDataService {
   private _siteUrl: string;
   private _context?: WebPartContext;
   private _fallbackMock: LocalMockCERDataService;
+  private _cachedFieldChoices?: IFieldChoices;
 
   constructor(spHttpClient: SPHttpClient, siteUrl: string, context?: WebPartContext) {
     this._spHttpClient = spHttpClient;
     this._siteUrl = siteUrl;
     this._context = context;
     this._fallbackMock = new LocalMockCERDataService();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 0. Dropdown Choice Fields from SharePoint List Schema
+  // ---------------------------------------------------------------------------
+
+  public async getFieldChoices(): Promise<IFieldChoices> {
+    if (this._cachedFieldChoices) {
+      return this._cachedFieldChoices;
+    }
+
+    try {
+      const endpoint = `${this._siteUrl}/_api/web/lists/getByTitle('CER_Proposals')/fields?$filter=TypeAsString eq 'Choice'&$select=InternalName,Title,Choices,DefaultValue`;
+      const response: SPHttpClientResponse = await this._spHttpClient.get(
+        endpoint,
+        SPHttpClient.configurations.v1,
+        { headers: { Accept: "application/json;odata=nometadata" } },
+      );
+
+      if (response.ok) {
+        const json = await response.json();
+        if (json.value && Array.isArray(json.value) && json.value.length > 0) {
+          const choicesMap: Record<string, string[]> = {};
+          for (const f of json.value) {
+            const internalName = String(f.InternalName || "");
+            if (Array.isArray(f.Choices) && f.Choices.length > 0) {
+              choicesMap[internalName] = f.Choices.map((c: any) => String(c).trim()).filter(Boolean);
+            }
+          }
+
+          const resolved: IFieldChoices = {
+            sbu: choicesMap.sbu && choicesMap.sbu.length > 0 ? choicesMap.sbu : DEFAULT_FIELD_CHOICES.sbu,
+            cat: choicesMap.cat && choicesMap.cat.length > 0 ? choicesMap.cat : DEFAULT_FIELD_CHOICES.cat,
+            currency: choicesMap.currency && choicesMap.currency.length > 0 ? choicesMap.currency : DEFAULT_FIELD_CHOICES.currency,
+            payable: choicesMap.payable && choicesMap.payable.length > 0 ? choicesMap.payable : DEFAULT_FIELD_CHOICES.payable,
+            cbudget: choicesMap.cbudget && choicesMap.cbudget.length > 0 ? choicesMap.cbudget : DEFAULT_FIELD_CHOICES.cbudget,
+            cb_currency: choicesMap.cb_currency && choicesMap.cb_currency.length > 0 ? choicesMap.cb_currency : DEFAULT_FIELD_CHOICES.cb_currency,
+            jv: choicesMap.jv && choicesMap.jv.length > 0 ? choicesMap.jv : DEFAULT_FIELD_CHOICES.jv,
+            jv_recoverable: choicesMap.jv_recoverable && choicesMap.jv_recoverable.length > 0 ? choicesMap.jv_recoverable : DEFAULT_FIELD_CHOICES.jv_recoverable,
+            jv_budget: choicesMap.jv_budget && choicesMap.jv_budget.length > 0 ? choicesMap.jv_budget : DEFAULT_FIELD_CHOICES.jv_budget,
+            status: choicesMap.status && choicesMap.status.length > 0 ? choicesMap.status : DEFAULT_FIELD_CHOICES.status,
+          };
+
+          this._cachedFieldChoices = resolved;
+          return resolved;
+        }
+      }
+    } catch (e) {
+      console.warn("[SharePointCERDataService] Error querying choice fields from CER_Proposals list:", e);
+    }
+
+    return this._fallbackMock.getFieldChoices();
   }
 
 

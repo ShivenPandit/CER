@@ -8,7 +8,7 @@ import {
   Eye,
   Edit,
 } from "lucide-react";
-import { ICERProposal, CERCategory, CERStatus, SBUOption, SBU_OPTIONS } from "../../models/CERModel";
+import { ICERProposal, CERCategory, CERStatus, SBUOption, SBU_OPTIONS, IFieldChoices } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
 import { StatusBadge } from "../common/StatusBadge";
 import { CategoryBadge } from "../common/CategoryBadge";
@@ -21,6 +21,7 @@ interface IReportsViewProps {
   currentUser: IAppUser;
   onNavigateToDisplay: (cerprno: string) => void;
   onNavigateToChange: (cerprno: string) => void;
+  fieldChoices?: IFieldChoices;
 }
 
 export const ReportsView: React.FC<IReportsViewProps> = ({
@@ -28,6 +29,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
   currentUser,
   onNavigateToDisplay,
   onNavigateToChange,
+  fieldChoices,
 }) => {
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -202,11 +204,14 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
               className="w-full px-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
             >
               <option value="ALL">All Statuses</option>
-              <option value="In Approval">In Approval</option>
-              <option value="Approved">Approved</option>
-              <option value="Draft">Draft</option>
-              <option value="Rejected">Rejected</option>
-              <option value="Revised">Revised</option>
+              {(fieldChoices?.status && fieldChoices.status.length > 0
+                ? fieldChoices.status
+                : ["In Approval", "Approved", "Draft", "Rejected", "Revised"]
+              ).map((st) => (
+                <option key={st} value={st}>
+                  {st}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -224,9 +229,14 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
               className="w-full px-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
             >
               <option value="ALL">All Categories</option>
-              <option value="Vital">Vital</option>
-              <option value="Essential">Essential</option>
-              <option value="Desirable">Desirable</option>
+              {(fieldChoices?.cat && fieldChoices.cat.length > 0
+                ? fieldChoices.cat
+                : ["Vital", "Essential", "Desirable"]
+              ).map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -244,7 +254,10 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
               className="w-full px-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
             >
               <option value="ALL">All SBUs</option>
-              {SBU_OPTIONS.map((opt) => (
+              {(fieldChoices?.sbu && fieldChoices.sbu.length > 0
+                ? fieldChoices.sbu
+                : SBU_OPTIONS
+              ).map((opt) => (
                 <option key={opt} value={opt}>
                   {opt}
                 </option>

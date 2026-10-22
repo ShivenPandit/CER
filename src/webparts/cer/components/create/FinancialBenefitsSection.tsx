@@ -1,6 +1,6 @@
 import React from "react";
 import { DollarSign, AlertCircle } from "lucide-react";
-import { ICERProposal, CERPayable } from "../../models/CERModel";
+import { ICERProposal, CERPayable, IFieldChoices } from "../../models/CERModel";
 import { FormErrors } from "../../utils/cerValidation";
 
 interface IFinancialBenefitsSectionProps {
@@ -10,6 +10,7 @@ interface IFinancialBenefitsSectionProps {
   errors?: FormErrors;
   touched?: Record<string, boolean>;
   isReadOnly?: boolean;
+  fieldChoices?: IFieldChoices;
 }
 
 export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> = ({
@@ -19,6 +20,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
   errors = {},
   touched = {},
   isReadOnly = false,
+  fieldChoices,
 }) => {
   const isPayback = formData.payable === "Payback";
 
@@ -60,8 +62,11 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
               onChange={(e) => onChange("currency", e.target.value)}
               className="w-24 px-3 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-colors"
             >
-              <option value="USD">USD ($)</option>
-              <option value="INR">INR (₹)</option>
+              {(fieldChoices?.currency && fieldChoices.currency.length > 0 ? fieldChoices.currency : ["USD", "INR"]).map((cur) => (
+                <option key={cur} value={cur}>
+                  {cur === "USD" ? "USD ($)" : cur === "INR" ? "INR (₹)" : cur}
+                </option>
+              ))}
             </select>
             <input
               id="amount"
@@ -101,8 +106,11 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             onBlur={() => onBlur && onBlur("payable")}
             className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-colors font-medium text-slate-900"
           >
-            <option value="Payback">Payback</option>
-            <option value="Non Payback">Non Payback</option>
+            {(fieldChoices?.payable && fieldChoices.payable.length > 0 ? fieldChoices.payable : ["Payback", "Non Payback"]).map((pay) => (
+              <option key={pay} value={pay}>
+                {pay}
+              </option>
+            ))}
           </select>
           {getFieldError("payable") && (
             <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">

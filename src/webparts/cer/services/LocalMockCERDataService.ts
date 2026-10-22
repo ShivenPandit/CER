@@ -1,5 +1,5 @@
 import { ICERDataService } from "./ICERDataService";
-import { ICERProposal } from "../models/CERModel";
+import { ICERProposal, IFieldChoices, DEFAULT_FIELD_CHOICES } from "../models/CERModel";
 import { ICERAuditRecord, ICERRemarksVersion, AUDIT_FIELD_DESCRIPTIONS, EXCLUDED_AUDIT_FIELDS } from "../models/AuditModel";
 import { IWorkflowLevel, IApprovalDecision, INotificationLog } from "../models/WorkflowModel";
 import { ICERAttachment } from "../models/AttachmentModel";
@@ -473,6 +473,10 @@ export class LocalMockCERDataService implements ICERDataService {
         console.warn(`[LocalMockCERDataService] Failed to write key ${key}:`, e);
       }
     }
+  }
+
+  public async getFieldChoices(): Promise<IFieldChoices> {
+    return { ...DEFAULT_FIELD_CHOICES };
   }
 
   public async getAllProposals(): Promise<ICERProposal[]> {

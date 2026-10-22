@@ -1,6 +1,6 @@
 import React from "react";
 import { FolderGit2, RefreshCw, AlertCircle } from "lucide-react";
-import { ICERProposal, CERCategory, SBUOption, SBU_OPTIONS } from "../../models/CERModel";
+import { ICERProposal, CERCategory, SBUOption, SBU_OPTIONS, IFieldChoices } from "../../models/CERModel";
 import { IDirectoryUser } from "../../models/UserModel";
 import { ICERDataService } from "../../services/ICERDataService";
 import { LocalMockCERDataService } from "../../services/LocalMockCERDataService";
@@ -18,6 +18,7 @@ interface IProjectDetailsSectionProps {
   isChangeMode?: boolean;
   onGenerateNewNumber?: () => void;
   dataService?: ICERDataService;
+  fieldChoices?: IFieldChoices;
 }
 
 export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
@@ -30,6 +31,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
   isChangeMode = false,
   onGenerateNewNumber,
   dataService,
+  fieldChoices,
 }) => {
   const effectiveDataService = React.useMemo(() => dataService || new LocalMockCERDataService(), [dataService]);
 
@@ -187,7 +189,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             onBlur={() => onBlur && onBlur("sbu")}
             className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-colors font-medium text-slate-900 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
           >
-            {SBU_OPTIONS.map((opt) => (
+            {(fieldChoices?.sbu && fieldChoices.sbu.length > 0 ? fieldChoices.sbu : SBU_OPTIONS).map((opt) => (
               <option key={opt} value={opt}>
                 {opt}
               </option>
@@ -214,9 +216,11 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             onBlur={() => onBlur && onBlur("cat")}
             className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-colors font-medium text-slate-900 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
           >
-            <option value="Vital">Vital</option>
-            <option value="Essential">Essential</option>
-            <option value="Desirable">Desirable</option>
+            {(fieldChoices?.cat && fieldChoices.cat.length > 0 ? fieldChoices.cat : ["Vital", "Essential", "Desirable"]).map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
           </select>
           {getFieldError("cat") && (
             <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">

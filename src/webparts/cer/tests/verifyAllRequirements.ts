@@ -497,6 +497,16 @@ async function runAllVerificationTests(): Promise<void> {
     "Scenario 11b: Reloading edited proposal accurately displays updated directory owner name and email"
   );
 
+  console.log("\nTest Suite 9: Dynamic Dropdown Choices from SharePoint List Schema");
+  const fieldChoices = await service.getFieldChoices();
+  assert(Array.isArray(fieldChoices.sbu) && fieldChoices.sbu.length > 0, "SBU choices fetched dynamically from list schema");
+  assert(Array.isArray(fieldChoices.cat) && fieldChoices.cat.length > 0, "Category choices fetched dynamically from list schema");
+  assert(Array.isArray(fieldChoices.currency) && fieldChoices.currency.length > 0, "Currency choices fetched dynamically from list schema");
+  assert(Array.isArray(fieldChoices.payable) && fieldChoices.payable.length > 0, "Payable choices fetched dynamically from list schema");
+  assert(Array.isArray(fieldChoices.cbudget) && fieldChoices.cbudget.length > 0, "Corporate budget choices fetched dynamically from list schema");
+  assert(Array.isArray(fieldChoices.jv) && fieldChoices.jv.length > 0, "JV alignment choices fetched dynamically from list schema");
+  assert(Array.isArray(fieldChoices.status) && fieldChoices.status.length > 0, "Proposal status choices fetched dynamically from list schema");
+
   console.log("\n================================================================================");
   console.log(`TEST SUMMARY: ${passed} PASSED | ${failed} FAILED | TOTAL: ${passed + failed}`);
   console.log("================================================================================\n");

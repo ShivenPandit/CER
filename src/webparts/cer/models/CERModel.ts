@@ -1,15 +1,16 @@
-export type CERCategory = "Vital" | "Essential" | "Desirable";
+export type CERCategory = "Vital" | "Essential" | "Desirable" | string;
 
 export type CERStatus = 
   | "Draft"
   | "In Approval"
   | "Approved"
   | "Rejected"
-  | "Revised";
+  | "Revised"
+  | string;
 
-export type CERPayable = "Payback" | "Non Payback" | "Non-Payback";
+export type CERPayable = "Payback" | "Non Payback" | "Non-Payback" | string;
 
-export type SBUOption = "RJ North" | "RJ South" | "CBOS" | "RAVA";
+export type SBUOption = "RJ North" | "RJ South" | "CBOS" | "RAVA" | string;
 
 export interface ICERProposal {
   id: string; // Internal unique ID / GUID
@@ -116,3 +117,29 @@ export const SBU_OPTIONS: SBUOption[] = [
   "CBOS",
   "RAVA"
 ];
+
+export interface IFieldChoices {
+  sbu: string[];
+  cat: string[];
+  currency: string[];
+  payable: string[];
+  cbudget: string[];
+  cb_currency: string[];
+  jv: string[];
+  jv_recoverable: string[];
+  jv_budget: string[];
+  status: string[];
+}
+
+export const DEFAULT_FIELD_CHOICES: IFieldChoices = {
+  sbu: ["RJ North", "RJ South", "CBOS", "RAVA"],
+  cat: ["Vital", "Essential", "Desirable"],
+  currency: ["USD", "INR"],
+  payable: ["Payback", "Non Payback"],
+  cbudget: ["Yes", "No", "Partially"],
+  cb_currency: ["USD", "INR"],
+  jv: ["Yes", "No", "Under Discussion"],
+  jv_recoverable: ["Yes", "No"],
+  jv_budget: ["Yes", "No"],
+  status: ["Draft", "In Approval", "Approved", "Rejected", "Revised"],
+};

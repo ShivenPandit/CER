@@ -1,6 +1,6 @@
 import React from "react";
 import { Landmark, Users, AlertCircle } from "lucide-react";
-import { ICERProposal } from "../../models/CERModel";
+import { ICERProposal, IFieldChoices } from "../../models/CERModel";
 import { FormErrors } from "../../utils/cerValidation";
 
 interface IBudgetJVSectionProps {
@@ -10,6 +10,7 @@ interface IBudgetJVSectionProps {
   errors?: FormErrors;
   touched?: Record<string, boolean>;
   isReadOnly?: boolean;
+  fieldChoices?: IFieldChoices;
 }
 
 export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
@@ -19,6 +20,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
   errors = {},
   touched = {},
   isReadOnly = false,
+  fieldChoices,
 }) => {
   const isCorporateBudgeted = formData.cbudget === "Yes";
   const needsCorporateReason = formData.cbudget === "No" || formData.cbudget === "Partially";
@@ -71,9 +73,11 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 onBlur={() => onBlur && onBlur("cbudget")}
                 className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-colors font-medium text-slate-900"
               >
-                <option value="Yes">Yes</option>
-                <option value="No">No</option>
-                <option value="Partially">Partially</option>
+                {(fieldChoices?.cbudget && fieldChoices.cbudget.length > 0 ? fieldChoices.cbudget : ["Yes", "No", "Partially"]).map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
               </select>
               {getFieldError("cbudget") && (
                 <p className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
@@ -177,9 +181,11 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 onBlur={() => onBlur && onBlur("jv")}
                 className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-colors font-medium text-slate-900"
               >
-                <option value="Yes">Yes</option>
-                <option value="No">No</option>
-                <option value="Under Discussion">Under Discussion</option>
+                {(fieldChoices?.jv && fieldChoices.jv.length > 0 ? fieldChoices.jv : ["Yes", "No", "Under Discussion"]).map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
               </select>
               {getFieldError("jv") && (
                 <p className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
@@ -202,8 +208,11 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 onBlur={() => onBlur && onBlur("jv_recoverable")}
                 className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-colors font-medium text-slate-900"
               >
-                <option value="Yes">Yes</option>
-                <option value="No">No</option>
+                {(fieldChoices?.jv_recoverable && fieldChoices.jv_recoverable.length > 0 ? fieldChoices.jv_recoverable : ["Yes", "No"]).map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
               </select>
               {getFieldError("jv_recoverable") && (
                 <p className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
@@ -228,8 +237,11 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 onBlur={() => onBlur && onBlur("jv_budget")}
                 className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-colors font-medium text-slate-900"
               >
-                <option value="Yes">Yes</option>
-                <option value="No">No</option>
+                {(fieldChoices?.jv_budget && fieldChoices.jv_budget.length > 0 ? fieldChoices.jv_budget : ["Yes", "No"]).map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
               </select>
               {getFieldError("jv_budget") && (
                 <p className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">

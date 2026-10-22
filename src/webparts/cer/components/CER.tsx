@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { ICERProps } from "./ICERProps";
-import { ICERProposal } from "../models/CERModel";
+import { ICERProposal, IFieldChoices, DEFAULT_FIELD_CHOICES } from "../models/CERModel";
 import { IAppUser, DEMO_USERS } from "../models/UserModel";
 import { INotificationLog } from "../models/WorkflowModel";
 import { DataServiceFactory } from "../services/DataServiceFactory";
@@ -30,6 +30,7 @@ import { UserManualModal } from "./manual/UserManualModal";
 const CER: React.FC<ICERProps> = (props) => {
   const [dataService] = useState<ICERDataService>(() => DataServiceFactory.getService(props));
   const [proposals, setProposals] = useState<ICERProposal[]>([]);
+  const [fieldChoices, setFieldChoices] = useState<IFieldChoices>(DEFAULT_FIELD_CHOICES);
   // Helper to parse current URL hash into view & proposalId for deep-linking
   const parseHash = (): { view: NavView; proposalId?: string } => {
     const rawHash = window.location.hash.replace(/^#\/?/, "");
@@ -107,12 +108,16 @@ const CER: React.FC<ICERProps> = (props) => {
 
   const loadInitialData = async (): Promise<void> => {
     try {
-      const [propsList, notifs] = await Promise.all([
+      const [propsList, notifs, choices] = await Promise.all([
         dataService.getAllProposals(),
         dataService.getNotificationLogs(),
+        dataService.getFieldChoices(),
       ]);
       setProposals(propsList);
       setNotifications(notifs);
+      if (choices) {
+        setFieldChoices(choices);
+      }
     } catch (e) {
       console.error("[CER] Error loading proposals:", e);
     }
@@ -312,6 +317,7 @@ const CER: React.FC<ICERProps> = (props) => {
           <CreateCERView
             dataService={dataService}
             currentUser={currentUser}
+            fieldChoices={fieldChoices}
             onCancel={handleGoBack}
             onSuccess={(cerprno) => {
               handleRefreshProposals().catch((e) => console.error(e));
@@ -324,6 +330,7 @@ const CER: React.FC<ICERProps> = (props) => {
           <ChangeCERView
             dataService={dataService}
             currentUser={currentUser}
+            fieldChoices={fieldChoices}
             initialProposalId={activeProposalId}
             onCancel={handleGoBack}
             onSuccess={(cerprno) => {
@@ -389,6 +396,7 @@ const CER: React.FC<ICERProps> = (props) => {
           <ReportsView
             proposals={proposals}
             currentUser={currentUser}
+            fieldChoices={fieldChoices}
             onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
             onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
           />

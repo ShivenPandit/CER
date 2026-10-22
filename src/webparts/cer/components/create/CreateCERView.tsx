@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Send, Save, ArrowLeft, CheckCircle2, AlertCircle } from "lucide-react";
-import { ICERProposal } from "../../models/CERModel";
+import { ICERProposal, IFieldChoices } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
 import { ICERAttachment } from "../../models/AttachmentModel";
 import { ICERDataService } from "../../services/ICERDataService";
@@ -20,6 +20,7 @@ interface ICreateCERViewProps {
   currentUser: IAppUser;
   onCancel: () => void;
   onSuccess: (cerprno: string) => void;
+  fieldChoices?: IFieldChoices;
 }
 
 export const CreateCERView: React.FC<ICreateCERViewProps> = ({
@@ -27,6 +28,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
   currentUser,
   onCancel,
   onSuccess,
+  fieldChoices,
 }) => {
   const [formData, setFormData] = useState<ICERProposal>({
     id: "",
@@ -282,6 +284,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         touched={touched}
         onGenerateNewNumber={generateProposalNumber}
         dataService={dataService}
+        fieldChoices={fieldChoices}
       />
 
       {/* Section B — Financial benefits and payback */}
@@ -291,6 +294,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         onBlur={handleFieldBlur}
         errors={errors}
         touched={touched}
+        fieldChoices={fieldChoices}
       />
 
       {/* Section C — Corporate budget & Section D — Joint venture details */}
@@ -300,6 +304,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         onBlur={handleFieldBlur}
         errors={errors}
         touched={touched}
+        fieldChoices={fieldChoices}
       />
 
       {/* Section E — Expenditure phasing */}
