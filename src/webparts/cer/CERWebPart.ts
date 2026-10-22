@@ -88,28 +88,40 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
   protected async onInit(): Promise<void> {
     await super.onInit();
 
-    // 1. Fetch user data before rendering component
-    this._userData = await this.getCurrentUserGroups(
-      this.context.spHttpClient,
-      this.context.pageContext.web.absoluteUrl,
-    );
+    // 1. Synchronously inject CSS rules and DOM observers before any async operations
+    this._injectHideStyles();
+    this._setupDomObserver();
+
+    // Re-enforce full-bleed layout whenever window is resized (e.g. 27-inch displays or orientation changes)
+    window.addEventListener("resize", () => {
+      this._enforceFullBleed();
+    });
 
     document.title = "MIS Repository";
     $("body").addClass("ms-backgroundImage");
 
-    // 2. Inject CSS rules once
-    this._injectHideStyles();
-
-    // 3. Setup dynamic chrome hiding using MutationObserver
-    this._setupDomObserver();
+    // 2. Fetch user data before rendering component
+    this._userData = await this.getCurrentUserGroups(
+      this.context.spHttpClient,
+      this.context.pageContext.web.absoluteUrl,
+    );
   }
 
   public render(): void {
-    this.domElement.style.width = "100%";
-    this.domElement.style.maxWidth = "none";
-    this.domElement.style.boxSizing = "border-box";
-    this.domElement.style.margin = "0";
-    this.domElement.style.padding = "0";
+    this.domElement.style.setProperty("display", "block", "important");
+    this.domElement.style.setProperty("opacity", "1", "important");
+    this.domElement.style.setProperty("visibility", "visible", "important");
+    this.domElement.style.setProperty("width", "100%", "important");
+    this.domElement.style.setProperty("max-width", "none", "important");
+    this.domElement.style.setProperty("min-width", "100%", "important");
+    this.domElement.style.setProperty("min-height", "100vh", "important");
+    this.domElement.style.setProperty("min-height", "100dvh", "important");
+    this.domElement.style.setProperty("box-sizing", "border-box", "important");
+    this.domElement.style.setProperty("margin", "0px", "important");
+    this.domElement.style.setProperty("padding", "0px", "important");
+    this.domElement.style.setProperty("background-color", "#F8FAFC", "important");
+
+    this._enforceFullBleed();
 
     const element: React.ReactElement<ICERProps> =
       React.createElement(CER, {
@@ -131,12 +143,68 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
     this._root.render(element);
   }
 
+  private _enforceFullBleed(): void {
+    try {
+      // Ensure SharePoint page root and app container are visible and full-bleed
+      $(".sp-pageLayout, .sp-pageLayout-sideNav, #spPageChromeAppDiv, #spPageCanvasContent").show();
+
+      let p = this.domElement ? this.domElement.parentElement : null;
+      while (p && p !== document.body && p !== document.documentElement) {
+        p.style.setProperty("display", "block", "important");
+        p.style.setProperty("opacity", "1", "important");
+        p.style.setProperty("visibility", "visible", "important");
+        p.style.setProperty("width", "100%", "important");
+        p.style.setProperty("max-width", "100%", "important");
+        p.style.setProperty("min-width", "100%", "important");
+        p.style.setProperty("min-height", "100%", "important");
+        p.style.setProperty("margin", "0px", "important");
+        p.style.setProperty("padding", "0px", "important");
+        p.style.setProperty("border", "none", "important");
+        p.style.setProperty("box-sizing", "border-box", "important");
+        p.style.setProperty("background-color", "#F8FAFC", "important");
+        p = p.parentElement;
+      }
+
+      const canvasElements = document.querySelectorAll(
+        '.CanvasZone, .CanvasSection, .ControlZone, #spPageCanvasContent, [data-automation-id="CanvasControl"], [data-automation-id="CanvasZone"], [data-automation-id="CanvasSection"], [class*="CanvasSection"], [class*="CanvasZone"], [class*="ControlZone"], [class*="CanvasComponent"]'
+      );
+      canvasElements.forEach((el) => {
+        const htmlEl = el as HTMLElement;
+        htmlEl.style.setProperty("display", "block", "important");
+        htmlEl.style.setProperty("opacity", "1", "important");
+        htmlEl.style.setProperty("visibility", "visible", "important");
+        htmlEl.style.setProperty("max-width", "100%", "important");
+        htmlEl.style.setProperty("width", "100%", "important");
+        htmlEl.style.setProperty("min-width", "100%", "important");
+        htmlEl.style.setProperty("min-height", "100%", "important");
+        htmlEl.style.setProperty("margin", "0px", "important");
+        htmlEl.style.setProperty("padding", "0px", "important");
+        htmlEl.style.setProperty("border", "none", "important");
+        htmlEl.style.setProperty("box-sizing", "border-box", "important");
+        htmlEl.style.setProperty("background-color", "#F8FAFC", "important");
+      });
+    } catch {
+      // ignore
+    }
+  }
+
   private _injectHideStyles(): void {
     const selectors = [
+      "#spTopPlaceholder",
+      ".spTopPlaceholder",
+      'div[data-automation-id="spTopPlaceholder"]',
+      "#spSiteHeader",
+      ".spSiteHeader",
+      'div[data-automation-id="SiteHeader"]',
+      'div[data-automation-id="pageHeader"]',
       "#spCommandBar",
       ".commandBarWrapper",
       "#spLeftNav",
       "#SuiteNavWrapper",
+      "#suiteBarDelta",
+      "#suiteBarTop",
+      "#O365_NavHeader",
+      "#mru_nav_header",
       "#CommentsWrapper",
       "#sp-appBar",
       ".headerRow-107",
@@ -144,11 +212,16 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
       ".fui-Toolbar",
       ".simpleFooterContainer-196",
       ".p_i-Dej_1x34n",
-      'div[data-automation-id="pageHeader"]',
-      'div[data-automation-id="SiteHeader"]',
       'div[data-automation-id="MegaFooter"]',
+      'div[data-automation-id="SimpleFooter"]',
+      'div[data-automation-id="pageBottom"]',
+      'div[data-automation-id="footer"]',
+      'div[data-automation-id="PageFooter"]',
+      'footer[role="contentinfo"]',
+      '.sp-page-footer',
       'div[data-automation-id="gradientBox"]',
       'div[data-automation-id="LeftNavGroups"]',
+      'div[data-automation-id="titleRegionMarker"]',
     ];
 
     this._injectedStyleElement = document.createElement("style");
@@ -157,40 +230,98 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
         display: none !important;
         height: 0 !important;
         min-height: 0 !important;
+        max-height: 0 !important;
         margin: 0 !important;
         padding: 0 !important;
+        border: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
       }
-      .ControlZone, 
-      div[data-automation-id="CanvasControl"],
-      .CanvasZoneSectionContainer,
-      .CanvasZone,
+      html, body {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        height: auto !important;
+        min-height: 100% !important;
+        min-height: 100dvh !important;
+        background-color: #F8FAFC !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        -webkit-overflow-scrolling: touch !important;
+      }
+      div[data-automation-id="contentScrollRegion"],
+      #workbenchPageContent,
+      #spPageChromeAppDiv,
+      .sp-appRoot,
+      .sp-pageLayout,
+      .sp-pageLayout-sideNav {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        height: auto !important;
+        min-height: 100% !important;
+        min-height: 100dvh !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        background-color: #F8FAFC !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        -webkit-overflow-scrolling: touch !important;
+      }
       #spPageCanvasContent,
+      #spPageCanvasContent > div,
+      .SPCanvas,
+      .CanvasZone,
+      .CanvasZoneSectionContainer,
       .CanvasSection,
+      .ControlZone,
+      div[data-automation-id="CanvasControl"],
       div[data-automation-id="CanvasZone"],
       div[data-automation-id="CanvasSection"],
       .CanvasComponent,
+      .Canvas,
+      [class*="CanvasSection"],
+      [class*="CanvasZone"],
+      [class*="ControlZone"],
+      [class*="CanvasControl"],
       [class*="sp-pageLayout"],
+      [class*="pageContent"],
+      [class*="canvasContent"],
+      [data-sp-feature-tag="CERWebPart"],
       .ms-Fabric,
       .ms-Grid,
       .appPart,
       .webPartContainer,
       .root-98 {
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        min-width: 100% !important;
+        min-height: 100% !important;
+        min-height: 100dvh !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-sizing: border-box !important;
+        background-color: #F8FAFC !important;
+      }
+      .CanvasSection-xl12, .CanvasSection-l12, .CanvasSection-m12, .CanvasSection-sm12, .CanvasSection-col {
         max-width: 100% !important;
         width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
-        border-radius: 0 !important;
-        border-top-left-radius: 0 !important;
-        border-top-right-radius: 0 !important;
-        border-bottom-left-radius: 0 !important;
-        border-bottom-right-radius: 0 !important;
-        box-sizing: border-box !important;
       }
-      .od-SiteNav-content, #spSiteHeader, #spCommandBar, [class*="Canvas"] {
+      .od-SiteNav-content, [class*="Canvas"] {
         margin: 0 !important;
         padding: 0 !important;
+        border: none !important;
         max-width: 100% !important;
+        width: 100% !important;
         border-radius: 0 !important;
+        background-color: #F8FAFC !important;
       }
     `;
     document.head.appendChild(this._injectedStyleElement);
@@ -198,17 +329,16 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
 
   private _setupDomObserver(): void {
     const hideExtraNodes = (): void => {
+      // Hide specific chrome elements directly without hiding their parent container
       $(
-        "div[data-automation-id='SimpleFooter'], div[data-automation-id='SiteHeaderOverlay'], div[data-automation-id='gradientBox'], div[data-automation-id='LeftNavGroups']",
-      )
-        .parent()
-        .hide();
-      $("#spCommandBar, .commandBarWrapper").hide();
+        "#spSiteHeader, #spTopPlaceholder, .spTopPlaceholder, div[data-automation-id='SiteHeader'], div[data-automation-id='pageHeader'], div[data-automation-id='SimpleFooter'], div[data-automation-id='SiteHeaderOverlay'], div[data-automation-id='gradientBox'], div[data-automation-id='LeftNavGroups'], #spCommandBar, .commandBarWrapper",
+      ).hide();
+      this._enforceFullBleed();
     };
 
     hideExtraNodes();
 
-    // Observe changes instead of polling via setInterval
+    // Observe changes including attributes and class modifications
     this._domObserver = new MutationObserver(() => {
       hideExtraNodes();
     });
@@ -216,6 +346,8 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
     this._domObserver.observe(document.body, {
       childList: true,
       subtree: true,
+      attributes: true,
+      attributeFilter: ["style", "class"],
     });
   }
 

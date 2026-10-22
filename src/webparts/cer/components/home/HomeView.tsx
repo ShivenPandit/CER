@@ -18,7 +18,7 @@ export const HomeView: React.FC<IHomeViewProps> = ({
   pendingCount = 0,
 }) => {
   return (
-    <div className="w-full max-w-none min-h-full flex flex-col bg-[#F8FAFC]">
+    <div className="w-full max-w-none flex-1 flex flex-col justify-between bg-[#F8FAFC]">
       {/* 1. Full-Width Hero Banner Directly Below Header */}
       <HeroBanner />
 
@@ -32,7 +32,10 @@ export const HomeView: React.FC<IHomeViewProps> = ({
       </div>
 
       {/* 3. Subtle Corporate Footer Line */}
-      <footer className="py-4 2xl:py-6 px-4 sm:px-6 border-t border-slate-200/60 bg-white/50 text-center text-xs 2xl:text-sm text-slate-500 select-none">
+      <footer
+        style={{ backgroundColor: "#F8FAFC", borderTop: "1px solid #E2E8F0" }}
+        className="py-2.5 sm:py-3 px-4 sm:px-6 text-center text-[11px] sm:text-xs text-slate-500 select-none"
+      >
         Capital Expenditure Request (CER) Management System &bull; Secure Enterprise Portal
       </footer>
     </div>

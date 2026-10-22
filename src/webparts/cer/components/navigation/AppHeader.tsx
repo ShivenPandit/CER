@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { IAppUser, DEMO_USERS, UserRole } from "../../models/UserModel";
 import { NavView } from "./Sidebar";
-import vedantaLogo from "../../assets/Vedanta1.png";
+import vedantaLogo from "../../assets/Vedanta.png";
 
 interface IAppHeaderProps {
   currentUser: IAppUser;
@@ -67,48 +67,48 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
   const isHomeActive = currentView === "dashboard";
 
   return (
-    <header className="h-14 sm:h-16 bg-white border-b border-slate-200/90 px-3 xs:px-4 sm:px-6 lg:px-8 flex items-center justify-between shrink-0 shadow-2xs z-30 sticky top-0 w-full select-none">
+    <header className="h-12 sm:h-13 lg:h-14 bg-white border-b border-slate-200/90 px-3 xs:px-4 sm:px-6 lg:px-8 flex items-center justify-between shrink-0 shadow-2xs z-30 sticky top-0 w-full select-none">
       {/* Left side: Back Button + Platform Logo & Titles */}
-      <div className="flex items-center gap-2 sm:gap-3.5 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         {/* Compact Back Button (shown on inner views or when navigation history exists) */}
         {canGoBack && (
           <>
             <button
               onClick={onGoBack}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 cursor-pointer transition-all shadow-xs border border-slate-200 shrink-0"
+              className="flex items-center gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 cursor-pointer transition-all shadow-xs border border-slate-200 shrink-0"
               title="Go back to previous page"
               aria-label="Go Back"
             >
               <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-600" />
               <span className="hidden sm:inline">Back</span>
             </button>
-            <div className="h-5 w-px bg-slate-200 shrink-0 hidden sm:block" />
+            <div className="h-4 sm:h-5 w-px bg-slate-200 shrink-0 hidden sm:block" />
           </>
         )}
 
         {/* Brand Link (Clicking logo / title returns to home) */}
         <div
           onClick={() => onNavigate("dashboard")}
-          className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group min-w-0"
+          className="flex items-center gap-2 sm:gap-2.5 cursor-pointer group min-w-0"
             role="button"
             tabIndex={0}
             title="Return to Home"
           >
             {/* Official Vedanta Logo */}
-            <div className="shrink-0 flex items-center pr-1">
+            <div className="shrink-0 flex items-center pr-0.5">
               <img
                 src={vedantaLogo}
                 alt="Vedanta"
-                className="h-7 sm:h-8 md:h-9 w-auto max-w-[130px] sm:max-w-[150px] md:max-w-[170px] object-contain transform group-hover:scale-105 transition-transform"
+                className="h-6 sm:h-7 md:h-8 w-auto max-w-[140px] sm:max-w-[175px] md:max-w-[210px] object-contain transform group-hover:scale-105 transition-transform"
               />
             </div>
 
             {/* Titles */}
             <div className="min-w-0 flex flex-col justify-center">
-              <h1 className="text-xs xs:text-sm sm:text-base lg:text-[17px] font-bold text-[#0A1E38] tracking-tight leading-tight truncate group-hover:text-blue-700 transition-colors max-w-[155px] xs:max-w-[220px] sm:max-w-none">
+              <h1 className="text-xs xs:text-sm sm:text-[15px] lg:text-base font-bold text-[#0A1E38] tracking-tight leading-tight truncate group-hover:text-blue-700 transition-colors max-w-[155px] xs:max-w-[220px] sm:max-w-none">
                 Capital Expenditure Request (CER)
               </h1>
-              <p className="hidden xs:block text-[10px] sm:text-xs md:text-[13px] font-medium text-slate-500 tracking-tight leading-none mt-0.5 truncate">
+              <p className="hidden xs:block text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500 tracking-tight leading-none mt-0.5 truncate">
                 Management System
               </p>
             </div>
@@ -116,11 +116,11 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
         </div>
 
         {/* Right side: Home, Date, Notification Bell, User Avatar */}
-        <div className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 lg:gap-3 shrink-0">
+        <div className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 lg:gap-2.5 shrink-0">
           {/* Home Navigation Indicator */}
           <button
             onClick={() => onNavigate("dashboard")}
-            className={`flex items-center gap-1 xs:gap-1.5 p-1.5 xs:px-2.5 xs:py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all relative ${
+            className={`flex items-center gap-1 xs:gap-1.5 p-1 xs:px-2 xs:py-1 rounded-lg text-xs sm:text-sm font-semibold transition-all relative ${
               isHomeActive
                 ? "text-blue-700 font-bold"
                 : "text-slate-600 hover:text-blue-600 hover:bg-slate-50"
@@ -130,12 +130,12 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
             <Home className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isHomeActive ? "text-blue-600" : "text-slate-500"}`} />
             <span className="hidden md:inline">Home</span>
             {isHomeActive && (
-              <span className="absolute bottom-[-10px] sm:bottom-[-14px] inset-x-1.5 h-0.5 bg-blue-600 rounded-full" />
+              <span className="absolute bottom-[-10px] sm:bottom-[-11px] lg:bottom-[-13px] inset-x-1 h-0.5 bg-blue-600 rounded-full" />
             )}
           </button>
 
           {/* Separator */}
-          <div className="h-4 sm:h-5 w-px bg-slate-200 mx-0.5 hidden sm:block" />
+          <div className="h-3.5 sm:h-4 w-px bg-slate-200 mx-0.5 hidden sm:block" />
 
           {/* Current Date Display (Desktop & large screens) */}
           <div className="hidden lg:flex items-center gap-1.5 text-xs font-medium text-slate-600 px-1">
@@ -144,29 +144,27 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
           </div>
 
           {/* Separator */}
-          <div className="h-4 sm:h-5 w-px bg-slate-200 mx-0.5 hidden lg:block" />
+          <div className="h-3.5 sm:h-4 w-px bg-slate-200 mx-0.5 hidden lg:block" />
 
           {/* Notification Bell with Badge */}
           <button
             onClick={onOpenNotifications}
-            className="relative p-1.5 sm:p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0"
+            className="relative p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0"
             title="Workflow Notification History"
             aria-label="Workflow Notifications"
           >
-            <Bell className="w-4 h-4 text-slate-700" />
+            <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-700" />
             {notificationCount > 0 ? (
-              <span className="absolute top-0.5 right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-white shadow-xs">
+              <span className="absolute top-0 right-0 min-w-[15px] h-[15px] px-0.5 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-white shadow-xs">
                 {notificationCount > 99 ? "99+" : notificationCount}
               </span>
             ) : (
-              <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-white shadow-xs">
-                3
-              </span>
+              <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
             )}
           </button>
 
           {/* Separator */}
-          <div className="h-4 sm:h-5 w-px bg-slate-200 mx-0.5" />
+          <div className="h-3.5 sm:h-4 w-px bg-slate-200 mx-0.5" />
 
           {/* Authenticated User Profile & Persona Switcher */}
           <div className="relative shrink-0">
@@ -179,7 +177,7 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
 
             <button
               onClick={() => setShowUserDropdown(!showUserDropdown)}
-              className={`relative z-50 flex items-center gap-1.5 sm:gap-2 py-0.5 sm:py-1 pl-0.5 sm:pl-1 pr-1.5 sm:pr-2.5 rounded-full border transition-all text-left ${
+              className={`relative z-50 flex items-center gap-1.5 py-0.5 pl-0.5 pr-1.5 sm:pr-2 rounded-full border transition-all text-left ${
                 showUserDropdown
                   ? "bg-slate-100 border-slate-300 ring-2 ring-slate-200"
                   : "bg-white hover:bg-slate-50 border-slate-200/90 shadow-2xs"
@@ -187,7 +185,7 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
               title="User Profile & Persona Switcher"
             >
               {/* Dark Navy Avatar Monogram Circle */}
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#0A1E38] text-white flex items-center justify-center font-bold text-[11px] sm:text-xs tracking-tight shrink-0 shadow-xs">
+              <div className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full bg-[#0A1E38] text-white flex items-center justify-center font-bold text-[10px] sm:text-[11px] tracking-tight shrink-0 shadow-xs">
                 {initials}
               </div>
 
@@ -199,7 +197,7 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
               </div>
 
               <ChevronDown
-                className={`w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-500 transition-transform duration-200 shrink-0 ${
+                className={`w-3 h-3 text-slate-500 transition-transform duration-200 shrink-0 ${
                   showUserDropdown ? "rotate-180 text-slate-800" : ""
                 }`}
               />

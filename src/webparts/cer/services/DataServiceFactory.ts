@@ -7,14 +7,23 @@ let cachedService: ICERDataService | null = null;
 
 export class DataServiceFactory {
   public static getService(props?: ICERProps): ICERDataService {
-    if (cachedService) {
+    // If live SharePoint context is active, always ensure live SharePointCERDataService is used
+    if (
+      props &&
+      props.newspHttpClient &&
+      props.newsiteUrl &&
+      props.newsiteUrl.indexOf("http") === 0
+    ) {
+      if (!cachedService || !(cachedService instanceof SharePointCERDataService)) {
+        cachedService = new SharePointCERDataService(
+          props.newspHttpClient,
+          props.newsiteUrl,
+        );
+      }
       return cachedService;
     }
 
-    // Check if live SharePoint context is active
-    if (props && props.newspHttpClient && props.newsiteUrl && props.newsiteUrl.indexOf("http") === 0) {
-      cachedService = new SharePointCERDataService(props.newspHttpClient, props.newsiteUrl);
-    } else {
+    if (!cachedService) {
       cachedService = new LocalMockCERDataService();
     }
 

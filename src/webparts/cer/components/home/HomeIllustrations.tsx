@@ -75,8 +75,8 @@ export const RigHeaderIcon: React.FC<{ className?: string; size?: number }> = ({
 
 // Card 1: Create CER Request Illustration
 export const CreateCERIllustration: React.FC<{ className?: string }> = ({ className = "" }) => (
-  <div className={`relative w-24 h-24 xs:w-28 xs:h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 2xl:w-44 2xl:h-44 flex items-center justify-center select-none shrink-0 ${className}`}>
-    <div className="relative w-36 h-36 flex items-center justify-center transform scale-[0.68] xs:scale-[0.78] sm:scale-[0.9] md:scale-100 2xl:scale-120 origin-center sm:origin-right transition-transform">
+  <div className={`relative w-16 h-16 xs:w-18 xs:h-18 sm:w-20 sm:h-20 md:w-22 md:h-22 lg:w-24 lg:h-24 2xl:w-36 2xl:h-36 flex items-center justify-center select-none shrink-0 ${className}`}>
+    <div className="relative w-36 h-36 flex items-center justify-center transform scale-[0.48] xs:scale-[0.54] sm:scale-[0.6] md:scale-[0.68] lg:scale-[0.72] 2xl:scale-100 origin-center sm:origin-right transition-transform">
       {/* Soft fluid background waves */}
       <svg className="absolute inset-0 w-full h-full" viewBox="0 0 160 160" fill="none">
         <path
@@ -126,8 +126,8 @@ export const CreateCERIllustration: React.FC<{ className?: string }> = ({ classN
 
 // Card 2: My CER Request Illustration
 export const MyRequestsIllustration: React.FC<{ className?: string }> = ({ className = "" }) => (
-  <div className={`relative w-24 h-24 xs:w-28 xs:h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 2xl:w-44 2xl:h-44 flex items-center justify-center select-none shrink-0 ${className}`}>
-    <div className="relative w-40 h-36 flex items-center justify-center transform scale-[0.65] xs:scale-[0.75] sm:scale-[0.85] md:scale-100 2xl:scale-120 origin-center sm:origin-right transition-transform">
+  <div className={`relative w-16 h-16 xs:w-18 xs:h-18 sm:w-20 sm:h-20 md:w-22 md:h-22 lg:w-24 lg:h-24 2xl:w-36 2xl:h-36 flex items-center justify-center select-none shrink-0 ${className}`}>
+    <div className="relative w-40 h-36 flex items-center justify-center transform scale-[0.46] xs:scale-[0.52] sm:scale-[0.58] md:scale-[0.65] lg:scale-[0.7] 2xl:scale-100 origin-center sm:origin-right transition-transform">
       {/* Soft fluid mint waves */}
       <svg className="absolute inset-0 w-full h-full" viewBox="0 0 160 160" fill="none">
         <path
@@ -193,8 +193,8 @@ export const MyRequestsIllustration: React.FC<{ className?: string }> = ({ class
 
 // Card 3: My CER Approvals Illustration
 export const ApprovalsIllustration: React.FC<{ className?: string }> = ({ className = "" }) => (
-  <div className={`relative w-24 h-24 xs:w-28 xs:h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 2xl:w-44 2xl:h-44 flex items-center justify-center select-none shrink-0 ${className}`}>
-    <div className="relative w-40 h-36 flex items-center justify-center transform scale-[0.65] xs:scale-[0.75] sm:scale-[0.85] md:scale-100 2xl:scale-120 origin-center sm:origin-right transition-transform">
+  <div className={`relative w-16 h-16 xs:w-18 xs:h-18 sm:w-20 sm:h-20 md:w-22 md:h-22 lg:w-24 lg:h-24 2xl:w-36 2xl:h-36 flex items-center justify-center select-none shrink-0 ${className}`}>
+    <div className="relative w-40 h-36 flex items-center justify-center transform scale-[0.46] xs:scale-[0.52] sm:scale-[0.58] md:scale-[0.65] lg:scale-[0.7] 2xl:scale-100 origin-center sm:origin-right transition-transform">
       {/* Soft warm amber waves */}
       <svg className="absolute inset-0 w-full h-full" viewBox="0 0 160 160" fill="none">
         <path
@@ -267,8 +267,8 @@ export const ApprovalsIllustration: React.FC<{ className?: string }> = ({ classN
 
 // Card 4: Report and Dashboard Illustration
 export const ReportsIllustration: React.FC<{ className?: string }> = ({ className = "" }) => (
-  <div className={`relative w-24 h-24 xs:w-28 xs:h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 2xl:w-44 2xl:h-44 flex items-center justify-center select-none shrink-0 ${className}`}>
-    <div className="relative w-40 h-36 flex items-center justify-center transform scale-[0.65] xs:scale-[0.75] sm:scale-[0.85] md:scale-100 2xl:scale-120 origin-center sm:origin-right transition-transform">
+  <div className={`relative w-16 h-16 xs:w-18 xs:h-18 sm:w-20 sm:h-20 md:w-22 md:h-22 lg:w-24 lg:h-24 2xl:w-36 2xl:h-36 flex items-center justify-center select-none shrink-0 ${className}`}>
+    <div className="relative w-40 h-36 flex items-center justify-center transform scale-[0.46] xs:scale-[0.52] sm:scale-[0.58] md:scale-[0.65] lg:scale-[0.7] 2xl:scale-100 origin-center sm:origin-right transition-transform">
       {/* Soft lavender waves */}
       <svg className="absolute inset-0 w-full h-full" viewBox="0 0 160 160" fill="none">
         <path
@@ -323,8 +323,8 @@ export const ReportsIllustration: React.FC<{ className?: string }> = ({ classNam
 
 // Card 5: Admin Page Illustration
 export const AdminIllustration: React.FC<{ className?: string }> = ({ className = "" }) => (
-  <div className={`relative w-24 h-24 xs:w-28 xs:h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 2xl:w-44 2xl:h-44 flex items-center justify-center select-none shrink-0 ${className}`}>
-    <div className="relative w-40 h-36 flex items-center justify-center transform scale-[0.65] xs:scale-[0.75] sm:scale-[0.85] md:scale-100 2xl:scale-120 origin-center sm:origin-right transition-transform">
+  <div className={`relative w-16 h-16 xs:w-18 xs:h-18 sm:w-20 sm:h-20 md:w-22 md:h-22 lg:w-24 lg:h-24 2xl:w-36 2xl:h-36 flex items-center justify-center select-none shrink-0 ${className}`}>
+    <div className="relative w-40 h-36 flex items-center justify-center transform scale-[0.46] xs:scale-[0.52] sm:scale-[0.58] md:scale-[0.65] lg:scale-[0.7] 2xl:scale-100 origin-center sm:origin-right transition-transform">
       {/* Soft pink/rose waves */}
       <svg className="absolute inset-0 w-full h-full" viewBox="0 0 160 160" fill="none">
         <path
@@ -396,8 +396,8 @@ export const AdminIllustration: React.FC<{ className?: string }> = ({ className 
 
 // Card 6: User Manual Illustration
 export const UserManualIllustration: React.FC<{ className?: string }> = ({ className = "" }) => (
-  <div className={`relative w-24 h-24 xs:w-28 xs:h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 2xl:w-44 2xl:h-44 flex items-center justify-center select-none shrink-0 ${className}`}>
-    <div className="relative w-40 h-36 flex items-center justify-center transform scale-[0.65] xs:scale-[0.75] sm:scale-[0.85] md:scale-100 2xl:scale-120 origin-center sm:origin-right transition-transform">
+  <div className={`relative w-16 h-16 xs:w-18 xs:h-18 sm:w-20 sm:h-20 md:w-22 md:h-22 lg:w-24 lg:h-24 2xl:w-36 2xl:h-36 flex items-center justify-center select-none shrink-0 ${className}`}>
+    <div className="relative w-40 h-36 flex items-center justify-center transform scale-[0.46] xs:scale-[0.52] sm:scale-[0.58] md:scale-[0.65] lg:scale-[0.7] 2xl:scale-100 origin-center sm:origin-right transition-transform">
       {/* Soft cyan waves */}
       <svg className="absolute inset-0 w-full h-full" viewBox="0 0 160 160" fill="none">
         <path

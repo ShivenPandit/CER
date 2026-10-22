@@ -131,9 +131,11 @@ const CER: React.FC<ICERProps> = (props) => {
       if (route.view !== "display" && route.view !== "change") {
         setActiveParentView(route.view);
       }
-      if (mainScrollRef.current) {
-        mainScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+      const spScrollRegion = document.querySelector('div[data-automation-id="contentScrollRegion"]');
+      if (spScrollRegion && typeof (spScrollRegion as any).scrollTo === "function") {
+        (spScrollRegion as any).scrollTo({ top: 0, behavior: "smooth" });
       }
+      window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
     window.addEventListener("hashchange", handleHashChange);
@@ -270,21 +272,10 @@ const CER: React.FC<ICERProps> = (props) => {
     return false;
   }).length;
 
-  // Forward wheel scrolling from header to main content
-  useEffect(() => {
-    const handleWindowWheel = (e: WheelEvent): void => {
-      if (mainScrollRef.current && !mainScrollRef.current.contains(e.target as Node)) {
-        mainScrollRef.current.scrollBy({ top: e.deltaY, behavior: "auto" });
-      }
-    };
-    window.addEventListener("wheel", handleWindowWheel, { passive: true });
-    return () => window.removeEventListener("wheel", handleWindowWheel);
-  }, []);
-
   return (
     <div
-      className="flex flex-col h-screen h-[100dvh] max-h-screen max-h-[100dvh] w-full max-w-none overflow-hidden bg-[#F8FAFC] font-sans text-slate-800 antialiased selection:bg-blue-600 selection:text-white"
-      style={{ height: "100vh", maxHeight: "100vh" }}
+      style={{ minHeight: "100dvh", backgroundColor: "#F8FAFC" }}
+      className="flex flex-col min-h-screen w-full max-w-none bg-[#F8FAFC] font-sans text-slate-800 antialiased selection:bg-blue-600 selection:text-white"
     >
       {/* Top Header matching reference screenshot */}
       <AppHeader
@@ -298,17 +289,12 @@ const CER: React.FC<ICERProps> = (props) => {
         notificationCount={notifications.length}
       />
 
-      {/* Main Content Area - Full Viewport Width with Dedicated Smooth Scrolling on All Pages */}
+      {/* Main Content Area - Full Document Flow with Natural Scrolling */}
       <main
         ref={mainScrollRef as any}
         id="cer-main-scroll"
-        tabIndex={0}
-        style={{
-          WebkitOverflowScrolling: "touch",
-          touchAction: "pan-y",
-          overscrollBehaviorY: "contain",
-        }}
-        className={`flex-1 overflow-y-auto overflow-x-hidden w-full max-w-none min-w-0 touch-pan-y outline-none ${
+        style={{ backgroundColor: "#F8FAFC" }}
+        className={`flex-1 w-full max-w-none min-w-0 flex flex-col ${
           currentView === "dashboard" ? "p-0" : "p-3 sm:p-5 lg:p-6 2xl:p-8"
         }`}
       >
