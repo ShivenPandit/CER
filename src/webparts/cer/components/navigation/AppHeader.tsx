@@ -4,7 +4,6 @@ import {
   Calendar as CalendarIcon,
   Bell,
   ChevronDown,
-  ArrowLeft,
   UserCheck,
 } from "lucide-react";
 import { IAppUser, DEMO_USERS, UserRole } from "../../models/UserModel";
@@ -15,8 +14,8 @@ interface IAppHeaderProps {
   currentUser: IAppUser;
   currentView: NavView;
   onNavigate: (view: NavView, proposalId?: string) => void;
-  onGoBack: () => void;
-  canGoBack: boolean;
+  onGoBack?: () => void;
+  canGoBack?: boolean;
   onSelectUser: (user: IAppUser) => void;
   onOpenNotifications: () => void;
   notificationCount: number;
@@ -25,8 +24,6 @@ interface IAppHeaderProps {
 export const AppHeader: React.FC<IAppHeaderProps> = ({
   currentUser,
   currentView,
-  onGoBack,
-  canGoBack,
   onNavigate,
   onSelectUser,
   onOpenNotifications,
@@ -68,24 +65,8 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
 
   return (
     <header className="h-12 sm:h-13 lg:h-14 bg-white border-b border-slate-200/90 px-3 xs:px-4 sm:px-6 lg:px-8 flex items-center justify-between shrink-0 shadow-2xs z-30 sticky top-0 w-full select-none">
-      {/* Left side: Back Button + Platform Logo & Titles */}
+      {/* Left side: Platform Logo & Titles */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-        {/* Compact Back Button (shown on inner views or when navigation history exists) */}
-        {canGoBack && (
-          <>
-            <button
-              onClick={onGoBack}
-              className="flex items-center gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 cursor-pointer transition-all shadow-xs border border-slate-200 shrink-0"
-              title="Go back to previous page"
-              aria-label="Go Back"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-600" />
-              <span className="hidden sm:inline">Back</span>
-            </button>
-            <div className="h-4 sm:h-5 w-px bg-slate-200 shrink-0 hidden sm:block" />
-          </>
-        )}
-
         {/* Brand Link (Clicking logo / title returns to home) */}
         <div
           onClick={() => onNavigate("dashboard")}

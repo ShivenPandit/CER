@@ -3980,10 +3980,6 @@ video {
     display: inline-block;
   }
 
-  .sm\:inline {
-    display: inline;
-  }
-
   .sm\:flex {
     display: flex;
   }
@@ -4006,10 +4002,6 @@ video {
 
   .sm\:h-4 {
     height: 1rem;
-  }
-
-  .sm\:h-5 {
-    height: 1.25rem;
   }
 
   .sm\:h-6 {
@@ -4204,11 +4196,6 @@ video {
 
   .sm\:p-6 {
     padding: 1.5rem;
-  }
-
-  .sm\:px-2\.5 {
-    padding-left: 0.625rem;
-    padding-right: 0.625rem;
   }
 
   .sm\:px-4 {
