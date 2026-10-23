@@ -6,15 +6,15 @@ const fs = require("fs");
 const path = require("path");
 
 // Color helpers for terminal output
-const green = (msg: string) => `\x1b[32m${msg}\x1b[0m`;
-const red = (msg: string) => `\x1b[31m${msg}\x1b[0m`;
-const cyan = (msg: string) => `\x1b[36m${msg}\x1b[0m`;
-const bold = (msg: string) => `\x1b[1m${msg}\x1b[0m`;
+const green = (msg: string): string => `\x1b[32m${msg}\x1b[0m`;
+const red = (msg: string): string => `\x1b[31m${msg}\x1b[0m`;
+const cyan = (msg: string): string => `\x1b[36m${msg}\x1b[0m`;
+const bold = (msg: string): string => `\x1b[1m${msg}\x1b[0m`;
 
 let passed = 0;
 let failed = 0;
 
-function assert(condition: boolean, desc: string) {
+function assert(condition: boolean, desc: string): void {
   if (condition) {
     console.log(`  ${green("✔ [PASS]")} ${desc}`);
     passed++;
@@ -128,9 +128,11 @@ for (const vp of viewports) {
   if (vp.width <= 1440) {
     assert(cardTitlePx <= 16, `${vp.name}: Card title stays compact (${cardTitlePx.toFixed(1)}px <= 16px)`);
     assert(cardDescPx <= 12.5, `${vp.name}: Card description stays compact (${cardDescPx.toFixed(1)}px <= 12.5px)`);
+    assert(actionLinkPx <= 13, `${vp.name}: Action link stays compact (${actionLinkPx.toFixed(1)}px <= 13px)`);
   } else {
     assert(cardTitlePx >= 20, `${vp.name}: Card title is prominent on large screen (${cardTitlePx.toFixed(1)}px >= 20px)`);
     assert(cardDescPx >= 15, `${vp.name}: Card description is legible on large screen (${cardDescPx.toFixed(1)}px >= 15px)`);
+    assert(actionLinkPx >= 15, `${vp.name}: Action link is prominent on large screen (${actionLinkPx.toFixed(1)}px >= 15px)`);
   }
 }
 
@@ -139,5 +141,5 @@ console.log(bold(`TOTAL TESTS: ${passed + failed} | ${green(`PASSED: ${passed}`)
 console.log(bold(cyan("================================================================================\n")));
 
 if (failed > 0) {
-  (process as any).exit(1);
+  (process as unknown as { exit: (code?: number) => void }).exit(1);
 }

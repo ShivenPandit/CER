@@ -105,8 +105,8 @@ describe("CER Management System - Business Logic & Requirements Tests", () => {
     };
 
     const result = await service.updateProposal(modified, {
-      name: "Quality Assurance Auditor",
-      email: "qa@vedanta.co.in",
+      name: existing.owname,
+      email: existing.owner_email,
     });
 
     expect(result.success).toBe(true);
