@@ -488,7 +488,16 @@ Every choice column used in the application is cataloged below with its exact ca
    - Grant **Read** to all authenticated portal users (so that client session can resolve current identity permissions).
    - Prohibit direct item edits by non-admins.
 4. **Seed Initial Roles (Essential for initial access and workflow testing)**:
-   - **Item 1 (Administrator Bootstrap)**:
+   - **Item 1 (System Administrator)**:
+     - `Title`: `Admin (70007144)`
+     - `user_email`: `70007144@cairnindia.com`
+     - `login_name`: `70007144@cairnindia.com`
+     - `role`: `Admin`
+     - `department`: `Enterprise Administration`
+     - `is_active`: `Yes`
+     - `assigned_by`: `System Bootstrap`
+     - `assigned_date`: *(Current date)*
+   - **Item 2 (Administrator Bootstrap)**:
      - `Title`: `Priya Kalekar (STL Digital)`
      - `user_email`: `Priya.Kalekar@cairnindia.com`
      - `login_name`: `Priya.Kalekar@cairnindia.com`

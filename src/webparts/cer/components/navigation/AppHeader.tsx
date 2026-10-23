@@ -68,9 +68,9 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
   const isHomeActive = currentView === "dashboard";
 
   return (
-    <header className="h-12 sm:h-13 lg:h-14 bg-white border-b border-slate-200/90 px-3 xs:px-4 sm:px-6 lg:px-8 flex items-center justify-between shrink-0 shadow-2xs z-30 sticky top-0 w-full select-none">
+    <header className="h-11 sm:h-11.5 lg:h-12 bg-white border-b border-slate-200/90 px-3 xs:px-4 sm:px-5 lg:px-6 xl:px-8 flex items-center justify-between shrink-0 shadow-2xs z-30 sticky top-0 w-full select-none">
       {/* Left side: Platform Logo & Titles */}
-      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
         {/* Brand Link (Clicking logo / title returns to home) */}
         <div
           onClick={() => onNavigate("dashboard")}
@@ -84,16 +84,16 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
               <img
                 src={vedantaLogo}
                 alt="Vedanta"
-                className="h-6 sm:h-7 md:h-8 w-auto max-w-[140px] sm:max-w-[175px] md:max-w-[210px] object-contain transform group-hover:scale-105 transition-transform"
+                className="h-5 sm:h-6 md:h-6.5 w-auto max-w-[130px] sm:max-w-[160px] md:max-w-[185px] object-contain transform group-hover:scale-105 transition-transform"
               />
             </div>
 
             {/* Titles */}
             <div className="min-w-0 flex flex-col justify-center">
-              <h1 className="text-xs xs:text-sm sm:text-[15px] lg:text-base font-bold text-[#0A1E38] tracking-tight leading-tight truncate group-hover:text-blue-700 transition-colors max-w-[155px] xs:max-w-[220px] sm:max-w-none">
+              <h1 className="text-xs xs:text-[13px] sm:text-[14px] lg:text-[15px] font-bold text-[#0A1E38] tracking-tight leading-tight truncate group-hover:text-blue-700 transition-colors max-w-[155px] xs:max-w-[220px] sm:max-w-none">
                 Capital Expenditure Request (CER)
               </h1>
-              <p className="hidden xs:block text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500 tracking-tight leading-none mt-0.5 truncate">
+              <p className="hidden xs:block text-[8.5px] sm:text-[9.5px] md:text-[10px] font-medium text-slate-500 tracking-tight leading-none mt-0.5 truncate">
                 Management System
               </p>
             </div>
@@ -115,7 +115,7 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
             <Home className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isHomeActive ? "text-blue-600" : "text-slate-500"}`} />
             <span className="hidden md:inline">Home</span>
             {isHomeActive && (
-              <span className="absolute bottom-[-10px] sm:bottom-[-11px] lg:bottom-[-13px] inset-x-1 h-0.5 bg-blue-600 rounded-full" />
+              <span className="absolute bottom-[-9px] sm:bottom-[-10px] lg:bottom-[-11px] inset-x-1 h-0.5 bg-blue-600 rounded-full" />
             )}
           </button>
 

@@ -5,7 +5,7 @@ import { IAppUser } from "../models/UserModel";
 import { INotificationLog } from "../models/WorkflowModel";
 import { DataServiceFactory } from "../services/DataServiceFactory";
 import { ICERDataService } from "../services/ICERDataService";
-import { AuthService } from "../services/AuthService";
+import { AuthService, isDesignatedAdmin } from "../services/AuthService";
 import { PermissionService } from "../services/PermissionService";
 
 // Navigation
@@ -80,17 +80,20 @@ const CER: React.FC<ICERProps> = (props) => {
   });
 
   // Initialize current user from authenticated SharePoint context
-  const [currentUser, setCurrentUser] = useState<IAppUser>(() => ({
-    id: props.newcurrentUserId || 1,
-    name: props.newcurrentUserName || "Authenticated Portal User",
-    email: props.newcurrentUserEmail || "",
-    loginName: props.newcurrentUserLoginName || "",
-    role: "Initiator",
-    roles: ["Initiator"],
-    is_active: true,
-    department: "CER Management Portal",
-    isSiteAdmin: props.newisSiteAdmin || false,
-  }));
+  const [currentUser, setCurrentUser] = useState<IAppUser>(() => {
+    const isAdmin = isDesignatedAdmin(props.newcurrentUserEmail) || isDesignatedAdmin(props.newcurrentUserLoginName);
+    return {
+      id: props.newcurrentUserId || 1,
+      name: props.newcurrentUserName || (isAdmin ? "Admin (70007144)" : "Authenticated Portal User"),
+      email: props.newcurrentUserEmail || "",
+      loginName: props.newcurrentUserLoginName || "",
+      role: isAdmin ? "Admin" : "Initiator",
+      roles: isAdmin ? ["Admin", "Initiator"] : ["Initiator"],
+      is_active: true,
+      department: "CER Management Portal",
+      isSiteAdmin: props.newisSiteAdmin || isAdmin,
+    };
+  });
 
   // Resolve user's actual roles from CER_UserRoles with controlled first-Admin bootstrapping
   useEffect(() => {
@@ -318,8 +321,13 @@ const CER: React.FC<ICERProps> = (props) => {
 
   return (
     <div
-      style={{ minHeight: "100dvh", backgroundColor: "#F8FAFC" }}
-      className="flex flex-col min-h-screen w-full max-w-none bg-[#F8FAFC] font-sans text-slate-800 antialiased selection:bg-blue-600 selection:text-white"
+      style={{
+        minHeight: currentView === "dashboard" ? undefined : "100dvh",
+        backgroundColor: "#F8FAFC",
+      }}
+      className={`flex flex-col w-full max-w-none bg-[#F8FAFC] font-sans text-slate-800 antialiased selection:bg-blue-600 selection:text-white ${
+        currentView === "dashboard" ? "" : "min-h-screen"
+      }`}
     >
       {/* Top Header matching reference screenshot */}
       <AppHeader

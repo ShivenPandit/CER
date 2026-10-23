@@ -20,6 +20,17 @@ const STORAGE_KEYS = {
 
 const DEFAULT_USER_ROLES: IUserRoleAssignment[] = [
   {
+    id: "role-admin-70007144",
+    user_name: "Admin (70007144)",
+    user_email: "70007144@cairnindia.com",
+    login_name: "70007144@cairnindia.com",
+    role: "Admin",
+    department: "Enterprise Administration",
+    is_active: true,
+    assigned_by: "SYSTEM_INITIAL_BOOTSTRAP",
+    assigned_date: "2026-01-01T00:00:00Z",
+  },
+  {
     id: "role-001",
     user_name: "Priya Kalekar (STL Digital)",
     user_email: "Priya.Kalekar@cairnindia.com",
@@ -527,6 +538,25 @@ export class LocalMockCERDataService implements ICERDataService {
       const storedRoles = getStoredItem(STORAGE_KEYS.USER_ROLES);
       if (storedRoles) {
         this._userRoles = JSON.parse(storedRoles);
+        // Ensure 70007144@cairnindia.com is always present as an active Admin
+        const has70007144 = this._userRoles.some(
+          r => (r.user_email && r.user_email.toLowerCase() === "70007144@cairnindia.com") ||
+               (r.login_name && r.login_name.toLowerCase() === "70007144@cairnindia.com")
+        );
+        if (!has70007144) {
+          this._userRoles.unshift({
+            id: "role-admin-70007144",
+            user_name: "Admin (70007144)",
+            user_email: "70007144@cairnindia.com",
+            login_name: "70007144@cairnindia.com",
+            role: "Admin",
+            department: "Enterprise Administration",
+            is_active: true,
+            assigned_by: "SYSTEM_INITIAL_BOOTSTRAP",
+            assigned_date: "2026-01-01T00:00:00Z",
+          });
+          this._saveToStorage(STORAGE_KEYS.USER_ROLES, this._userRoles);
+        }
       } else {
         this._userRoles = [...DEFAULT_USER_ROLES];
         this._saveToStorage(STORAGE_KEYS.USER_ROLES, this._userRoles);

@@ -75,380 +75,442 @@ export const RigHeaderIcon: React.FC<{ className?: string; size?: number }> = ({
 
 // Card 1: Create CER Request Illustration
 export const CreateCERIllustration: React.FC<{ className?: string }> = ({ className = "" }) => (
-  <div className={`relative w-16 h-16 xs:w-18 xs:h-18 sm:w-20 sm:h-20 md:w-22 md:h-22 lg:w-24 lg:h-24 2xl:w-36 2xl:h-36 flex items-center justify-center select-none shrink-0 ${className}`}>
-    <div className="relative w-36 h-36 flex items-center justify-center transform scale-[0.48] xs:scale-[0.54] sm:scale-[0.6] md:scale-[0.68] lg:scale-[0.72] 2xl:scale-100 origin-center sm:origin-right transition-transform">
-      {/* Soft fluid background waves */}
-      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 160 160" fill="none">
-        <path
-          d="M20 100C40 70 80 85 110 65C135 48 150 75 155 110C160 140 120 155 90 150C50 145 10 130 20 100Z"
-          fill="#BFDBFE"
-          fillOpacity="0.45"
-        />
-        <path
-          d="M40 115C60 95 100 105 125 90C145 78 155 100 150 125C145 145 115 155 85 152C55 150 30 135 40 115Z"
-          fill="#93C5FD"
-          fillOpacity="0.35"
-        />
-      </svg>
+  <svg
+    viewBox="0 0 100 100"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={`shrink-0 select-none ${className}`}
+    aria-label="Create CER Request Illustration"
+  >
+    <defs>
+      <filter id="cerDocShadow" x="-15%" y="-15%" width="135%" height="135%">
+        <feDropShadow dx="0" dy="2.5" stdDeviation="3" floodColor="#0F172A" floodOpacity="0.10" />
+      </filter>
+      <filter id="btnShadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="2" stdDeviation="2.5" floodColor="#1D4ED8" floodOpacity="0.28" />
+      </filter>
+    </defs>
 
-      {/* The White CER Document Sheet */}
-      <div className="relative z-10 w-24 h-30 bg-white rounded-xl shadow-md border border-blue-100/80 p-2.5 flex flex-col justify-between transform transition-transform group-hover:-translate-y-1 group-hover:shadow-lg duration-300">
-        {/* Document Fold Corner */}
-        <div className="absolute top-0 right-0 w-5 h-5 overflow-hidden">
-          <div className="w-5 h-5 bg-blue-100 transform rotate-45 translate-x-2.5 -translate-y-2.5 shadow-xs" />
-        </div>
+    {/* Background soft organic waves */}
+    <path
+      d="M18 58C12 38 35 23 55 18C75 13 90 28 88 50C86 70 70 86 50 84C30 82 22 73 18 58Z"
+      fill="#BFDBFE"
+      fillOpacity="0.45"
+    />
+    <path
+      d="M28 66C22 50 40 36 60 30C78 26 88 40 86 58C84 73 70 83 52 82C36 80 32 76 28 66Z"
+      fill="#93C5FD"
+      fillOpacity="0.35"
+    />
 
-        <div>
-          {/* CER Header */}
-          <div className="text-center font-extrabold text-[13px] tracking-wider text-slate-800 border-b border-slate-100 pb-1 mb-2">
-            CER
-          </div>
+    {/* Document Body */}
+    <g filter="url(#cerDocShadow)">
+      {/* Document Sheet */}
+      <path
+        d="M28 18C28 15 30.5 13 33.5 13H58L74 29V74C74 77 71.5 79 68.5 79H33.5C30.5 79 28 77 28 74V18Z"
+        fill="#FFFFFF"
+        stroke="#DBEAFE"
+        strokeWidth="1.2"
+      />
+      {/* Dog-ear corner fold */}
+      <path
+        d="M58 13V26C58 27.5 59.5 29 61 29H74"
+        fill="#EFF6FF"
+        stroke="#BFDBFE"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+    </g>
 
-          {/* Text Skeleton Lines */}
-          <div className="space-y-1.5 px-0.5">
-            <div className="h-1.5 bg-slate-200 rounded-full w-full" />
-            <div className="h-1.5 bg-slate-200 rounded-full w-4/5" />
-            <div className="h-1.5 bg-slate-200 rounded-full w-full" />
-            <div className="h-1.5 bg-slate-200 rounded-full w-3/5" />
-          </div>
-        </div>
+    {/* Document Content */}
+    {/* CER Title */}
+    <text
+      x="49"
+      y="37"
+      textAnchor="middle"
+      fill="#1E293B"
+      fontSize="10"
+      fontWeight="800"
+      fontFamily="system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+      letterSpacing="0.8"
+    >
+      CER
+    </text>
 
-        {/* Floating Plus Button at Lower Right */}
-        <div className="absolute -bottom-2 -right-2 w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md border-2 border-white ring-1 ring-blue-500/30 transform transition-transform group-hover:scale-110 duration-200">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.8} d="M12 5v14M5 12h14" />
-          </svg>
-        </div>
-      </div>
-    </div>
-  </div>
+    {/* Thin divider line */}
+    <line x1="35" y1="42" x2="65" y2="42" stroke="#F1F5F9" strokeWidth="1" />
+
+    {/* Text skeleton lines */}
+    <rect x="35" y="47" width="28" height="2.8" rx="1.4" fill="#E2E8F0" />
+    <rect x="35" y="53" width="22" height="2.8" rx="1.4" fill="#CBD5E1" />
+    <rect x="35" y="59" width="26" height="2.8" rx="1.4" fill="#E2E8F0" />
+    <rect x="35" y="65" width="16" height="2.8" rx="1.4" fill="#CBD5E1" />
+
+    {/* Floating Plus Button at Bottom Right (fully inside canvas) */}
+    <g filter="url(#btnShadow)">
+      <circle cx="68" cy="71" r="11.5" fill="#2563EB" stroke="#FFFFFF" strokeWidth="2.5" />
+      {/* Plus icon inside circle */}
+      <line x1="68" y1="65.5" x2="68" y2="76.5" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" />
+      <line x1="62.5" y1="71" x2="73.5" y2="71" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" />
+    </g>
+  </svg>
 );
 
 // Card 2: My CER Request Illustration
 export const MyRequestsIllustration: React.FC<{ className?: string }> = ({ className = "" }) => (
-  <div className={`relative w-16 h-16 xs:w-18 xs:h-18 sm:w-20 sm:h-20 md:w-22 md:h-22 lg:w-24 lg:h-24 2xl:w-36 2xl:h-36 flex items-center justify-center select-none shrink-0 ${className}`}>
-    <div className="relative w-40 h-36 flex items-center justify-center transform scale-[0.46] xs:scale-[0.52] sm:scale-[0.58] md:scale-[0.65] lg:scale-[0.7] 2xl:scale-100 origin-center sm:origin-right transition-transform">
-      {/* Soft fluid mint waves */}
-      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 160 160" fill="none">
-        <path
-          d="M25 90C45 65 90 75 120 60C145 48 158 80 152 115C146 145 110 158 80 152C45 145 12 120 25 90Z"
-          fill="#A7F3D0"
-          fillOpacity="0.45"
-        />
-        <path
-          d="M45 110C65 90 110 100 135 85C150 78 158 105 150 130C140 150 105 158 75 152C50 148 35 130 45 110Z"
-          fill="#6EE7B7"
-          fillOpacity="0.35"
-        />
-      </svg>
+  <svg
+    viewBox="0 0 100 100"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={`shrink-0 select-none ${className}`}
+    aria-label="My CER Requests Illustration"
+  >
+    <defs>
+      <filter id="monitorShadow" x="-15%" y="-15%" width="135%" height="135%">
+        <feDropShadow dx="0" dy="2.5" stdDeviation="3" floodColor="#0F172A" floodOpacity="0.10" />
+      </filter>
+      <filter id="lensShadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="2" stdDeviation="2.5" floodColor="#0284C7" floodOpacity="0.25" />
+      </filter>
+    </defs>
 
-      {/* Desktop Monitor Screen */}
-      <div className="relative z-10 flex flex-col items-center">
-        {/* Monitor Display */}
-        <div className="w-28 h-20 bg-white rounded-lg shadow-md border-2 border-teal-500/80 p-2 flex flex-col justify-between overflow-hidden">
-          {/* Top Header Dots */}
-          <div className="flex items-center gap-1 pb-1 border-b border-slate-100">
-            <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-            <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            <div className="ml-auto w-8 h-1 bg-slate-200 rounded-full" />
-          </div>
+    {/* Background soft mint waves */}
+    <path
+      d="M18 55C12 35 32 20 52 18C72 16 88 30 86 52C84 72 70 85 50 84C30 83 22 70 18 55Z"
+      fill="#A7F3D0"
+      fillOpacity="0.45"
+    />
+    <path
+      d="M26 65C20 48 40 32 60 30C78 28 86 42 84 62C82 76 68 85 52 83C36 81 30 76 26 65Z"
+      fill="#6EE7B7"
+      fillOpacity="0.35"
+    />
 
-          {/* Dashboard Rows with Status Dots */}
-          <div className="space-y-1.5 my-auto">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
-              <div className="h-1 bg-slate-300 rounded-full w-12" />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-              <div className="h-1 bg-slate-300 rounded-full w-14" />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-              <div className="h-1 bg-slate-300 rounded-full w-10" />
-            </div>
-          </div>
-        </div>
+    {/* Monitor Stand Base */}
+    <rect x="36" y="73" width="20" height="3" rx="1.5" fill="#0D9488" opacity="0.8" />
+    <rect x="43" y="66" width="6" height="8" fill="#14B8A6" opacity="0.9" />
 
-        {/* Monitor Stand */}
-        <div className="w-4 h-2.5 bg-teal-600/80" />
-        <div className="w-10 h-1 bg-teal-700/80 rounded-full shadow-xs" />
+    {/* Monitor Display */}
+    <g filter="url(#monitorShadow)">
+      <rect x="20" y="22" width="52" height="45" rx="6" fill="#FFFFFF" stroke="#0D9488" strokeWidth="1.8" />
+      {/* Header bar */}
+      <rect x="20" y="22" width="52" height="10" rx="6" fill="#F0FDFA" />
+      <path d="M20 32H72" stroke="#CCFBF1" strokeWidth="1" />
+      {/* Status dots */}
+      <circle cx="26" cy="27" r="1.6" fill="#F43F5E" />
+      <circle cx="31" cy="27" r="1.6" fill="#FBBF24" />
+      <circle cx="36" cy="27" r="1.6" fill="#10B981" />
+      <rect x="52" y="25.5" width="14" height="2.8" rx="1.4" fill="#99F6E4" />
+    </g>
 
-        {/* Magnifying Glass Overlapping */}
-        <div className="absolute -bottom-1 -right-3 z-20 transform -rotate-12 transition-transform group-hover:scale-110 duration-200">
-          <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
-            {/* Glass Lens Circle */}
-            <circle cx="18" cy="18" r="12" fill="#E0F2FE" fillOpacity="0.75" stroke="#0284C7" strokeWidth="3" />
-            {/* Inner reflection */}
-            <path d="M12 14A8 8 0 0 1 20 10" stroke="white" strokeWidth="2" strokeLinecap="round" />
-            {/* Handle */}
-            <rect x="27" y="27" width="5" height="15" rx="2.5" transform="rotate(-45 27 27)" fill="#0369A1" stroke="#0C4A6E" strokeWidth="1" />
-          </svg>
-        </div>
-      </div>
-    </div>
-  </div>
+    {/* Dashboard rows */}
+    <circle cx="27" cy="39" r="2.2" fill="#F43F5E" />
+    <rect x="33" y="37.5" width="22" height="3" rx="1.5" fill="#E2E8F0" />
+
+    <circle cx="27" cy="47" r="2.2" fill="#10B981" />
+    <rect x="33" y="45.5" width="26" height="3" rx="1.5" fill="#CBD5E1" />
+
+    <circle cx="27" cy="55" r="2.2" fill="#F59E0B" />
+    <rect x="33" y="53.5" width="18" height="3" rx="1.5" fill="#E2E8F0" />
+
+    {/* Magnifying Glass Overlay at Bottom Right */}
+    <g filter="url(#lensShadow)">
+      {/* Glass Lens */}
+      <circle cx="68" cy="62" r="12" fill="#E0F2FE" fillOpacity="0.85" stroke="#0284C7" strokeWidth="2.8" />
+      {/* Reflection highlight */}
+      <path d="M62.5 58C64 55 67 53.5 70 54" stroke="#FFFFFF" strokeWidth="1.6" strokeLinecap="round" />
+      {/* Handle */}
+      <rect x="76" y="70" width="4.5" height="13" rx="2.2" transform="rotate(-45 76 70)" fill="#0369A1" stroke="#0C4A6E" strokeWidth="1" />
+    </g>
+  </svg>
 );
 
 // Card 3: My CER Approvals Illustration
 export const ApprovalsIllustration: React.FC<{ className?: string }> = ({ className = "" }) => (
-  <div className={`relative w-16 h-16 xs:w-18 xs:h-18 sm:w-20 sm:h-20 md:w-22 md:h-22 lg:w-24 lg:h-24 2xl:w-36 2xl:h-36 flex items-center justify-center select-none shrink-0 ${className}`}>
-    <div className="relative w-40 h-36 flex items-center justify-center transform scale-[0.46] xs:scale-[0.52] sm:scale-[0.58] md:scale-[0.65] lg:scale-[0.7] 2xl:scale-100 origin-center sm:origin-right transition-transform">
-      {/* Soft warm amber waves */}
-      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 160 160" fill="none">
-        <path
-          d="M20 95C40 70 85 80 115 65C140 50 155 80 150 115C142 145 105 158 75 150C40 142 10 120 20 95Z"
-          fill="#FDE68A"
-          fillOpacity="0.45"
-        />
-        <path
-          d="M40 115C60 95 105 105 130 90C148 78 156 105 148 130C138 150 100 158 70 150C45 145 28 130 40 115Z"
-          fill="#FCD34D"
-          fillOpacity="0.35"
-        />
-      </svg>
+  <svg
+    viewBox="0 0 100 100"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={`shrink-0 select-none ${className}`}
+    aria-label="My CER Approvals Illustration"
+  >
+    <defs>
+      <filter id="approverShadow" x="-15%" y="-15%" width="135%" height="135%">
+        <feDropShadow dx="0" dy="2.5" stdDeviation="3" floodColor="#0F172A" floodOpacity="0.10" />
+      </filter>
+      <filter id="badgeShadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="1.5" stdDeviation="2" floodColor="#0F172A" floodOpacity="0.22" />
+      </filter>
+    </defs>
 
-      <div className="relative z-10 flex items-center justify-center">
-        {/* Approver Figure in Suit */}
-        <div className="flex flex-col items-center mr-1">
-          {/* Head */}
-          <div className="w-8 h-8 rounded-full bg-[#F5D0A9] border border-[#D97706]/40 relative overflow-hidden shadow-xs">
-            {/* Dark Hair */}
-            <div className="absolute top-0 inset-x-0 h-3 bg-slate-800 rounded-b-md" />
-          </div>
+    {/* Background warm amber waves */}
+    <path
+      d="M18 55C14 36 32 20 52 18C72 16 88 30 86 52C84 72 70 85 50 84C30 83 22 70 18 55Z"
+      fill="#FDE68A"
+      fillOpacity="0.45"
+    />
+    <path
+      d="M26 65C20 48 40 32 60 30C78 28 86 42 84 62C82 76 68 85 52 83C36 81 30 76 26 65Z"
+      fill="#FCD34D"
+      fillOpacity="0.35"
+    />
 
-          {/* Neck & Orange Tie */}
-          <div className="w-2.5 h-1.5 bg-[#F5D0A9] -mt-0.5" />
+    {/* Approval Document behind person */}
+    <g filter="url(#approverShadow)">
+      <rect x="46" y="24" width="28" height="38" rx="4" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="1.2" />
+      <rect x="51" y="30" width="12" height="2.5" rx="1.2" fill="#3B82F6" />
+      <rect x="51" y="36" width="18" height="2" rx="1" fill="#CBD5E1" />
+      <rect x="51" y="41" width="15" height="2" rx="1" fill="#E2E8F0" />
+      <rect x="51" y="46" width="16" height="2" rx="1" fill="#CBD5E1" />
+      <rect x="51" y="53" width="10" height="2.5" rx="1.2" fill="#10B981" />
+    </g>
 
-          {/* Navy Suit Body */}
-          <div className="relative w-14 h-12 bg-[#0A2540] rounded-t-xl overflow-hidden shadow-sm flex justify-center">
-            {/* White shirt triangle */}
-            <div
-              className="w-4 h-4 bg-white"
-              style={{ clipPath: "polygon(0 0, 100% 0, 50% 100%)" }}
-            />
-            {/* Orange Tie */}
-            <div
-              className="absolute top-1 w-1.5 h-6 bg-amber-500 shadow-xs"
-              style={{ clipPath: "polygon(0 0, 100% 0, 80% 80%, 50% 100%, 20% 80%)" }}
-            />
-          </div>
-        </div>
+    {/* Approver Person (Navy Suit & Tie) */}
+    <g filter="url(#approverShadow)">
+      {/* Head */}
+      <circle cx="33" cy="34" r="9.5" fill="#FBBF24" />
+      {/* Hair */}
+      <path d="M23.5 33C23.5 28 27.5 24.5 33 24.5C38.5 24.5 42.5 28 42.5 33C40.5 30 36.5 30 33 30C29.5 30 25.5 31 23.5 33Z" fill="#1E293B" />
+      {/* Neck */}
+      <rect x="30.5" y="42" width="5" height="4" fill="#F59E0B" />
+      {/* Suit Shoulders */}
+      <path
+        d="M17 68C17 52 23 46 33 46C43 46 49 52 49 68H17Z"
+        fill="#0A2540"
+      />
+      {/* White Shirt Collar */}
+      <polygon points="28,46 38,46 33,54" fill="#FFFFFF" />
+      {/* Amber Tie */}
+      <polygon points="31.5,49 34.5,49 34,63 33,66 32,63" fill="#F59E0B" />
+    </g>
 
-        {/* Floating Document on the right */}
-        <div className="w-10 h-13 bg-white rounded-md shadow-md border border-slate-200/80 p-1.5 flex flex-col justify-between -ml-2 mb-2">
-          <div className="w-4 h-1 bg-blue-500 rounded-full mb-1" />
-          <div className="space-y-1">
-            <div className="w-full h-1 bg-slate-200 rounded-full" />
-            <div className="w-5/6 h-1 bg-slate-200 rounded-full" />
-            <div className="w-4/6 h-1 bg-slate-200 rounded-full" />
-          </div>
-          <div className="w-3 h-1 bg-emerald-500 rounded-full mt-1" />
-        </div>
+    {/* Green Checkmark Badge */}
+    <g filter="url(#badgeShadow)">
+      <circle cx="74" cy="28" r="8.5" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
+      <path d="M70.5 28L73 30.5L77.5 25.5" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </g>
 
-        {/* Floating Green Checkmark Badge */}
-        <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-md border-2 border-white ring-1 ring-emerald-400/40 transform transition-transform group-hover:scale-110 duration-200">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-
-        {/* Floating Red Cross Badge */}
-        <div className="absolute top-8 -right-3 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-md border-2 border-white ring-1 ring-rose-400/40 transform transition-transform group-hover:scale-110 duration-200">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </div>
-      </div>
-    </div>
-  </div>
+    {/* Red Cross Badge */}
+    <g filter="url(#badgeShadow)">
+      <circle cx="78" cy="46" r="7.5" fill="#EF4444" stroke="#FFFFFF" strokeWidth="1.8" />
+      <path d="M75 43L81 49M81 43L75 49" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" />
+    </g>
+  </svg>
 );
 
 // Card 4: Report and Dashboard Illustration
 export const ReportsIllustration: React.FC<{ className?: string }> = ({ className = "" }) => (
-  <div className={`relative w-16 h-16 xs:w-18 xs:h-18 sm:w-20 sm:h-20 md:w-22 md:h-22 lg:w-24 lg:h-24 2xl:w-36 2xl:h-36 flex items-center justify-center select-none shrink-0 ${className}`}>
-    <div className="relative w-40 h-36 flex items-center justify-center transform scale-[0.46] xs:scale-[0.52] sm:scale-[0.58] md:scale-[0.65] lg:scale-[0.7] 2xl:scale-100 origin-center sm:origin-right transition-transform">
-      {/* Soft lavender waves */}
-      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 160 160" fill="none">
-        <path
-          d="M20 90C45 65 90 75 120 60C145 45 158 80 152 115C144 145 108 158 78 150C42 142 12 120 20 90Z"
-          fill="#DDD6FE"
-          fillOpacity="0.45"
-        />
-        <path
-          d="M40 115C60 95 105 105 130 90C148 78 156 105 148 130C138 150 100 158 70 150C45 145 28 130 40 115Z"
-          fill="#C4B5FD"
-          fillOpacity="0.35"
-        />
-      </svg>
+  <svg
+    viewBox="0 0 100 100"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={`shrink-0 select-none ${className}`}
+    aria-label="Reports and Dashboard Illustration"
+  >
+    <defs>
+      <filter id="reportShadow" x="-15%" y="-15%" width="135%" height="135%">
+        <feDropShadow dx="0" dy="2.5" stdDeviation="3" floodColor="#0F172A" floodOpacity="0.10" />
+      </filter>
+    </defs>
 
-      {/* Browser / Dashboard Card */}
-      <div className="relative z-10 w-32 h-22 bg-white rounded-xl shadow-md border border-purple-200/80 p-2 flex flex-col justify-between">
-        {/* Window Controls */}
-        <div className="flex items-center gap-1 pb-1 border-b border-slate-100">
-          <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-          <div className="w-1.5 h-1.5 rounded-full bg-purple-300" />
-          <div className="w-1.5 h-1.5 rounded-full bg-purple-200" />
-        </div>
+    {/* Background soft lavender waves */}
+    <path
+      d="M18 55C12 35 32 20 52 18C72 16 88 30 86 52C84 72 70 85 50 84C30 83 22 70 18 55Z"
+      fill="#DDD6FE"
+      fillOpacity="0.45"
+    />
+    <path
+      d="M26 65C20 48 40 32 60 30C78 28 86 42 84 62C82 76 68 85 52 83C36 81 30 76 26 65Z"
+      fill="#C4B5FD"
+      fillOpacity="0.35"
+    />
 
-        {/* Charts Display */}
-        <div className="flex items-end justify-between px-1 pt-1 gap-2">
-          {/* Purple Bar Chart */}
-          <div className="flex items-end gap-1 h-12">
-            <div className="w-2 h-4 bg-purple-300 rounded-t-xs" />
-            <div className="w-2 h-7 bg-purple-400 rounded-t-xs" />
-            <div className="w-2 h-11 bg-purple-600 rounded-t-xs shadow-xs" />
-            <div className="w-2 h-8 bg-purple-500 rounded-t-xs" />
-          </div>
+    {/* Dashboard Card */}
+    <g filter="url(#reportShadow)">
+      <rect x="18" y="24" width="64" height="52" rx="7" fill="#FFFFFF" stroke="#C4B5FD" strokeWidth="1.4" />
+      {/* Top bar with dots */}
+      <rect x="18" y="24" width="64" height="11" rx="7" fill="#FAF5FF" />
+      <path d="M18 35H82" stroke="#F3E8FF" strokeWidth="1" />
+      <circle cx="25" cy="29.5" r="1.8" fill="#A855F7" />
+      <circle cx="30" cy="29.5" r="1.8" fill="#C084FC" />
+      <circle cx="35" cy="29.5" r="1.8" fill="#DDD6FE" />
+    </g>
 
-          {/* 3D Segmented Pie Chart */}
-          <div className="relative w-12 h-12 mb-0.5 shrink-0 transform transition-transform group-hover:rotate-12 duration-300">
-            <svg viewBox="0 0 36 36" className="w-full h-full">
-              {/* Purple segment */}
-              <path d="M18 18 L18 2 A16 16 0 0 1 34 18 Z" fill="#7C3AED" />
-              {/* Orange segment */}
-              <path d="M18 18 L34 18 A16 16 0 0 1 18 34 Z" fill="#F59E0B" />
-              {/* Blue segment */}
-              <path d="M18 18 L18 34 A16 16 0 0 1 2 18 Z" fill="#2563EB" />
-              {/* Light blue segment */}
-              <path d="M18 18 L2 18 A16 16 0 0 1 18 2 Z" fill="#06B6D4" />
-            </svg>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+    {/* Bar Chart (4 vertical bars) */}
+    <rect x="25" y="58" width="5.5" height="11" rx="1.5" fill="#DDD6FE" />
+    <rect x="33" y="51" width="5.5" height="18" rx="1.5" fill="#C084FC" />
+    <rect x="41" y="42" width="5.5" height="27" rx="1.5" fill="#8B5CF6" />
+    <rect x="49" y="47" width="5.5" height="22" rx="1.5" fill="#A855F7" />
+
+    {/* Donut/Pie Chart on Right */}
+    <g transform="translate(67, 54)">
+      {/* Segment 1: Violet */}
+      <path d="M0 -12 A 12 12 0 0 1 12 0 L 7 0 A 7 7 0 0 0 0 -7 Z" fill="#7C3AED" />
+      {/* Segment 2: Amber */}
+      <path d="M12 0 A 12 12 0 0 1 0 12 L 0 7 A 7 7 0 0 0 7 0 Z" fill="#F59E0B" />
+      {/* Segment 3: Blue */}
+      <path d="M0 12 A 12 12 0 0 1 -12 0 L -7 0 A 7 7 0 0 0 0 7 Z" fill="#2563EB" />
+      {/* Segment 4: Cyan */}
+      <path d="M-12 0 A 12 12 0 0 1 0 -12 L 0 -7 A 7 7 0 0 0 -7 0 Z" fill="#06B6D4" />
+    </g>
+  </svg>
 );
 
 // Card 5: Admin Page Illustration
 export const AdminIllustration: React.FC<{ className?: string }> = ({ className = "" }) => (
-  <div className={`relative w-16 h-16 xs:w-18 xs:h-18 sm:w-20 sm:h-20 md:w-22 md:h-22 lg:w-24 lg:h-24 2xl:w-36 2xl:h-36 flex items-center justify-center select-none shrink-0 ${className}`}>
-    <div className="relative w-40 h-36 flex items-center justify-center transform scale-[0.46] xs:scale-[0.52] sm:scale-[0.58] md:scale-[0.65] lg:scale-[0.7] 2xl:scale-100 origin-center sm:origin-right transition-transform">
-      {/* Soft pink/rose waves */}
-      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 160 160" fill="none">
-        <path
-          d="M20 90C45 65 90 75 120 60C145 45 158 80 152 115C144 145 108 158 78 150C42 142 12 120 20 90Z"
-          fill="#FECDD3"
-          fillOpacity="0.45"
-        />
-        <path
-          d="M40 115C60 95 105 105 130 90C148 78 156 105 148 130C138 150 100 158 70 150C45 145 28 130 40 115Z"
-          fill="#FDA4AF"
-          fillOpacity="0.35"
-        />
-      </svg>
+  <svg
+    viewBox="0 0 100 100"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={`shrink-0 select-none ${className}`}
+    aria-label="Admin Console Illustration"
+  >
+    <defs>
+      <filter id="adminShadow" x="-15%" y="-15%" width="135%" height="135%">
+        <feDropShadow dx="0" dy="2.5" stdDeviation="3" floodColor="#0F172A" floodOpacity="0.10" />
+      </filter>
+    </defs>
 
-      {/* Laptop Device */}
-      <div className="relative z-10 flex flex-col items-center">
-        {/* Laptop Screen */}
-        <div className="w-28 h-18 bg-white rounded-t-lg shadow-md border-2 border-slate-700/80 p-1.5 flex flex-col justify-between overflow-hidden">
-          {/* Top bar */}
-          <div className="flex items-center justify-between pb-0.5 border-b border-slate-100">
-            <div className="w-6 h-1 bg-slate-200 rounded-full" />
-            <div className="flex gap-0.5">
-              <div className="w-1 h-1 rounded-full bg-slate-300" />
-              <div className="w-1 h-1 rounded-full bg-slate-300" />
-            </div>
-          </div>
+    {/* Background soft rose waves */}
+    <path
+      d="M18 55C12 35 32 20 52 18C72 16 88 30 86 52C84 72 70 85 50 84C30 83 22 70 18 55Z"
+      fill="#FECDD3"
+      fillOpacity="0.45"
+    />
+    <path
+      d="M26 65C20 48 40 32 60 30C78 28 86 42 84 62C82 76 68 85 52 83C36 81 30 76 26 65Z"
+      fill="#FDA4AF"
+      fillOpacity="0.35"
+    />
 
-          {/* Content with Cog & Users */}
-          <div className="flex items-center justify-between px-1">
-            {/* Animated Settings Gear */}
-            <div className="w-8 h-8 text-blue-500 animate-spin-slow">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 13.5 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1c0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.66Z" />
-              </svg>
-            </div>
+    {/* Laptop Base */}
+    <path d="M16 71H84L80 76C79.5 76.6 78.5 77 77.5 77H22.5C21.5 77 20.5 76.6 20 76L16 71Z" fill="#CBD5E1" stroke="#94A3B8" strokeWidth="1" />
+    <rect x="44" y="72" width="12" height="2" rx="1" fill="#94A3B8" />
 
-            {/* User management rows */}
-            <div className="space-y-1">
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-blue-500" />
-                <div className="w-8 h-1 bg-slate-300 rounded-full" />
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-rose-400" />
-                <div className="w-6 h-1 bg-slate-300 rounded-full" />
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                <div className="w-7 h-1 bg-slate-300 rounded-full" />
-              </div>
-            </div>
-          </div>
+    {/* Laptop Screen */}
+    <g filter="url(#adminShadow)">
+      <rect x="22" y="24" width="56" height="47" rx="5" fill="#FFFFFF" stroke="#334155" strokeWidth="2" />
+      {/* Top browser bar */}
+      <rect x="22" y="24" width="56" height="9" rx="5" fill="#F8FAFC" />
+      <path d="M22 33H78" stroke="#E2E8F0" strokeWidth="1" />
+      <circle cx="27" cy="28.5" r="1.5" fill="#94A3B8" />
+      <circle cx="31" cy="28.5" r="1.5" fill="#CBD5E1" />
+      <rect x="58" y="27" width="14" height="3" rx="1.5" fill="#E2E8F0" />
+    </g>
 
-          {/* Bottom controls */}
-          <div className="flex justify-between items-center px-1">
-            <div className="w-3 h-1 bg-blue-400 rounded-full" />
-            <div className="w-3 h-1 bg-slate-300 rounded-full" />
-          </div>
-        </div>
+    {/* Cog Gear Icon on Left */}
+    <g transform="translate(35, 48)">
+      <circle cx="0" cy="0" r="8" fill="#3B82F6" />
+      <circle cx="0" cy="0" r="3.5" fill="#FFFFFF" />
+      {/* Gear teeth */}
+      <rect x="-1.5" y="-10.5" width="3" height="3" rx="0.8" fill="#3B82F6" />
+      <rect x="-1.5" y="7.5" width="3" height="3" rx="0.8" fill="#3B82F6" />
+      <rect x="-10.5" y="-1.5" width="3" height="3" rx="0.8" fill="#3B82F6" />
+      <rect x="7.5" y="-1.5" width="3" height="3" rx="0.8" fill="#3B82F6" />
+      <rect x="-7.5" y="-7.5" width="3" height="3" rx="0.8" transform="rotate(45 -6 -6)" fill="#3B82F6" />
+      <rect x="5" y="5" width="3" height="3" rx="0.8" transform="rotate(45 6.5 6.5)" fill="#3B82F6" />
+      <rect x="-7.5" y="5" width="3" height="3" rx="0.8" transform="rotate(-45 -6 6.5)" fill="#3B82F6" />
+      <rect x="5" y="-7.5" width="3" height="3" rx="0.8" transform="rotate(-45 6.5 -6)" fill="#3B82F6" />
+    </g>
 
-        {/* Laptop Base & Trackpad */}
-        <div className="w-34 h-2 bg-slate-300 rounded-b-md shadow-sm border border-slate-400/80 flex justify-center">
-          <div className="w-8 h-1 bg-slate-400 rounded-full" />
-        </div>
-      </div>
-    </div>
-  </div>
+    {/* User Management Rows on Right */}
+    <circle cx="53" cy="41" r="2" fill="#3B82F6" />
+    <rect x="58" y="39.5" width="14" height="3" rx="1.5" fill="#E2E8F0" />
+
+    <circle cx="53" cy="49" r="2" fill="#F43F5E" />
+    <rect x="58" y="47.5" width="11" height="3" rx="1.5" fill="#CBD5E1" />
+
+    <circle cx="53" cy="57" r="2" fill="#10B981" />
+    <rect x="58" y="55.5" width="13" height="3" rx="1.5" fill="#E2E8F0" />
+
+    {/* Bottom switches */}
+    <rect x="30" y="63" width="10" height="3" rx="1.5" fill="#93C5FD" />
+    <rect x="44" y="63" width="10" height="3" rx="1.5" fill="#E2E8F0" />
+  </svg>
 );
 
 // Card 6: User Manual Illustration
 export const UserManualIllustration: React.FC<{ className?: string }> = ({ className = "" }) => (
-  <div className={`relative w-16 h-16 xs:w-18 xs:h-18 sm:w-20 sm:h-20 md:w-22 md:h-22 lg:w-24 lg:h-24 2xl:w-36 2xl:h-36 flex items-center justify-center select-none shrink-0 ${className}`}>
-    <div className="relative w-40 h-36 flex items-center justify-center transform scale-[0.46] xs:scale-[0.52] sm:scale-[0.58] md:scale-[0.65] lg:scale-[0.7] 2xl:scale-100 origin-center sm:origin-right transition-transform">
-      {/* Soft cyan waves */}
-      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 160 160" fill="none">
-        <path
-          d="M20 90C45 65 90 75 120 60C145 45 158 80 152 115C144 145 108 158 78 150C42 142 12 120 20 90Z"
-          fill="#A5F3FC"
-          fillOpacity="0.45"
-        />
-        <path
-          d="M40 115C60 95 105 105 130 90C148 78 156 105 148 130C138 150 100 158 70 150C45 145 28 130 40 115Z"
-          fill="#67E8F9"
-          fillOpacity="0.35"
-        />
-      </svg>
+  <svg
+    viewBox="0 0 100 100"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={`shrink-0 select-none ${className}`}
+    aria-label="User Manual Illustration"
+  >
+    <defs>
+      <linearGradient id="bookCoverGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#0284C7" />
+        <stop offset="100%" stopColor="#0369A1" />
+      </linearGradient>
+      <filter id="bookShadow" x="-15%" y="-15%" width="135%" height="135%">
+        <feDropShadow dx="2" dy="3.5" stdDeviation="3" floodColor="#0F172A" floodOpacity="0.14" />
+      </filter>
+    </defs>
 
-      {/* 3D Cyan/Blue Hardcover Book */}
-      <div className="relative z-10 transform -rotate-3 transition-transform group-hover:rotate-0 duration-300">
-        {/* Book Cover */}
-        <div className="w-22 h-28 bg-gradient-to-br from-[#0284C7] to-[#0369A1] rounded-r-xl rounded-l-xs shadow-lg border-l-4 border-[#075985] p-2 flex flex-col justify-between text-white relative">
-          {/* Book Title */}
-          <div className="text-center pt-2">
-            <p className="text-[9px] font-black tracking-wider leading-tight text-cyan-100 uppercase">
-              User
-            </p>
-            <p className="text-[10px] font-black tracking-wider leading-tight text-white uppercase">
-              Manual
-            </p>
-          </div>
+    {/* Background soft cyan waves */}
+    <path
+      d="M18 55C12 35 32 20 52 18C72 16 88 30 86 52C84 72 70 85 50 84C30 83 22 70 18 55Z"
+      fill="#BAE6FD"
+      fillOpacity="0.45"
+    />
+    <path
+      d="M26 65C20 48 40 32 60 30C78 28 86 42 84 62C82 76 68 85 52 83C36 81 30 76 26 65Z"
+      fill="#7DD3FC"
+      fillOpacity="0.35"
+    />
 
-          {/* Document Icon on Cover */}
-          <div className="w-10 h-10 mx-auto bg-white/95 rounded-md p-1 shadow-inner flex flex-col justify-between">
-            <div className="w-3 h-1 bg-cyan-600 rounded-full" />
-            <div className="space-y-0.5">
-              <div className="w-full h-0.5 bg-slate-300 rounded-full" />
-              <div className="w-3/4 h-0.5 bg-slate-300 rounded-full" />
-              <div className="w-full h-0.5 bg-slate-300 rounded-full" />
-            </div>
-            <div className="w-4 h-0.5 bg-cyan-500 rounded-full" />
-          </div>
+    {/* Book Pages Edge (white/gray paper stack) */}
+    <path d="M68 22H72C73 22 74 22.9 74 24V74C74 75.1 73 76 72 76H68V22Z" fill="#F8FAFC" stroke="#CBD5E1" strokeWidth="1" />
+    <line x1="71" y1="24" x2="71" y2="74" stroke="#E2E8F0" strokeWidth="1" />
 
-          {/* Orange Ribbon Bookmark hanging from bottom */}
-          <div className="absolute -bottom-2.5 left-6 w-3 h-4 bg-amber-500 shadow-xs flex items-end">
-            <div
-              className="w-full h-1.5 bg-white"
-              style={{ clipPath: "polygon(0 100%, 50% 0, 100% 100%)" }}
-            />
-          </div>
-        </div>
+    {/* 3D Book Cover */}
+    <g filter="url(#bookShadow)">
+      {/* Main Cover */}
+      <rect x="25" y="18" width="44" height="60" rx="4" fill="url(#bookCoverGrad)" stroke="#0284C7" strokeWidth="1.2" />
+      {/* Spine strip on left */}
+      <path d="M25 22C25 19.8 26.8 18 29 18H31V78H29C26.8 78 25 76.2 25 74V22Z" fill="#075985" />
+    </g>
 
-        {/* Pages Edge on the right */}
-        <div className="absolute top-1 right-0 w-1.5 h-26 bg-slate-100 rounded-r-xs shadow-xs border-y border-slate-200" />
-      </div>
-    </div>
-  </div>
+    {/* Book Title */}
+    <text
+      x="49"
+      y="31"
+      textAnchor="middle"
+      fill="#E0F2FE"
+      fontSize="6.5"
+      fontWeight="800"
+      fontFamily="system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+      letterSpacing="0.8"
+    >
+      USER
+    </text>
+    <text
+      x="49"
+      y="39"
+      textAnchor="middle"
+      fill="#FFFFFF"
+      fontSize="7.5"
+      fontWeight="900"
+      fontFamily="system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+      letterSpacing="0.8"
+    >
+      MANUAL
+    </text>
+
+    {/* Document Icon on Cover */}
+    <rect x="39" y="44" width="20" height="20" rx="3" fill="#FFFFFF" opacity="0.95" />
+    <rect x="43" y="48" width="8" height="2" rx="1" fill="#0284C7" />
+    <rect x="43" y="52" width="12" height="1.5" rx="0.75" fill="#94A3B8" />
+    <rect x="43" y="55" width="10" height="1.5" rx="0.75" fill="#CBD5E1" />
+    <rect x="43" y="58" width="11" height="1.5" rx="0.75" fill="#94A3B8" />
+
+    {/* Golden/Orange Bookmark Ribbon hanging from bottom (inside canvas) */}
+    <path
+      d="M44 76V85L47.5 82.5L51 85V76H44Z"
+      fill="#F59E0B"
+      stroke="#D97706"
+      strokeWidth="0.8"
+    />
+  </svg>
 );

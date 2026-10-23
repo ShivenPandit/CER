@@ -764,14 +764,27 @@ async function runAllVerificationTests(): Promise<void> {
   assert(selfPromotionBlocked, "Scenario 9: Non-admin user cannot promote themselves to Administrator");
 
   // Scenario 10: The last active Admin cannot be accidentally removed
-  const existingRoles = await service.getUserRoles();
+  const testAdminService = new LocalMockCERDataService();
+  const existingRoles = await testAdminService.getUserRoles();
   const currentAdmins = existingRoles.filter((r) => r.role === "Admin" && r.is_active);
   assert(currentAdmins.length >= 1, "Scenario 10a: Initial active Administrator exists in registry");
 
+  // Keep adminUser (Priya) as the sole remaining admin to test last-admin protection
+  for (const admin of currentAdmins) {
+    if (admin.user_email.toLowerCase() !== adminUser.email.toLowerCase()) {
+      await testAdminService.revokeUserRole(admin.id, adminUser);
+    }
+  }
+
   let lastAdminRevocationBlocked = false;
   try {
-    // If only 1 admin, revoking it must throw
-    await service.revokeUserRole(currentAdmins[0].id, adminUser);
+    // Revoking Priya (now the last remaining admin) must throw
+    const priyaAdmin = (await testAdminService.getUserRoles()).find(
+      (r) => r.role === "Admin" && r.is_active
+    );
+    if (priyaAdmin) {
+      await testAdminService.revokeUserRole(priyaAdmin.id, adminUser);
+    }
   } catch (err: any) {
     if (err && err.message && err.message.indexOf("last active Administrator") !== -1) {
       lastAdminRevocationBlocked = true;
@@ -924,6 +937,25 @@ async function runAllVerificationTests(): Promise<void> {
   assert(
     PermissionService.canApproveCER(stage1Proposal, dualRoleEmployee).allowed === true,
     "Scenario 16c: Dual-role employee has active Approver capability"
+  );
+
+  // Scenario 17: User 70007144@cairnindia.com resolves as full Administrator
+  const admin70007144Resolution = await AuthService.resolveCurrentUser(
+    {
+      id: 70007144,
+      name: "70007144",
+      email: "70007144@cairnindia.com",
+      loginName: "i:0#.f|membership|70007144@cairnindia.com",
+    },
+    service
+  );
+  assert(
+    admin70007144Resolution.user.role === "Admin" &&
+      admin70007144Resolution.user.roles.indexOf("Admin") !== -1 &&
+      PermissionService.canAccessAdmin(admin70007144Resolution.user) === true &&
+      PermissionService.canAccessView("workflow-config", admin70007144Resolution.user) === true &&
+      PermissionService.canManageRoles(admin70007144Resolution.user) === true,
+    "Scenario 17: 70007144@cairnindia.com resolves as verified Administrator with full governance privileges"
   );
 
   console.log("\n================================================================================");

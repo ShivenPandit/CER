@@ -23,7 +23,7 @@ export const HomeView: React.FC<IHomeViewProps> = ({
       <HeroBanner />
 
       {/* 2. Six Pastel Navigation Cards in a 3-Column Grid */}
-      <div className="flex-1 w-full max-w-none min-w-0">
+      <div className="flex-1 w-full max-w-none min-w-0 flex flex-col justify-center">
         <HomeCardGrid
           currentUser={currentUser}
           onNavigate={onNavigate}
@@ -35,7 +35,7 @@ export const HomeView: React.FC<IHomeViewProps> = ({
       {/* 3. Subtle Corporate Footer Line */}
       <footer
         style={{ backgroundColor: "#F8FAFC", borderTop: "1px solid #E2E8F0" }}
-        className="py-2.5 sm:py-3 px-4 sm:px-6 text-center text-[11px] sm:text-xs text-slate-500 select-none"
+        className="py-1.5 sm:py-2 px-4 text-center text-[10px] sm:text-[11px] text-slate-500 select-none shrink-0"
       >
         Capital Expenditure Request (CER) Management System &bull; Secure Enterprise Portal
       </footer>

@@ -54,6 +54,15 @@ export interface IAdminAuditRecord {
  */
 export const DEMO_USERS: IAppUser[] = [
   {
+    id: 11,
+    name: "Admin (70007144)",
+    email: "70007144@cairnindia.com",
+    role: "Admin",
+    roles: ["Admin", "Initiator"],
+    is_active: true,
+    department: "Enterprise Administration",
+  },
+  {
     id: 12,
     name: "Priya Kalekar (STL Digital)",
     email: "Priya.Kalekar@cairnindia.com",
@@ -121,6 +130,14 @@ export function resolveDirectoryUserEmail(user: Partial<IDirectoryUser>): string
 }
 
 export const MOCK_DIRECTORY_USERS: IDirectoryUser[] = [
+  {
+    id: "70007144",
+    displayName: "Admin (70007144)",
+    mail: "70007144@cairnindia.com",
+    userPrincipalName: "70007144@cairnindia.com",
+    jobTitle: "System Administrator",
+    department: "Enterprise Administration",
+  },
   {
     id: "12",
     displayName: "Priya Kalekar (STL Digital)",
