@@ -20,17 +20,17 @@ This specification provides the comprehensive, field-by-field SharePoint Online 
 | 6   | **CER_Attachments**         | `CER_Attachments`          | **Document Library** | ✅ **Already Created**      | Document store for Section H attachments (PDFs, Word, Excel, images).            |
 | 7   | **CER_Notifications**       | `CER_Notifications`        | Custom List          | ✅ **Already Created**      | Audit log for automated multi-party workflow email dispatches.                   |
 | 8   | **CER_UserRoles**           | `CER_UserRoles`            | Custom List          | ⚠️ **NEEDS TO BE CREATED**  | Enterprise Role-Based Access Control assignments (Admin, Initiator, Approver, Finance_Audit). |
-| 9   | **CER_AdminAuditLog**       | `CER_AdminAuditLog`        | Custom List          | ⚠️ **NEEDS TO BE CREATED**  | Immutable administrative audit log recording role assignments, revocations, and hierarchy changes. |
 
 > [!NOTE]
 > ### 📌 Do you need to create any more lists?
 > - **Already Created on your SharePoint site**: **7 items** (`CER_Proposals`, `CER_AuditTrail`, `CER_RemarksHistory`, `CER_WorkflowLevels`, `CER_ApprovalDecisions`, `CER_Attachments`, and `CER_Notifications`).
-> - **Lists you still need to create**: **ONLY 2 lists** (`CER_UserRoles` and `CER_AdminAuditLog`) for Enterprise RBAC and Security Governance.
-> - **Do you need a list for Masters & Settings or Dropdowns?**: **NO!** 
->   - "Masters & Settings" was removed from the Admin Console.
+> - **Lists you still need to create**: **ONLY 1 LIST: `CER_UserRoles`** for Enterprise Role-Based Access Control assignments.
+> - **Do you need a list for Masters & Settings, Dropdowns, or Security & Audit?**: **NO!** 
+>   - The "Security & Audit", "Overview", and "Masters & Settings" tabs have been completely removed from the Admin Console.
+>   - `CER_AdminAuditLog` is **not required**.
 >   - All dropdown choices (Block/SBU/Field, Category, Currency, Payback, Budget, JV, Proposal Status) are fetched **dynamically from the Choice columns of `CER_Proposals`**. No extra master lists are needed.
 
-- **Total Confirmed Lists in Solution**: 8 Custom Lists + 1 Document Library = 9 Total.
+- **Total Confirmed Lists in Solution**: 7 Custom Lists + 1 Document Library = 8 Total.
 - **Architectural Rules**:
   1. _Attachments_: Hosted in `CER_Attachments` Document Library so file previews and downloads work natively in the browser.
   2. _Internal Names_: In SharePoint, columns must be created using the **Internal Name first**, then renamed to user-friendly Display Names so that REST API JSON keys match the TypeScript interfaces.
@@ -250,28 +250,6 @@ This specification provides the comprehensive, field-by-field SharePoint Online 
 
 ---
 
-### 9. `CER_AdminAuditLog` (Administrative Governance Trail)
-
-- **List Display Name**: `CER_AdminAuditLog`
-- **Internal Name**: `CER_AdminAuditLog`
-- **Purpose**: Append-only immutable security and governance audit trail recording every administrative event (role grant, role modification, revocation, active status toggle, workflow changes).
-- **Referenced In Code**: `UserModel.ts` (`IAdminAuditRecord`), `SharePointCERDataService.ts` (`getAdminAuditLog`, `logAdminAudit`), `AdminAuditTab.tsx`.
-
-| #   | Column Display Name      | Internal Name  | SharePoint Field Type  | Required | Default Value | Unique | Indexed | Choices / Settings / Notes                                | Source Model Field       |
-| --- | ------------------------ | -------------- | ---------------------- | -------- | ------------- | ------ | ------- | --------------------------------------------------------- | ------------------------ |
-| 1   | **Title** _(System)_     | `Title`        | Single line of text    | Yes      | None          | No     | No      | Repurposed for **Authorized Actor Name** (Admin Name).    | `audit.actor_name`       |
-| 2   | **Actor Name**           | `actor_name`   | Single line of text    | Yes      | None          | No     | No      | Full name of administrative actor.                        | `audit.actor_name`       |
-| 3   | **Actor Email**          | `actor_email`  | Single line of text    | Yes      | None          | No     | **Yes** | Email of administrative actor. Indexed for filtering.     | `audit.actor_email`      |
-| 4   | **Administrative Action**| `action`       | Choice                 | Yes      | None          | No     | **Yes** | `ROLE_ASSIGNED`, `ROLE_UPDATED`, `ROLE_REVOKED`, `ROLE_STATUS_TOGGLED`, `WORKFLOW_UPDATED`, `SETTINGS_UPDATED` | `audit.action` |
-| 5   | **Target Type**          | `target_type`  | Choice                 | Yes      | `USER`        | No     | No      | Choices: `USER`, `WORKFLOW`, `SETTINGS`                   | `audit.target_type`      |
-| 6   | **Target ID**            | `target_id`    | Single line of text    | Yes      | None          | No     | **Yes** | User email, Role ID, or Level ID affected.                | `audit.target_id`        |
-| 7   | **Forensic Details**     | `details`      | Multiple lines of text | Yes      | None          | No     | No      | Plain text narrative describing administrative change.    | `audit.details`          |
-| 8   | **Before Value (JSON)**  | `before_value` | Multiple lines of text | No       | None          | No     | No      | Plain text JSON snapshot of prior state.                  | `audit.before_value`     |
-| 9   | **After Value (JSON)**   | `after_value`  | Multiple lines of text | No       | None          | No     | No      | Plain text JSON snapshot of new state.                    | `audit.after_value`      |
-| 10  | **Event Timestamp**      | `timestamp`    | Date and Time          | Yes      | None          | No     | **Yes** | Date & Time of administrative action. Indexed for order.  | `audit.timestamp`        |
-
----
-
 ## 🎛️ Dropdown & Choice Field Master Inventory
 
 Every choice column used in the application is cataloged below with its exact case-sensitive values, default selection, and business logic constraints:
@@ -293,8 +271,6 @@ Every choice column used in the application is cataloged below with its exact ca
 | `CER_Notifications`     | **Dispatch Status**           | `status`         | 1. `SENT`<br>2. `PENDING`<br>3. `FAILED`                                                                     | `SENT`        | **Yes**         | No                      | No                      |
 | `CER_UserRoles`         | **Assigned Role**             | `role`           | 1. `Admin`<br>2. `Initiator`<br>3. `Approver`<br>4. `Finance_Audit`                                          | `Initiator`   | **Yes**         | No                      | No                      |
 | `CER_UserRoles`         | **Assigned SBU**             | `sbu`            | 1. `RJ North`<br>2. `RJ South`<br>3. `CBOS`<br>4. `RAVA`                                                     | None          | No              | No                      | No                      |
-| `CER_AdminAuditLog`     | **Administrative Action**     | `action`         | 1. `ROLE_ASSIGNED`<br>2. `ROLE_UPDATED`<br>3. `ROLE_REVOKED`<br>4. `ROLE_STATUS_TOGGLED`<br>5. `WORKFLOW_UPDATED`<br>6. `SETTINGS_UPDATED` | None | **Yes** | No | No |
-| `CER_AdminAuditLog`     | **Target Type**               | `target_type`    | 1. `USER`<br>2. `WORKFLOW`<br>3. `SETTINGS`                                                                  | `USER`        | **Yes**         | No                      | No                      |
 
 ---
 
@@ -549,34 +525,10 @@ Every choice column used in the application is cataloged below with its exact ca
 
 ---
 
-### Step 9: Create `CER_AdminAuditLog` List _(Mandatory for Administrative Audit Compliance)_
+### Step 9: `CER_AdminAuditLog` List — Not Required / Removed
 
-1. Go to **Site contents** → **New** → **List** → **Blank list** → Name: **`CER_AdminAuditLog`**.
-2. Configure Columns (Create using Internal Name first, then rename display):
-   - **`Title`**: Repurposed as **Authorized Actor Name** (Single line of text, Required: Yes).
-   - **`actor_name`**: Single line of text → Required: Yes → Max: 100.
-   - **`actor_email`**: Single line of text → Required: Yes → Indexed: Yes → Max: 150.
-   - **`action`**: Choice → Required: Yes → Indexed: Yes → Choices: `ROLE_ASSIGNED`, `ROLE_UPDATED`, `ROLE_REVOKED`, `ROLE_STATUS_TOGGLED`, `WORKFLOW_UPDATED`, `SETTINGS_UPDATED`.
-   - **`target_type`**: Choice → Required: Yes → Choices: `USER`, `WORKFLOW`, `SETTINGS`.
-   - **`target_id`**: Single line of text → Required: Yes → Indexed: Yes → Max: 150 (User email or Level ID).
-   - **`details`**: Multiple lines of text → Plain text: Yes → Required: Yes.
-   - **`before_value`**: Multiple lines of text → Plain text: Yes → Required: No (Forensic diff prior state).
-   - **`after_value`**: Multiple lines of text → Plain text: Yes → Required: No (Forensic diff new state).
-   - **`timestamp`**: Date and Time → Format: Date & Time → Required: Yes → Indexed: Yes.
-3. Configure List Permissions:
-   - Break permission inheritance.
-   - Remove **Delete Items** from all groups (Append-only immutable audit trail).
-   - Read access restricted to `CER Site Owners` (Administrators) and `CER Auditors`.
-4. **Seed Initial Audit Record (Initial trace)**:
-   - **Item 1**:
-     - `Title`: `System Initial Setup`
-     - `actor_name`: `System Initial Setup`
-     - `actor_email`: `security@vedanta.co.in`
-     - `action`: `ROLE_ASSIGNED`
-     - `target_type`: `USER`
-     - `target_id`: `role-001`
-     - `details`: `Initial system bootstrap: Assigned Administrator role to Priya Kalekar (STL Digital).`
-     - `timestamp`: *(Current date & time)*
+> [!NOTE]
+> The **Security & Audit** and **Overview** tabs have been completely removed from the Admin Console. You do **not** need to create the `CER_AdminAuditLog` list on SharePoint Online. Only **`CER_UserRoles`** (Step 8) is required for enterprise role assignments.
 
 ---
 
@@ -597,7 +549,7 @@ Every choice column used in the application is cataloged below with its exact ca
 | **List Attachments**    | `getAttachments`      | `CER_Attachments`       | `$filter=cerprno eq '{cerprno}'`                                      | **Fully wired to REST** (Falls back to mock on HTTP error) |
 | **Notification Logs**   | `getNotificationLogs` | `CER_Notifications`     | Multi-party email dispatch records                                    | **Fully wired to REST** (Falls back to mock on HTTP error) |
 | **User Role Management**| `getUserRoles`, `assignUserRole`, `updateUserRole`, `revokeUserRole` | `CER_UserRoles` | Full RBAC registry: `Title, user_email, login_name, role, approval_level, is_active, assigned_by, assigned_date` | **Fully wired to REST** (Falls back to mock on HTTP error) |
-| **Administrative Audit**| `getAdminAuditLog`, `logAdminAudit` | `CER_AdminAuditLog` | Audit log: `Title, actor_name, actor_email, action, target_type, target_id, details, before_value, after_value, timestamp` | **Fully wired to REST** (Falls back to mock on HTTP error) |
+| **Administrative Audit**| `getAdminAuditLog`, `logAdminAudit` | `CER_AdminAuditLog` *(Optional / Mock)* | UI tab removed; service methods retained for logging forensics if list exists | Optional |
 
 ---
 
@@ -648,9 +600,6 @@ To maintain audit integrity and governance, configure SharePoint permissions as 
 3. **`CER_UserRoles`**:
    - Break permission inheritance.
    - Restrict **Edit/Delete** to Site Owners / Administrators. All portal users get **Read** to evaluate access rights.
-4. **`CER_AdminAuditLog`**:
-   - Break permission inheritance.
-   - Append-only: Disallow Delete Items across all groups.
 
 ---
 
@@ -660,7 +609,7 @@ Once you have created the lists and columns in your UAT site contents, execute t
 
 - [ ] **Site Access**: Navigate to `https://vedanta.sharepoint.com/sites/CERManagementSystem` and confirm Site contents access.
 - [ ] **Core Lists Existence (7 items)**: Verify that `CER_Proposals`, `CER_AuditTrail`, `CER_RemarksHistory`, `CER_WorkflowLevels`, `CER_ApprovalDecisions`, `CER_Attachments`, and `CER_Notifications` exist in Site contents.
-- [ ] **Security Lists Existence (2 items)**: Verify that `CER_UserRoles` and `CER_AdminAuditLog` are created.
+- [ ] **Security Lists Existence (1 item)**: Verify that `CER_UserRoles` is created (no need for `CER_AdminAuditLog`).
 - [ ] **Admin Bootstrap in `CER_UserRoles`**: Confirm at least one active row with `role = 'Admin'` exists for your logged-in administrator account.
 - [ ] **Workflow Hierarchy Seed**: Confirm `CER_WorkflowLevels` contains at least 3 active rows (Level 1, Level 2, Level 3).
 - [ ] **Proposal Uniqueness**: Confirm `Title` in `CER_Proposals` has **Enforce unique values = Yes**.
@@ -668,9 +617,10 @@ Once you have created the lists and columns in your UAT site contents, execute t
       `https://vedanta.sharepoint.com/sites/CERManagementSystem/_api/web/lists/getByTitle('CER_Proposals')/fields?$filter=Hidden eq false`
       and confirm `pr_name`, `owname`, `sbu`, `status`, `amount`, `cat`, `st_date`, `com_date` exist as internal names.
 - [ ] **Admin Console Verification**: Access the Admin Console (`#workflow-config`) and verify:
-  1. The 4 tabs (**Overview**, **User & Role Management**, **Approval Hierarchy**, **Security & Audit**) load without error.
+  1. The 2 tabs (**User & Role Management**, **Approval Hierarchy**) load cleanly without error.
   2. The selected tab remains clearly visible (solid blue background with white text and badge).
-  3. No "Masters & Settings" tab appears.
+  3. The Back button (`←`) is present and returns the user to the Dashboard.
+  4. No "Overview", "Masters & Settings", or "Security & Audit" tabs appear.
 - [ ] **Create Proposal Test**:
   1. Open the CER web application hosted in the SharePoint workbench or app page.
   2. Navigate to **Create CER**.

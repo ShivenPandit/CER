@@ -18,6 +18,8 @@ import {
 import { IWorkflowLevel } from "../../models/WorkflowModel";
 import { IAppUser, IDirectoryUser } from "../../models/UserModel";
 import { ICERDataService } from "../../services/ICERDataService";
+import { useDynamicPagination } from "../../hooks/useDynamicPagination";
+import { DataTablePagination } from "../common/DataTablePagination";
 
 interface IApprovalHierarchyTabProps {
   dataService: ICERDataService;
@@ -46,6 +48,15 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
   useEffect(() => {
     setLevels([...workflowLevels]);
   }, [workflowLevels]);
+
+  // Fully Automatic Dynamic Pagination
+  const pagination = useDynamicPagination({
+    totalItems: levels.length,
+    defaultRowHeight: 110,
+    bufferBottom: 52,
+  });
+
+  const visibleLevels = pagination.paginateItems(levels);
 
   // Debounced search
   useEffect(() => {
@@ -81,7 +92,10 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
       approver_email: "approver@vedanta.co.in",
       is_active: true,
     };
-    setLevels([...levels, newLevel]);
+    const nextLevels = [...levels, newLevel];
+    setLevels(nextLevels);
+    const newTotalPages = Math.ceil(nextLevels.length / pagination.effectivePageSize);
+    pagination.setCurrentPage(newTotalPages);
   };
 
   const handleDeleteLevel = (levelId: number) => {
@@ -240,10 +254,11 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
       </div>
 
       {/* Ordered Level Cards */}
-      <div className="space-y-3">
-        {levels.map((level, index) => {
-          const isFirst = index === 0;
-          const isLast = index === levels.length - 1;
+      <div ref={pagination.tableContainerRef} className="space-y-3 flex flex-col">
+        {visibleLevels.map((level, pageIndex) => {
+          const actualIndex = pagination.startIndex + pageIndex;
+          const isFirst = actualIndex === 0;
+          const isLast = actualIndex === levels.length - 1;
 
           return (
             <div
@@ -259,7 +274,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                 <div className="flex items-center gap-3">
                   <div className="flex flex-col items-center">
                     <button
-                      onClick={() => handleMove(index, "up")}
+                      onClick={() => handleMove(actualIndex, "up")}
                       disabled={isFirst}
                       className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer"
                       title="Move level up"
@@ -270,7 +285,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                       {level.level_id}
                     </span>
                     <button
-                      onClick={() => handleMove(index, "down")}
+                      onClick={() => handleMove(actualIndex, "down")}
                       disabled={isLast}
                       className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer"
                       title="Move level down"
@@ -283,7 +298,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                     <input
                       type="text"
                       value={level.level_name}
-                      onChange={(e) => handleUpdateField(index, "level_name", e.target.value)}
+                      onChange={(e) => handleUpdateField(actualIndex, "level_name", e.target.value)}
                       placeholder="Stage Name (e.g. L1 - Technical Review)"
                       className="text-sm font-bold text-slate-900 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-600 focus:outline-none px-1"
                     />
@@ -291,7 +306,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                       <input
                         type="text"
                         value={level.role_title}
-                        onChange={(e) => handleUpdateField(index, "role_title", e.target.value)}
+                        onChange={(e) => handleUpdateField(actualIndex, "role_title", e.target.value)}
                         placeholder="Role Title (e.g. SBU Operations Head)"
                         className="text-xs text-slate-500 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-600 focus:outline-none px-1"
                       />
@@ -313,7 +328,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        setActivePickerLevelIndex(activePickerLevelIndex === index ? null : index);
+                        setActivePickerLevelIndex(activePickerLevelIndex === actualIndex ? null : actualIndex);
                         setDirectoryQuery("");
                         setDirectoryResults([]);
                       }}
@@ -324,7 +339,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                   </div>
 
                   {/* Directory Picker Popover */}
-                  {activePickerLevelIndex === index && (
+                  {activePickerLevelIndex === actualIndex && (
                     <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-elevated p-2 z-50 animate-fade-in">
                       <div className="relative mb-2">
                         <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -344,7 +359,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                         {directoryResults.map((u) => (
                           <div
                             key={u.id}
-                            onClick={() => handleSelectApproverFromDirectory(index, u)}
+                            onClick={() => handleSelectApproverFromDirectory(actualIndex, u)}
                             className="p-2 hover:bg-blue-50/70 rounded-lg cursor-pointer flex items-center justify-between"
                           >
                             <div className="truncate">
@@ -373,7 +388,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                       value={level.min_amount || ""}
                       onChange={(e) =>
                         handleUpdateField(
-                          index,
+                          actualIndex,
                           "min_amount",
                           e.target.value ? Number(e.target.value) : undefined
                         )
@@ -389,7 +404,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                       value={level.max_amount || ""}
                       onChange={(e) =>
                         handleUpdateField(
-                          index,
+                          actualIndex,
                           "max_amount",
                           e.target.value ? Number(e.target.value) : undefined
                         )
@@ -404,7 +419,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                 <div className="flex items-center gap-2 justify-end">
                   <button
                     type="button"
-                    onClick={() => handleUpdateField(index, "is_active", !level.is_active)}
+                    onClick={() => handleUpdateField(actualIndex, "is_active", !level.is_active)}
                     className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                       level.is_active
                         ? "bg-emerald-50 text-emerald-700 border-emerald-200"
@@ -429,6 +444,26 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
             </div>
           );
         })}
+
+        {/* Dynamic Pagination Bar */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden mt-3">
+          <DataTablePagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            totalItems={levels.length}
+            startIndex={pagination.startIndex}
+            endIndex={pagination.endIndex}
+            pageSizeSetting={pagination.pageSizeSetting}
+            effectivePageSize={pagination.effectivePageSize}
+            onPageChange={pagination.setCurrentPage}
+            onPageSizeChange={pagination.setPageSizeSetting}
+            onPrevPage={pagination.goToPrevPage}
+            onNextPage={pagination.goToNextPage}
+            onFirstPage={pagination.goToFirstPage}
+            onLastPage={pagination.goToLastPage}
+            itemName="levels"
+          />
+        </div>
       </div>
     </div>
   );

@@ -537,7 +537,7 @@ export class SharePointCERDataService implements ICERDataService {
         const json = await response.json();
         if (json.value && json.value.length > 0) {
           return json.value.map((item: any) => ({
-            id: String(item.Id || item.id),
+            id: String(item.ID !== undefined ? item.ID : item.Id !== undefined ? item.Id : item.id || Date.now()),
             level_id: Number(item.level_id || 1),
             level_name: item.level_name || item.Title || `Level ${item.level_id}`,
             role_title: item.role_title || "",
@@ -1265,7 +1265,7 @@ export class SharePointCERDataService implements ICERDataService {
 
   public async getUserRoles(): Promise<IUserRoleAssignment[]> {
     try {
-      const endpoint = `${this._siteUrl}/_api/web/lists/getByTitle('CER_UserRoles')/items?$top=500&$orderby=Created desc`;
+      const endpoint = `${this._siteUrl}/_api/web/lists/getByTitle('CER_UserRoles')/items?$top=500`;
       const response: SPHttpClientResponse = await this._spHttpClient.get(
         endpoint,
         SPHttpClient.configurations.v1,
@@ -1275,8 +1275,8 @@ export class SharePointCERDataService implements ICERDataService {
       if (response.ok) {
         const json = await response.json();
         if (json.value && Array.isArray(json.value)) {
-          return json.value.map((item: any) => ({
-            id: String(item.Id || item.id),
+          const list = json.value.map((item: any) => ({
+            id: String(item.ID !== undefined ? item.ID : item.Id !== undefined ? item.Id : item.id || Date.now()),
             user_name: item.Title || item.user_name || "",
             user_email: item.user_email || "",
             login_name: item.login_name || item.user_email || "",
@@ -1288,6 +1288,8 @@ export class SharePointCERDataService implements ICERDataService {
             assigned_by: item.assigned_by || "System Administrator",
             assigned_date: item.assigned_date || item.Created || new Date().toISOString(),
           }));
+          list.sort((a: IUserRoleAssignment, b: IUserRoleAssignment) => new Date(b.assigned_date).getTime() - new Date(a.assigned_date).getTime());
+          return list;
         }
       }
     } catch (e) {
@@ -1331,21 +1333,25 @@ export class SharePointCERDataService implements ICERDataService {
         const json = await response.json();
         const created: IUserRoleAssignment = {
           ...assignment,
-          id: String(json.Id || json.id || Date.now()),
+          id: String(json.ID !== undefined ? json.ID : json.Id !== undefined ? json.Id : json.id || Date.now()),
           assigned_by: actor.name,
           assigned_date: payload.assigned_date,
         };
 
-        await this.logAdminAudit({
-          actor_name: actor.name,
-          actor_email: actor.email,
-          action: "ROLE_ASSIGNED",
-          target_type: "USER",
-          target_id: created.id,
-          details: `Assigned role '${created.role}' to ${created.user_name} (${created.user_email})${created.approval_level ? ` with Approval Level ${created.approval_level}` : ""}.`,
-          after_value: JSON.stringify(created),
-          timestamp: new Date().toISOString(),
-        });
+        try {
+          await this.logAdminAudit({
+            actor_name: actor.name,
+            actor_email: actor.email,
+            action: "ROLE_ASSIGNED",
+            target_type: "USER",
+            target_id: created.id,
+            details: `Assigned role '${created.role}' to ${created.user_name} (${created.user_email})${created.approval_level ? ` with Approval Level ${created.approval_level}` : ""}.`,
+            after_value: JSON.stringify(created),
+            timestamp: new Date().toISOString(),
+          });
+        } catch {
+          // ignore audit logging error if CER_AdminAuditLog is not provisioned
+        }
 
         return created;
       }
@@ -1388,16 +1394,20 @@ export class SharePointCERDataService implements ICERDataService {
       );
 
       if (response.ok) {
-        await this.logAdminAudit({
-          actor_name: actor.name,
-          actor_email: actor.email,
-          action: assignment.is_active ? "ROLE_UPDATED" : "ROLE_STATUS_TOGGLED",
-          target_type: "USER",
-          target_id: assignment.id,
-          details: `Updated role assignment for ${assignment.user_name}. Active: ${assignment.is_active}, Role: ${assignment.role}.`,
-          after_value: JSON.stringify(assignment),
-          timestamp: new Date().toISOString(),
-        });
+        try {
+          await this.logAdminAudit({
+            actor_name: actor.name,
+            actor_email: actor.email,
+            action: assignment.is_active ? "ROLE_UPDATED" : "ROLE_STATUS_TOGGLED",
+            target_type: "USER",
+            target_id: assignment.id,
+            details: `Updated role assignment for ${assignment.user_name}. Active: ${assignment.is_active}, Role: ${assignment.role}.`,
+            after_value: JSON.stringify(assignment),
+            timestamp: new Date().toISOString(),
+          });
+        } catch {
+          // ignore audit logging error if CER_AdminAuditLog is not provisioned
+        }
         return;
       }
     } catch (e) {
@@ -1427,15 +1437,19 @@ export class SharePointCERDataService implements ICERDataService {
       );
 
       if (response.ok) {
-        await this.logAdminAudit({
-          actor_name: actor.name,
-          actor_email: actor.email,
-          action: "ROLE_REVOKED",
-          target_type: "USER",
-          target_id: assignmentId,
-          details: `Revoked role assignment ID '${assignmentId}'.`,
-          timestamp: new Date().toISOString(),
-        });
+        try {
+          await this.logAdminAudit({
+            actor_name: actor.name,
+            actor_email: actor.email,
+            action: "ROLE_REVOKED",
+            target_type: "USER",
+            target_id: assignmentId,
+            details: `Revoked role assignment ID '${assignmentId}'.`,
+            timestamp: new Date().toISOString(),
+          });
+        } catch {
+          // ignore audit logging error if CER_AdminAuditLog is not provisioned
+        }
         return;
       }
     } catch (e) {

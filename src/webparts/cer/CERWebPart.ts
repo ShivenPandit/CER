@@ -116,14 +116,15 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
   }
 
   public render(): void {
-    this.domElement.style.setProperty("display", "block", "important");
+    this.domElement.style.setProperty("display", "flex", "important");
+    this.domElement.style.setProperty("flex-direction", "column", "important");
     this.domElement.style.setProperty("opacity", "1", "important");
     this.domElement.style.setProperty("visibility", "visible", "important");
     this.domElement.style.setProperty("width", "100%", "important");
     this.domElement.style.setProperty("max-width", "none", "important");
     this.domElement.style.setProperty("min-width", "100%", "important");
-    this.domElement.style.setProperty("min-height", "100vh", "important");
-    this.domElement.style.setProperty("min-height", "100dvh", "important");
+    this.domElement.style.setProperty("min-height", "100%", "important");
+    this.domElement.style.setProperty("height", "auto", "important");
     this.domElement.style.setProperty("box-sizing", "border-box", "important");
     this.domElement.style.setProperty("margin", "0px", "important");
     this.domElement.style.setProperty("padding", "0px", "important");
@@ -167,6 +168,7 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
         p.style.setProperty("max-width", "100%", "important");
         p.style.setProperty("min-width", "100%", "important");
         p.style.setProperty("min-height", "100%", "important");
+        p.style.setProperty("height", "auto", "important");
         p.style.setProperty("margin", "0px", "important");
         p.style.setProperty("padding", "0px", "important");
         p.style.setProperty("border", "none", "important");
@@ -187,6 +189,7 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
         htmlEl.style.setProperty("width", "100%", "important");
         htmlEl.style.setProperty("min-width", "100%", "important");
         htmlEl.style.setProperty("min-height", "100%", "important");
+        htmlEl.style.setProperty("height", "auto", "important");
         htmlEl.style.setProperty("margin", "0px", "important");
         htmlEl.style.setProperty("padding", "0px", "important");
         htmlEl.style.setProperty("border", "none", "important");
@@ -252,7 +255,6 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
         overflow-x: hidden !important;
         height: auto !important;
         min-height: 100% !important;
-        min-height: 100dvh !important;
         background-color: #F8FAFC !important;
         margin: 0 !important;
         padding: 0 !important;
@@ -269,7 +271,6 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
         overflow-x: hidden !important;
         height: auto !important;
         min-height: 100% !important;
-        min-height: 100dvh !important;
         width: 100% !important;
         max-width: 100% !important;
         background-color: #F8FAFC !important;
@@ -310,13 +311,24 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
         width: 100% !important;
         min-width: 100% !important;
         min-height: 100% !important;
-        min-height: 100dvh !important;
+        height: auto !important;
         margin: 0 !important;
         padding: 0 !important;
         border: none !important;
         border-radius: 0 !important;
         box-sizing: border-box !important;
         background-color: #F8FAFC !important;
+      }
+      /* Suppress any default SharePoint canvas bottom padding/margins */
+      .CanvasZone,
+      .CanvasSection,
+      .CanvasZoneSectionContainer,
+      .ControlZone,
+      div[data-automation-id="CanvasControl"],
+      div[data-automation-id="CanvasZone"],
+      div[data-automation-id="CanvasSection"] {
+        padding-bottom: 0 !important;
+        margin-bottom: 0 !important;
       }
       .CanvasSection-xl12, .CanvasSection-l12, .CanvasSection-m12, .CanvasSection-sm12, .CanvasSection-col {
         max-width: 100% !important;

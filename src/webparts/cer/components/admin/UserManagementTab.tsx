@@ -22,6 +22,8 @@ import {
   IDirectoryUser,
 } from "../../models/UserModel";
 import { ICERDataService } from "../../services/ICERDataService";
+import { useDynamicPagination } from "../../hooks/useDynamicPagination";
+import { DataTablePagination } from "../common/DataTablePagination";
 
 interface IUserManagementTabProps {
   dataService: ICERDataService;
@@ -101,6 +103,19 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
     return matchSearch && matchRole && matchStatus;
   });
+
+  // Fully Automatic Dynamic Table Pagination
+  const pagination = useDynamicPagination({
+    totalItems: filteredRoles.length,
+    defaultRowHeight: 52,
+    bufferBottom: 52,
+  });
+
+  const visibleRoles = pagination.paginateItems(filteredRoles);
+
+  useEffect(() => {
+    pagination.setCurrentPage(1);
+  }, [searchTerm, roleFilter, statusFilter]);
 
   const getRoleBadgeStyle = (role: UserRole): string => {
     switch (role) {
@@ -268,7 +283,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               onChange={(e) => setRoleFilter(e.target.value)}
               className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             >
-              <option value="ALL">All Roles ({roles.length})</option>
+              <option value="ALL">All Roles</option>
               <option value="Admin">Admin</option>
               <option value="Approver">Approver</option>
               <option value="Initiator">Initiator</option>
@@ -299,8 +314,11 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
       </div>
 
       {/* Role Assignments Table */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden">
-        <div className="overflow-x-auto">
+      <div
+        ref={pagination.tableContainerRef}
+        className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden flex flex-col"
+      >
+        <div className="overflow-x-auto flex-1">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 font-semibold uppercase tracking-wider text-[10px]">
@@ -315,14 +333,14 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
-              {filteredRoles.length === 0 ? (
+              {visibleRoles.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-8 text-center text-slate-400">
                     No role assignments match the selected criteria.
                   </td>
                 </tr>
               ) : (
-                filteredRoles.map((assignment) => {
+                visibleRoles.map((assignment) => {
                   const initials = assignment.user_name
                     .split(" ")
                     .map((n) => n[0])
@@ -421,6 +439,24 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
             </tbody>
           </table>
         </div>
+
+        {/* Dynamic Pagination Bar */}
+        <DataTablePagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={filteredRoles.length}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          pageSizeSetting={pagination.pageSizeSetting}
+          effectivePageSize={pagination.effectivePageSize}
+          onPageChange={pagination.setCurrentPage}
+          onPageSizeChange={pagination.setPageSizeSetting}
+          onPrevPage={pagination.goToPrevPage}
+          onNextPage={pagination.goToNextPage}
+          onFirstPage={pagination.goToFirstPage}
+          onLastPage={pagination.goToLastPage}
+          itemName="roles"
+        />
       </div>
 
       {/* Modal: Assign Role */}

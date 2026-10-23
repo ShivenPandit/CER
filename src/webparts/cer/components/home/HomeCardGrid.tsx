@@ -1,11 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
 import {
-  FilePlus,
-  ListFilter,
-  UserCheck,
-  BarChart3,
-  Settings,
-  BookOpen,
   ArrowRight,
 } from "lucide-react";
 import { NavView } from "../navigation/Sidebar";
@@ -73,8 +67,6 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
       actionLabel: "Create Request",
       bgGradient: "from-[#EFF6FF] via-[#EBF4FE] to-[#DCEEFE]",
       borderClass: "border-[#BFDBFE] hover:border-[#93C5FD]",
-      iconBg: "bg-[#1A73E8]",
-      icon: FilePlus,
       dotColor: "text-[#93C5FD]",
       actionColor: "text-[#1A73E8]",
       illustration: CreateCERIllustration,
@@ -88,8 +80,6 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
       actionLabel: "View My Requests",
       bgGradient: "from-[#ECFDF5] via-[#E6F9F0] to-[#D4F5E6]",
       borderClass: "border-[#A7F3D0] hover:border-[#6EE7B7]",
-      iconBg: "bg-[#10B981]",
-      icon: ListFilter,
       dotColor: "text-[#A7F3D0]",
       actionColor: "text-[#059669]",
       illustration: MyRequestsIllustration,
@@ -104,8 +94,6 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
       badgeCount: pendingApprovalsCount,
       bgGradient: "from-[#FFFBEB] via-[#FFF8E7] to-[#FEF2D6]",
       borderClass: "border-[#FDE68A] hover:border-[#FCD34D]",
-      iconBg: "bg-[#F59E0B]",
-      icon: UserCheck,
       dotColor: "text-[#FCD34D]",
       actionColor: "text-[#D97706]",
       illustration: ApprovalsIllustration,
@@ -119,8 +107,6 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
       actionLabel: "View Reports",
       bgGradient: "from-[#F5F3FF] via-[#F3EEFF] to-[#E9E1FC]",
       borderClass: "border-[#DDD6FE] hover:border-[#C4B5FD]",
-      iconBg: "bg-[#8B5CF6]",
-      icon: BarChart3,
       dotColor: "text-[#C4B5FD]",
       actionColor: "text-[#7C3AED]",
       illustration: ReportsIllustration,
@@ -134,8 +120,6 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
       actionLabel: "Open Admin Console",
       bgGradient: "from-[#FFF1F2] via-[#FEECEF] to-[#FDDDE3]",
       borderClass: "border-[#FECDD3] hover:border-[#FDA4AF]",
-      iconBg: "bg-[#E11D48]",
-      icon: Settings,
       dotColor: "text-[#FDA4AF]",
       actionColor: "text-[#E11D48]",
       illustration: AdminIllustration,
@@ -149,8 +133,6 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
       actionLabel: "Read Guide",
       bgGradient: "from-[#ECFEFF] via-[#E6FCFD] to-[#D0F7F9]",
       borderClass: "border-[#A5F3FC] hover:border-[#67E8F9]",
-      iconBg: "bg-[#0891B2]",
-      icon: BookOpen,
       dotColor: "text-[#67E8F9]",
       actionColor: "text-[#0891B2]",
       illustration: UserManualIllustration,
@@ -175,27 +157,26 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
   return (
     <div
       ref={containerRef}
-      className="w-full max-w-none px-3.5 xs:px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 pt-2 pb-2 sm:pt-2.5 sm:pb-2.5 lg:pt-3 lg:pb-3 2xl:pt-4 2xl:pb-5 min-w-0 touch-pan-y"
+      className="w-full max-w-[2560px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 3xl:px-16 py-1 sm:py-1.5 lg:py-2 xl:py-2.5 2xl:py-3.5 h-full flex-1 flex flex-col justify-center min-h-0 min-w-0 touch-pan-y"
     >
       {/* Container-aware responsive card grid: 1 col (<580px / mobile), 2 cols (tablet), 3 cols (desktop / laptop) */}
       <div
         className={`grid ${
           cols === 3
-            ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+            ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 lg:grid-rows-2"
             : cols === 2
             ? "grid-cols-1 sm:grid-cols-2"
             : "grid-cols-1"
-        } gap-2.5 sm:gap-3 lg:gap-3 2xl:gap-4.5 min-w-0 touch-pan-y`}
+        } gap-2 sm:gap-2.5 lg:gap-3 xl:gap-3.5 2xl:gap-5 3xl:gap-6 h-full flex-1 max-h-[460px] lg:max-h-[500px] xl:max-h-[540px] 2xl:max-h-[600px] 3xl:max-h-[680px] min-h-0 min-w-0 touch-pan-y`}
       >
         {visibleCards.map((card) => {
-          const Icon = card.icon;
           const Illustration = card.illustration;
 
           return (
             <div
               key={card.id}
               onClick={card.onClick}
-              className={`group relative flex flex-col justify-between p-2.5 xs:p-3 sm:p-3.5 2xl:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-br ${card.bgGradient} border ${card.borderClass} shadow-subtle hover:shadow-card hover:-translate-y-0.5 transition-all duration-300 cursor-pointer overflow-hidden min-h-[112px] xs:min-h-[118px] sm:min-h-[124px] lg:min-h-[130px] 2xl:min-h-[160px] select-none min-w-0 touch-pan-y`}
+              className={`group relative flex flex-col justify-between p-2.5 sm:p-3 lg:p-3.5 xl:p-4 2xl:p-6 3xl:p-7 rounded-xl sm:rounded-2xl bg-gradient-to-br ${card.bgGradient} border ${card.borderClass} shadow-subtle hover:shadow-card hover:-translate-y-0.5 transition-all duration-300 cursor-pointer overflow-hidden h-full min-h-[90px] sm:min-h-[100px] lg:min-h-[110px] xl:min-h-[115px] 2xl:min-h-[160px] 3xl:min-h-[190px] select-none min-w-0 touch-pan-y`}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
@@ -205,57 +186,48 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
                 }
               }}
             >
-              {/* Three Decorative Dots in Upper Right Corner */}
-              <div
-                className={`absolute top-2.5 right-2.5 sm:top-3 sm:right-3.5 text-xs sm:text-sm tracking-widest font-black leading-none ${card.dotColor} opacity-75 pointer-events-none select-none`}
-              >
-                •••
-              </div>
-
               {/* Main Content Layout (Left Text, Right Illustration) */}
-              <div className="flex items-start justify-between gap-2 z-10 min-w-0">
-                {/* Left Side: Icon, Title, Description */}
+              <div className="flex items-start justify-between gap-2.5 sm:gap-3.5 2xl:gap-5 z-10 min-w-0">
+                {/* Left Side: Title, Description */}
                 <div className="flex-1 pr-1 xs:pr-2 min-w-0">
-                  {/* Circular Icon with Shadow */}
-                  <div className="relative inline-block mb-1 xs:mb-1.5 sm:mb-2">
-                    <div
-                      className={`w-7 h-7 xs:w-7.5 xs:h-7.5 sm:w-8 sm:h-8 2xl:w-10 2xl:h-10 rounded-full ${card.iconBg} text-white flex items-center justify-center shadow-xs transform group-hover:scale-105 transition-transform duration-200`}
+                  {/* Heading & Badge */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3
+                      style={{ fontSize: "clamp(13.5px, 1.15vw, 24px)" }}
+                      className="font-bold text-slate-900 tracking-tight leading-snug group-hover:text-blue-950 transition-colors 2xl:text-[22px] 3xl:text-2xl"
                     >
-                      <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 2xl:w-5 2xl:h-5" />
-                    </div>
-
-                    {/* Pending Count Badge if applicable */}
+                      {card.title}
+                    </h3>
                     {card.badgeCount && card.badgeCount > 0 ? (
-                      <span className="absolute -top-1 -right-1 min-w-[15px] xs:min-w-[16px] h-[15px] xs:h-[16px] px-1 rounded-full bg-rose-600 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white shadow-xs">
+                      <span className="inline-flex items-center justify-center px-1.5 py-0.2 2xl:px-2.5 2xl:py-0.5 rounded-full bg-rose-600 text-white text-[10px] 2xl:text-xs 3xl:text-sm font-bold shadow-xs">
                         {card.badgeCount}
                       </span>
                     ) : null}
                   </div>
 
-                  {/* Heading */}
-                  <h3 className="text-xs xs:text-[13px] sm:text-[13.5px] lg:text-[14px] 2xl:text-base font-bold text-slate-900 tracking-tight leading-snug group-hover:text-blue-950 transition-colors">
-                    {card.title}
-                  </h3>
-
-                  {/* Description - fluid text that wraps naturally without arbitrary max-width constraints */}
-                  <p className="text-[9.5px] xs:text-[10px] sm:text-[10.5px] lg:text-[11px] 2xl:text-xs text-slate-600 leading-snug mt-0.5 sm:mt-1 line-clamp-2">
+                  {/* Description - fluid text that wraps naturally with expanded horizontal room */}
+                  <p
+                    style={{ fontSize: "clamp(11px, 0.88vw, 16.5px)", lineHeight: 1.5 }}
+                    className="text-slate-600 mt-0.5 sm:mt-1 2xl:mt-2.5 3xl:mt-3 2xl:text-[15px] 3xl:text-base"
+                  >
                     {card.description}
                   </p>
                 </div>
 
                 {/* Right Side: Themed Responsive Vector Illustration */}
-                <div className="shrink-0 flex items-center justify-end pointer-events-none select-none pl-1">
-                  <Illustration className="w-14 h-14 xs:w-15 xs:h-15 sm:w-16 sm:h-16 lg:w-17 lg:h-17 2xl:w-20 2xl:h-20 transition-transform duration-300 group-hover:scale-105" />
+                <div className="shrink-0 flex items-center justify-end pointer-events-none select-none pl-1 self-start pt-0.5">
+                  <Illustration className="w-10 h-10 sm:w-11 sm:h-11 lg:w-12 lg:h-12 xl:w-14 xl:h-14 2xl:w-20 2xl:h-20 3xl:w-24 3xl:h-24 transition-transform duration-300 group-hover:scale-105" />
                 </div>
               </div>
 
               {/* Bottom Action Link with Arrow */}
-              <div className="mt-1.5 sm:mt-2 pt-0.5 z-10">
+              <div className="mt-1.5 sm:mt-2 xl:mt-2.5 2xl:mt-auto pt-0.5 z-10">
                 <span
-                  className={`inline-flex items-center gap-1 text-[11px] sm:text-xs 2xl:text-sm font-bold ${card.actionColor} group-hover:gap-1.5 transition-all duration-200`}
+                  style={{ fontSize: "clamp(11.5px, 0.9vw, 16.5px)" }}
+                  className={`inline-flex items-center gap-1.5 2xl:gap-2.5 font-bold ${card.actionColor} 2xl:text-[15px] 3xl:text-base group-hover:gap-2 2xl:group-hover:gap-3 transition-all duration-200`}
                 >
                   <span>{card.actionLabel}</span>
-                  <ArrowRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 transform group-hover:translate-x-0.5 transition-transform" />
+                  <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 2xl:w-5 2xl:h-5 transform group-hover:translate-x-0.5 transition-transform" />
                 </span>
               </div>
             </div>

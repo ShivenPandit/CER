@@ -20,73 +20,16 @@ const STORAGE_KEYS = {
 
 const DEFAULT_USER_ROLES: IUserRoleAssignment[] = [
   {
-    id: "role-admin-70007144",
-    user_name: "Admin (70007144)",
+    id: "1",
+    user_name: "Shiven Pandit",
     user_email: "70007144@cairnindia.com",
     login_name: "70007144@cairnindia.com",
     role: "Admin",
-    department: "Enterprise Administration",
+    department: "Digital",
+    sbu: "RJ North",
     is_active: true,
-    assigned_by: "SYSTEM_INITIAL_BOOTSTRAP",
-    assigned_date: "2026-01-01T00:00:00Z",
-  },
-  {
-    id: "role-001",
-    user_name: "Priya Kalekar (STL Digital)",
-    user_email: "Priya.Kalekar@cairnindia.com",
-    login_name: "70004733@cairnindia.com",
-    role: "Admin",
-    department: "CER Management Portal",
-    is_active: true,
-    assigned_by: "SYSTEM_INITIAL_BOOTSTRAP",
-    assigned_date: "2026-01-01T00:00:00Z",
-  },
-  {
-    id: "role-002",
-    user_name: "Ankit Sharma (STL Digital)",
-    user_email: "Ankit.Sharma2@cairnindia.com",
-    login_name: "70004736@cairnindia.com",
-    role: "Approver",
-    approval_level: 1,
-    department: "CER Management Portal",
-    is_active: true,
-    assigned_by: "Priya Kalekar (STL Digital)",
-    assigned_date: "2026-01-02T00:00:00Z",
-  },
-  {
-    id: "role-003",
-    user_name: "Deependra Singh (STL Digital)",
-    user_email: "Deependra.Singh@cairnindia.com",
-    login_name: "70003750@cairnindia.com",
-    role: "Approver",
-    approval_level: 2,
-    department: "CER Management Portal",
-    is_active: true,
-    assigned_by: "Priya Kalekar (STL Digital)",
-    assigned_date: "2026-01-02T00:00:00Z",
-  },
-  {
-    id: "role-004",
-    user_name: "Nitin Doshi (STL Digital)",
-    user_email: "Nitin.Doshi@cairnindia.com",
-    login_name: "70004727@cairnindia.com",
-    role: "Approver",
-    approval_level: 3,
-    department: "CER Management Portal",
-    is_active: true,
-    assigned_by: "Priya Kalekar (STL Digital)",
-    assigned_date: "2026-01-02T00:00:00Z",
-  },
-  {
-    id: "role-005",
-    user_name: "Shiven Pandit",
-    user_email: "shiven.pandit@vedanta.co.in",
-    login_name: "shiven.pandit@vedanta.co.in",
-    role: "Initiator",
-    department: "CER Management Portal",
-    is_active: true,
-    assigned_by: "Priya Kalekar (STL Digital)",
-    assigned_date: "2026-01-02T00:00:00Z",
+    assigned_by: "System Bootstrap",
+    assigned_date: "2026-10-23T18:30:00Z",
   },
 ];
 
@@ -537,7 +480,24 @@ export class LocalMockCERDataService implements ICERDataService {
 
       const storedRoles = getStoredItem(STORAGE_KEYS.USER_ROLES);
       if (storedRoles) {
-        this._userRoles = JSON.parse(storedRoles);
+        const rawList = JSON.parse(storedRoles);
+        const legacyDemoEmails = [
+          "priya.kalekar@cairnindia.com",
+          "ankit.sharma2@cairnindia.com",
+          "deependra.singh@cairnindia.com",
+          "nitin.doshi@cairnindia.com",
+        ];
+        this._userRoles = Array.isArray(rawList)
+          ? rawList.filter((r: IUserRoleAssignment) => {
+              const email = (r.user_email || "").toLowerCase();
+              const name = (r.user_name || "").toLowerCase();
+              return (
+                legacyDemoEmails.indexOf(email) === -1 &&
+                name.indexOf("stl digital") === -1 &&
+                name.indexOf("priya") === -1
+              );
+            })
+          : [];
         // Ensure 70007144@cairnindia.com is always present as an active Admin
         const has70007144 = this._userRoles.some(
           r => (r.user_email && r.user_email.toLowerCase() === "70007144@cairnindia.com") ||
@@ -545,18 +505,19 @@ export class LocalMockCERDataService implements ICERDataService {
         );
         if (!has70007144) {
           this._userRoles.unshift({
-            id: "role-admin-70007144",
-            user_name: "Admin (70007144)",
+            id: "1",
+            user_name: "Shiven Pandit",
             user_email: "70007144@cairnindia.com",
             login_name: "70007144@cairnindia.com",
             role: "Admin",
-            department: "Enterprise Administration",
+            department: "Digital",
+            sbu: "RJ North",
             is_active: true,
-            assigned_by: "SYSTEM_INITIAL_BOOTSTRAP",
-            assigned_date: "2026-01-01T00:00:00Z",
+            assigned_by: "System Bootstrap",
+            assigned_date: "2026-10-23T18:30:00Z",
           });
-          this._saveToStorage(STORAGE_KEYS.USER_ROLES, this._userRoles);
         }
+        this._saveToStorage(STORAGE_KEYS.USER_ROLES, this._userRoles);
       } else {
         this._userRoles = [...DEFAULT_USER_ROLES];
         this._saveToStorage(STORAGE_KEYS.USER_ROLES, this._userRoles);
@@ -574,8 +535,8 @@ export class LocalMockCERDataService implements ICERDataService {
             action: "ROLE_ASSIGNED",
             target_type: "USER",
             target_id: "role-001",
-            details: "Initial bootstrap: Assigned Administrator role to Priya Kalekar (STL Digital).",
-            timestamp: "2026-01-01T00:00:00Z",
+            details: "Initial bootstrap: Assigned Administrator role to Shiven Pandit (70007144@cairnindia.com).",
+            timestamp: "2026-10-23T18:30:00Z",
           },
         ];
         this._saveToStorage(STORAGE_KEYS.ADMIN_AUDIT, this._adminAudit);

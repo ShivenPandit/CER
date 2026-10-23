@@ -68,13 +68,14 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
   const isHomeActive = currentView === "dashboard";
 
   return (
-    <header className="h-11 sm:h-11.5 lg:h-12 bg-white border-b border-slate-200/90 px-3 xs:px-4 sm:px-5 lg:px-6 xl:px-8 flex items-center justify-between shrink-0 shadow-2xs z-30 sticky top-0 w-full select-none">
-      {/* Left side: Platform Logo & Titles */}
-      <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-        {/* Brand Link (Clicking logo / title returns to home) */}
-        <div
-          onClick={() => onNavigate("dashboard")}
-          className="flex items-center gap-2 sm:gap-2.5 cursor-pointer group min-w-0"
+    <header className="h-11 sm:h-11.5 lg:h-12 xl:h-12.5 2xl:h-13.5 bg-white border-b border-slate-200/90 shrink-0 shadow-2xs z-30 sticky top-0 w-full select-none">
+      <div className="w-full max-w-[2560px] mx-auto h-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 3xl:px-16 flex items-center justify-between">
+        {/* Left side: Platform Logo & Titles */}
+        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+          {/* Brand Link (Clicking logo / title returns to home) */}
+          <div
+            onClick={() => onNavigate("dashboard")}
+            className="flex items-center gap-2 sm:gap-2.5 cursor-pointer group min-w-0"
             role="button"
             tabIndex={0}
             title="Return to Home"
@@ -84,16 +85,16 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
               <img
                 src={vedantaLogo}
                 alt="Vedanta"
-                className="h-5 sm:h-6 md:h-6.5 w-auto max-w-[130px] sm:max-w-[160px] md:max-w-[185px] object-contain transform group-hover:scale-105 transition-transform"
+                className="h-6 sm:h-6.5 lg:h-7 xl:h-7.5 2xl:h-8 w-auto max-w-[140px] sm:max-w-[170px] md:max-w-[195px] 2xl:max-w-[220px] object-contain transform group-hover:scale-105 transition-transform"
               />
             </div>
 
             {/* Titles */}
             <div className="min-w-0 flex flex-col justify-center">
-              <h1 className="text-xs xs:text-[13px] sm:text-[14px] lg:text-[15px] font-bold text-[#0A1E38] tracking-tight leading-tight truncate group-hover:text-blue-700 transition-colors max-w-[155px] xs:max-w-[220px] sm:max-w-none">
+              <h1 className="text-sm sm:text-[15px] lg:text-[16px] xl:text-[16.5px] 2xl:text-[17.5px] font-bold text-[#0A1E38] tracking-tight leading-tight truncate group-hover:text-blue-700 transition-colors max-w-[180px] xs:max-w-[240px] sm:max-w-none">
                 Capital Expenditure Request (CER)
               </h1>
-              <p className="hidden xs:block text-[8.5px] sm:text-[9.5px] md:text-[10px] font-medium text-slate-500 tracking-tight leading-none mt-0.5 truncate">
+              <p className="hidden xs:block text-[9.5px] sm:text-[10.5px] 2xl:text-[11.5px] font-medium text-slate-500 tracking-tight leading-none mt-0.5 truncate">
                 Management System
               </p>
             </div>
@@ -170,13 +171,13 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
               title="User Profile & Persona Switcher"
             >
               {/* Dark Navy Avatar Monogram Circle */}
-              <div className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full bg-[#0A1E38] text-white flex items-center justify-center font-bold text-[10px] sm:text-[11px] tracking-tight shrink-0 shadow-xs">
+              <div className="w-6.5 h-6.5 sm:w-7 sm:h-7 2xl:w-7.5 2xl:h-7.5 rounded-full bg-[#0A1E38] text-white flex items-center justify-center font-bold text-[10px] sm:text-[11px] 2xl:text-xs tracking-tight shrink-0 shadow-xs">
                 {initials}
               </div>
 
               {/* User Display Name (Hidden on narrow mobile screens) */}
               <div className="hidden sm:flex items-center gap-1.5 min-w-0">
-                <span className="text-xs sm:text-[13px] font-bold text-[#0A1E38] leading-none max-w-[90px] md:max-w-[130px] lg:max-w-[180px] truncate">
+                <span className="text-xs sm:text-[13px] 2xl:text-[14px] font-bold text-[#0A1E38] leading-none max-w-[90px] md:max-w-[130px] lg:max-w-[180px] 2xl:max-w-[220px] truncate">
                   {cleanName}
                 </span>
               </div>
@@ -275,6 +276,7 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
             )}
           </div>
         </div>
+      </div>
     </header>
   );
 };

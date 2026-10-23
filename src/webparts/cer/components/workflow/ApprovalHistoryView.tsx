@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { History, Search, CheckCircle2, XCircle, Eye } from "lucide-react";
+import { History, Search, CheckCircle2, XCircle, Eye, ArrowLeft } from "lucide-react";
 import { IApprovalDecision } from "../../models/WorkflowModel";
 import { ICERProposal } from "../../models/CERModel";
 import { ICERDataService } from "../../services/ICERDataService";
@@ -10,12 +10,14 @@ interface IApprovalHistoryViewProps {
   dataService: ICERDataService;
   proposals: ICERProposal[];
   onNavigateToDisplay: (cerprno: string) => void;
+  onCancel?: () => void;
 }
 
 export const ApprovalHistoryView: React.FC<IApprovalHistoryViewProps> = ({
   dataService,
   proposals,
   onNavigateToDisplay,
+  onCancel,
 }) => {
   const [decisions, setDecisions] = useState<IApprovalDecision[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -66,13 +68,25 @@ export const ApprovalHistoryView: React.FC<IApprovalHistoryViewProps> = ({
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-            Workflow Decision History & Audit Trail
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Immutable log of all reviewer approvals, endorsements, and rejections
-          </p>
+        <div className="flex items-center gap-3">
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0"
+              title="Go back"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+              Workflow Decision History & Audit Trail
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Immutable log of all reviewer approvals, endorsements, and rejections
+            </p>
+          </div>
         </div>
 
         <div className="relative w-full sm:w-auto">

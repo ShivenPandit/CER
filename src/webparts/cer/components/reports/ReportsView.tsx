@@ -7,6 +7,7 @@ import {
   RotateCcw,
   Eye,
   Edit,
+  ArrowLeft,
 } from "lucide-react";
 import { ICERProposal, CERCategory, CERStatus, SBUOption, SBU_OPTIONS, IFieldChoices } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
@@ -22,6 +23,7 @@ interface IReportsViewProps {
   onNavigateToDisplay: (cerprno: string) => void;
   onNavigateToChange: (cerprno: string) => void;
   fieldChoices?: IFieldChoices;
+  onCancel?: () => void;
 }
 
 export const ReportsView: React.FC<IReportsViewProps> = ({
@@ -30,6 +32,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
   onNavigateToDisplay,
   onNavigateToChange,
   fieldChoices,
+  onCancel,
 }) => {
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -135,13 +138,25 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
     <div className="space-y-4 sm:space-y-6">
       {/* View Header */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-            CER Proposal Reports & Strategic Analytics
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Form FR-04: Multi-parameter query, audit-grade tabular views, and Excel spreadsheet export
-          </p>
+        <div className="flex items-center gap-3">
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0"
+              title="Go back"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+              CER Proposal Reports & Strategic Analytics
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Form FR-04: Multi-parameter query, audit-grade tabular views, and Excel spreadsheet export
+            </p>
+          </div>
         </div>
 
         <button

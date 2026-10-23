@@ -84,13 +84,14 @@ const CER: React.FC<ICERProps> = (props) => {
     const isAdmin = isDesignatedAdmin(props.newcurrentUserEmail) || isDesignatedAdmin(props.newcurrentUserLoginName);
     return {
       id: props.newcurrentUserId || 1,
-      name: props.newcurrentUserName || (isAdmin ? "Admin (70007144)" : "Authenticated Portal User"),
-      email: props.newcurrentUserEmail || "",
-      loginName: props.newcurrentUserLoginName || "",
+      name: props.newcurrentUserName || (isAdmin ? "Shiven Pandit" : "Authenticated Portal User"),
+      email: props.newcurrentUserEmail || (isAdmin ? "70007144@cairnindia.com" : ""),
+      loginName: props.newcurrentUserLoginName || (isAdmin ? "70007144@cairnindia.com" : ""),
       role: isAdmin ? "Admin" : "Initiator",
       roles: isAdmin ? ["Admin", "Initiator"] : ["Initiator"],
       is_active: true,
-      department: "CER Management Portal",
+      department: isAdmin ? "Digital" : "CER Management Portal",
+      sbu: isAdmin ? "RJ North" : undefined,
       isSiteAdmin: props.newisSiteAdmin || isAdmin,
     };
   });
@@ -319,15 +320,45 @@ const CER: React.FC<ICERProps> = (props) => {
     return false;
   }).length;
 
+  // Measure actual available application height after accounting for the SharePoint host page and header
+  const appRootRef = React.useRef<HTMLDivElement | null>(null);
+  const [availableHeight, setAvailableHeight] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    const updateAvailableHeight = () => {
+      if (appRootRef.current) {
+        const rect = appRootRef.current.getBoundingClientRect();
+        // Distance from top of browser viewport to top of CER webpart
+        const topOffset = Math.max(0, rect.top);
+        // Available visible vertical space in current browser viewport
+        const calcHeight = window.innerHeight - topOffset;
+        if (calcHeight > 350) {
+          setAvailableHeight(calcHeight);
+        }
+      }
+    };
+
+    updateAvailableHeight();
+    window.addEventListener("resize", updateAvailableHeight);
+    const t = setTimeout(updateAvailableHeight, 150);
+    return () => {
+      window.removeEventListener("resize", updateAvailableHeight);
+      clearTimeout(t);
+    };
+  }, []);
+
   return (
     <div
+      ref={appRootRef}
+      id="cer-app-root"
       style={{
-        minHeight: currentView === "dashboard" ? undefined : "100dvh",
+        height: currentView === "dashboard" && availableHeight ? `${availableHeight}px` : undefined,
+        minHeight: availableHeight ? `${availableHeight}px` : "100%",
+        maxHeight: currentView === "dashboard" && availableHeight ? `${availableHeight}px` : undefined,
+        overflow: currentView === "dashboard" ? "hidden" : "visible",
         backgroundColor: "#F8FAFC",
       }}
-      className={`flex flex-col w-full max-w-none bg-[#F8FAFC] font-sans text-slate-800 antialiased selection:bg-blue-600 selection:text-white ${
-        currentView === "dashboard" ? "" : "min-h-screen"
-      }`}
+      className="flex flex-col flex-1 w-full max-w-none bg-[#F8FAFC] font-sans text-slate-800 antialiased selection:bg-blue-600 selection:text-white"
     >
       {/* Top Header matching reference screenshot */}
       <AppHeader
@@ -346,8 +377,8 @@ const CER: React.FC<ICERProps> = (props) => {
         ref={mainScrollRef as any}
         id="cer-main-scroll"
         style={{ backgroundColor: "#F8FAFC" }}
-        className={`flex-1 w-full max-w-none min-w-0 flex flex-col ${
-          currentView === "dashboard" ? "p-0" : "p-3 sm:p-5 lg:p-6 2xl:p-8"
+        className={`w-full max-w-none min-w-0 flex-1 flex flex-col ${
+          currentView === "dashboard" ? "p-0 min-h-0 h-full overflow-hidden" : "p-3 sm:p-5 lg:p-6 2xl:p-8"
         }`}
       >
         {/* Active View Router */}
@@ -417,6 +448,7 @@ const CER: React.FC<ICERProps> = (props) => {
             onNavigateToCreate={() => handleNavigate("create")}
             onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
             onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
+            onCancel={handleGoBack}
           />
         )}
 
@@ -428,6 +460,7 @@ const CER: React.FC<ICERProps> = (props) => {
             onNavigateToCreate={() => handleNavigate("create")}
             onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
             onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
+            onCancel={handleGoBack}
           />
         )}
 
@@ -438,6 +471,7 @@ const CER: React.FC<ICERProps> = (props) => {
               currentUser={currentUser}
               onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
               onRefreshProposals={handleRefreshProposals}
+              onCancel={handleGoBack}
             />
           ) : (
             <AccessDeniedView
@@ -454,6 +488,7 @@ const CER: React.FC<ICERProps> = (props) => {
             dataService={dataService}
             proposals={proposals}
             onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
+            onCancel={handleGoBack}
           />
         )}
 
@@ -465,6 +500,7 @@ const CER: React.FC<ICERProps> = (props) => {
               fieldChoices={fieldChoices}
               onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
               onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
+              onCancel={handleGoBack}
             />
           ) : (
             <AccessDeniedView

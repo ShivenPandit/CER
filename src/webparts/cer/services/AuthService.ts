@@ -71,7 +71,7 @@ export class AuthService {
     const loginName = normalizeUserIdentifier(params.loginName);
     const effectiveEmail = email || (loginName.indexOf("@") !== -1 ? loginName : "70007144@cairnindia.com");
     const effectiveLogin = loginName || email || "70007144@cairnindia.com";
-    const displayName = (params.name || "").trim() || (isDesignatedAdmin(effectiveEmail) ? "Admin (70007144)" : "Authenticated Portal User");
+    const displayName = (params.name || "").trim() || (isDesignatedAdmin(effectiveEmail) ? "Shiven Pandit" : "Authenticated Portal User");
     const isSiteAdmin = !!params.isSiteAdmin;
     const designatedAdmin = isDesignatedAdmin(email) || isDesignatedAdmin(loginName);
 
@@ -240,7 +240,7 @@ export class AuthService {
 
       const resolvedUser: IAppUser = {
         id: params.id,
-        name: displayName,
+        name: (activeAssignments[0]?.user_name && activeAssignments[0].user_name !== "Authenticated Portal User" ? activeAssignments[0].user_name : displayName),
         email: effectiveEmail || email,
         loginName: effectiveLogin || loginName || email,
         role: primaryRole,

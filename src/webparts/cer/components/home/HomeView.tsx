@@ -18,12 +18,12 @@ export const HomeView: React.FC<IHomeViewProps> = ({
   pendingCount = 0,
 }) => {
   return (
-    <div className="w-full max-w-none flex-1 flex flex-col justify-between bg-[#F8FAFC]">
+    <div className="w-full max-w-none flex-1 flex flex-col min-h-0 h-full bg-[#F8FAFC] overflow-hidden">
       {/* 1. Full-Width Hero Banner Directly Below Header */}
       <HeroBanner />
 
-      {/* 2. Six Pastel Navigation Cards in a 3-Column Grid */}
-      <div className="flex-1 w-full max-w-none min-w-0 flex flex-col justify-center">
+      {/* 2. Six Pastel Navigation Cards in a 3-Column Auto-Fit Grid */}
+      <div className="w-full max-w-none min-w-0 flex-1 flex flex-col min-h-0 overflow-hidden">
         <HomeCardGrid
           currentUser={currentUser}
           onNavigate={onNavigate}
@@ -35,9 +35,11 @@ export const HomeView: React.FC<IHomeViewProps> = ({
       {/* 3. Subtle Corporate Footer Line */}
       <footer
         style={{ backgroundColor: "#F8FAFC", borderTop: "1px solid #E2E8F0" }}
-        className="py-1.5 sm:py-2 px-4 text-center text-[10px] sm:text-[11px] text-slate-500 select-none shrink-0"
+        className="py-1 sm:py-1.5 lg:py-2 px-4 text-center select-none shrink-0"
       >
-        Capital Expenditure Request (CER) Management System &bull; Secure Enterprise Portal
+        <div className="w-full max-w-[2560px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 3xl:px-16 flex items-center justify-center text-[11px] sm:text-xs xl:text-[12.5px] 2xl:text-sm text-slate-500 font-medium">
+          <span>Capital Expenditure Request (CER) Management System &bull; Secure Enterprise Portal</span>
+        </div>
       </footer>
     </div>
   );

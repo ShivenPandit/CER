@@ -565,10 +565,10 @@ async function runAllVerificationTests(): Promise<void> {
 
   const adminUser: IAppUser = {
     id: 106,
-    name: "Priya Kalekar (STL Digital)",
-    email: "Priya.Kalekar@cairnindia.com",
+    name: "Shiven Pandit",
+    email: "70007144@cairnindia.com",
     role: "Admin",
-    roles: ["Admin"],
+    roles: ["Admin", "Initiator"],
     is_active: true,
     isSiteAdmin: true,
   };
@@ -778,12 +778,12 @@ async function runAllVerificationTests(): Promise<void> {
 
   let lastAdminRevocationBlocked = false;
   try {
-    // Revoking Priya (now the last remaining admin) must throw
-    const priyaAdmin = (await testAdminService.getUserRoles()).find(
+    // Revoking sole remaining admin must throw
+    const soleAdmin = (await testAdminService.getUserRoles()).find(
       (r) => r.role === "Admin" && r.is_active
     );
-    if (priyaAdmin) {
-      await testAdminService.revokeUserRole(priyaAdmin.id, adminUser);
+    if (soleAdmin) {
+      await testAdminService.revokeUserRole(soleAdmin.id, adminUser);
     }
   } catch (err: any) {
     if (err && err.message && err.message.indexOf("last active Administrator") !== -1) {

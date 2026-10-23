@@ -6,6 +6,7 @@ import {
   FileDown,
   FileSpreadsheet,
   PlusCircle,
+  ArrowLeft,
 } from "lucide-react";
 import { ICERProposal } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
@@ -23,6 +24,7 @@ interface IProposalListViewProps {
   onNavigateToCreate: () => void;
   onNavigateToDisplay: (cerprno: string) => void;
   onNavigateToChange: (cerprno: string) => void;
+  onCancel?: () => void;
 }
 
 export const ProposalListView: React.FC<IProposalListViewProps> = ({
@@ -32,6 +34,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
   onNavigateToCreate,
   onNavigateToDisplay,
   onNavigateToChange,
+  onCancel,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -81,15 +84,27 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
     <div className="space-y-4 sm:space-y-6">
       {/* Header & Controls Bar */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-            {mode === "my" ? "My CER Proposals" : "All Capital Expenditure Requests"}
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {mode === "my"
-              ? "Proposals initiated by you, current approval statuses, and revisions"
-              : "Enterprise-wide capital expenditure proposals across all Strategic Business Units"}
-          </p>
+        <div className="flex items-center gap-3">
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0"
+              title="Go back"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+              {mode === "my" ? "My CER Proposals" : "All Capital Expenditure Requests"}
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {mode === "my"
+                ? "Proposals initiated by you, current approval statuses, and revisions"
+                : "Enterprise-wide capital expenditure proposals across all Strategic Business Units"}
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">

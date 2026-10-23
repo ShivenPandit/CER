@@ -7,6 +7,7 @@ import {
   CheckSquare,
   ShieldCheck,
   Search,
+  ArrowLeft,
 } from "lucide-react";
 import { ICERProposal } from "../../models/CERModel";
 import { IWorkflowLevel } from "../../models/WorkflowModel";
@@ -25,6 +26,7 @@ interface IPendingApprovalsViewProps {
   currentUser: IAppUser;
   onNavigateToDisplay: (cerprno: string) => void;
   onRefreshProposals: () => Promise<void>;
+  onCancel?: () => void;
 }
 
 export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
@@ -32,6 +34,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
   currentUser,
   onNavigateToDisplay,
   onRefreshProposals,
+  onCancel,
 }) => {
   const [proposals, setProposals] = useState<ICERProposal[]>([]);
   const [levels, setLevels] = useState<IWorkflowLevel[]>([]);
@@ -122,13 +125,25 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-            Pending Approval Tasks & Decision Queue
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Form FR-05: Review proposal details, examine supporting attachments, and record formal decisions
-          </p>
+        <div className="flex items-center gap-3">
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0"
+              title="Go back"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+              Pending Approval Tasks & Decision Queue
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Form FR-05: Review proposal details, examine supporting attachments, and record formal decisions
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">

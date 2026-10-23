@@ -1,25 +1,21 @@
 import * as React from "react";
 import {
-  BarChart3,
   Users,
   Layers,
-  ShieldCheck,
   AlertTriangle,
   RotateCw,
+  ArrowLeft,
 } from "lucide-react";
 import { ICERDataService } from "../../services/ICERDataService";
 import {
   IAppUser,
   IUserRoleAssignment,
-  IAdminAuditRecord,
 } from "../../models/UserModel";
 import { IWorkflowLevel } from "../../models/WorkflowModel";
-import { AdminOverviewTab } from "./AdminOverviewTab";
 import { UserManagementTab } from "./UserManagementTab";
 import { ApprovalHierarchyTab } from "./ApprovalHierarchyTab";
-import { AdminAuditTab } from "./AdminAuditTab";
 
-export type AdminConsoleTab = "overview" | "users" | "hierarchy" | "audit";
+export type AdminConsoleTab = "users" | "hierarchy";
 
 export interface IAdminConsoleViewProps {
   dataService: ICERDataService;
@@ -32,12 +28,11 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
   dataService,
   currentUser,
   onCancel,
-  initialTab = "overview",
+  initialTab = "users",
 }) => {
   const [activeTab, setActiveTab] = React.useState<AdminConsoleTab>(initialTab);
   const [userRoles, setUserRoles] = React.useState<IUserRoleAssignment[]>([]);
   const [workflowLevels, setWorkflowLevels] = React.useState<IWorkflowLevel[]>([]);
-  const [auditLog, setAuditLog] = React.useState<IAdminAuditRecord[]>([]);
   const [isLoading, setIsLoading] = React.useState<boolean>(true);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
@@ -45,16 +40,12 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const [roles, levels, audits] = await Promise.all([
+      const [roles, levels] = await Promise.all([
         dataService.getUserRoles ? dataService.getUserRoles() : Promise.resolve([]),
         dataService.getWorkflowLevels(),
-        dataService.getAdminAuditLog
-          ? dataService.getAdminAuditLog()
-          : Promise.resolve([]),
       ]);
       setUserRoles(roles);
       setWorkflowLevels(levels);
-      setAuditLog(audits);
     } catch (err: any) {
       console.error("[AdminConsoleView] Failed to load admin records:", err);
       setErrorMessage(
@@ -73,30 +64,16 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
     id: AdminConsoleTab;
     label: string;
     icon: React.ReactNode;
-    badge?: number;
   }> = [
-    {
-      id: "overview",
-      label: "Overview",
-      icon: <BarChart3 className="w-4 h-4" />,
-    },
     {
       id: "users",
       label: "User & Role Management",
       icon: <Users className="w-4 h-4" />,
-      badge: userRoles.length,
     },
     {
       id: "hierarchy",
       label: "Approval Hierarchy",
       icon: <Layers className="w-4 h-4" />,
-      badge: workflowLevels.length,
-    },
-    {
-      id: "audit",
-      label: "Security & Audit",
-      icon: <ShieldCheck className="w-4 h-4" />,
-      badge: auditLog.length,
     },
   ];
 
@@ -121,8 +98,19 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
         </div>
       )}
 
-      {/* Modern Navigation Tabs with Fixed Active State */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle p-1.5 overflow-x-auto">
+      {/* Header Bar with Back Button & Navigation Tabs */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle p-2 flex items-center gap-3">
+        {onCancel && (
+          <button
+            onClick={onCancel}
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0"
+            title="Go back"
+            aria-label="Go back"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+        )}
+        <div className="h-6 w-px bg-slate-200 shrink-0" />
         <nav className="flex space-x-1 min-w-max" aria-label="Admin Console Tabs">
           {tabs.map((tab) => {
             const isSelected = activeTab === tab.id;
@@ -143,17 +131,6 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
                 <span className={isSelected ? "text-white" : "text-slate-700"}>
                   {tab.label}
                 </span>
-                {typeof tab.badge === "number" && (
-                  <span
-                    className={`ml-1 px-2 py-0.5 text-[11px] rounded-full font-bold ${
-                      isSelected
-                        ? "bg-white/20 text-white"
-                        : "bg-slate-100 text-slate-700 border border-slate-200"
-                    }`}
-                  >
-                    {tab.badge}
-                  </span>
-                )}
               </button>
             );
           })}
@@ -162,18 +139,6 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
 
       {/* Tab Panels */}
       <div className="transition-all duration-150">
-        {activeTab === "overview" && (
-          <AdminOverviewTab
-            roles={userRoles}
-            workflowLevels={workflowLevels}
-            auditLogs={auditLog}
-            onNavigateTab={(tabId: "users" | "workflow" | "audit") => {
-              if (tabId === "workflow") setActiveTab("hierarchy");
-              else setActiveTab(tabId);
-            }}
-          />
-        )}
-
         {activeTab === "users" && (
           <UserManagementTab
             roles={userRoles}
@@ -189,14 +154,6 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
             currentUser={currentUser}
             dataService={dataService}
             onRefreshLevels={loadData}
-          />
-        )}
-
-        {activeTab === "audit" && (
-          <AdminAuditTab
-            auditLog={auditLog}
-            currentUser={currentUser}
-            isLoading={isLoading}
           />
         )}
       </div>
