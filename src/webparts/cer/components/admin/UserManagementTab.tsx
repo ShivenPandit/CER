@@ -573,10 +573,13 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                     onChange={(e) => setApprovalLevel(Number(e.target.value))}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
                   >
-                    <option value={1}>Level 1 — Technical & SBU Review</option>
-                    <option value={2}>Level 2 — Commercial & Financial Review</option>
-                    <option value={3}>Level 3 — Executive Committee Sign-off</option>
-                    <option value={4}>Level 4 — Board / Highest Authority</option>
+                    <option value={1}>Level 1 — L1: SBU / Block Level Review</option>
+                    <option value={2}>Level 2 — L2: Technical & Discipline Review</option>
+                    <option value={3}>Level 3 — L3: Commercial & Contracts Review</option>
+                    <option value={4}>Level 4 — L4: Corporate Finance Review</option>
+                    <option value={5}>Level 5 — L5: Joint Venture Alignment Review</option>
+                    <option value={6}>Level 6 — L6: Chief Operating Officer (COO)</option>
+                    <option value={7}>Level 7 — L7: Chief Executive Officer (CEO/MD)</option>
                   </select>
                 </div>
               )}

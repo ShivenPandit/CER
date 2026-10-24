@@ -155,7 +155,7 @@ export const WorkflowConfigView: React.FC<IWorkflowConfigViewProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-xs">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
                   Level Title / Stage Name
@@ -178,6 +178,23 @@ export const WorkflowConfigView: React.FC<IWorkflowConfigViewProps> = ({
                   onChange={(e) => handleUpdateField(index, "role_title", e.target.value)}
                   className="w-full px-3.5 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
                 />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Block / SBU Route
+                </label>
+                <select
+                  value={lvl.sbu || "All"}
+                  onChange={(e) => handleUpdateField(index, "sbu", e.target.value)}
+                  className="w-full px-3.5 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
+                >
+                  <option value="All">All SBUs</option>
+                  <option value="CBOS">CBOS</option>
+                  <option value="RAVA">RAVA</option>
+                  <option value="RJ North">RJ North</option>
+                  <option value="RJ South">RJ South</option>
+                </select>
               </div>
 
               <div>

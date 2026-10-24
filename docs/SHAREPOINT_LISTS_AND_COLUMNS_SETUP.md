@@ -19,18 +19,26 @@ This specification provides the comprehensive, field-by-field SharePoint Online 
 | 5   | **CER_ApprovalDecisions**   | `CER_ApprovalDecisions`    | Custom List          | ✅ **Already Created**      | Reviewer decision log, approval comments, and rejection justifications (FR-05).  |
 | 6   | **CER_Attachments**         | `CER_Attachments`          | **Document Library** | ✅ **Already Created**      | Document store for Section H attachments (PDFs, Word, Excel, images).            |
 | 7   | **CER_Notifications**       | `CER_Notifications`        | Custom List          | ✅ **Already Created**      | Audit log for automated multi-party workflow email dispatches.                   |
-| 8   | **CER_UserRoles**           | `CER_UserRoles`            | Custom List          | ⚠️ **NEEDS TO BE CREATED**  | Enterprise Role-Based Access Control assignments (Admin, Initiator, Approver, Finance_Audit). |
+| 8   | **CER_UserRoles**           | `CER_UserRoles`            | Custom List          | ✅ **Already Created**      | Enterprise Role-Based Access Control assignments (Admin, Initiator, Approver, Finance_Audit). |
 
 > [!NOTE]
 > ### 📌 Do you need to create any more lists?
-> - **Already Created on your SharePoint site**: **7 items** (`CER_Proposals`, `CER_AuditTrail`, `CER_RemarksHistory`, `CER_WorkflowLevels`, `CER_ApprovalDecisions`, `CER_Attachments`, and `CER_Notifications`).
-> - **Lists you still need to create**: **ONLY 1 LIST: `CER_UserRoles`** for Enterprise Role-Based Access Control assignments.
+> - **NO! ALL 8 LISTS AND LIBRARIES ARE ALREADY CREATED on your SharePoint site (`https://vedanta.sharepoint.com/sites/CERManagementSystemUAT`)**:
+>   1. `CER_Proposals` (Custom List) - Created ✅
+>   2. `CER_AuditTrail` (Custom List) - Created ✅
+>   3. `CER_RemarksHistory` (Custom List) - Created ✅
+>   4. `CER_WorkflowLevels` (Custom List) - Created ✅
+>   5. `CER_ApprovalDecisions` (Custom List) - Created ✅
+>   6. `CER_Attachments` (Document Library) - Created ✅
+>   7. `CER_Notifications` (Custom List) - Created ✅
+>   8. `CER_UserRoles` (Custom List) - Created ✅ (active admin records present)
+> - **Lists you still need to create**: **ZERO (0). All lists exist and are 100% operational.**
 > - **Do you need a list for Masters & Settings, Dropdowns, or Security & Audit?**: **NO!** 
 >   - The "Security & Audit", "Overview", and "Masters & Settings" tabs have been completely removed from the Admin Console.
 >   - `CER_AdminAuditLog` is **not required**.
 >   - All dropdown choices (Block/SBU/Field, Category, Currency, Payback, Budget, JV, Proposal Status) are fetched **dynamically from the Choice columns of `CER_Proposals`**. No extra master lists are needed.
 
-- **Total Confirmed Lists in Solution**: 7 Custom Lists + 1 Document Library = 8 Total.
+- **Total Confirmed Lists in Solution**: 7 Custom Lists + 1 Document Library = 8 Total (ALL 8 ARE CREATED).
 - **Architectural Rules**:
   1. _Attachments_: Hosted in `CER_Attachments` Document Library so file previews and downloads work natively in the browser.
   2. _Internal Names_: In SharePoint, columns must be created using the **Internal Name first**, then renamed to user-friendly Display Names so that REST API JSON keys match the TypeScript interfaces.
@@ -390,15 +398,17 @@ Every choice column used in the application is cataloged below with its exact ca
    - **`level_id`**: Number → Decimals: 0 → Required: Yes → Enforce unique values: Yes → Rename display to **Approval Level ID**.
    - **`level_name`**: Single line of text → Required: Yes → Rename display to **Level Name**.
    - **`role_title`**: Single line of text → Required: Yes → Rename display to **Role Title**.
-   - **`approver_name`**: Single line of text → Required: Yes → Rename display to **Approver Name**.
-   - **`approver_email`**: Single line of text → Required: Yes → Rename display to **Approver Email**.
-   - **`min_amount`**: Number → Decimals: 2 → Required: No → Rename display to **Minimum Amount**.
-   - **`max_amount`**: Number → Decimals: 2 → Required: No → Rename display to **Maximum Amount**.
+   - **`sbu`**: Single line of text → Required: No → Default: `All` → Rename display to **Block / SBU Route**.
    - **`is_active`**: Yes/No → Required: Yes → Default: Yes → Rename display to **Is Active**.
-3. Seed Initial Levels (Required for L1 workflow auto-routing):
-   - **Item 1**: `level_id`: 1, `level_name`: `L1 - Technical & SBU Review`, `role_title`: `SBU Operations Head`, `approver_name`: `Rajesh Sharma`, `approver_email`: `rajesh.sharma@vedanta.co.in`, `is_active`: Yes.
-   - **Item 2**: `level_id`: 2, `level_name`: `L2 - Commercial & Financial Review`, `role_title`: `Head of Corporate Finance`, `approver_name`: `Sunil Verma`, `approver_email`: `sunil.verma@vedanta.co.in`, `is_active`: Yes.
-   - **Item 3**: `level_id`: 3, `level_name`: `L3 - Executive Committee Sign-off`, `role_title`: `Executive Committee / VP`, `approver_name`: `Ananya Deshmukh`, `approver_email`: `ananya.deshmukh@vedanta.co.in`, `is_active`: Yes.
+   - **`created_by`**: Single line of text → Required: Yes → Rename display to **Created By User**.
+   - **`created_date`**: Date and Time → Format: Date & Time → Required: Yes → Rename display to **Created Timestamp**.
+   - **`approver_name`**: Single line of text → Required: No → Rename display to **Approver Name**.
+   - **`approver_email`**: Single line of text → Required: No → Rename display to **Approver Email**.
+3. **Dynamic Level Configuration via UI (No Seed Data in Code)**:
+   - **Zero Hardcoded Seeds**: There is no seed data hardcoded in the codebase.
+   - All levels are created dynamically by Workflow Administrators using the **"+ Add Level"** feature in the **Admin Console → Approval Hierarchy** tab.
+   - Each level captures `level_id`, `level_name`, `role_title`, `sbu`, `is_active` (Active checkbox), `created_by` (who created it), and `created_date` (timestamp).
+   - Clicking **"Save All Changes"** synchronizes all configured levels directly to this SharePoint list (`CER_WorkflowLevels`).
 
 ---
 

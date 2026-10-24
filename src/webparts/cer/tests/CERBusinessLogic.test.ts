@@ -5,12 +5,22 @@ import { AUDIT_FIELD_DESCRIPTIONS, EXCLUDED_AUDIT_FIELDS } from "../models/Audit
 describe("CER Management System - Business Logic & Requirements Tests", () => {
   let service: LocalMockCERDataService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Clear storage keys
     if (typeof localStorage !== "undefined") {
       localStorage.clear();
     }
     service = new LocalMockCERDataService();
+    // Dynamic test level configuration for workflow progression tests
+    await service.saveWorkflowLevels([
+      { level_id: 1, level_name: "Technical Review", role_title: "Technical Reviewer", sbu: "All", is_active: true },
+      { level_id: 2, level_name: "Finance Review", role_title: "Finance Reviewer", sbu: "All", is_active: true },
+      { level_id: 3, level_name: "Commercial & Contracts Review", role_title: "Commercial Reviewer", sbu: "All", is_active: true },
+      { level_id: 4, level_name: "Corporate Finance Review", role_title: "Corporate Finance Reviewer", sbu: "All", is_active: true },
+      { level_id: 5, level_name: "Executive Committee (ExCo) Review", role_title: "ExCo Reviewer", sbu: "All", is_active: true },
+      { level_id: 6, level_name: "CEO Approval", role_title: "CEO", sbu: "All", is_active: true },
+      { level_id: 7, level_name: "Board Approval", role_title: "Board of Directors", sbu: "All", is_active: true },
+    ]);
   });
 
   // TC-01: Proposal Creation (FR-01)
@@ -126,8 +136,8 @@ describe("CER Management System - Business Logic & Requirements Tests", () => {
     }
   });
 
-  // TC-08 & TC-09: Workflow Transitions & Multilevel Progression (FR-05)
-  test("FR-05: Advances from L1 to L2, then L3 to Approved, recording decisions", async () => {
+  // TC-08 & TC-09: Workflow Transitions & Multilevel Progression (7 Sequential Levels)
+  test("FR-05: Advances sequentially through Levels 1-7 to Approved, recording decisions and enforcing post-approval re-trigger", async () => {
     const cerprno = "CER-2026-0001";
     const proposal = await service.getProposalByNumber(cerprno);
     expect(proposal).not.toBeNull();
@@ -142,25 +152,88 @@ describe("CER Management System - Business Logic & Requirements Tests", () => {
       decision: "APPROVED",
       comments: "Financial models verified.",
     });
-
     expect(l2Decision.success).toBe(true);
     expect(l2Decision.nextLevel).toBe(3);
 
-    // Approve L3 (Final level)
+    // Approve L3
     const l3Decision = await service.recordDecision({
       cerprno,
       level_id: 3,
       approver_name: "Ananya Deshmukh",
       approver_email: "ananya.deshmukh@vedanta.co.in",
       decision: "APPROVED",
-      comments: "Final VP approval granted.",
+      comments: "Commercial & Contracts Review approved.",
     });
-
     expect(l3Decision.success).toBe(true);
-    expect(l3Decision.newStatus).toBe("Approved");
+    expect(l3Decision.nextLevel).toBe(4);
 
-    const finalProposal = await service.getProposalByNumber(cerprno);
-    expect(finalProposal?.status).toBe("Approved");
+    // Approve L4
+    const l4Decision = await service.recordDecision({
+      cerprno,
+      level_id: 4,
+      approver_name: "Amit Saxena",
+      approver_email: "amit.saxena@vedanta.co.in",
+      decision: "APPROVED",
+      comments: "Corporate Finance Review approved.",
+    });
+    expect(l4Decision.success).toBe(true);
+    expect(l4Decision.nextLevel).toBe(5);
+
+    // Approve L5
+    const l5Decision = await service.recordDecision({
+      cerprno,
+      level_id: 5,
+      approver_name: "Neha Kulkarni",
+      approver_email: "neha.kulkarni@vedanta.co.in",
+      decision: "APPROVED",
+      comments: "JV alignment verified.",
+    });
+    expect(l5Decision.success).toBe(true);
+    expect(l5Decision.nextLevel).toBe(6);
+
+    // Approve L6
+    const l6Decision = await service.recordDecision({
+      cerprno,
+      level_id: 6,
+      approver_name: "Vikram Mehta",
+      approver_email: "vikram.mehta@vedanta.co.in",
+      decision: "APPROVED",
+      comments: "COO Operational Sign-off completed.",
+    });
+    expect(l6Decision.success).toBe(true);
+    expect(l6Decision.nextLevel).toBe(7);
+
+    // Approve L7 (Final Sanction)
+    const l7Decision = await service.recordDecision({
+      cerprno,
+      level_id: 7,
+      approver_name: "Arun Kumar",
+      approver_email: "arun.kumar@vedanta.co.in",
+      decision: "APPROVED",
+      comments: "CEO & MD final executive sanction granted.",
+    });
+    expect(l7Decision.success).toBe(true);
+    expect(l7Decision.newStatus).toBe("Approved");
+
+    const approvedProposal = await service.getProposalByNumber(cerprno);
+    expect(approvedProposal?.status).toBe("Approved");
+
+    // Client Requirement 4: Editing an Approved CER re-triggers approval from Level 1
+    const priorDecisionsCount = (await service.getApprovalDecisions(cerprno)).length;
+    expect(priorDecisionsCount).toBeGreaterThanOrEqual(7);
+
+    const editRes = await service.updateProposal(
+      { ...approvedProposal!, amount: 16500000, object: "Revised scope for high-pressure compressors" },
+      { name: "Shiven Pandit", email: "shiven.pandit@vedanta.co.in" }
+    );
+
+    expect(editRes.success).toBe(true);
+    expect(editRes.proposal.status).toBe("In Approval");
+    expect(editRes.proposal.current_level).toBe(1);
+
+    // Past approval history must remain intact
+    const postEditDecisions = await service.getApprovalDecisions(cerprno);
+    expect(postEditDecisions.length).toBe(priorDecisionsCount);
   });
 
   // TC-10 & TC-11: Remarks Versioning (FR-08)

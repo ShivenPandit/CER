@@ -62,10 +62,10 @@ export const RemarksSection: React.FC<IRemarksSectionProps> = ({
       </div>
 
       <div className="space-y-5 text-xs">
-        {/* Remarks (including Justification for Non Payback expenditure, etc.) */}
+        {/* Remarks (including Justification for Non Payback expenditure, etc.) (Optional) */}
         <div id="field-remarks">
           <label htmlFor="remarks" className="block font-semibold text-slate-700 mb-1.5">
-            Remarks (including Justification for Non Payback expenditure, etc.) <span className="text-rose-500">*</span>
+            Remarks (including Justification for Non Payback expenditure, etc.) <span className="text-[10px] font-normal text-slate-400">(Optional)</span>
           </label>
           <textarea
             id="remarks"
@@ -79,7 +79,6 @@ export const RemarksSection: React.FC<IRemarksSectionProps> = ({
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
                 : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
             }`}
-            required
             aria-invalid={!!getFieldError("remarks")}
           />
           {getFieldError("remarks") && (
@@ -89,14 +88,14 @@ export const RemarksSection: React.FC<IRemarksSectionProps> = ({
             </p>
           )}
           <div className="mt-2">
-            <WordCounter text={formData.remarks} minLimit={10} maxLimit={400} />
+            <WordCounter text={formData.remarks} minLimit={0} maxLimit={400} />
           </div>
         </div>
 
-        {/* Remarks on JV Risk (including risk carrying period) */}
+        {/* Remarks on JV Risk (including risk carrying period) (Optional) */}
         <div id="field-remarks_jv">
           <label htmlFor="remarks_jv" className="block font-semibold text-slate-700 mb-1.5">
-            Remarks on JV Risk (including risk carrying period) {needsJvRisk && <span className="text-rose-500">*</span>}
+            Remarks on JV Risk (including risk carrying period) <span className="text-[10px] font-normal text-slate-400">(Optional)</span>
           </label>
           <textarea
             id="remarks_jv"

@@ -33,32 +33,7 @@ const DEFAULT_USER_ROLES: IUserRoleAssignment[] = [
   },
 ];
 
-const DEFAULT_WORKFLOW_LEVELS: IWorkflowLevel[] = [
-  {
-    level_id: 1,
-    level_name: "L1 - Technical & SBU Review",
-    role_title: "SBU Operations Head",
-    approver_name: "Rajesh Sharma",
-    approver_email: "rajesh.sharma@vedanta.co.in",
-    is_active: true
-  },
-  {
-    level_id: 2,
-    level_name: "L2 - Commercial & Financial Review",
-    role_title: "Head of Corporate Finance",
-    approver_name: "Sunil Verma",
-    approver_email: "sunil.verma@vedanta.co.in",
-    is_active: true
-  },
-  {
-    level_id: 3,
-    level_name: "L3 - Executive Committee Sign-off",
-    role_title: "Executive Committee / VP",
-    approver_name: "Ananya Deshmukh",
-    approver_email: "ananya.deshmukh@vedanta.co.in",
-    is_active: true
-  }
-];
+const DEFAULT_WORKFLOW_LEVELS: IWorkflowLevel[] = [];
 
 const SEED_PROPOSALS: ICERProposal[] = [
   {
@@ -597,7 +572,7 @@ export class LocalMockCERDataService implements ICERDataService {
       status: proposal.status || "In Approval",
       current_level: isDraft ? 0 : 1,
       pending_with_role: isDraft ? "Draft" : (activeL1 ? activeL1.role_title : "L1 Approver"),
-      pending_with_email: isDraft ? "" : (activeL1 ? activeL1.approver_email : ""),
+      pending_with_email: isDraft ? "" : (activeL1 ? (activeL1.approver_email || "") : ""),
       created_date: now,
       modified_date: now,
       revision_count: 0
@@ -739,15 +714,19 @@ export class LocalMockCERDataService implements ICERDataService {
       this._saveToStorage(STORAGE_KEYS.REMARKS_HISTORY, this._remarksHistory);
     }
 
-    // Workflow re-triggering logic
-    const activeL1 = this._workflowLevels.find(l => l.level_id === 1 && l.is_active) || this._workflowLevels[0];
+    // Workflow re-triggering logic per client requirement 4:
+    // Editing an already approved request requires it to go through the approval workflow again from Level 1
+    const sbuLower = (updatedProposal.sbu || "").trim().toLowerCase();
+    const activeL1 = this._workflowLevels.find(
+      l => l.level_id === 1 && l.is_active && (!l.sbu || l.sbu === "All" || l.sbu.toLowerCase() === sbuLower)
+    ) || this._workflowLevels.find(l => l.level_id === 1 && l.is_active) || this._workflowLevels[0];
 
     const savedProposal: ICERProposal = {
       ...updatedProposal,
-      status: isPostApprovalRevision ? "Revised" : "In Approval",
+      status: "In Approval",
       current_level: 1,
       pending_with_role: activeL1 ? activeL1.role_title : "L1 Approver",
-      pending_with_email: activeL1 ? activeL1.approver_email : "",
+      pending_with_email: activeL1 ? (activeL1.approver_email || "") : "",
       modified_date: now.toISOString(),
       modified_by: user.name,
       revision_count: (oldProposal.revision_count || 0) + 1
@@ -756,17 +735,31 @@ export class LocalMockCERDataService implements ICERDataService {
     this._proposals[index] = savedProposal;
     this._saveToStorage(STORAGE_KEYS.PROPOSALS, this._proposals);
 
-    // Notify stakeholders
-    const recipients = [savedProposal.owner_email];
-    if (activeL1?.approver_email) recipients.push(activeL1.approver_email);
+    // Notify stakeholders (Creator + L1 Approver)
+    const rawRecipients = [savedProposal.owner_email, activeL1?.approver_email].filter(Boolean);
+    const recipients = Array.from(new Set(rawRecipients.map(e => (e as string).trim().toLowerCase())));
 
-    this._recordNotification({
-      cerprno: savedProposal.cerprno,
-      recipients,
-      subject: `[CER Modified] Proposal ${savedProposal.cerprno} - Changed & Resubmitted`,
-      body: `CER Proposal ${savedProposal.cerprno} has been modified by ${user.name} (${auditRows.length} fields changed) and resubmitted for approval workflow starting at Level 1.`,
-      attachments_count: this._attachments.filter(a => a.cerprno === savedProposal.cerprno).length
-    });
+    let proposalAttachments: ICERAttachment[] = [];
+    try {
+      proposalAttachments = this._attachments.filter(a => a.cerprno.toUpperCase() === savedProposal.cerprno.toUpperCase());
+    } catch (e) {
+      // non-blocking
+    }
+    const attachmentSummary = proposalAttachments.length > 0
+      ? `\n\nAttachments Included (${proposalAttachments.length}):\n` + proposalAttachments.map(a => `• ${a.name}`).join("\n")
+      : "\n\nNo attachments included.";
+
+    try {
+      this._recordNotification({
+        cerprno: savedProposal.cerprno,
+        recipients,
+        subject: `[CER Modified] Proposal ${savedProposal.cerprno} - Revision ${savedProposal.revision_count}`,
+        body: `CER Proposal ${savedProposal.cerprno} has been modified by ${user.name} (${auditRows.length} fields changed) and resubmitted for approval workflow starting at Level 1.${attachmentSummary}`,
+        attachments_count: proposalAttachments.length
+      });
+    } catch (e) {
+      console.warn("Notification error:", e);
+    }
 
     return {
       success: true,
@@ -789,7 +782,13 @@ export class LocalMockCERDataService implements ICERDataService {
     return this._remarksHistory.filter(r => r.cerprno.toUpperCase() === trimmed);
   }
 
-  public async getWorkflowLevels(): Promise<IWorkflowLevel[]> {
+  public async getWorkflowLevels(sbu?: string): Promise<IWorkflowLevel[]> {
+    if (sbu) {
+      const sbuLower = sbu.trim().toLowerCase();
+      return this._workflowLevels.filter(
+        l => !l.sbu || l.sbu === "All" || l.sbu.toLowerCase() === sbuLower
+      );
+    }
     return [...this._workflowLevels];
   }
 
@@ -840,7 +839,7 @@ export class LocalMockCERDataService implements ICERDataService {
     const currentLevelConfig = this._workflowLevels.find(l => l.level_id === params.level_id);
     const levelName = currentLevelConfig ? currentLevelConfig.level_name : `Level ${params.level_id}`;
 
-    // Record decision
+    // Record decision - previous decisions are preserved for audit
     const decisionRecord: IApprovalDecision = {
       id: `dec-${Date.now()}`,
       cerprno: proposal.cerprno,
@@ -859,35 +858,56 @@ export class LocalMockCERDataService implements ICERDataService {
     let newStatus: string = proposal.status;
     let nextLevelId = params.level_id;
 
-    const activeLevels = this._workflowLevels.filter(l => l.is_active).sort((a, b) => a.level_id - b.level_id);
+    // Use SBU-routed active levels
+    const sbuLower = (proposal.sbu || "").trim().toLowerCase();
+    const activeLevels = this._workflowLevels
+      .filter(l => l.is_active && (!l.sbu || l.sbu === "All" || l.sbu.toLowerCase() === sbuLower))
+      .sort((a, b) => a.level_id - b.level_id);
     const nextLevelConfig = activeLevels.find(l => l.level_id > params.level_id);
 
-    // Collect all prior approver emails for email notification visibility rule (Doc §8 #4)
-    const priorDecisions = this._decisions.filter(d => d.cerprno === proposal.cerprno);
-    const priorEmails = Array.from(new Set(priorDecisions.map(d => d.approver_email)));
-    const notificationRecipients = [proposal.owner_email, ...priorEmails];
+    // Collect recipients per client specification:
+    // 1. The request creator
+    // 2. All previous approvers
+    // 3. The next-level approver
+    const priorDecisions = this._decisions.filter(d => d.cerprno.toUpperCase() === proposal.cerprno.toUpperCase());
+    const priorEmails = priorDecisions.map(d => d.approver_email).filter(Boolean);
+    const creatorEmail = proposal.owner_email || "";
+    const nextApproverEmail = (params.decision === "APPROVED" && nextLevelConfig) ? (nextLevelConfig.approver_email || "") : "";
+
+    const rawRecipients = [creatorEmail, ...priorEmails, nextApproverEmail].filter(Boolean);
+    const notificationRecipients = Array.from(new Set(rawRecipients.map(e => ((e as string) || "").trim().toLowerCase())));
+
+    let proposalAttachments: ICERAttachment[] = [];
+    try {
+      proposalAttachments = this._attachments.filter(a => a.cerprno.toUpperCase() === proposal.cerprno.toUpperCase());
+    } catch (attErr) {
+      console.warn("Attachment retrieval warning:", attErr);
+    }
+    const attachmentSummary = proposalAttachments.length > 0
+      ? `\n\nAttachments Included (${proposalAttachments.length}):\n` + proposalAttachments.map(a => `• ${a.name} (${Math.round((a.size || 0)/1024)} KB)`).join("\n")
+      : "\n\nNo attachments included.";
 
     if (params.decision === "APPROVED") {
       if (nextLevelConfig) {
-        // Move to next approval level
+        // Move sequentially to next approval level
         nextLevelId = nextLevelConfig.level_id;
         proposal.current_level = nextLevelId;
         proposal.pending_with_role = nextLevelConfig.role_title;
-        proposal.pending_with_email = nextLevelConfig.approver_email;
+        proposal.pending_with_email = nextLevelConfig.approver_email || "";
         proposal.status = "In Approval";
         newStatus = "In Approval";
 
-        if (nextLevelConfig.approver_email) {
-          notificationRecipients.push(nextLevelConfig.approver_email);
+        try {
+          this._recordNotification({
+            cerprno: proposal.cerprno,
+            recipients: notificationRecipients,
+            subject: `[CER Approved Level ${params.level_id}] Proposal ${proposal.cerprno} Advanced to ${nextLevelConfig.level_name}`,
+            body: `Level ${params.level_id} approved by ${params.approver_name}. Comments: "${params.comments}". Proposal is now pending action from ${nextLevelConfig.role_title} (${nextLevelConfig.approver_name}).${attachmentSummary}`,
+            attachments_count: proposalAttachments.length
+          });
+        } catch (notifErr) {
+          console.warn("Notification error:", notifErr);
         }
-
-        this._recordNotification({
-          cerprno: proposal.cerprno,
-          recipients: Array.from(new Set(notificationRecipients)),
-          subject: `[CER Approved Level ${params.level_id}] Proposal ${proposal.cerprno} Advanced to ${nextLevelConfig.level_name}`,
-          body: `Level ${params.level_id} approved by ${params.approver_name}. Comments: "${params.comments}". Proposal is now pending action from ${nextLevelConfig.role_title} (${nextLevelConfig.approver_name}).`,
-          attachments_count: this._attachments.filter(a => a.cerprno === proposal.cerprno).length
-        });
       } else {
         // Final Level Approved!
         nextLevelId = activeLevels.length + 1;
@@ -897,13 +917,17 @@ export class LocalMockCERDataService implements ICERDataService {
         proposal.status = "Approved";
         newStatus = "Approved";
 
-        this._recordNotification({
-          cerprno: proposal.cerprno,
-          recipients: Array.from(new Set(notificationRecipients)),
-          subject: `[CER Final Approval] Proposal ${proposal.cerprno} Fully Approved`,
-          body: `CER Proposal ${proposal.cerprno} (${proposal.pr_name}) has completed all approval levels and is now officially APPROVED. Final sign-off by ${params.approver_name}.`,
-          attachments_count: this._attachments.filter(a => a.cerprno === proposal.cerprno).length
-        });
+        try {
+          this._recordNotification({
+            cerprno: proposal.cerprno,
+            recipients: notificationRecipients,
+            subject: `[CER Final Approval] Proposal ${proposal.cerprno} Fully Approved`,
+            body: `CER Proposal ${proposal.cerprno} (${proposal.pr_name}) has completed all approval levels and is now officially APPROVED. Final sign-off by ${params.approver_name}.${attachmentSummary}`,
+            attachments_count: proposalAttachments.length
+          });
+        } catch (notifErr) {
+          console.warn("Notification error:", notifErr);
+        }
       }
     } else {
       // REJECTED
@@ -912,13 +936,17 @@ export class LocalMockCERDataService implements ICERDataService {
       proposal.pending_with_email = proposal.owner_email;
       newStatus = "Rejected";
 
-      this._recordNotification({
-        cerprno: proposal.cerprno,
-        recipients: Array.from(new Set(notificationRecipients)),
-        subject: `[CER Rejected] Proposal ${proposal.cerprno} Rejected by ${params.approver_name}`,
-        body: `CER Proposal ${proposal.cerprno} has been REJECTED at Level ${params.level_id} by ${params.approver_name}. Rejection reason: "${params.comments}". Proposal returned to initiator.`,
-        attachments_count: this._attachments.filter(a => a.cerprno === proposal.cerprno).length
-      });
+      try {
+        this._recordNotification({
+          cerprno: proposal.cerprno,
+          recipients: notificationRecipients,
+          subject: `[CER Rejected] Proposal ${proposal.cerprno} Rejected by ${params.approver_name}`,
+          body: `CER Proposal ${proposal.cerprno} has been REJECTED at Level ${params.level_id} by ${params.approver_name}. Rejection reason: "${params.comments}". Proposal returned to initiator.${attachmentSummary}`,
+          attachments_count: proposalAttachments.length
+        });
+      } catch (notifErr) {
+        console.warn("Notification error:", notifErr);
+      }
     }
 
     proposal.modified_date = now;

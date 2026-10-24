@@ -312,8 +312,28 @@ export class SharePointCERDataService implements ICERDataService {
       });
     }
 
+    const isPostApprovalRevision = (original.status as string) === "Approved";
+
+    let nextStatus = proposal.status;
+    let nextLevel = proposal.current_level;
+    let nextRole = proposal.pending_with_role;
+    let nextEmail = proposal.pending_with_email;
+
+    if (isPostApprovalRevision) {
+      const activeLevels = await this.getWorkflowLevels(proposal.sbu);
+      const activeL1 = activeLevels.find((l) => l.level_id === 1 && l.is_active) || activeLevels[0];
+      nextStatus = "In Approval";
+      nextLevel = 1;
+      nextRole = activeL1 ? activeL1.role_title : "L1 Approver";
+      nextEmail = activeL1 ? (activeL1.approver_email || "") : "";
+    }
+
     const updatedProposal: ICERProposal = {
       ...proposal,
+      status: nextStatus,
+      current_level: nextLevel,
+      pending_with_role: nextRole,
+      pending_with_email: nextEmail,
       modified_date: now,
       modified_by: user.name,
       revision_count: (original.revision_count || 0) + 1,
@@ -524,7 +544,7 @@ export class SharePointCERDataService implements ICERDataService {
   // 4. CER_WorkflowLevels Operations
   // ---------------------------------------------------------------------------
 
-  public async getWorkflowLevels(): Promise<IWorkflowLevel[]> {
+  public async getWorkflowLevels(sbu?: string): Promise<IWorkflowLevel[]> {
     try {
       const endpoint = `${this._siteUrl}/_api/web/lists/getByTitle('CER_WorkflowLevels')/items?$top=50&$orderby=level_id asc`;
       const response: SPHttpClientResponse = await this._spHttpClient.get(
@@ -536,34 +556,76 @@ export class SharePointCERDataService implements ICERDataService {
       if (response.ok) {
         const json = await response.json();
         if (json.value && json.value.length > 0) {
-          return json.value.map((item: any) => ({
+          const allLevels: IWorkflowLevel[] = json.value.map((item: any) => ({
             id: String(item.ID !== undefined ? item.ID : item.Id !== undefined ? item.Id : item.id || Date.now()),
             level_id: Number(item.level_id || 1),
             level_name: item.level_name || item.Title || `Level ${item.level_id}`,
             role_title: item.role_title || "",
+            sbu: item.sbu || "All",
+            is_active: item.is_active !== undefined ? !!item.is_active : true,
+            created_by: item.created_by || item.Author?.Title || "",
+            created_date: item.created_date || item.Created || "",
             approver_name: item.approver_name || "",
             approver_email: item.approver_email || "",
             min_amount: item.min_amount !== undefined && item.min_amount !== null ? Number(item.min_amount) : undefined,
             max_amount: item.max_amount !== undefined && item.max_amount !== null ? Number(item.max_amount) : undefined,
-            is_active: item.is_active !== undefined ? !!item.is_active : true,
           }));
-        } else {
-          // If empty, auto-seed standard levels to SharePoint list
-          const defaultLevels = await this._fallbackMock.getWorkflowLevels();
-          for (const lvl of defaultLevels) {
-            await this._createWorkflowLevelRecord(lvl);
+
+          if (sbu) {
+            const sbuLower = sbu.trim().toLowerCase();
+            const filtered = allLevels.filter(
+              (l) => !l.sbu || l.sbu.toLowerCase() === "all" || l.sbu.toLowerCase() === sbuLower
+            );
+            if (filtered.length > 0) return filtered;
           }
-          return defaultLevels;
+          return allLevels;
+        } else {
+          // List is empty in SharePoint - no seed data
+          return [];
         }
       }
     } catch (e) {
       console.warn("[SharePointCERDataService] Error querying CER_WorkflowLevels:", e);
     }
-    return this._fallbackMock.getWorkflowLevels();
+    return this._fallbackMock.getWorkflowLevels(sbu);
   }
 
   public async saveWorkflowLevels(levels: IWorkflowLevel[]): Promise<void> {
     try {
+      // 1. Fetch all existing items from CER_WorkflowLevels
+      const activeIds = new Set(levels.map((l) => l.level_id));
+      const existingRes = await this._spHttpClient.get(
+        `${this._siteUrl}/_api/web/lists/getByTitle('CER_WorkflowLevels')/items?$select=Id,level_id&$top=100`,
+        SPHttpClient.configurations.v1,
+        { headers: { Accept: "application/json;odata=nometadata" } },
+      );
+      if (existingRes.ok) {
+        const json = await existingRes.json();
+        if (json.value && Array.isArray(json.value)) {
+          for (const item of json.value) {
+            const lid = Number(item.level_id);
+            if (!activeIds.has(lid)) {
+              try {
+                await this._spHttpClient.post(
+                  `${this._siteUrl}/_api/web/lists/getByTitle('CER_WorkflowLevels')/items(${item.Id})`,
+                  SPHttpClient.configurations.v1,
+                  {
+                    headers: {
+                      Accept: "application/json;odata=nometadata",
+                      "X-HTTP-Method": "DELETE",
+                      "If-Match": "*",
+                    },
+                  }
+                );
+              } catch (delErr) {
+                console.warn("[SharePointCERDataService] Obsolete workflow level deletion warning:", delErr);
+              }
+            }
+          }
+        }
+      }
+
+      // 2. Insert or update each level
       for (const lvl of levels) {
         const filter = encodeURIComponent(`level_id eq ${lvl.level_id}`);
         const res = await this._spHttpClient.get(
@@ -590,11 +652,14 @@ export class SharePointCERDataService implements ICERDataService {
                   level_id: lvl.level_id,
                   level_name: lvl.level_name,
                   role_title: lvl.role_title,
-                  approver_name: lvl.approver_name,
-                  approver_email: lvl.approver_email,
+                  sbu: lvl.sbu || "All",
+                  is_active: lvl.is_active,
+                  created_by: lvl.created_by || "",
+                  created_date: lvl.created_date || new Date().toISOString(),
+                  approver_name: lvl.approver_name || "",
+                  approver_email: lvl.approver_email || "",
                   min_amount: lvl.min_amount || null,
                   max_amount: lvl.max_amount || null,
-                  is_active: lvl.is_active,
                 }),
               },
             );
@@ -624,11 +689,14 @@ export class SharePointCERDataService implements ICERDataService {
             level_id: lvl.level_id,
             level_name: lvl.level_name,
             role_title: lvl.role_title,
-            approver_name: lvl.approver_name,
-            approver_email: lvl.approver_email,
+            sbu: lvl.sbu || "All",
+            is_active: lvl.is_active,
+            created_by: lvl.created_by || "",
+            created_date: lvl.created_date || new Date().toISOString(),
+            approver_name: lvl.approver_name || "",
+            approver_email: lvl.approver_email || "",
             min_amount: lvl.min_amount || null,
             max_amount: lvl.max_amount || null,
-            is_active: lvl.is_active,
           }),
         },
       );
@@ -700,7 +768,32 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     try {
-      // 1. Post decision record to CER_ApprovalDecisions
+      // 1. Fetch current proposal item to retrieve SBU and Creator email
+      const filter = encodeURIComponent(`cerprno eq '${params.cerprno}'`);
+      const propRes = await this._spHttpClient.get(
+        `${this._siteUrl}/_api/web/lists/getByTitle('CER_Proposals')/items?$filter=${filter}&$top=1`,
+        SPHttpClient.configurations.v1,
+        { headers: { Accept: "application/json;odata=nometadata" } },
+      );
+
+      let propItem: any = null;
+      let spId: number | null = null;
+      if (propRes.ok) {
+        const propJson = await propRes.json();
+        if (propJson.value && propJson.value.length > 0) {
+          propItem = propJson.value[0];
+          spId = propItem.Id;
+        }
+      }
+
+      const proposalSBU = propItem?.sbu || "";
+      const creatorEmail = (propItem?.owner_email || "").trim();
+
+      // 2. Fetch prior approval decisions to obtain all previous approvers' emails
+      const priorDecisions = await this.getApprovalDecisions(params.cerprno);
+      const priorEmails = priorDecisions.map((d) => (d.approver_email || "").trim()).filter(Boolean);
+
+      // 3. Post decision record to CER_ApprovalDecisions
       const endpoint = `${this._siteUrl}/_api/web/lists/getByTitle('CER_ApprovalDecisions')/items`;
       await this._spHttpClient.post(
         endpoint,
@@ -711,7 +804,7 @@ export class SharePointCERDataService implements ICERDataService {
             "Content-Type": "application/json;odata=nometadata",
           },
           body: JSON.stringify({
-            Title: params.cerprno,
+            Title: `${params.cerprno}-L${params.level_id}`,
             cerprno: params.cerprno,
             level_id: params.level_id,
             level_name: `Level ${params.level_id}`,
@@ -724,9 +817,13 @@ export class SharePointCERDataService implements ICERDataService {
         },
       );
 
-      // 2. Determine workflow outcome and update CER_Proposals
-      const workflowLevels = await this.getWorkflowLevels();
-      const currentLevelIndex = workflowLevels.findIndex((l) => l.level_id === params.level_id);
+      // 4. Determine workflow outcome using SBU-routed sequential active levels
+      const workflowLevels = await this.getWorkflowLevels(proposalSBU);
+      const activeLevels = workflowLevels
+        .filter((l) => l.is_active)
+        .sort((a, b) => a.level_id - b.level_id);
+
+      const nextLevelConfig = activeLevels.find((l) => l.level_id > params.level_id);
       let newStatus = "In Approval";
       let nextLevel = params.level_id;
       let nextRole = "";
@@ -734,57 +831,80 @@ export class SharePointCERDataService implements ICERDataService {
 
       if (params.decision === "REJECTED") {
         newStatus = "Rejected";
-      } else if (currentLevelIndex === workflowLevels.length - 1) {
+        nextRole = "Rejected";
+        nextEmail = "";
+      } else if (!nextLevelConfig) {
         newStatus = "Approved";
+        nextLevel = activeLevels.length + 1;
+        nextRole = "Approved";
+        nextEmail = "";
       } else {
-        const nextLvl = workflowLevels[currentLevelIndex + 1];
-        nextLevel = nextLvl ? nextLvl.level_id : params.level_id + 1;
-        nextRole = nextLvl ? nextLvl.role_title : "";
-        nextEmail = nextLvl ? nextLvl.approver_email : "";
+        newStatus = "In Approval";
+        nextLevel = nextLevelConfig.level_id;
+        nextRole = nextLevelConfig.role_title;
+        nextEmail = nextLevelConfig.approver_email || "";
       }
 
-      // Update proposal item in CER_Proposals
-      const filter = encodeURIComponent(`cerprno eq '${params.cerprno}'`);
-      const propRes = await this._spHttpClient.get(
-        `${this._siteUrl}/_api/web/lists/getByTitle('CER_Proposals')/items?$filter=${filter}&$select=Id&$top=1`,
-        SPHttpClient.configurations.v1,
-        { headers: { Accept: "application/json;odata=nometadata" } },
-      );
-
-      if (propRes.ok) {
-        const propJson = await propRes.json();
-        if (propJson.value && propJson.value.length > 0) {
-          const spId = propJson.value[0].Id;
-          await this._spHttpClient.post(
-            `${this._siteUrl}/_api/web/lists/getByTitle('CER_Proposals')/items(${spId})`,
-            SPHttpClient.configurations.v1,
-            {
-              headers: {
-                Accept: "application/json;odata=nometadata",
-                "Content-Type": "application/json;odata=nometadata",
-                "X-HTTP-Method": "MERGE",
-                "If-Match": "*",
-              },
-              body: JSON.stringify({
-                status: newStatus,
-                current_level: nextLevel,
-                pending_with_role: nextRole,
-                pending_with_email: nextEmail,
-                modified_date: now,
-                modified_by: params.approver_name,
-              }),
+      // 5. Update proposal item in CER_Proposals
+      if (spId !== null) {
+        await this._spHttpClient.post(
+          `${this._siteUrl}/_api/web/lists/getByTitle('CER_Proposals')/items(${spId})`,
+          SPHttpClient.configurations.v1,
+          {
+            headers: {
+              Accept: "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata",
+              "X-HTTP-Method": "MERGE",
+              "If-Match": "*",
             },
-          );
-        }
+            body: JSON.stringify({
+              status: newStatus,
+              current_level: nextLevel,
+              pending_with_role: nextRole,
+              pending_with_email: nextEmail,
+              modified_date: now,
+              modified_by: params.approver_name,
+            }),
+          },
+        );
       }
 
-      // 3. Log notification to CER_Notifications
+      // 6. Gather attachments for email notification summary
+      let attachmentsCount = 0;
+      let attachmentsSummary = "No attachments included.";
+      try {
+        const atts = await this.getAttachments(params.cerprno);
+        attachmentsCount = atts.length;
+        if (atts.length > 0) {
+          attachmentsSummary = `\n\nAttachments Included (${atts.length}):\n` +
+            atts.map((a) => `• ${a.name} (${Math.round((a.size || 0) / 1024)} KB)`).join("\n");
+        }
+      } catch (attErr) {
+        console.warn("Attachment summary warning:", attErr);
+      }
+
+      // 7. Deduplicate recipients: (1) Creator, (2) Previous Approvers, (3) Next Approver
+      const rawRecipients = [creatorEmail, ...priorEmails, params.approver_email, nextEmail].filter(Boolean);
+      const notificationRecipients = Array.from(new Set(rawRecipients.map((e) => e.trim().toLowerCase())));
+
+      const subject = params.decision === "APPROVED"
+        ? (newStatus === "Approved"
+            ? `[CER Final Sanction] Proposal ${params.cerprno} Approved at Final Level ${params.level_id}`
+            : `[CER Approved Level ${params.level_id}] Proposal ${params.cerprno} Advanced to Level ${nextLevel}`)
+        : `[CER Rejected] Proposal ${params.cerprno} Rejected at Level ${params.level_id}`;
+
+      const bodyText = params.decision === "APPROVED"
+        ? (newStatus === "Approved"
+            ? `Proposal ${params.cerprno} has received final executive sanction by ${params.approver_name}. Decision: ${params.decision}. Comments: "${params.comments}".${attachmentsSummary}`
+            : `Proposal ${params.cerprno} approved at Level ${params.level_id} by ${params.approver_name}. Comments: "${params.comments}". Proposal is now pending action from ${nextRole} (${nextEmail}).${attachmentsSummary}`)
+        : `Proposal ${params.cerprno} was rejected at Level ${params.level_id} by ${params.approver_name}. Reason / Comments: "${params.comments}".`;
+
       await this._createNotificationRecord(
         params.cerprno,
-        [params.approver_email, nextEmail].filter(Boolean),
-        `[CER Decision] ${params.cerprno} ${params.decision}`,
-        `Proposal ${params.cerprno} has been ${params.decision} at Level ${params.level_id} by ${params.approver_name}. Current status: ${newStatus}.`,
-        0
+        notificationRecipients,
+        subject,
+        bodyText,
+        attachmentsCount
       );
     } catch (e) {
       console.warn("[SharePointCERDataService] Error recording decision in SharePoint:", e);

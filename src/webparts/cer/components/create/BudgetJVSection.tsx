@@ -73,7 +73,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 onBlur={() => onBlur && onBlur("cbudget")}
                 className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-colors font-medium text-slate-900"
               >
-                {(fieldChoices?.cbudget && fieldChoices.cbudget.length > 0 ? fieldChoices.cbudget : ["Yes", "No", "Partially"]).map((opt) => (
+                {(fieldChoices?.cbudget && fieldChoices.cbudget.length > 0 ? fieldChoices.cbudget : ["Yes", "No"]).map((opt) => (
                   <option key={opt} value={opt}>
                     {opt}
                   </option>
@@ -87,10 +87,10 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
               )}
             </div>
 
-            {/* Corporate Budget Amount ($mm) */}
+            {/* Corporate Budget Amount ($mm) (Optional) */}
             <div id="field-cb_amnt">
               <label htmlFor="cb_amnt" className="block font-semibold text-slate-700 mb-1.5">
-                Corporate Budget Amount ($mm) {isCorporateBudgeted && <span className="text-rose-500">*</span>}
+                Corporate Budget Amount ($mm) <span className="text-[10px] font-normal text-slate-400">(Optional)</span>
               </label>
               <input
                 id="cb_amnt"
@@ -118,10 +118,10 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
             </div>
           </div>
 
-          {/* Reason if not/partially budgeted */}
+          {/* Reason if not/partially budgeted (Optional) */}
           <div id="field-reason">
             <label htmlFor="reason" className="block font-semibold text-slate-700 mb-1.5">
-              Reason if not/partially budgeted {needsCorporateReason && <span className="text-rose-500">*</span>}
+              Reason if not/partially budgeted <span className="text-[10px] font-normal text-slate-400">(Optional)</span>
             </label>
             <textarea
               id="reason"
@@ -251,10 +251,10 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
               )}
             </div>
 
-            {/* JV Budget Amount ($mm) */}
+            {/* JV Budget Amount ($mm) (Optional) */}
             <div id="field-jv_amnt">
               <label htmlFor="jv_amnt" className="block font-semibold text-slate-700 mb-1.5">
-                JV Budget Amount ($mm) {isJvBudgeted && <span className="text-rose-500">*</span>}
+                JV Budget Amount ($mm) <span className="text-[10px] font-normal text-slate-400">(Optional)</span>
               </label>
               <input
                 id="jv_amnt"
@@ -282,10 +282,10 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
             </div>
           </div>
 
-          {/* Reason if not/partially budgeted */}
+          {/* Reason if not/partially budgeted (Optional) */}
           <div id="field-jv_reason">
             <label htmlFor="jv_reason" className="block font-semibold text-slate-700 mb-1.5">
-              Reason if not/partially budgeted {needsJvReason && <span className="text-rose-500">*</span>}
+              Reason if not/partially budgeted <span className="text-[10px] font-normal text-slate-400">(Optional)</span>
             </label>
             <input
               id="jv_reason"

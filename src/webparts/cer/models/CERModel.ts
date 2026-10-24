@@ -35,7 +35,7 @@ export interface ICERProposal {
   duration_months: number; // Total Duration
 
   // Corporate Budget
-  cbudget: "Yes" | "No" | "Partially"; // Corporate Budget (Yes/No)
+  cbudget: "Yes" | "No" | string; // Corporate Budget (Yes/No)
   cb_amnt: number; // Corporate Budget Amount ($mm)
   cb_currency: string;
   reason: string; // Reason if not/partially budgeted
@@ -112,10 +112,10 @@ export const CATEGORY_DEFINITIONS: Record<CERCategory, { label: string; descript
 };
 
 export const SBU_OPTIONS: SBUOption[] = [
-  "RJ North",
-  "RJ South",
   "CBOS",
-  "RAVA"
+  "RAVA",
+  "RJ North",
+  "RJ South"
 ];
 
 export interface IFieldChoices {
@@ -132,11 +132,11 @@ export interface IFieldChoices {
 }
 
 export const DEFAULT_FIELD_CHOICES: IFieldChoices = {
-  sbu: ["RJ North", "RJ South", "CBOS", "RAVA"],
-  cat: ["Vital", "Essential", "Desirable"],
+  sbu: ["CBOS", "RAVA", "RJ North", "RJ South"],
+  cat: ["Essential", "Vital", "Desirable"],
   currency: ["USD", "INR"],
   payable: ["Payback", "Non Payback"],
-  cbudget: ["Yes", "No", "Partially"],
+  cbudget: ["Yes", "No"],
   cb_currency: ["USD", "INR"],
   jv: ["Yes", "No", "Under Discussion"],
   jv_recoverable: ["Yes", "No"],

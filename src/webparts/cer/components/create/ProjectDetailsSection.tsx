@@ -130,22 +130,20 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
           <input
             id="cerprno"
             type="text"
-            readOnly={isReadOnly || isChangeMode}
-            disabled={isReadOnly || isChangeMode}
+            readOnly={isReadOnly}
+            disabled={isReadOnly}
             value={formData.cerprno}
             onChange={(e) => onChange("cerprno", e.target.value)}
             onBlur={() => onBlur && onBlur("cerprno")}
             className={`w-full px-3.5 py-2.5 rounded-xl font-mono font-semibold transition-colors focus:outline-none ${
-              isReadOnly || isChangeMode
+              isReadOnly
                 ? "bg-slate-100 border border-slate-200 text-slate-500 cursor-not-allowed shadow-none"
                 : "bg-white border border-slate-300 hover:border-slate-400 text-slate-900 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
             }`}
             required
           />
           <p className="text-[10px] text-slate-400 mt-1">
-            {isChangeMode
-              ? "Fixed proposal number (read-only in change mode)"
-              : "Auto-generated default, editable for Carry-Forward (C/F)"}
+            Required proposal identifier. Editable by user or auto-generated.
           </p>
         </div>
 
@@ -216,7 +214,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             onBlur={() => onBlur && onBlur("cat")}
             className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-colors font-medium text-slate-900 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
           >
-            {(fieldChoices?.cat && fieldChoices.cat.length > 0 ? fieldChoices.cat : ["Vital", "Essential", "Desirable"]).map((cat) => (
+            {(fieldChoices?.cat && fieldChoices.cat.length > 0 ? fieldChoices.cat : ["Essential", "Vital", "Desirable"]).map((cat) => (
               <option key={cat} value={cat}>
                 {cat}
               </option>
@@ -233,7 +231,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
         {/* Start Date of Project */}
         <div id="field-st_date">
           <label htmlFor="st_date" className="block font-semibold text-slate-700 mb-1.5">
-            Start Date of Project <span className="text-rose-500">*</span>
+            Start Date of the Project <span className="text-rose-500">*</span>
           </label>
           <input
             id="st_date"
@@ -257,10 +255,10 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
           )}
         </div>
 
-        {/* Completion Date of Project */}
+        {/* Completion Date of Project (Optional) */}
         <div id="field-com_date">
           <label htmlFor="com_date" className="block font-semibold text-slate-700 mb-1.5">
-            Completion Date of Project <span className="text-rose-500">*</span>
+            Completion Date of Project <span className="text-[10px] font-normal text-slate-400">(Optional)</span>
           </label>
           <input
             id="com_date"
@@ -275,7 +273,6 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
                 : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
             }`}
-            required
           />
           {getFieldError("com_date") && (
             <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">

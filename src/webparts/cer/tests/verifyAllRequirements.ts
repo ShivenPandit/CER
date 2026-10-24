@@ -28,6 +28,17 @@ async function runAllVerificationTests(): Promise<void> {
 
   const service = new LocalMockCERDataService();
 
+  // Test setup: dynamically configure test levels in test fixture (production code has zero seeds)
+  await service.saveWorkflowLevels([
+    { level_id: 1, level_name: "L1 - Technical & SBU Review", role_title: "SBU Operations Head", approver_name: "Rajesh Sharma", approver_email: "rajesh.sharma@vedanta.co.in", sbu: "All", is_active: true },
+    { level_id: 2, level_name: "L2 - Discipline Review", role_title: "Discipline Lead", approver_name: "Sunil Verma", approver_email: "sunil.verma@vedanta.co.in", sbu: "All", is_active: true },
+    { level_id: 3, level_name: "L3 - Commercial Review", role_title: "Head of Commercial", approver_name: "Ananya Deshmukh", approver_email: "ananya.deshmukh@vedanta.co.in", sbu: "All", is_active: true },
+    { level_id: 4, level_name: "L4 - Corporate Finance", role_title: "Head of Finance", approver_name: "Amit Saxena", approver_email: "amit.saxena@vedanta.co.in", sbu: "All", is_active: true },
+    { level_id: 5, level_name: "L5 - JV Management", role_title: "Head of JV", approver_name: "Neha Kulkarni", approver_email: "neha.kulkarni@vedanta.co.in", sbu: "All", is_active: true },
+    { level_id: 6, level_name: "L6 - COO Review", role_title: "COO", approver_name: "Vikram Mehta", approver_email: "vikram.mehta@vedanta.co.in", sbu: "All", is_active: true },
+    { level_id: 7, level_name: "L7 - CEO Sanction", role_title: "CEO", approver_name: "Arun Kumar", approver_email: "arun.kumar@vedanta.co.in", sbu: "All", is_active: true },
+  ]);
+
   // ---------------------------------------------------------------------------------------------
   // Test Suite 1: FR-01 Create CER
   // ---------------------------------------------------------------------------------------------
@@ -151,7 +162,7 @@ async function runAllVerificationTests(): Promise<void> {
   // ---------------------------------------------------------------------------------------------
   // Test Suite 3: FR-05 Multilevel Approval Workflow
   // ---------------------------------------------------------------------------------------------
-  console.log("\nTest Suite 3: FR-05 — Multilevel Approval Workflow & Notifications");
+  console.log("\nTest Suite 3: FR-05 — Multilevel Approval Workflow (7 Sequential Levels) & Notifications");
   const l1Decision = await service.recordDecision({
     cerprno: testProp.cerprno,
     level_id: 1,
@@ -179,9 +190,49 @@ async function runAllVerificationTests(): Promise<void> {
     approver_name: "Ananya Deshmukh",
     approver_email: "ananya.deshmukh@vedanta.co.in",
     decision: "APPROVED",
-    comments: "Final executive committee sanction granted.",
+    comments: "Level 3 Commercial & Contracts Review approved.",
   });
-  assert(l3Decision.newStatus === "Approved", "Proposal achieved final Approved status");
+  assert(l3Decision.nextLevel === 4, "Workflow successfully advanced to Level 4");
+
+  const l4Decision = await service.recordDecision({
+    cerprno: testProp.cerprno,
+    level_id: 4,
+    approver_name: "Amit Saxena",
+    approver_email: "amit.saxena@vedanta.co.in",
+    decision: "APPROVED",
+    comments: "Level 4 Corporate Finance Review approved.",
+  });
+  assert(l4Decision.nextLevel === 5, "Workflow successfully advanced to Level 5");
+
+  const l5Decision = await service.recordDecision({
+    cerprno: testProp.cerprno,
+    level_id: 5,
+    approver_name: "Neha Kulkarni",
+    approver_email: "neha.kulkarni@vedanta.co.in",
+    decision: "APPROVED",
+    comments: "Level 5 JV alignment verified.",
+  });
+  assert(l5Decision.nextLevel === 6, "Workflow successfully advanced to Level 6");
+
+  const l6Decision = await service.recordDecision({
+    cerprno: testProp.cerprno,
+    level_id: 6,
+    approver_name: "Vikram Mehta",
+    approver_email: "vikram.mehta@vedanta.co.in",
+    decision: "APPROVED",
+    comments: "Level 6 COO Sign-off completed.",
+  });
+  assert(l6Decision.nextLevel === 7, "Workflow successfully advanced to Level 7");
+
+  const l7Decision = await service.recordDecision({
+    cerprno: testProp.cerprno,
+    level_id: 7,
+    approver_name: "Arun Kumar",
+    approver_email: "arun.kumar@vedanta.co.in",
+    decision: "APPROVED",
+    comments: "Level 7 CEO & MD final sanction granted.",
+  });
+  assert(l7Decision.newStatus === "Approved", "Proposal achieved final Approved status after all 7 sequential levels");
 
   // Notifications visibility verification (Doc §8 #4)
   const notifs = await service.getNotificationLogs(testProp.cerprno);
@@ -224,31 +275,127 @@ async function runAllVerificationTests(): Promise<void> {
   // ---------------------------------------------------------------------------------------------
   // Test Suite 6: CER Form Field Mapping & Inline Validation Requirements
   // ---------------------------------------------------------------------------------------------
-  console.log("\nTest Suite 6: CER Form Field Mapping & Validation Rules");
+  console.log("\nTest Suite 6: CER Form Field Mapping & Validation Rules (Strict 14 Mandatory Fields)");
 
-  // Section A: Project Name bounds
-  assert(validateField("pr_name", "AB", testProp) !== undefined, "Project Name < 3 chars rejected");
-  assert(validateField("pr_name", "Valid Project Name", testProp) === undefined, "Project Name valid");
-  assert(validateField("com_date", "2026-01-01", { ...testProp, st_date: "2026-06-01" }) !== undefined, "Completion date earlier than start date rejected");
-  assert(validateField("object", "Short", testProp) !== undefined, "Objectives of CER < 10 chars rejected");
+  // 1. Name of the Project (Required text field, >= 3 chars)
+  assert(validateField("pr_name", "", testProp) !== undefined, "1. Project Name required");
+  assert(validateField("pr_name", "AB", testProp) !== undefined, "1. Project Name < 3 chars rejected");
+  assert(validateField("pr_name", "Valid Project Name", testProp) === undefined, "1. Project Name valid accepted");
 
-  // Section B: Amount & Payback Quarters
-  assert(validateField("amount", 0, testProp) !== undefined, "Amount <= 0 rejected");
-  assert(validateField("amount", 5000000, testProp) === undefined, "Valid positive amount accepted");
-  assert(validateField("payback_quarters", 0, { ...testProp, payable: "Payback" }) !== undefined, "Payback quarters <= 0 rejected when Payback is selected");
-  assert(validateField("payback_quarters", 8, { ...testProp, payable: "Payback" }) === undefined, "Valid positive quarters accepted");
-  assert(validateField("ben_irr", 150, testProp) !== undefined, "IRR > 100% rejected");
+  // 2. CER Proposal Number (Required, editable)
+  assert(validateField("cerprno", "", testProp) !== undefined, "2. CER Proposal Number required");
+  assert(validateField("cerprno", "CER-2026-9999", testProp) === undefined, "2. User-edited CER Proposal Number accepted");
 
-  // Section C: Corporate Budget Reason
-  assert(validateField("reason", "", { ...testProp, cbudget: "No" }) !== undefined, "Reason required when corporate budget is No");
+  // 3. CER Owner Name & Email (Required directory integration)
+  assert(validateField("owname", "", testProp) !== undefined, "3a. CER Owner Name required");
+  assert(validateField("owner_email", "", testProp) !== undefined, "3b. CER Owner Email required");
+  assert(validateField("owner_email", "invalid-email", testProp) !== undefined, "3c. Invalid CER Owner Email format rejected");
+  assert(validateField("owner_email", "rajesh.sharma@vedanta.co.in", testProp) === undefined, "3d. Valid CER Owner Email accepted");
 
-  // Section D: JV Budget Reason & Recoverable
-  assert(validateField("jv_reason", "", { ...testProp, jv_budget: "No" }) !== undefined, "Reason required when JV budget is No");
-  assert(validateField("jv_recoverable", "Yes", testProp) === undefined, "JV Cost Recoverable valid value");
+  // 4. Start Date of the Project (Required date field)
+  assert(validateField("st_date", "", testProp) !== undefined, "4. Start Date required");
+  assert(validateField("st_date", "2026-04-01", testProp) === undefined, "4. Valid Start Date accepted");
 
-  // Full form submission vs draft
-  const draftRes = validateAll({ ...testProp, pr_name: "", amount: 0 }, true);
-  assert(draftRes.isValid === true, "Save Draft allows incomplete form data");
+  // 5. Block/SBU (Required dropdown: CBOS, RAVA, RJ North, RJ South)
+  assert(validateField("sbu", "", testProp) !== undefined, "5. Block/SBU required");
+  assert(validateField("sbu", "InvalidSBU", testProp) !== undefined, "5. Invalid Block/SBU rejected");
+  assert(validateField("sbu", "CBOS", testProp) === undefined, "5a. SBU CBOS accepted");
+  assert(validateField("sbu", "RAVA", testProp) === undefined, "5b. SBU RAVA accepted");
+  assert(validateField("sbu", "RJ North", testProp) === undefined, "5c. SBU RJ North accepted");
+  assert(validateField("sbu", "RJ South", testProp) === undefined, "5d. SBU RJ South accepted");
+
+  // 6. Objective of CER (Required text field, >= 10 chars)
+  assert(validateField("object", "", testProp) !== undefined, "6. Objective of CER required");
+  assert(validateField("object", "Short", testProp) !== undefined, "6. Objective < 10 chars rejected");
+  assert(validateField("object", "Pipeline enhancement and integrity inspection project", testProp) === undefined, "6. Valid Objective accepted");
+
+  // 7. Amount of CER (Required numeric positive field)
+  assert(validateField("amount", 0, testProp) !== undefined, "7. Amount <= 0 rejected");
+  assert(validateField("amount", -500, testProp) !== undefined, "7. Negative amount rejected");
+  assert(validateField("amount", 5000000, testProp) === undefined, "7. Valid positive amount accepted");
+
+  // 8. Category (Required dropdown: Essential, Vital, Desirable)
+  assert(validateField("cat", "", testProp) !== undefined, "8. Category required");
+  assert(validateField("cat", "Optional", testProp) !== undefined, "8. Invalid category rejected");
+  assert(validateField("cat", "Essential", testProp) === undefined, "8a. Category Essential accepted");
+  assert(validateField("cat", "Vital", testProp) === undefined, "8b. Category Vital accepted");
+  assert(validateField("cat", "Desirable", testProp) === undefined, "8c. Category Desirable accepted");
+
+  // 9. Payback/Non Payback (Required dropdown: Payback, Non Payback)
+  assert(validateField("payable", "", testProp) !== undefined, "9. Payback/Non Payback required");
+  assert(validateField("payable", "Both", testProp) !== undefined, "9. Invalid payable option rejected");
+  assert(validateField("payable", "Payback", testProp) === undefined, "9a. Payback accepted");
+  assert(validateField("payable", "Non Payback", testProp) === undefined, "9b. Non Payback accepted");
+
+  // 10. Payback Period (Required positive integer number of quarters)
+  assert(validateField("payback_quarters", 0, testProp) !== undefined, "10. Payback quarters <= 0 rejected");
+  assert(validateField("payback_quarters", -2, testProp) !== undefined, "10. Negative quarters rejected");
+  assert(validateField("payback_quarters", 2.5, testProp) !== undefined, "10. Fractional quarters rejected");
+  assert(validateField("payback_quarters", 4, testProp) === undefined, "10. Positive whole number of quarters accepted");
+
+  // 11. Corporate Budget (Required dropdown: Yes, No)
+  assert(validateField("cbudget", "", testProp) !== undefined, "11. Corporate Budget required");
+  assert(validateField("cbudget", "Partially", testProp) !== undefined, "11. Corporate Budget 'Partially' rejected");
+  assert(validateField("cbudget", "Yes", testProp) === undefined, "11a. Corporate Budget 'Yes' accepted");
+  assert(validateField("cbudget", "No", testProp) === undefined, "11b. Corporate Budget 'No' accepted");
+
+  // 12. Align with JV (Required dropdown: Yes, No, Under Discussion)
+  assert(validateField("jv", "", testProp) !== undefined, "12. Align with JV required");
+  assert(validateField("jv", "Pending", testProp) !== undefined, "12. Invalid Align with JV rejected");
+  assert(validateField("jv", "Yes", testProp) === undefined, "12a. Align with JV 'Yes' accepted");
+  assert(validateField("jv", "No", testProp) === undefined, "12b. Align with JV 'No' accepted");
+  assert(validateField("jv", "Under Discussion", testProp) === undefined, "12c. Align with JV 'Under Discussion' accepted");
+
+  // 13. JV Cost Recoverable (Required dropdown: Yes, No)
+  assert(validateField("jv_recoverable", "", testProp) !== undefined, "13. JV Cost Recoverable required");
+  assert(validateField("jv_recoverable", "Maybe", testProp) !== undefined, "13. Invalid JV Cost Recoverable rejected");
+  assert(validateField("jv_recoverable", "Yes", testProp) === undefined, "13a. JV Cost Recoverable 'Yes' accepted");
+  assert(validateField("jv_recoverable", "No", testProp) === undefined, "13b. JV Cost Recoverable 'No' accepted");
+
+  // 14. JV Budget (Required dropdown: Yes, No)
+  assert(validateField("jv_budget", "", testProp) !== undefined, "14. JV Budget required");
+  assert(validateField("jv_budget", "Unknown", testProp) !== undefined, "14. Invalid JV Budget rejected");
+  assert(validateField("jv_budget", "Yes", testProp) === undefined, "14a. JV Budget 'Yes' accepted");
+  assert(validateField("jv_budget", "No", testProp) === undefined, "14b. JV Budget 'No' accepted");
+
+  // STRICT OPTIONALITY OF ALL OTHER FIELDS:
+  assert(validateField("com_date", "", testProp) === undefined, "Optional: Completion date empty is valid");
+  assert(validateField("cost_assumptions", "", testProp) === undefined, "Optional: Cost assumptions empty is valid");
+  assert(validateField("cb_amnt", 0, testProp) === undefined, "Optional: Corporate budget amount 0 is valid");
+  assert(validateField("reason", "", { ...testProp, cbudget: "No" }) === undefined, "Optional: Corporate budget reason empty is valid");
+  assert(validateField("jv_amnt", 0, testProp) === undefined, "Optional: JV amount 0 is valid");
+  assert(validateField("jv_reason", "", { ...testProp, jv_budget: "No" }) === undefined, "Optional: JV reason empty is valid");
+  assert(validateField("remarks", "", testProp) === undefined, "Optional: Narrative remarks empty is valid");
+  assert(validateField("remarks_jv", "", testProp) === undefined, "Optional: JV remarks empty is valid");
+
+  // Date comparison logic remains active when completion date is provided
+  assert(validateField("com_date", "2026-01-01", { ...testProp, st_date: "2026-06-01" }) !== undefined, "Completion date earlier than start date rejected when provided");
+
+  // Full form submission and draft validation
+  // Save Draft requires Name of Project and CER Owner Name/Email, but other fields remain optional
+  const draftMissingNameRes = validateAll({ ...testProp, pr_name: "", amount: 0 }, true);
+  assert(draftMissingNameRes.isValid === false, "Save Draft blocks empty Name of Project");
+  assert(draftMissingNameRes.errors.pr_name !== undefined, "Missing Project Name flagged in draft errors");
+
+  const draftMissingOwnerRes = validateAll({ ...testProp, owname: "", owner_email: "" }, true);
+  assert(draftMissingOwnerRes.isValid === false, "Save Draft blocks empty CER Owner Name");
+  assert(draftMissingOwnerRes.errors.owname !== undefined, "Missing CER Owner flagged in draft errors");
+
+  const draftValidRes = validateAll(
+    {
+      ...testProp,
+      pr_name: "Valid Draft Project",
+      owname: "Rajesh Sharma",
+      owner_email: "rajesh.sharma@vedanta.co.in",
+      amount: 0,
+      st_date: "",
+      object: "",
+      cat: "" as any,
+      cbudget: "" as any,
+    },
+    true
+  );
+  assert(draftValidRes.isValid === true, "Save Draft allows other fields to be empty once Name of Project and CER Owner are provided");
 
   const submitInvalidRes = validateAll({ ...testProp, pr_name: "", amount: 0 }, false);
   assert(submitInvalidRes.isValid === false, "Submit for Approval blocks invalid/incomplete form data");
@@ -860,6 +1007,17 @@ async function runAllVerificationTests(): Promise<void> {
   );
 
   // Scenario 15: Existing CER creation and multi-tier approval workflows continue to function
+  // Dynamically configure test levels for verification
+  await service.saveWorkflowLevels([
+    { level_id: 1, level_name: "L1 - Technical & SBU Review", role_title: "SBU Operations Head", approver_name: approverL1.name, approver_email: approverL1.email, sbu: "All", is_active: true },
+    { level_id: 2, level_name: "L2 - Discipline Review", role_title: "Discipline Lead", approver_name: approverL2.name, approver_email: approverL2.email, sbu: "All", is_active: true },
+    { level_id: 3, level_name: "L3 - Commercial Review", role_title: "Head of Commercial", approver_name: approverL3.name, approver_email: approverL3.email, sbu: "All", is_active: true },
+    { level_id: 4, level_name: "L4 - Corporate Finance", role_title: "Head of Finance", approver_name: "Amit Saxena", approver_email: "amit.saxena@vedanta.co.in", sbu: "All", is_active: true },
+    { level_id: 5, level_name: "L5 - JV Management", role_title: "Head of JV", approver_name: "Neha Kulkarni", approver_email: "neha.kulkarni@vedanta.co.in", sbu: "All", is_active: true },
+    { level_id: 6, level_name: "L6 - COO Review", role_title: "COO", approver_name: "Vikram Mehta", approver_email: "vikram.mehta@vedanta.co.in", sbu: "All", is_active: true },
+    { level_id: 7, level_name: "L7 - CEO Sanction", role_title: "CEO", approver_name: "Arun Kumar", approver_email: "arun.kumar@vedanta.co.in", sbu: "All", is_active: true },
+  ]);
+
   const lifecyclePropNo = await service.generateProposalNumber();
   const lifecycleProp: ICERProposal = {
     ...testProp,
@@ -897,18 +1055,85 @@ async function runAllVerificationTests(): Promise<void> {
   const postL2 = await service.getProposalByNumber(lifecyclePropNo);
   assert(postL2 !== null && postL2.current_level === 3, "Scenario 15d: Proposal advanced to Level 3 stage");
 
-  // Level 3 Approval (Final)
+  // Level 3 Approval
   const l3Dec = await service.recordDecision({
     cerprno: lifecyclePropNo,
     decision: "APPROVED",
-    comments: "L3 Executive Committee Approved",
+    comments: "L3 Commercial & Contracts Approved",
     approver_name: approverL3.name,
     approver_email: approverL3.email,
     level_id: 3,
   });
   assert(l3Dec.success, "Scenario 15e: Level 3 approval recorded successfully");
   const postL3 = await service.getProposalByNumber(lifecyclePropNo);
-  assert(postL3 !== null && postL3.status === "Approved", "Scenario 15f: Multi-tier approval completes with Approved status");
+  assert(postL3 !== null && postL3.current_level === 4, "Scenario 15f: Proposal advanced to Level 4 stage");
+
+  // Level 4 Approval
+  const l4Dec = await service.recordDecision({
+    cerprno: lifecyclePropNo,
+    decision: "APPROVED",
+    comments: "L4 Corporate Finance Approved",
+    approver_name: "Amit Saxena",
+    approver_email: "amit.saxena@vedanta.co.in",
+    level_id: 4,
+  });
+  assert(l4Dec.success, "Scenario 15g: Level 4 approval recorded successfully");
+  const postL4 = await service.getProposalByNumber(lifecyclePropNo);
+  assert(postL4 !== null && postL4.current_level === 5, "Scenario 15h: Proposal advanced to Level 5 stage");
+
+  // Level 5 Approval
+  const l5Dec = await service.recordDecision({
+    cerprno: lifecyclePropNo,
+    decision: "APPROVED",
+    comments: "L5 JV Alignment Approved",
+    approver_name: "Neha Kulkarni",
+    approver_email: "neha.kulkarni@vedanta.co.in",
+    level_id: 5,
+  });
+  assert(l5Dec.success, "Scenario 15i: Level 5 approval recorded successfully");
+  const postL5 = await service.getProposalByNumber(lifecyclePropNo);
+  assert(postL5 !== null && postL5.current_level === 6, "Scenario 15j: Proposal advanced to Level 6 stage");
+
+  // Level 6 Approval
+  const l6Dec = await service.recordDecision({
+    cerprno: lifecyclePropNo,
+    decision: "APPROVED",
+    comments: "L6 COO Review Approved",
+    approver_name: "Vikram Mehta",
+    approver_email: "vikram.mehta@vedanta.co.in",
+    level_id: 6,
+  });
+  assert(l6Dec.success, "Scenario 15k: Level 6 approval recorded successfully");
+  const postL6 = await service.getProposalByNumber(lifecyclePropNo);
+  assert(postL6 !== null && postL6.current_level === 7, "Scenario 15l: Proposal advanced to Level 7 stage");
+
+  // Level 7 Approval (Final Sanction)
+  const l7Dec = await service.recordDecision({
+    cerprno: lifecyclePropNo,
+    decision: "APPROVED",
+    comments: "L7 CEO & MD Final Sanction Granted",
+    approver_name: "Arun Kumar",
+    approver_email: "arun.kumar@vedanta.co.in",
+    level_id: 7,
+  });
+  assert(l7Dec.success && l7Dec.newStatus === "Approved", "Scenario 15m: Level 7 approval recorded with final Approved status");
+  const postL7 = await service.getProposalByNumber(lifecyclePropNo);
+  assert(postL7 !== null && postL7.status === "Approved", "Scenario 15n: 7-tier sequential approval completes with Approved status");
+
+  // Post-Approval Revision Test (Client Requirement 4)
+  const preEditDecisions = await service.getApprovalDecisions(lifecyclePropNo);
+  assert(preEditDecisions.length >= 7, "Scenario 15o: All 7 approval decisions logged in audit record");
+
+  const postApprovalEdit = await service.updateProposal(
+    { ...postL7!, amount: 9200000, object: "Revised scope post executive review" },
+    { name: initiatorUser.name, email: initiatorUser.email }
+  );
+  assert(postApprovalEdit.success, "Scenario 15p: Authorized owner successfully edited approved CER");
+  assert(postApprovalEdit.proposal.status === "In Approval", "Scenario 15q: Edited CER reverts status to 'In Approval'");
+  assert(postApprovalEdit.proposal.current_level === 1, "Scenario 15r: Edited CER resets workflow to Level 1");
+
+  const postEditDecisions = await service.getApprovalDecisions(lifecyclePropNo);
+  assert(postEditDecisions.length === preEditDecisions.length, "Scenario 15s: Previous approval decisions preserved after post-approval edit");
 
   // Scenario 16: Duplicate assignment prevention & Multiple role support
   let duplicateBlocked = false;

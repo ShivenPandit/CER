@@ -33,7 +33,7 @@ export interface ICERDataService {
   getRemarksHistory(cerprno: string): Promise<ICERRemarksVersion[]>;
 
   // Workflow & Approvals
-  getWorkflowLevels(): Promise<IWorkflowLevel[]>;
+  getWorkflowLevels(sbu?: string): Promise<IWorkflowLevel[]>;
   saveWorkflowLevels(levels: IWorkflowLevel[]): Promise<void>;
   getApprovalDecisions(cerprno: string): Promise<IApprovalDecision[]>;
   recordDecision(decision: {

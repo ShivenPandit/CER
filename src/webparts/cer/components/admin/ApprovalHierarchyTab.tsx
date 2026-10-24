@@ -8,15 +8,13 @@ import {
   AlertTriangle,
   MoveUp,
   MoveDown,
-  Search,
-  User,
-  DollarSign,
   Loader2,
   X,
-  Power,
+  Clock,
+  User,
 } from "lucide-react";
 import { IWorkflowLevel } from "../../models/WorkflowModel";
-import { IAppUser, IDirectoryUser } from "../../models/UserModel";
+import { IAppUser } from "../../models/UserModel";
 import { ICERDataService } from "../../services/ICERDataService";
 import { useDynamicPagination } from "../../hooks/useDynamicPagination";
 import { DataTablePagination } from "../common/DataTablePagination";
@@ -39,12 +37,6 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Directory search picker for editing approver
-  const [activePickerLevelIndex, setActivePickerLevelIndex] = useState<number | null>(null);
-  const [directoryQuery, setDirectoryQuery] = useState("");
-  const [directoryResults, setDirectoryResults] = useState<IDirectoryUser[]>([]);
-  const [isSearchingDirectory, setIsSearchingDirectory] = useState(false);
-
   useEffect(() => {
     setLevels([...workflowLevels]);
   }, [workflowLevels]);
@@ -52,58 +44,40 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
   // Fully Automatic Dynamic Pagination
   const pagination = useDynamicPagination({
     totalItems: levels.length,
-    defaultRowHeight: 110,
+    defaultRowHeight: 120,
     bufferBottom: 52,
   });
 
   const visibleLevels = pagination.paginateItems(levels);
 
-  // Debounced search
-  useEffect(() => {
-    if (activePickerLevelIndex === null) return;
-    const timer = setTimeout(() => {
-      if (directoryQuery.trim().length >= 2) {
-        setIsSearchingDirectory(true);
-        dataService
-          .searchDirectoryUsers(directoryQuery.trim())
-          .then((res) => {
-            setDirectoryResults(res);
-            setIsSearchingDirectory(false);
-          })
-          .catch((e) => {
-            console.warn(e);
-            setIsSearchingDirectory(false);
-          });
-      } else {
-        setDirectoryResults([]);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [directoryQuery, activePickerLevelIndex]);
-
   const handleAddLevel = () => {
+    setErrorMessage(null);
     const nextId = levels.length > 0 ? Math.max(...levels.map((l) => l.level_id)) + 1 : 1;
+    const now = new Date().toISOString();
+    const creatorInfo = currentUser.email
+      ? `${currentUser.name} (${currentUser.email})`
+      : currentUser.name || "Administrator";
+
     const newLevel: IWorkflowLevel = {
       level_id: nextId,
-      level_name: `L${nextId} - Operational Review`,
-      role_title: "Designated Reviewer",
-      approver_name: "Select from Directory",
-      approver_email: "approver@vedanta.co.in",
+      level_name: `Level ${nextId}`,
+      role_title: "",
+      sbu: "All",
       is_active: true,
+      created_by: creatorInfo,
+      created_date: now,
     };
+
     const nextLevels = [...levels, newLevel];
     setLevels(nextLevels);
+
+    // Jump to the page of the newly added level
     const newTotalPages = Math.ceil(nextLevels.length / pagination.effectivePageSize);
     pagination.setCurrentPage(newTotalPages);
   };
 
   const handleDeleteLevel = (levelId: number) => {
-    if (levels.length <= 1) {
-      alert("At least one sequential approval level is required in the system.");
-      return;
-    }
-    if (!confirm(`Are you sure you want to remove Approval Level ${levelId}? Proposals pending at this level must be re-routed.`)) {
+    if (!confirm(`Are you sure you want to remove Approval Level ${levelId}?`)) {
       return;
     }
     const updated = levels
@@ -116,20 +90,6 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
     const updated = [...levels];
     updated[index] = { ...updated[index], [field]: value };
     setLevels(updated);
-  };
-
-  const handleSelectApproverFromDirectory = (index: number, user: IDirectoryUser) => {
-    const email = user.mail || user.userPrincipalName || "";
-    const updated = [...levels];
-    updated[index] = {
-      ...updated[index],
-      approver_name: user.displayName,
-      approver_email: email,
-    };
-    setLevels(updated);
-    setActivePickerLevelIndex(null);
-    setDirectoryQuery("");
-    setDirectoryResults([]);
   };
 
   const handleMove = (index: number, direction: "up" | "down") => {
@@ -147,42 +107,67 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
   };
 
   const handleSave = async () => {
-    // Validation: Check that every level has a valid name and email
     setErrorMessage(null);
     for (const l of levels) {
-      if (!l.level_name.trim() || !l.role_title.trim() || !l.approver_name.trim()) {
-        setErrorMessage("All approval levels must have a valid Stage Name, Role Title, and Approver Name.");
+      if (!l.level_name.trim()) {
+        setErrorMessage(`Approval Level ${l.level_id} must have a valid Level Name.`);
         return;
       }
-      if (!l.approver_email || l.approver_email.indexOf("@") === -1) {
-        setErrorMessage(`Level '${l.level_name}' has an invalid approver email address.`);
+      if (!l.role_title.trim()) {
+        setErrorMessage(`Approval Level ${l.level_id} ('${l.level_name}') must have a valid Role Title.`);
         return;
       }
     }
 
     setIsSaving(true);
     try {
-      await dataService.saveWorkflowLevels(levels);
+      // Ensure all levels have created_by and created_date stamped
+      const now = new Date().toISOString();
+      const creatorInfo = currentUser.email
+        ? `${currentUser.name} (${currentUser.email})`
+        : currentUser.name || "Administrator";
 
-      // Log administrative audit event
-      await dataService.logAdminAudit({
-        actor_name: currentUser.name,
-        actor_email: currentUser.email,
-        action: "WORKFLOW_UPDATED",
-        target_type: "WORKFLOW",
-        target_id: "CER_WorkflowLevels",
-        details: `Updated sequential workflow hierarchy (${levels.length} configured levels).`,
-        after_value: JSON.stringify(levels),
-        timestamp: new Date().toISOString(),
-      });
+      const preparedLevels = levels.map((l) => ({
+        ...l,
+        created_by: l.created_by || creatorInfo,
+        created_date: l.created_date || now,
+        sbu: l.sbu || "All",
+        is_active: l.is_active !== undefined ? l.is_active : true,
+      }));
 
-      setSuccessNotice("Workflow approval hierarchy successfully saved and synchronized.");
+      await dataService.saveWorkflowLevels(preparedLevels);
+
+      // Log administrative audit event if supported
+      if (dataService.logAdminAudit) {
+        await dataService.logAdminAudit({
+          actor_name: currentUser.name,
+          actor_email: currentUser.email,
+          action: "WORKFLOW_UPDATED",
+          target_type: "WORKFLOW",
+          target_id: "CER_WorkflowLevels",
+          details: `Updated sequential workflow hierarchy in SharePoint list (${preparedLevels.length} levels).`,
+          after_value: JSON.stringify(preparedLevels),
+          timestamp: now,
+        });
+      }
+
+      setSuccessNotice(`Successfully saved ${preparedLevels.length} approval levels directly to SharePoint list CER_WorkflowLevels.`);
       await onRefreshLevels();
-      setTimeout(() => setSuccessNotice(null), 4000);
+      setTimeout(() => setSuccessNotice(null), 5000);
     } catch (e: any) {
-      setErrorMessage(e.message || "Failed to save workflow levels.");
+      setErrorMessage(e.message || "Failed to save workflow levels to SharePoint list.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const formatTimestamp = (isoString?: string): string => {
+    if (!isoString) return new Date().toLocaleString();
+    try {
+      const d = new Date(isoString);
+      return isNaN(d.getTime()) ? isoString : d.toLocaleString();
+    } catch {
+      return isoString;
     }
   };
 
@@ -195,7 +180,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span className="font-medium">{successNotice}</span>
           </div>
-          <button onClick={() => setSuccessNotice(null)} className="text-emerald-700 hover:text-emerald-900">
+          <button onClick={() => setSuccessNotice(null)} className="text-emerald-700 hover:text-emerald-900 cursor-pointer">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -207,7 +192,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
             <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
             <span className="font-medium">{errorMessage}</span>
           </div>
-          <button onClick={() => setErrorMessage(null)} className="text-rose-700 hover:text-rose-900">
+          <button onClick={() => setErrorMessage(null)} className="text-rose-700 hover:text-rose-900 cursor-pointer">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -220,20 +205,22 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
             Sequential Approval Levels Hierarchy
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Configure multi-stage review order, designated approvers, threshold limits, and active status.
+            Dynamic approval stages saved directly in SharePoint list <strong>CER_WorkflowLevels</strong>. No hardcoded seed data.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
           <button
+            type="button"
             onClick={handleAddLevel}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-xl border border-blue-200 transition-colors cursor-pointer shadow-2xs"
           >
             <Plus className="w-4 h-4" />
             <span>Add Level</span>
           </button>
 
           <button
+            type="button"
             onClick={handleSave}
             disabled={isSaving}
             className="flex items-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-subtle hover:shadow-hover transition-all cursor-pointer"
@@ -241,7 +228,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
             {isSaving ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Saving Hierarchy...</span>
+                <span>Saving to SharePoint...</span>
               </>
             ) : (
               <>
@@ -253,218 +240,188 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
         </div>
       </div>
 
-      {/* Ordered Level Cards */}
-      <div ref={pagination.tableContainerRef} className="space-y-3 flex flex-col">
-        {visibleLevels.map((level, pageIndex) => {
-          const actualIndex = pagination.startIndex + pageIndex;
-          const isFirst = actualIndex === 0;
-          const isLast = actualIndex === levels.length - 1;
+      {/* Empty State */}
+      {levels.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center flex flex-col items-center justify-center shadow-subtle">
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+            <Layers className="w-6 h-6" />
+          </div>
+          <h4 className="text-sm font-bold text-slate-900">No Approval Levels Configured</h4>
+          <p className="text-xs text-slate-500 max-w-md mt-1 mb-4">
+            The SharePoint list <strong>CER_WorkflowLevels</strong> is currently empty. Click &quot;Add Level&quot; to configure your approval hierarchy.
+          </p>
+          <button
+            type="button"
+            onClick={handleAddLevel}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-subtle hover:shadow-hover transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Level</span>
+          </button>
+        </div>
+      ) : (
+        /* Ordered Level Cards */
+        <div ref={pagination.tableContainerRef} className="space-y-3 flex flex-col">
+          {visibleLevels.map((level, pageIndex) => {
+            const actualIndex = pagination.startIndex + pageIndex;
+            const isFirst = actualIndex === 0;
+            const isLast = actualIndex === levels.length - 1;
 
-          return (
-            <div
-              key={level.level_id}
-              className={`p-4 sm:p-5 rounded-2xl border transition-all ${
-                level.is_active
-                  ? "bg-white border-slate-200/90 shadow-subtle"
-                  : "bg-slate-50/70 border-slate-200 text-slate-400 opacity-75"
-              }`}
-            >
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                {/* Stage Badge & Title */}
-                <div className="flex items-center gap-3">
-                  <div className="flex flex-col items-center">
-                    <button
-                      onClick={() => handleMove(actualIndex, "up")}
-                      disabled={isFirst}
-                      className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer"
-                      title="Move level up"
-                    >
-                      <MoveUp className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="w-7 h-7 rounded-xl bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
-                      {level.level_id}
-                    </span>
-                    <button
-                      onClick={() => handleMove(actualIndex, "down")}
-                      disabled={isLast}
-                      className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer"
-                      title="Move level down"
-                    >
-                      <MoveDown className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+            return (
+              <div
+                key={level.level_id}
+                className={`p-4 sm:p-5 rounded-2xl border transition-all ${
+                  level.is_active
+                    ? "bg-white border-slate-200/90 shadow-subtle"
+                    : "bg-slate-50/70 border-slate-200 text-slate-400 opacity-75"
+                }`}
+              >
+                <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                  {/* Reorder and Level ID Badge */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-col items-center shrink-0">
+                      <button
+                        onClick={() => handleMove(actualIndex, "up")}
+                        disabled={isFirst}
+                        className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer"
+                        title="Move level up"
+                      >
+                        <MoveUp className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="w-8 h-8 rounded-xl bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                        {level.level_id}
+                      </span>
+                      <button
+                        onClick={() => handleMove(actualIndex, "down")}
+                        disabled={isLast}
+                        className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer"
+                        title="Move level down"
+                      >
+                        <MoveDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
 
-                  <div className="space-y-1">
-                    <input
-                      type="text"
-                      value={level.level_name}
-                      onChange={(e) => handleUpdateField(actualIndex, "level_name", e.target.value)}
-                      placeholder="Stage Name (e.g. L1 - Technical Review)"
-                      className="text-sm font-bold text-slate-900 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-600 focus:outline-none px-1"
-                    />
-                    <div className="flex items-center gap-2">
+                    {/* Level Name Input */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                        Level Name <span className="text-rose-500">*</span>
+                      </label>
                       <input
                         type="text"
-                        value={level.role_title}
-                        onChange={(e) => handleUpdateField(actualIndex, "role_title", e.target.value)}
-                        placeholder="Role Title (e.g. SBU Operations Head)"
-                        className="text-xs text-slate-500 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-600 focus:outline-none px-1"
+                        value={level.level_name}
+                        onChange={(e) => handleUpdateField(actualIndex, "level_name", e.target.value)}
+                        placeholder="e.g. L1 - Technical & SBU Operations Review"
+                        className="w-72 sm:w-80 md:w-96 text-sm font-bold text-slate-900 bg-slate-50/70 hover:bg-white focus:bg-white border border-slate-200/90 focus:border-blue-600 focus:ring-1 focus:ring-blue-500 rounded-xl px-3 py-2 transition-all"
                       />
                     </div>
                   </div>
-                </div>
 
-                {/* Approver Identity & Directory Picker */}
-                <div className="flex-1 max-w-md relative">
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-900 truncate">
-                        {level.approver_name}
-                      </p>
-                      <p className="text-[11px] text-slate-500 truncate font-mono">
-                        {level.approver_email}
-                      </p>
-                    </div>
+                  {/* Role Title Input */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Role Title <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={level.role_title}
+                      onChange={(e) => handleUpdateField(actualIndex, "role_title", e.target.value)}
+                      placeholder="e.g. SBU Operations Head"
+                      className="w-64 sm:w-72 md:w-80 text-xs text-slate-700 bg-slate-50/70 hover:bg-white focus:bg-white border border-slate-200/90 focus:border-blue-600 focus:ring-1 focus:ring-blue-500 rounded-xl px-3 py-2 transition-all"
+                    />
+                  </div>
+
+                  {/* Block / SBU Route Dropdown */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Block / SBU
+                    </label>
+                    <select
+                      value={level.sbu || "All"}
+                      onChange={(e) => handleUpdateField(actualIndex, "sbu", e.target.value)}
+                      className="px-3 py-2 bg-slate-50 hover:bg-white border border-slate-200/90 rounded-xl text-xs text-slate-800 font-medium focus:border-blue-600 focus:ring-1 focus:ring-blue-500 transition-all"
+                    >
+                      <option value="All">All SBUs</option>
+                      <option value="CBOS">CBOS</option>
+                      <option value="RAVA">RAVA</option>
+                      <option value="RJ North">RJ North</option>
+                      <option value="RJ South">RJ South</option>
+                    </select>
+                  </div>
+
+                  {/* Active Checkbox */}
+                  <div className="space-y-1 flex flex-col justify-end">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Status
+                    </label>
+                    <label className="inline-flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={level.is_active}
+                        onChange={(e) => handleUpdateField(actualIndex, "is_active", e.target.checked)}
+                        className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <span className={`text-xs font-bold ${level.is_active ? "text-emerald-700" : "text-slate-400"}`}>
+                        {level.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Delete Level Action */}
+                  <div className="flex items-center justify-end pt-5">
                     <button
                       type="button"
-                      onClick={() => {
-                        setActivePickerLevelIndex(activePickerLevelIndex === actualIndex ? null : actualIndex);
-                        setDirectoryQuery("");
-                        setDirectoryResults([]);
-                      }}
-                      className="px-2.5 py-1 text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors shrink-0 cursor-pointer"
+                      onClick={() => handleDeleteLevel(level.level_id)}
+                      className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                      title="Delete this level"
                     >
-                      Change Approver
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-
-                  {/* Directory Picker Popover */}
-                  {activePickerLevelIndex === actualIndex && (
-                    <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-elevated p-2 z-50 animate-fade-in">
-                      <div className="relative mb-2">
-                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="text"
-                          value={directoryQuery}
-                          onChange={(e) => setDirectoryQuery(e.target.value)}
-                          placeholder="Type name or email to search directory..."
-                          className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                        {isSearchingDirectory && (
-                          <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin absolute right-2.5 top-1/2 -translate-y-1/2" />
-                        )}
-                      </div>
-
-                      <div className="max-h-40 overflow-y-auto divide-y divide-slate-100 text-xs">
-                        {directoryResults.map((u) => (
-                          <div
-                            key={u.id}
-                            onClick={() => handleSelectApproverFromDirectory(actualIndex, u)}
-                            className="p-2 hover:bg-blue-50/70 rounded-lg cursor-pointer flex items-center justify-between"
-                          >
-                            <div className="truncate">
-                              <p className="font-bold text-slate-900">{u.displayName}</p>
-                              <p className="text-[10px] text-slate-500 font-mono truncate">
-                                {u.mail || u.userPrincipalName}
-                              </p>
-                            </div>
-                            <span className="text-[10px] text-blue-600 font-medium">Select</span>
-                          </div>
-                        ))}
-                        {directoryQuery.length >= 2 && directoryResults.length === 0 && !isSearchingDirectory && (
-                          <p className="p-3 text-center text-slate-400 text-xs">No matching users found.</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
                 </div>
 
-                {/* Amount Thresholds */}
-                <div className="flex items-center gap-2 text-xs">
-                  <div>
-                    <label className="text-[10px] text-slate-400 block font-semibold">Min $</label>
-                    <input
-                      type="number"
-                      value={level.min_amount || ""}
-                      onChange={(e) =>
-                        handleUpdateField(
-                          actualIndex,
-                          "min_amount",
-                          e.target.value ? Number(e.target.value) : undefined
-                        )
-                      }
-                      placeholder="0"
-                      className="w-20 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs"
-                    />
+                {/* Card Footer: Who Created & Timestamp */}
+                <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between text-[11px] text-slate-500 gap-2">
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <span className="flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-slate-400" />
+                      <span>
+                        <strong className="text-slate-600">Created By:</strong> {level.created_by || currentUser.name}
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                      <span>
+                        <strong className="text-slate-600">Timestamp:</strong> {formatTimestamp(level.created_date)}
+                      </span>
+                    </span>
                   </div>
-                  <div>
-                    <label className="text-[10px] text-slate-400 block font-semibold">Max $</label>
-                    <input
-                      type="number"
-                      value={level.max_amount || ""}
-                      onChange={(e) =>
-                        handleUpdateField(
-                          actualIndex,
-                          "max_amount",
-                          e.target.value ? Number(e.target.value) : undefined
-                        )
-                      }
-                      placeholder="No limit"
-                      className="w-24 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs"
-                    />
-                  </div>
-                </div>
-
-                {/* Active Toggle & Delete */}
-                <div className="flex items-center gap-2 justify-end">
-                  <button
-                    type="button"
-                    onClick={() => handleUpdateField(actualIndex, "is_active", !level.is_active)}
-                    className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                      level.is_active
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                        : "bg-slate-100 text-slate-500 border-slate-200"
-                    }`}
-                    title={level.is_active ? "Deactivate level" : "Activate level"}
-                  >
-                    <Power className="w-3.5 h-3.5" />
-                    <span>{level.is_active ? "Active" : "Inactive"}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteLevel(level.level_id)}
-                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                    title="Delete stage level"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
 
-        {/* Dynamic Pagination Bar */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden mt-3">
-          <DataTablePagination
-            currentPage={pagination.currentPage}
-            totalPages={pagination.totalPages}
-            totalItems={levels.length}
-            startIndex={pagination.startIndex}
-            endIndex={pagination.endIndex}
-            pageSizeSetting={pagination.pageSizeSetting}
-            effectivePageSize={pagination.effectivePageSize}
-            onPageChange={pagination.setCurrentPage}
-            onPageSizeChange={pagination.setPageSizeSetting}
-            onPrevPage={pagination.goToPrevPage}
-            onNextPage={pagination.goToNextPage}
-            onFirstPage={pagination.goToFirstPage}
-            onLastPage={pagination.goToLastPage}
-            itemName="levels"
-          />
+          {/* Dynamic Pagination Bar */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden mt-3">
+            <DataTablePagination
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              totalItems={levels.length}
+              startIndex={pagination.startIndex}
+              endIndex={pagination.endIndex}
+              pageSizeSetting={pagination.pageSizeSetting}
+              effectivePageSize={pagination.effectivePageSize}
+              onPageChange={pagination.setCurrentPage}
+              onPageSizeChange={pagination.setPageSizeSetting}
+              onPrevPage={pagination.goToPrevPage}
+              onNextPage={pagination.goToNextPage}
+              onFirstPage={pagination.goToFirstPage}
+              onLastPage={pagination.goToLastPage}
+              itemName="levels"
+            />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
+

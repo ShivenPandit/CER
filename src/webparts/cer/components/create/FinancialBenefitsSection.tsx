@@ -123,24 +123,29 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
         {/* Payback Period (in no. of Quarters) */}
         <div id="field-payback_quarters">
           <label htmlFor="payback_quarters" className="block font-semibold text-slate-700 mb-1.5">
-            Payback Period (in no. of Quarters) {isPayback && <span className="text-rose-500">*</span>}
+            Payback Period (in no. of Quarters) <span className="text-rose-500">*</span>
           </label>
           <input
             id="payback_quarters"
             type="number"
-            disabled={isReadOnly || !isPayback}
+            disabled={isReadOnly}
             min="1"
             step="1"
             value={formData.payback_quarters || ""}
-            onChange={(e) => onChange("payback_quarters", e.target.value === "" ? 0 : parseInt(e.target.value, 10))}
+            onChange={(e) => {
+              const q = e.target.value === "" ? 0 : parseInt(e.target.value, 10);
+              onChange("payback_quarters", q);
+              if (q > 0) {
+                onChange("period", `${q} ${q === 1 ? "Quarter" : "Quarters"}`);
+              }
+            }}
             onBlur={() => onBlur && onBlur("payback_quarters")}
             className={`w-full px-3.5 py-2.5 rounded-xl transition-colors font-medium text-slate-900 focus:outline-none ${
-              !isPayback
-                ? "bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed shadow-none"
-                : getFieldError("payback_quarters")
+              getFieldError("payback_quarters")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
                 : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
             }`}
+            required
           />
           {getFieldError("payback_quarters") && (
             <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
@@ -206,10 +211,10 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
           )}
         </div>
 
-        {/* Key Assumptions to Financial Benefit/Costs */}
+        {/* Key Assumptions to Financial Benefit/Costs (Optional) */}
         <div className="md:col-span-2 lg:col-span-3" id="field-cost_assumptions">
           <label htmlFor="cost_assumptions" className="block font-semibold text-slate-700 mb-1.5">
-            Key Assumptions to Financial Benefit/Costs <span className="text-rose-500">*</span>
+            Key Assumptions to Financial Benefit/Costs <span className="text-[10px] font-normal text-slate-400">(Optional)</span>
           </label>
           <input
             id="cost_assumptions"
@@ -223,7 +228,6 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
                 : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
             }`}
-            required
           />
           {getFieldError("cost_assumptions") && (
             <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
