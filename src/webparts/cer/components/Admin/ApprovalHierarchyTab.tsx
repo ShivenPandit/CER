@@ -840,12 +840,12 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
       {/* MODAL 1: ADD APPROVAL LEVEL POPUP                                        */}
       {/* ========================================================================= */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in overflow-y-auto">
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] my-auto">
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+            <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-100 bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
+                <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0">
                   {newSequence}
                 </div>
                 <div>
@@ -867,7 +867,8 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleAddLevelSubmit} className="p-6 space-y-4 text-xs">
+            <form onSubmit={handleAddLevelSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
               {addModalError && (
                 <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -1048,8 +1049,10 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                 <strong>SBU-Wise Approval Routing:</strong> Each approval level is scoped to a specific SBU (RJ North, RJ South, CBOS, or RAVA). Approvers are mapped to this stage level in the <strong>User &amp; Role Management</strong> tab (or auto-fetched if Project Owner).
               </div>
 
+              </div>
+
               {/* Modal Actions */}
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2.5 px-6 py-3.5 border-t border-slate-100 bg-slate-50/50 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
@@ -1085,12 +1088,12 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
       {/* MODAL 2: EDIT APPROVAL LEVEL POPUP                                       */}
       {/* ========================================================================= */}
       {editingLevel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in overflow-y-auto">
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] my-auto">
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+            <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-100 bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
+                <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
                   {editSequence}
                 </div>
                 <div>
@@ -1112,7 +1115,8 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleEditLevelSubmit} className="p-6 space-y-4 text-xs">
+            <form onSubmit={handleEditLevelSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
               {editModalError && (
                 <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -1309,8 +1313,10 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                 <strong>SBU-Wise Approval Routing:</strong> Each approval level is scoped to a specific SBU (RJ North, RJ South, CBOS, or RAVA). Approvers are mapped to this stage level in the <strong>User &amp; Role Management</strong> tab (or auto-fetched if Project Owner).
               </div>
 
+              </div>
+
               {/* Modal Actions */}
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2.5 px-6 py-3.5 border-t border-slate-100 bg-slate-50/50 shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingLevel(null)}
@@ -1346,9 +1352,9 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
       {/* MODAL 3: DELETE LEVEL CONFIRMATION POPUP                                 */}
       {/* ========================================================================= */}
       {deletingLevel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden">
-            <div className="p-6 text-center space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in overflow-y-auto">
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden max-h-[calc(100vh-2rem)] my-auto flex flex-col">
+            <div className="p-6 text-center space-y-4 overflow-y-auto flex-1 min-h-0">
               <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
                 <Trash2 className="w-6 h-6" />
               </div>

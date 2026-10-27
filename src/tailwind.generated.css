@@ -1037,6 +1037,10 @@ video {
   max-height: 90vh;
 }
 
+.max-h-\[calc\(100vh-2rem\)\] {
+  max-height: calc(100vh - 2rem);
+}
+
 .min-h-0 {
   min-height: 0px;
 }
@@ -4120,6 +4124,10 @@ video {
 
   .sm\:h-7 {
     height: 1.75rem;
+  }
+
+  .sm\:max-h-\[calc\(100vh-3\.5rem\)\] {
+    max-height: calc(100vh - 3.5rem);
   }
 
   .sm\:min-h-\[100px\] {

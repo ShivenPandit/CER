@@ -630,9 +630,9 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
       {/* Modal: Assign Role */}
       {isAssignModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in overflow-y-auto">
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] my-auto">
+            <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-100 bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <UserPlus className="w-4 h-4 text-blue-600" />
                 <h3 className="text-sm font-bold text-slate-900">
@@ -641,13 +641,14 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               </div>
               <button
                 onClick={() => setIsAssignModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleAssignRoleSubmit} className="p-6 space-y-4 text-xs">
+            <form onSubmit={handleAssignRoleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
               {errorMessage && (
                 <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -789,12 +790,14 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 </div>
               )}
 
+              </div>
+
               {/* Buttons */}
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2.5 px-6 py-3.5 border-t border-slate-100 bg-slate-50/50 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsAssignModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -820,9 +823,9 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
       {/* Modal: Edit Role Assignment */}
       {editingAssignment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in overflow-y-auto">
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] my-auto">
+            <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-100 bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <Edit className="w-4 h-4 text-blue-600" />
                 <h3 className="text-sm font-bold text-slate-900">
@@ -831,13 +834,14 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               </div>
               <button
                 onClick={() => setEditingAssignment(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleEditRoleSubmit} className="p-6 space-y-4 text-xs">
+            <form onSubmit={handleEditRoleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
               {editErrorMessage && (
                 <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -931,12 +935,14 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 </div>
               )}
 
+              </div>
+
               {/* Buttons */}
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2.5 px-6 py-3.5 border-t border-slate-100 bg-slate-50/50 shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingAssignment(null)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>

@@ -105,7 +105,7 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
       this._enforceFullBleed();
     });
 
-    document.title = "Demo";
+    document.title = "CER";
     $("body").addClass("ms-backgroundImage");
 
     // 2. Fetch user data before rendering component
