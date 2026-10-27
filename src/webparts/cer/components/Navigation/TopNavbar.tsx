@@ -42,12 +42,6 @@ export const TopNavbar: React.FC<ITopNavbarProps> = ({
   };
 
   const cleanName = currentUser.name.replace(/\s*\([^)]*\)/g, "").trim();
-  const initials = cleanName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .substring(0, 2)
-    .toUpperCase();
 
   return (
     <header className="h-16 bg-white/95 backdrop-blur-md border-b border-slate-200 px-3 sm:px-6 flex items-center justify-between shrink-0 shadow-subtle z-20 sticky top-0">
@@ -181,12 +175,6 @@ export const TopNavbar: React.FC<ITopNavbarProps> = ({
               <div className="space-y-1 max-h-60 overflow-y-auto pr-0.5">
                 {DEMO_USERS.map((u) => {
                   const isSelected = u.id === currentUser.id;
-                  const uInitials = u.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .substring(0, 2)
-                    .toUpperCase();
 
                   return (
                     <button

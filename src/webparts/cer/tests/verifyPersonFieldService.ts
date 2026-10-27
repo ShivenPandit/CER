@@ -12,16 +12,17 @@ declare const process: any;
 };
 
 // Polyfill SPFx module loader in Node
+/* eslint-disable @typescript-eslint/no-var-requires, prefer-rest-params */
 const Module = require('module');
 const origLoad = Module._load;
-Module._load = function (request: string) {
+Module._load = function (request: string, ...args: any[]) {
   if (request.startsWith('@msinternal')) {
     return {
       isFlightEnabled: () => false,
       isExperimentEnabled: () => false,
     };
   }
-  return origLoad.apply(this, arguments);
+  return origLoad.apply(this, [request, ...args]);
 };
 
 let passed = 0;

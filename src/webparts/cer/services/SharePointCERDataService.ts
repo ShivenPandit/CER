@@ -1,3 +1,4 @@
+/* eslint-disable require-atomic-updates */
 import { SPHttpClient } from "@microsoft/sp-http";
 import { WebPartContext } from "@microsoft/sp-webpart-base";
 import { ICERDataService } from "./ICERDataService";
@@ -327,9 +328,11 @@ export class SharePointCERDataService implements ICERDataService {
       }
     }
 
+    let assignedProposalId = newProposal.id || "";
+
     if (existingItems.length > 0) {
       const spItemId = existingItems[0].Id;
-      newProposal.id = String(spItemId);
+      assignedProposalId = String(spItemId);
 
       try {
         try {
@@ -378,7 +381,7 @@ export class SharePointCERDataService implements ICERDataService {
         message: isDraft
           ? "CER Proposal draft saved successfully"
           : "CER Proposal No. has been created and sent for approval",
-        proposal: newProposal,
+        proposal: { ...newProposal, id: assignedProposalId },
       };
     }
 
@@ -408,7 +411,7 @@ export class SharePointCERDataService implements ICERDataService {
       }
 
       if (createdItem && createdItem.Id) {
-        newProposal.id = String(createdItem.Id);
+        assignedProposalId = String(createdItem.Id);
       } else if (lastCreateErr) {
         throw lastCreateErr;
       }
@@ -448,7 +451,7 @@ export class SharePointCERDataService implements ICERDataService {
       message: isDraft
         ? "CER Proposal draft saved successfully"
         : "CER Proposal No. has been created and sent for approval",
-      proposal: newProposal,
+      proposal: { ...newProposal, id: assignedProposalId },
     };
   }
 
