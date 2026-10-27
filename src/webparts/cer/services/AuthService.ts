@@ -55,7 +55,7 @@ export class AuthService {
    *
    * Security Rules:
    * 1. Uses authenticated SharePoint identity (email, loginName, id, display name).
-   * 2. Queries CER_UserRoles for real assigned roles.
+   * 2. Queries CERUserRoles for real assigned roles.
    * 3. Prevents unregistered users from obtaining elevated privileges (default is unprivileged Initiator).
    * 4. Recognizes verified corporate System Administrators (including 70007144@cairnindia.com).
    * 5. Implements controlled first-Admin bootstrapping: If the role registry has no active Admins

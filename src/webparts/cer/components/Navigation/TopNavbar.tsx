@@ -7,6 +7,7 @@ import {
   Menu,
 } from "lucide-react";
 import { IAppUser, DEMO_USERS, UserRole } from "../../models/UserModel";
+import { UserAvatar } from "../Common/UserAvatar";
 
 interface ITopNavbarProps {
   currentUser: IAppUser;
@@ -115,10 +116,12 @@ export const TopNavbar: React.FC<ITopNavbarProps> = ({
                 : "bg-white hover:bg-slate-50 border-slate-200/90 shadow-sm"
             }`}
           >
-            {/* Circular Monogram Avatar */}
-            <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center font-semibold text-[11px] tracking-tight shrink-0 shadow-sm">
-              {initials}
-            </div>
+            {/* Profile Avatar */}
+            <UserAvatar
+              name={cleanName}
+              email={currentUser.email}
+              size="sm"
+            />
 
             {/* User Name & Role Pill */}
             <div className="flex items-center gap-1.5">
@@ -147,9 +150,11 @@ export const TopNavbar: React.FC<ITopNavbarProps> = ({
               {/* Active User Card Header */}
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 mb-2">
                 <div className="flex items-center gap-2.5 mb-2">
-                  <div className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
-                    {initials}
-                  </div>
+                  <UserAvatar
+                    name={cleanName}
+                    email={currentUser.email}
+                    size="md"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-slate-900 truncate">
                       {cleanName}
@@ -197,15 +202,11 @@ export const TopNavbar: React.FC<ITopNavbarProps> = ({
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div
-                          className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                            isSelected
-                              ? "bg-blue-600 text-white shadow-sm"
-                              : "bg-slate-200 text-slate-700"
-                          }`}
-                        >
-                          {uInitials}
-                        </div>
+                        <UserAvatar
+                          name={u.name}
+                          email={u.email}
+                          size="xs"
+                        />
                         <div className="min-w-0">
                           <p className="font-medium text-slate-900 truncate">
                             {u.name}

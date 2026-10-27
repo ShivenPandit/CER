@@ -2,6 +2,7 @@ import React from "react";
 import { CheckCircle2, Clock, XCircle, User } from "lucide-react";
 import { IWorkflowLevel, IApprovalDecision } from "../../models/WorkflowModel";
 import { CERStatus } from "../../models/CERModel";
+import { UserAvatar } from "../Common/UserAvatar";
 
 interface IApprovalProgressTrackerProps {
   levels: IWorkflowLevel[];
@@ -152,7 +153,11 @@ export const ApprovalProgressTracker: React.FC<IApprovalProgressTrackerProps> = 
                 </p>
 
                 <div className="flex items-center gap-1.5 mt-2 text-[11px] text-slate-500">
-                  <User className="w-3 h-3 text-slate-400" />
+                  <UserAvatar
+                    name={lvl.approver_name}
+                    email={lvl.approver_email}
+                    size="xs"
+                  />
                   <span className="truncate">{lvl.approver_name}</span>
                 </div>
               </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Search,
   Shield,
@@ -22,6 +22,7 @@ import { IWorkflowLevel, isProjectOwnerStage } from "../../models/WorkflowModel"
 import { ICERDataService } from "../../services/ICERDataService";
 import { useDynamicPagination } from "../../hooks/useDynamicPagination";
 import { DataTablePagination } from '../Shared/DataTablePagination';
+import { UserAvatar } from "../Common/UserAvatar";
 
 interface IUserManagementTabProps {
   dataService: ICERDataService;
@@ -71,6 +72,8 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
   const [directoryResults, setDirectoryResults] = useState<IDirectoryUser[]>([]);
   const [selectedDirectoryUser, setSelectedDirectoryUser] = useState<IDirectoryUser | null>(null);
   const [isSearchingDirectory, setIsSearchingDirectory] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownContainerRef = useRef<HTMLDivElement>(null);
 
   const [selectedRole, setSelectedRole] = useState<UserRole>("Initiator");
   const [approvalLevel, setApprovalLevel] = useState<number>(1);
@@ -87,29 +90,59 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
   const [editDepartment, setEditDepartment] = useState("");
   const [editErrorMessage, setEditErrorMessage] = useState<string | null>(null);
 
-  // Directory Search Debounce
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (
+        dropdownContainerRef.current &&
+        !dropdownContainerRef.current.contains(e.target as Node)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, []);
+
+  // Directory Search Debounce (Supports 1-character quick lookup)
   useEffect(() => {
     if (!isAssignModalOpen) return;
-    const timer = setTimeout(() => {
-      if (directorySearchQuery.trim().length >= 2) {
-        setIsSearchingDirectory(true);
+    const trimmed = directorySearchQuery.trim();
+
+    // If user is already selected and input matches their name, do not re-query
+    if (selectedDirectoryUser && selectedDirectoryUser.displayName.trim().toLowerCase() === trimmed.toLowerCase()) {
+      setIsSearchingDirectory(false);
+      return;
+    }
+
+    if (trimmed.length >= 1) {
+      setIsSearchingDirectory(true);
+      setIsDropdownOpen(true);
+      const timer = setTimeout(() => {
         dataService
-          .searchDirectoryUsers(directorySearchQuery.trim())
+          .searchDirectoryUsers(trimmed)
           .then((results) => {
-            setDirectoryResults(results);
+            setDirectoryResults(results || []);
             setIsSearchingDirectory(false);
+            setIsDropdownOpen(true);
           })
           .catch((err) => {
-            console.warn(err);
+            console.warn("[UserManagementTab] Directory search failed:", err);
+            setDirectoryResults([]);
             setIsSearchingDirectory(false);
           });
-      } else {
-        setDirectoryResults([]);
-      }
-    }, 300);
+      }, 150);
 
-    return () => clearTimeout(timer);
-  }, [directorySearchQuery, isAssignModalOpen]);
+      return () => clearTimeout(timer);
+    } else {
+      setDirectoryResults([]);
+      setIsSearchingDirectory(false);
+      setIsDropdownOpen(false);
+    }
+  }, [directorySearchQuery, isAssignModalOpen, selectedDirectoryUser, dataService]);
 
   // Filtering
   const filteredRoles = roles.filter((r) => {
@@ -156,6 +189,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
     setSelectedDirectoryUser(null);
     setDirectorySearchQuery("");
     setDirectoryResults([]);
+    setIsDropdownOpen(false);
     setSelectedRole("Initiator");
     setApprovalLevel(levels.length > 0 ? levels[0].level_id : 1);
     setDepartment("");
@@ -167,6 +201,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
     setSelectedDirectoryUser(user);
     setDirectorySearchQuery(user.displayName);
     setDirectoryResults([]);
+    setIsDropdownOpen(false);
     if (user.department) {
       setDepartment(user.department);
     }
@@ -200,6 +235,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
           user_name: selectedDirectoryUser.displayName,
           user_email: email,
           login_name: selectedDirectoryUser.userPrincipalName || email,
+          user_id: (selectedDirectoryUser.id && !isNaN(Number(selectedDirectoryUser.id))) ? Number(selectedDirectoryUser.id) : undefined,
           role: selectedRole,
           approval_level: selectedRole === "Approver" ? Number(approvalLevel) : undefined,
           department: department.trim() || selectedDirectoryUser.department,
@@ -424,9 +460,11 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                     >
                       <td className="py-3 px-4 2xl:py-4 2xl:px-6">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 2xl:w-8 2xl:h-8 rounded-full bg-[#0A1E38] text-white flex items-center justify-center font-bold text-[10px] 2xl:text-xs shrink-0">
-                            {initials}
-                          </div>
+                          <UserAvatar
+                            name={assignment.user_name}
+                            email={assignment.user_email}
+                            size="sm"
+                          />
                           <span className="font-bold text-slate-900 2xl:text-sm">
                             {assignment.user_name}
                           </span>
@@ -538,9 +576,11 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 >
                   {/* Top: Avatar, Name, Email */}
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-9 h-9 rounded-full bg-[#0A1E38] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
-                      {initials}
-                    </div>
+                    <UserAvatar
+                      name={assignment.user_name}
+                      email={assignment.user_email}
+                      size="md"
+                    />
                     <div className="min-w-0">
                       <h4 className="font-bold text-slate-900 text-xs truncate">
                         {assignment.user_name}
@@ -657,58 +697,130 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               )}
 
               {/* Directory Search & People Picker */}
-              <div className="relative">
+              <div className="relative" ref={dropdownContainerRef}>
                 <label className="block font-semibold text-slate-800 mb-1">
                   Employee Directory Search <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
                     value={directorySearchQuery}
-                    onChange={(e) => setDirectorySearchQuery(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setDirectorySearchQuery(val);
+                      if (selectedDirectoryUser && val !== selectedDirectoryUser.displayName) {
+                        setSelectedDirectoryUser(null);
+                      }
+                    }}
+                    onFocus={() => {
+                      setIsDropdownOpen(true);
+                      if (!directorySearchQuery.trim() && !selectedDirectoryUser) {
+                        setIsSearchingDirectory(true);
+                        dataService
+                          .searchDirectoryUsers("")
+                          .then((results) => {
+                            setDirectoryResults(results || []);
+                            setIsSearchingDirectory(false);
+                          })
+                          .catch((err) => {
+                            console.warn("[UserManagementTab] Initial directory fetch failed:", err);
+                            setIsSearchingDirectory(false);
+                          });
+                      }
+                    }}
                     placeholder="Search employee by name or cairnindia email..."
-                    className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                    className="w-full pl-9 pr-9 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-colors"
                   />
-                  {isSearchingDirectory && (
+                  {isSearchingDirectory ? (
                     <Loader2 className="w-4 h-4 text-blue-600 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />
-                  )}
+                  ) : directorySearchQuery ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDirectorySearchQuery("");
+                        setSelectedDirectoryUser(null);
+                        setDirectoryResults([]);
+                        setIsDropdownOpen(false);
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-200 transition-colors"
+                      title="Clear search"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  ) : null}
                 </div>
 
                 {/* Directory Dropdown Results */}
-                {directoryResults.length > 0 && (
-                  <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-elevated max-h-48 overflow-y-auto z-50 divide-y divide-slate-100">
-                    {directoryResults.map((u) => (
-                      <div
-                        key={u.id}
-                        onClick={() => handleSelectDirectoryUser(u)}
-                        className="p-2.5 hover:bg-blue-50/60 cursor-pointer flex items-center justify-between transition-colors"
-                      >
-                        <div>
-                          <p className="font-bold text-slate-900">{u.displayName}</p>
-                          <p className="text-[11px] text-slate-500">
-                            {u.mail || u.userPrincipalName}
-                          </p>
+                {isDropdownOpen && isSearchingDirectory && (
+                  <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-elevated p-3 z-50 flex items-center justify-center gap-2 text-slate-500">
+                    <Loader2 className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
+                    <span className="text-xs text-slate-600 font-medium">Searching directory...</span>
+                  </div>
+                )}
+
+                {isDropdownOpen && !isSearchingDirectory && directoryResults.length > 0 && (
+                  <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-elevated max-h-56 overflow-y-auto z-50 divide-y divide-slate-100">
+                    {directoryResults.map((u) => {
+                      const email = u.mail || u.userPrincipalName || "";
+                      return (
+                        <div
+                          key={u.id || email || u.displayName}
+                          onClick={() => handleSelectDirectoryUser(u)}
+                          className="p-2.5 hover:bg-blue-50/70 cursor-pointer flex items-center justify-between transition-colors gap-2.5 group"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <UserAvatar
+                              name={u.displayName}
+                              email={email}
+                              size="md"
+                            />
+                            <div className="min-w-0">
+                              <p className="font-bold text-slate-900 group-hover:text-blue-700 transition-colors truncate">
+                                {u.displayName}
+                              </p>
+                              <p className="text-[11px] text-slate-500 truncate">
+                                {email}
+                              </p>
+                            </div>
+                          </div>
+                          {u.department && (
+                            <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md font-medium shrink-0">
+                              {u.department}
+                            </span>
+                          )}
                         </div>
-                        {u.department && (
-                          <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                            {u.department}
-                          </span>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* No matching employees fallback */}
+                {isDropdownOpen && !isSearchingDirectory && directorySearchQuery.trim().length >= 1 && directoryResults.length === 0 && !selectedDirectoryUser && (
+                  <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-elevated p-4 z-50 text-center">
+                    <p className="font-semibold text-slate-700 text-xs">No employees found</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      No directory records matching &ldquo;{directorySearchQuery.trim()}&rdquo;
+                    </p>
                   </div>
                 )}
 
                 {selectedDirectoryUser && (
-                  <div className="mt-2 p-2.5 bg-blue-50/60 border border-blue-200 rounded-xl flex items-center justify-between">
-                    <div>
-                      <p className="font-bold text-blue-900">{selectedDirectoryUser.displayName}</p>
-                      <p className="text-[11px] text-blue-700">
-                        {selectedDirectoryUser.mail || selectedDirectoryUser.userPrincipalName}
-                      </p>
+                  <div className="mt-2 p-2.5 bg-blue-50/60 border border-blue-200 rounded-xl flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <UserAvatar
+                        name={selectedDirectoryUser.displayName}
+                        email={selectedDirectoryUser.mail || selectedDirectoryUser.userPrincipalName}
+                        size="md"
+                      />
+                      <div className="min-w-0">
+                        <p className="font-bold text-blue-900 truncate">{selectedDirectoryUser.displayName}</p>
+                        <p className="text-[11px] text-blue-700 truncate">
+                          {selectedDirectoryUser.mail || selectedDirectoryUser.userPrincipalName}
+                        </p>
+                      </div>
                     </div>
-                    <span className="text-[10px] font-semibold text-blue-700 bg-white px-2 py-0.5 rounded-full border border-blue-200">
+                    <span className="text-[10px] font-semibold text-blue-700 bg-white px-2 py-0.5 rounded-full border border-blue-200 shrink-0">
                       Selected Employee
                     </span>
                   </div>
@@ -850,12 +962,19 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               )}
 
               {/* Employee Details (Read-only banner) */}
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-                <div>
-                  <p className="font-bold text-slate-900">{editingAssignment.user_name}</p>
-                  <p className="text-[11px] text-slate-500 font-mono">{editingAssignment.user_email}</p>
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <UserAvatar
+                    name={editingAssignment.user_name}
+                    email={editingAssignment.user_email}
+                    size="md"
+                  />
+                  <div className="min-w-0">
+                    <p className="font-bold text-slate-900 truncate">{editingAssignment.user_name}</p>
+                    <p className="text-[11px] text-slate-500 font-mono truncate">{editingAssignment.user_email}</p>
+                  </div>
                 </div>
-                <span className="text-[10px] font-semibold text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">
+                <span className="text-[10px] font-semibold text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200 shrink-0">
                   ID: {editingAssignment.id}
                 </span>
               </div>

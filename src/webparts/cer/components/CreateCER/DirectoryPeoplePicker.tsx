@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Search, User, Mail, Check, X, Loader2, AlertCircle, Building2, Briefcase } from "lucide-react";
 import { IDirectoryUser, resolveDirectoryUserEmail } from "../../models/UserModel";
 import { ICERDataService } from "../../services/ICERDataService";
+import { UserAvatar } from "../Common/UserAvatar";
 
 export interface IDirectoryPeoplePickerProps {
   dataService: ICERDataService;
@@ -236,9 +237,11 @@ export const DirectoryPeoplePicker: React.FC<IDirectoryPeoplePickerProps> = ({
     <div ref={containerRef} className="relative w-full">
       {/* Search Input Container */}
       <div className="relative flex items-center">
-        <div className="absolute left-3.5 pointer-events-none text-slate-400">
+        <div className="absolute left-3 pointer-events-none text-slate-400">
           {isLoading ? (
             <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+          ) : isSelected ? (
+            <UserAvatar name={selectedName} email={selectedEmail} size="xs" />
           ) : (
             <Search className="w-4 h-4" />
           )}
@@ -364,18 +367,12 @@ export const DirectoryPeoplePicker: React.FC<IDirectoryPeoplePickerProps> = ({
                         : "hover:bg-slate-50/80 text-slate-800"
                     }`}
                   >
-                    {/* User Avatar Circle */}
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold text-xs shadow-sm ${
-                        isActive
-                          ? "bg-blue-600 text-white"
-                          : isItemChosen
-                          ? "bg-blue-100 text-blue-800 border border-blue-300"
-                          : "bg-gradient-to-br from-slate-100 to-slate-200 text-slate-700 border border-slate-300/80"
-                      }`}
-                    >
-                      {getInitials(user.displayName)}
-                    </div>
+                    {/* User Profile Avatar */}
+                    <UserAvatar
+                      name={user.displayName}
+                      email={email}
+                      size="md"
+                    />
 
                     {/* User Metadata */}
                     <div className="flex-1 min-w-0">

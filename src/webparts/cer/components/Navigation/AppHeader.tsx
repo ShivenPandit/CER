@@ -12,6 +12,7 @@ import {
 import { IAppUser, UserRole } from "../../models/UserModel";
 import { NavView } from "./Sidebar";
 import vedantaLogo from "../../assets/Vedanta.png";
+import { UserAvatar } from "../Common/UserAvatar";
 
 interface IAppHeaderProps {
   currentUser: IAppUser;
@@ -169,10 +170,12 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
               }`}
               title="User Profile & Persona Switcher"
             >
-              {/* Dark Navy Avatar Monogram Circle */}
-              <div className="w-6.5 h-6.5 sm:w-7 sm:h-7 2xl:w-7.5 2xl:h-7.5 rounded-full bg-[#0A1E38] text-white flex items-center justify-center font-bold text-[10px] sm:text-[11px] 2xl:text-xs tracking-tight shrink-0 shadow-xs">
-                {initials}
-              </div>
+              {/* User Profile Avatar */}
+              <UserAvatar
+                name={cleanName}
+                email={currentUser.email}
+                size="sm"
+              />
 
               {/* User Display Name (Hidden on narrow mobile screens) */}
               <div className="hidden sm:flex items-center gap-1.5 min-w-0">
@@ -194,9 +197,11 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
                 {/* Active Profile Info */}
                 <div className="p-3 bg-gradient-to-br from-slate-50 to-blue-50/40 rounded-xl border border-slate-200/80 mb-2.5">
                   <div className="flex items-center gap-3 mb-2.5">
-                    <div className="w-10 h-10 rounded-full bg-[#0A1E38] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
-                      {initials}
-                    </div>
+                    <UserAvatar
+                      name={cleanName}
+                      email={currentUser.email}
+                      size="lg"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-bold text-slate-900 truncate">
                         {cleanName}

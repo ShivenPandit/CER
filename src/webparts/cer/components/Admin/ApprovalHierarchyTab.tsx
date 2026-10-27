@@ -211,7 +211,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
 
       setLevels(updated);
 
-      // Save directly to SharePoint list CER_WorkflowLevels
+      // Save directly to SharePoint list CERWorkflowLevels
       await dataService.saveWorkflowLevels(updated);
 
       if (dataService.logAdminAudit) {
@@ -220,7 +220,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
           actor_email: currentUser.email,
           action: "WORKFLOW_UPDATED",
           target_type: "WORKFLOW",
-          target_id: "CER_WorkflowLevels",
+          target_id: "CERWorkflowLevels",
           details: `Added new approval level at stage ${targetSeq}: '${trimmedName}' (${trimmedRole}) for SBU '${trimmedSbu}'. Resequenced ${resequencedSbu.length} stages for this SBU.`,
           after_value: JSON.stringify(newLevel),
           timestamp: now,
@@ -229,7 +229,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
 
       await onRefreshLevels();
       setIsAddModalOpen(false);
-      setSuccessNotice(`Successfully added Approval Level ${targetSeq} ('${trimmedName}') for ${trimmedSbu} to SharePoint list CER_WorkflowLevels.`);
+      setSuccessNotice(`Successfully added Approval Level ${targetSeq} ('${trimmedName}') for ${trimmedSbu} to SharePoint list CERWorkflowLevels.`);
       setTimeout(() => setSuccessNotice(null), 5000);
     } catch (err: any) {
       setAddModalError(err?.message || "Failed to add approval level to SharePoint.");
@@ -339,7 +339,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
 
       setLevels(updated);
 
-      // Save directly to SharePoint list CER_WorkflowLevels
+      // Save directly to SharePoint list CERWorkflowLevels
       await dataService.saveWorkflowLevels(updated);
 
       if (dataService.logAdminAudit) {
@@ -348,7 +348,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
           actor_email: currentUser.email,
           action: "WORKFLOW_UPDATED",
           target_type: "WORKFLOW",
-          target_id: "CER_WorkflowLevels",
+          target_id: "CERWorkflowLevels",
           details: `Updated approval level stage to ${editSequence}: '${trimmedName}' (${trimmedRole}) for SBU '${trimmedSbu}'.`,
           after_value: JSON.stringify(updatedLevel),
           timestamp: new Date().toISOString(),
@@ -357,7 +357,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
 
       await onRefreshLevels();
       setEditingLevel(null);
-      setSuccessNotice(`Successfully updated Approval Level in SBU '${trimmedSbu}' in SharePoint list CER_WorkflowLevels.`);
+      setSuccessNotice(`Successfully updated Approval Level in SBU '${trimmedSbu}' in SharePoint list CERWorkflowLevels.`);
       setTimeout(() => setSuccessNotice(null), 5000);
     } catch (err: any) {
       setEditModalError(err?.message || "Failed to update approval level in SharePoint.");
@@ -382,7 +382,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
       const reindexed = [...otherLevels, ...remainingSbu];
       setLevels(reindexed);
 
-      // Save directly to SharePoint list CER_WorkflowLevels
+      // Save directly to SharePoint list CERWorkflowLevels
       await dataService.saveWorkflowLevels(reindexed);
 
       if (dataService.logAdminAudit) {
@@ -391,7 +391,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
           actor_email: currentUser.email,
           action: "WORKFLOW_UPDATED",
           target_type: "WORKFLOW",
-          target_id: "CER_WorkflowLevels",
+          target_id: "CERWorkflowLevels",
           details: `Deleted approval level ${deletingLevel.level_id} ('${deletingLevel.level_name}') in SBU '${delSbu}' and re-sequenced remaining ${remainingSbu.length} levels for this SBU.`,
           timestamp: new Date().toISOString(),
         });
@@ -400,7 +400,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
       await onRefreshLevels();
       const deletedId = deletingLevel.level_id;
       setDeletingLevel(null);
-      setSuccessNotice(`Successfully deleted Approval Level ${deletedId} (${delSbu}) from SharePoint list CER_WorkflowLevels.`);
+      setSuccessNotice(`Successfully deleted Approval Level ${deletedId} (${delSbu}) from SharePoint list CERWorkflowLevels.`);
       setTimeout(() => setSuccessNotice(null), 5000);
     } catch (err: any) {
       setErrorMessage(err?.message || "Failed to delete approval level from SharePoint.");
@@ -438,7 +438,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
     try {
       await dataService.saveWorkflowLevels(reindexed);
       await onRefreshLevels();
-      setSuccessNotice(`Approval level sequence for ${sbu} updated in SharePoint list CER_WorkflowLevels.`);
+      setSuccessNotice(`Approval level sequence for ${sbu} updated in SharePoint list CERWorkflowLevels.`);
       setTimeout(() => setSuccessNotice(null), 3000);
     } catch (err: any) {
       setErrorMessage(err?.message || "Failed to update level sequence in SharePoint.");
@@ -490,14 +490,14 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
           actor_email: currentUser.email,
           action: "WORKFLOW_UPDATED",
           target_type: "WORKFLOW",
-          target_id: "CER_WorkflowLevels",
+          target_id: "CERWorkflowLevels",
           details: `Updated sequential workflow hierarchy in SharePoint list (${preparedLevels.length} levels).`,
           after_value: JSON.stringify(preparedLevels),
           timestamp: now,
         });
       }
 
-      setSuccessNotice(`Successfully saved ${preparedLevels.length} approval levels directly to SharePoint list CER_WorkflowLevels.`);
+      setSuccessNotice(`Successfully saved ${preparedLevels.length} approval levels directly to SharePoint list CERWorkflowLevels.`);
       await onRefreshLevels();
       setTimeout(() => setSuccessNotice(null), 5000);
     } catch (e: any) {
@@ -549,7 +549,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
               Sequential Approval Levels Hierarchy
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Dynamic SBU-wise approval stages saved directly in SharePoint list <strong>CER_WorkflowLevels</strong>.
+              Dynamic SBU-wise approval stages saved directly in SharePoint list <strong>CERWorkflowLevels</strong>.
             </p>
           </div>
 
@@ -651,7 +651,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
           </div>
           <h4 className="text-sm font-bold text-slate-900">No Approval Levels Configured</h4>
           <p className="text-xs text-slate-500 max-w-md mt-1 mb-4">
-            The SharePoint list <strong>CER_WorkflowLevels</strong> is currently empty. Click &quot;Add Level&quot; to configure your sequential approval stages.
+            The SharePoint list <strong>CERWorkflowLevels</strong> is currently empty. Click &quot;Add Level&quot; to configure your sequential approval stages.
           </p>
           <button
             type="button"
@@ -1035,7 +1035,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                             : "Configured in User & Role Management"}
                         </span>
                         <span className="font-semibold text-slate-700">Source:</span>
-                        <span className="text-slate-800">CER_UserRoles List (Stage {newSequence})</span>
+                        <span className="text-slate-800">CERUserRoles List (Stage {newSequence})</span>
                         <span className="font-semibold text-slate-700">Assignment:</span>
                         <span className="text-blue-700 font-semibold">Specific User</span>
                       </div>
@@ -1299,7 +1299,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                             : (editingLevel.approver_name || "Configured in User & Role Management")}
                         </span>
                         <span className="font-semibold text-slate-700">Source:</span>
-                        <span className="text-slate-800">CER_UserRoles List (Stage {editSequence})</span>
+                        <span className="text-slate-800">CERUserRoles List (Stage {editSequence})</span>
                         <span className="font-semibold text-slate-700">Assignment:</span>
                         <span className="text-blue-700 font-semibold">Specific User</span>
                       </div>
@@ -1364,7 +1364,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
                   Are you sure you want to permanently delete{" "}
-                  <strong>&quot;{deletingLevel.level_name}&quot;</strong>? This will remove this stage from SharePoint list <strong>CER_WorkflowLevels</strong> and automatically re-sequence remaining levels.
+                  <strong>&quot;{deletingLevel.level_name}&quot;</strong>? This will remove this stage from SharePoint list <strong>CERWorkflowLevels</strong> and automatically re-sequence remaining levels.
                 </p>
               </div>
               <div className="flex items-center justify-center gap-3 pt-2">

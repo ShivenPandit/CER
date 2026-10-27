@@ -184,7 +184,7 @@ export const AdminOverviewTab: React.FC<IAdminOverviewTabProps> = ({
               <span>Dedicated Role Registry</span>
             </div>
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              Persisted in SharePoint list <code className="text-blue-700 bg-blue-50 px-1 py-0.5 rounded">CER_UserRoles</code>. No fake personas.
+              Persisted in SharePoint list <code className="text-blue-700 bg-blue-50 px-1 py-0.5 rounded">CERUserRoles</code>. No fake personas.
             </p>
           </div>
 
@@ -206,7 +206,7 @@ export const AdminOverviewTab: React.FC<IAdminOverviewTabProps> = ({
               <span>Administrative Audit Trail</span>
             </div>
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              Every role grant, revocation, and status change is logged in <code className="text-purple-700 bg-purple-50 px-1 py-0.5 rounded">CER_AdminAuditLog</code>.
+              Every role grant, revocation, and status change is logged in <code className="text-purple-700 bg-purple-50 px-1 py-0.5 rounded">CERAdminAuditLog</code>.
             </p>
           </div>
         </div>

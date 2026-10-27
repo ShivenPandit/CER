@@ -42,6 +42,15 @@ export interface ISPFileUploadResult {
   serverRelativeUrl: string;
 }
 
+/** Strongly-typed SharePoint User representation returned by ensureUser or site queries */
+export interface ISharePointUser {
+  Id: number;
+  Title: string;
+  Email: string;
+  LoginName: string;
+  IsSiteAdmin?: boolean;
+}
+
 /** Options for GET requests */
 export interface ISPGetOptions {
   /** OData $select clause (without the $select= prefix) */
@@ -63,6 +72,8 @@ export interface ISPGetOptions {
 export class SharePointOperations {
   private _client: SPHttpClient;
   private _siteUrl: string;
+  private static _ensureUserCache = new Map<string, { user: ISharePointUser; timestamp: number }>();
+  private static readonly _ENSURE_USER_CACHE_TTL = 600000; // 10 minutes
 
   constructor(client: SPHttpClient, siteUrl: string) {
     this._client = client;
@@ -569,8 +580,14 @@ export class SharePointOperations {
     const rawResults = json?.d?.ClientPeoplePickerSearchUser;
     if (!rawResults) return [];
 
-    const parsed =
-      typeof rawResults === "string" ? JSON.parse(rawResults) : rawResults;
+    let parsed: any = rawResults;
+    if (typeof rawResults === "string") {
+      try {
+        parsed = JSON.parse(rawResults);
+      } catch {
+        parsed = [];
+      }
+    }
     return Array.isArray(parsed) ? parsed : [];
   }
 
@@ -645,16 +662,81 @@ export class SharePointOperations {
   }
 
   /**
-   * Fetch user Id by email address from site users.
+   * Resolves a user identity to a valid SharePoint Site User ID using the supported REST ensureUser API.
+   * Includes site-context-aware in-memory caching to eliminate duplicate network round-trips.
+   *
+   * @param logonName - Email, UPN, or claims login name
+   */
+  public async ensureUser(logonName: string): Promise<ISharePointUser> {
+    if (!logonName || !logonName.trim()) {
+      throw new Error("[SPOperations] ensureUser called with missing or empty logonName");
+    }
+    const cleanLogon = logonName.trim();
+    const cacheKey = `${this._siteUrl.toLowerCase()}::${cleanLogon.toLowerCase()}`;
+    const now = Date.now();
+
+    const cached = SharePointOperations._ensureUserCache.get(cacheKey);
+    if (cached && (now - cached.timestamp < SharePointOperations._ENSURE_USER_CACHE_TTL)) {
+      return cached.user;
+    }
+
+    const endpoint = `${this._siteUrl.replace(/\/+$/, "")}/_api/web/ensureUser`;
+    const response: SPHttpClientResponse = await this._client.post(
+      endpoint,
+      SPHttpClient.configurations.v1,
+      {
+        headers: {
+          Accept: "application/json;odata=nometadata",
+          "Content-Type": "application/json;odata=verbose",
+        },
+        body: JSON.stringify({ logonName: cleanLogon }),
+      }
+    );
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => "");
+      throw new Error(
+        `[SPOperations] ensureUser failed for '${cleanLogon}' (${response.status}): ${errText || response.statusText}`
+      );
+    }
+
+    const data = await response.json();
+    const id = Number(data.Id || data.id);
+    if (!id || isNaN(id) || id <= 0) {
+      throw new Error(`[SPOperations] ensureUser returned invalid or non-positive User ID for '${cleanLogon}'.`);
+    }
+
+    const resolvedUser: ISharePointUser = {
+      Id: id,
+      Title: String(data.Title || data.title || cleanLogon),
+      Email: String(data.Email || data.email || data.EMail || cleanLogon),
+      LoginName: String(data.LoginName || data.loginName || cleanLogon),
+      IsSiteAdmin: !!data.IsSiteAdmin,
+    };
+
+    SharePointOperations._ensureUserCache.set(cacheKey, { user: resolvedUser, timestamp: now });
+    return resolvedUser;
+  }
+
+  /**
+   * Fetch user Id by email address.
+   * Tries site collection ensureUser first (to resolve even users who haven't visited the site yet),
+   * falling back to site users query.
    */
   public async getUserIdByEmail(email: string): Promise<number | null> {
-    const filter = `Email eq '${email.replace(/'/g, "''")}'`;
-    const users = await this.getSiteUsers<{ Id: number }>({
-      filter,
-      select: "Id",
-      top: 1,
-    });
-    return users.length > 0 ? users[0].Id : null;
+    if (!email || !email.trim()) return null;
+    try {
+      const user = await this.ensureUser(email);
+      return user.Id;
+    } catch {
+      const filter = `Email eq '${email.replace(/'/g, "''")}'`;
+      const users = await this.getSiteUsers<{ Id: number }>({
+        filter,
+        select: "Id",
+        top: 1,
+      });
+      return users.length > 0 ? users[0].Id : null;
+    }
   }
 }
 
@@ -798,7 +880,14 @@ export const useListOperations = () => {
       listName: string,
     ) => {
       const ops = new SharePointOperations(requester, siteUrl);
-      const payload = typeof data === "string" ? JSON.parse(data) : data;
+      let payload: any = data;
+      if (typeof data === "string") {
+        try {
+          payload = JSON.parse(data);
+        } catch {
+          payload = {};
+        }
+      }
       return ops.createListItem(listName, payload);
     },
     [],
@@ -813,7 +902,14 @@ export const useListOperations = () => {
       body: Record<string, unknown> | string,
     ): Promise<boolean> => {
       const ops = new SharePointOperations(requester, siteUrl);
-      const payload = typeof body === "string" ? JSON.parse(body) : body;
+      let payload: any = body;
+      if (typeof body === "string") {
+        try {
+          payload = JSON.parse(body);
+        } catch {
+          payload = {};
+        }
+      }
       await ops.updateListItem(listName, oListItemID, payload);
       return true;
     },

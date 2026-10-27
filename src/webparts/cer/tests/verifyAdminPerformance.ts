@@ -40,7 +40,7 @@ async function testPerformanceOptimizations() {
       networkCallCount++;
       queriedUrls.push(url);
 
-      if (url.includes("CER_UserRoles")) {
+      if (url.includes("CER_UserRoles") || url.includes("CERUserRoles")) {
         return {
           ok: true,
           status: 200,
@@ -133,10 +133,10 @@ async function testPerformanceOptimizations() {
   console.log(`  Total network calls made: ${networkCallCount}`);
   // Expected: Exactly 2 calls (1 for CER_UserRoles, 1 for CER_WorkflowLevels)
   // WITHOUT deduplication, it would have been 3 calls (2 to CER_UserRoles, 1 to CER_WorkflowLevels)
-  const userRolesCallCount = queriedUrls.filter((u) => u.includes("CER_UserRoles")).length;
-  const workflowLevelsCallCount = queriedUrls.filter((u) => u.includes("CER_WorkflowLevels")).length;
-  console.log(`  Calls to CER_UserRoles: ${userRolesCallCount} (Expected: 1)`);
-  console.log(`  Calls to CER_WorkflowLevels: ${workflowLevelsCallCount} (Expected: 1)`);
+  const userRolesCallCount = queriedUrls.filter((u) => u.includes("CER_UserRoles") || u.includes("CERUserRoles")).length;
+  const workflowLevelsCallCount = queriedUrls.filter((u) => u.includes("CER_WorkflowLevels") || u.includes("CERWorkflowLevels")).length;
+  console.log(`  Calls to CERUserRoles: ${userRolesCallCount} (Expected: 1)`);
+  console.log(`  Calls to CERWorkflowLevels: ${workflowLevelsCallCount} (Expected: 1)`);
 
   const deduplicationWorked = userRolesCallCount === 1 && workflowLevelsCallCount === 1;
   console.log(`  ${deduplicationWorked ? "✔ [PASS]" : "✖ [FAIL]"} Deduplication prevented redundant parallel query to CER_UserRoles`);

@@ -17,7 +17,9 @@
     "test:requirements": "tsx src/webparts/cer/tests/verifyAllRequirements.ts",
     "test:admin-perf": "tsx src/webparts/cer/tests/verifyAdminPerformance.ts",
     "test:persistence": "tsx src/webparts/cer/tests/verifySharePointPersistence.ts",
-    "trust-dev-cert": "heft trust-dev-cert"
+    "trust-dev-cert": "heft trust-dev-cert",
+    "test:identity-schema": "tsx src/webparts/cer/tests/verifyIdentityColumnSchema.ts",
+    "test:person-fields": "tsx src/webparts/cer/tests/verifyPersonFieldService.ts"
   },
   "dependencies": {
     "@fluentui/react": "^8.106.4",

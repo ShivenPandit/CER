@@ -163,7 +163,7 @@ async function runPersistenceRegressionTests() {
   {
     const mockHttp = createMockHttpClient({
       get: async (url: string) => {
-        if (url.includes("CER_WorkflowLevels")) {
+        if ((url.includes("CERWorkflowLevels") || url.includes("CER_WorkflowLevels"))) {
           return {
             ok: true,
             status: 200,
@@ -174,7 +174,7 @@ async function runPersistenceRegressionTests() {
             }),
           };
         }
-        if (url.includes("CER_UserRoles")) {
+        if (url.includes("CER_UserRoles") || url.includes("CERUserRoles")) {
           return {
             ok: true,
             status: 200,
@@ -193,7 +193,7 @@ async function runPersistenceRegressionTests() {
         };
       },
       post: async (url: string) => {
-        if (url.includes("CER_Proposals")) {
+        if ((url.includes("CERProposals") || url.includes("CER_Proposals"))) {
           return {
             ok: true,
             status: 201,
@@ -210,8 +210,8 @@ async function runPersistenceRegressionTests() {
     assert(result.success === true, "createProposal reports success: true on valid SharePoint POST");
     assert(result.proposal.id === "555", "createProposal returns assigned SharePoint list item Id '555'");
     assert(
-      mockHttp.postCalls.some((c) => c.url.includes("CER_Proposals")),
-      "createProposal issued POST request to SharePoint CER_Proposals list",
+      mockHttp.postCalls.some((c) => c.url.includes("CERProposals") || c.url.includes("CER_Proposals")),
+      "createProposal issued POST request to SharePoint CERProposals list",
     );
   }
 
@@ -223,7 +223,7 @@ async function runPersistenceRegressionTests() {
     const mockHttp = createMockHttpClient({
       get: async () => ({ ok: true, status: 200, json: async () => ({ value: [] }) }),
       post: async (url: string) => {
-        if (url.includes("CER_Proposals")) {
+        if ((url.includes("CERProposals") || url.includes("CER_Proposals"))) {
           return {
             ok: false,
             status: 500,
@@ -280,7 +280,7 @@ async function runPersistenceRegressionTests() {
       },
       post: async (url: string, options: any) => {
         // If MERGE to CER_Proposals items(777), fail it
-        if (url.includes("CER_Proposals") && options?.headers?.["X-HTTP-Method"] === "MERGE") {
+        if ((url.includes("CERProposals") || url.includes("CER_Proposals")) && options?.headers?.["X-HTTP-Method"] === "MERGE") {
           return {
             ok: false,
             status: 503,
@@ -318,7 +318,7 @@ async function runPersistenceRegressionTests() {
     const mockHttp = createMockHttpClient({
       get: async (url: string) => {
         const decoded = decodeURIComponent(url);
-        if (decoded.includes("CER-2026-9001") && url.includes("CER_Proposals")) {
+        if (decoded.includes("CER-2026-9001") && (url.includes("CERProposals") || url.includes("CER_Proposals"))) {
           return {
             ok: true,
             status: 200,
@@ -336,10 +336,10 @@ async function runPersistenceRegressionTests() {
             }),
           };
         }
-        if (url.includes("CER_ApprovalDecisions")) {
+        if ((url.includes("CERApprovalDecisions") || url.includes("CER_ApprovalDecisions"))) {
           return { ok: true, status: 200, json: async () => ({ value: [] }) };
         }
-        if (url.includes("CER_WorkflowLevels")) {
+        if ((url.includes("CERWorkflowLevels") || url.includes("CER_WorkflowLevels"))) {
           return {
             ok: true,
             status: 200,
@@ -354,7 +354,7 @@ async function runPersistenceRegressionTests() {
         return { ok: true, status: 200, json: async () => ({ value: [] }) };
       },
       post: async (url: string) => {
-        if (url.includes("CER_ApprovalDecisions")) {
+        if ((url.includes("CERApprovalDecisions") || url.includes("CER_ApprovalDecisions"))) {
           return {
             ok: false,
             status: 403,
@@ -399,7 +399,7 @@ async function runPersistenceRegressionTests() {
     const mockHttp = createMockHttpClient({
       get: async (url: string) => {
         const decoded = decodeURIComponent(url);
-        if (decoded.includes("CER-2026-9001") && url.includes("CER_Proposals")) {
+        if (decoded.includes("CER-2026-9001") && (url.includes("CERProposals") || url.includes("CER_Proposals"))) {
           return {
             ok: true,
             status: 200,
@@ -417,10 +417,10 @@ async function runPersistenceRegressionTests() {
             }),
           };
         }
-        if (url.includes("CER_ApprovalDecisions")) {
+        if ((url.includes("CERApprovalDecisions") || url.includes("CER_ApprovalDecisions"))) {
           return { ok: true, status: 200, json: async () => ({ value: [] }) };
         }
-        if (url.includes("CER_WorkflowLevels")) {
+        if ((url.includes("CERWorkflowLevels") || url.includes("CER_WorkflowLevels"))) {
           return {
             ok: true,
             status: 200,
@@ -435,11 +435,11 @@ async function runPersistenceRegressionTests() {
         return { ok: true, status: 200, json: async () => ({ value: [] }) };
       },
       post: async (url: string, options: any) => {
-        if (url.includes("CER_ApprovalDecisions")) {
+        if ((url.includes("CERApprovalDecisions") || url.includes("CER_ApprovalDecisions"))) {
           decisionPosted = true;
           return { ok: true, status: 201, json: async () => ({ Id: 301 }) };
         }
-        if (url.includes("CER_Proposals") && options?.headers?.["X-HTTP-Method"] === "MERGE") {
+        if ((url.includes("CERProposals") || url.includes("CER_Proposals")) && options?.headers?.["X-HTTP-Method"] === "MERGE") {
           proposalUpdated = true;
           return { ok: true, status: 204 };
         }
@@ -460,8 +460,8 @@ async function runPersistenceRegressionTests() {
     assert(result.success === true, "recordDecision returns success: true");
     assert(result.newStatus === "In Approval", "recordDecision transitions to In Approval for Level 2");
     assert(result.nextLevel === 2, "recordDecision advances to nextLevel: 2");
-    assert(Boolean(decisionPosted), "CER_ApprovalDecisions list item was created in SharePoint");
-    assert(Boolean(proposalUpdated), "CER_Proposals item was updated in SharePoint via MERGE");
+    assert(Boolean(decisionPosted), "CERApprovalDecisions list item was created in SharePoint");
+    assert(Boolean(proposalUpdated), "CERProposals item was updated in SharePoint via MERGE");
   }
 
   // ---------------------------------------------------------------------------
@@ -472,7 +472,7 @@ async function runPersistenceRegressionTests() {
     const mockHttp = createMockHttpClient({
       get: async (url: string) => {
         const decoded = decodeURIComponent(url);
-        if (decoded.includes("CER-2026-9001") && url.includes("CER_Proposals")) {
+        if (decoded.includes("CER-2026-9001") && (url.includes("CERProposals") || url.includes("CER_Proposals"))) {
           return {
             ok: true,
             status: 200,
@@ -490,10 +490,10 @@ async function runPersistenceRegressionTests() {
             }),
           };
         }
-        if (url.includes("CER_ApprovalDecisions")) {
+        if ((url.includes("CERApprovalDecisions") || url.includes("CER_ApprovalDecisions"))) {
           return { ok: true, status: 200, json: async () => ({ value: [] }) };
         }
-        if (url.includes("CER_WorkflowLevels")) {
+        if ((url.includes("CERWorkflowLevels") || url.includes("CER_WorkflowLevels"))) {
           return {
             ok: true,
             status: 200,
@@ -508,11 +508,11 @@ async function runPersistenceRegressionTests() {
       },
       post: async (url: string, options: any) => {
         // Step 1: Decision write succeeds
-        if (url.includes("CER_ApprovalDecisions")) {
+        if ((url.includes("CERApprovalDecisions") || url.includes("CER_ApprovalDecisions"))) {
           return { ok: true, status: 201, json: async () => ({ Id: 301 }) };
         }
         // Step 2: Proposal update fails
-        if (url.includes("CER_Proposals") && options?.headers?.["X-HTTP-Method"] === "MERGE") {
+        if ((url.includes("CERProposals") || url.includes("CER_Proposals")) && options?.headers?.["X-HTTP-Method"] === "MERGE") {
           return {
             ok: false,
             status: 500,
@@ -553,7 +553,7 @@ async function runPersistenceRegressionTests() {
   {
     const mockHttp = createMockHttpClient({
       get: async (url: string) => {
-        if (url.includes("CER_Attachments")) {
+        if ((url.includes("CERAttachments") || url.includes("CER_Attachments"))) {
           return { ok: true, status: 200, json: async () => ({ value: [] }) };
         }
         return { ok: true, status: 200, json: async () => ({ value: [] }) };
@@ -568,7 +568,7 @@ async function runPersistenceRegressionTests() {
           };
         }
         // Attachment deletion failure (simulating 500 internal server error)
-        if (url.includes("CER_Attachments") && options?.headers?.["X-HTTP-Method"] === "DELETE") {
+        if ((url.includes("CERAttachments") || url.includes("CER_Attachments")) && options?.headers?.["X-HTTP-Method"] === "DELETE") {
           return {
             ok: false,
             status: 500,
@@ -625,7 +625,7 @@ async function runPersistenceRegressionTests() {
     const mockHttp = createMockHttpClient({
       get: async () => ({ ok: true, status: 200, json: async () => ({ value: [] }) }),
       post: async (url: string) => {
-        if (url.includes("CER_UserRoles")) {
+        if (url.includes("CER_UserRoles") || url.includes("CERUserRoles")) {
           return {
             ok: false,
             status: 403,
@@ -710,7 +710,7 @@ async function runPersistenceRegressionTests() {
     const mockHttp = createMockHttpClient({
       get: async (url: string) => {
         const decoded = decodeURIComponent(url);
-        if (decoded.includes("CER-2026-9001") && url.includes("CER_Proposals")) {
+        if (decoded.includes("CER-2026-9001") && (url.includes("CERProposals") || url.includes("CER_Proposals"))) {
           return {
             ok: true,
             status: 200,

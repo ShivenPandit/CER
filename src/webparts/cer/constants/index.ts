@@ -11,18 +11,21 @@
 
 // SharePoint List & Library Internal Names
 export const SP_LISTS = {
-  CER_MASTER: "CER_Master",
-  CER_COST_BREAKDOWN: "CER_CostBreakdown",
-  CER_PHASING: "CER_Phasing",
-  CER_WORKFLOW_HISTORY: "CER_Workflow_History",
-  CER_WORKFLOW_CONFIG: "CER_Workflow_Config",
-  CER_USER_ROLES: "CER_UserRoles",
-  CER_AUDIT_LOG: "CER_Audit_Log",
-  CER_NOTIFICATION_LOG: "CER_Notification_Log",
-  CER_FIELD_CHOICES: "CER_Field_Choices",
-  CER_PROPOSAL_COUNTER: "CER_Proposal_Counter",
-  CER_REMARKS_HISTORY: "CER_Remarks_History",
-  CER_DOCUMENTS: "CER_Documents",
+  CER_PROPOSALS: "CERProposals",
+  CER_AUDIT_TRAIL: "CERAuditTrail",
+  CER_REMARKS_HISTORY: "CERRemarksHistory",
+  CER_WORKFLOW_LEVELS: "CERWorkflowLevels",
+  CER_APPROVAL_DECISIONS: "CERApprovalDecisions",
+  CER_ATTACHMENTS: "CERAttachments",
+  CER_NOTIFICATIONS: "CERNotifications",
+  CER_USER_ROLES: "CERUserRoles",
+  // Legacy compatibility aliases
+  CER_MASTER: "CERProposals",
+  CER_WORKFLOW_HISTORY: "CERApprovalDecisions",
+  CER_WORKFLOW_CONFIG: "CERWorkflowLevels",
+  CER_AUDIT_LOG: "CERAuditTrail",
+  CER_NOTIFICATION_LOG: "CERNotifications",
+  CER_DOCUMENTS: "CERAttachments",
 } as const;
 
 // Application Navigation Routes & Views

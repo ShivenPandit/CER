@@ -5,6 +5,7 @@ import { ICERProposal } from "../../models/CERModel";
 import { ICERDataService } from "../../services/ICERDataService";
 import { useDynamicPagination } from "../../hooks/useDynamicPagination";
 import { DataTablePagination } from '../Shared/DataTablePagination';
+import { UserAvatar } from "../Common/UserAvatar";
 
 interface IApprovalHistoryViewProps {
   dataService: ICERDataService;
@@ -150,8 +151,15 @@ export const ApprovalHistoryView: React.FC<IApprovalHistoryViewProps> = ({
                       <td className="py-2.5 px-3 font-semibold text-slate-800 whitespace-nowrap">
                         Level {dec.level_id}: {dec.level_name}
                       </td>
-                      <td className="py-2.5 px-2.5 text-slate-700 font-medium truncate max-w-[140px]">
-                        {dec.approver_name}
+                      <td className="py-2.5 px-2.5 text-slate-700 font-medium truncate max-w-[160px]">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <UserAvatar
+                            name={dec.approver_name}
+                            email={dec.approver_email}
+                            size="xs"
+                          />
+                          <span className="truncate">{dec.approver_name}</span>
+                        </div>
                       </td>
                       <td className="py-2.5 px-2 text-center whitespace-nowrap">
                         <span
@@ -234,14 +242,21 @@ export const ApprovalHistoryView: React.FC<IApprovalHistoryViewProps> = ({
                     <p className="font-semibold text-xs text-slate-900">
                       Level {dec.level_id}: {dec.level_name}
                     </p>
-                    <p className="text-[11px] text-slate-500">
-                      By {dec.approver_name} •{" "}
-                      {new Date(dec.timestamp).toLocaleDateString("en-GB", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <UserAvatar
+                        name={dec.approver_name}
+                        email={dec.approver_email}
+                        size="xs"
+                      />
+                      <p className="text-[11px] text-slate-500">
+                        By {dec.approver_name} •{" "}
+                        {new Date(dec.timestamp).toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </p>
+                    </div>
                   </div>
 
                   {dec.comments && (

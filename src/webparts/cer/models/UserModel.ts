@@ -26,6 +26,7 @@ export interface IUserRoleAssignment {
   is_active: boolean;
   assigned_by: string;
   assigned_date: string;
+  user_id?: number; // SharePoint User ID (from Person or Group field)
 }
 
 export type AdminAuditAction =
@@ -50,7 +51,7 @@ export interface IAdminAuditRecord {
 }
 
 /**
- * @deprecated For testing/fallback only. Production uses real SharePoint identity and CER_UserRoles list.
+ * @deprecated For testing/fallback only. Production uses real SharePoint identity and CERUserRoles list.
  */
 export const DEMO_USERS: IAppUser[] = [
   {

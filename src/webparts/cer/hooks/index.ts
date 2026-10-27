@@ -1,5 +1,3 @@
-// User-provided fetch hooks modeled after reference project
-export * from "./fetchHooks";
 
 // Dynamic pagination hook
 export * from "./useDynamicPagination";

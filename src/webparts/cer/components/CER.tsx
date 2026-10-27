@@ -96,7 +96,7 @@ const CER: React.FC<ICERProps> = (props) => {
     };
   });
 
-  // Resolve user's actual roles from CER_UserRoles with controlled first-Admin bootstrapping
+  // Resolve user's actual roles from CERUserRoles with controlled first-Admin bootstrapping
   useEffect(() => {
     let isMounted = true;
     const resolveSecurityContext = async () => {

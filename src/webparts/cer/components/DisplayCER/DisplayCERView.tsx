@@ -28,6 +28,7 @@ import { ExcelExportService } from "../../services/ExcelExportService";
 import { StatusBadge } from '../Shared/StatusBadge';
 import { CategoryBadge } from '../Shared/CategoryBadge';
 import { ApprovalProgressTracker } from '../ApprovalWorkflow/ApprovalProgressTracker';
+import { UserAvatar } from '../Common/UserAvatar';
 import { calculateExactDays, getCurrentFiscalYearPhasingLabels } from "../../utils/dateUtils";
 
 interface IDisplayCERViewProps {
@@ -221,7 +222,14 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
               </h1>
 
               <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs text-slate-300">
-                <span>Owner: <strong>{proposal.owname}</strong></span>
+                <div className="flex items-center gap-1.5">
+                  <UserAvatar
+                    name={proposal.owname}
+                    email={proposal.owner_email}
+                    size="xs"
+                  />
+                  <span>Owner: <strong>{proposal.owname}</strong></span>
+                </div>
                 <span>•</span>
                 <span>SBU: <strong>{proposal.sbu}</strong></span>
                 <span>•</span>
@@ -345,7 +353,14 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                 </div>
                 <div>
                   <p className="text-slate-400 font-medium">CER Owner Name</p>
-                  <p className="font-semibold text-slate-800 mt-0.5">{proposal.owname}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <UserAvatar
+                      name={proposal.owname}
+                      email={proposal.owner_email}
+                      size="xs"
+                    />
+                    <span className="font-semibold text-slate-800">{proposal.owname}</span>
+                  </div>
                 </div>
                 <div>
                   <p className="text-slate-400 font-medium">Block/SBU/Field</p>

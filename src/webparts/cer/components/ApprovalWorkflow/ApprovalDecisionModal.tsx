@@ -5,6 +5,7 @@ import { ICERAttachment } from "../../models/AttachmentModel";
 import { IWorkflowLevel } from "../../models/WorkflowModel";
 import { IAppUser } from "../../models/UserModel";
 import { PermissionService } from "../../services/PermissionService";
+import { UserAvatar } from "../Common/UserAvatar";
 
 interface IApprovalDecisionModalProps {
   proposal: ICERProposal;
@@ -84,9 +85,16 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
             <div className="flex items-start justify-between">
               <div>
                 <p className="font-bold text-sm text-slate-900">{proposal.pr_name}</p>
-                <p className="text-slate-500 mt-0.5">
-                  Initiated by {proposal.owname} ({proposal.owner_email}) • SBU: {proposal.sbu}
-                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <UserAvatar
+                    name={proposal.owname}
+                    email={proposal.owner_email}
+                    size="xs"
+                  />
+                  <p className="text-slate-500">
+                    Initiated by <strong className="text-slate-800">{proposal.owname}</strong> ({proposal.owner_email}) • SBU: {proposal.sbu}
+                  </p>
+                </div>
               </div>
               <div className="text-right">
                 <span className="text-[10px] uppercase font-bold text-slate-400">Amount</span>
