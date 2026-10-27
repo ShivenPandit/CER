@@ -131,7 +131,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
   };
 
   const handleExportExcel = () => {
-    ExcelExportService.exportProposalList(sortedProposals, "CER_Executive_Report");
+    ExcelExportService.exportProposalList(sortedProposals, "CERProposals_Report");
   };
 
   return (

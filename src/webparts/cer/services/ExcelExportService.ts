@@ -24,7 +24,8 @@ export class ExcelExportService {
   }
 
   /**
-   * Exports a single CER proposal with full financial, phasing, and cost details (FR-10)
+   * Exports a single CER proposal with full financial, phasing, and cost details aligned
+   * with SHAREPOINT_LISTS_AND_COLUMNS_SETUP.md (FR-10)
    */
   public static exportSingleProposal(proposal: ICERProposal): void {
     const defaultPhasing = getCurrentFiscalYearPhasingLabels(
@@ -34,106 +35,115 @@ export class ExcelExportService {
     const phFy = proposal.ph_fy_label || defaultPhasing.ph_fy_label;
     const phBeyond = proposal.ph_beyond_label || defaultPhasing.ph_beyond_label;
 
+    const p: any = proposal;
     const data = [
       {
-        "Name of Project": this.sanitizeFormula(proposal.pr_name),
-        "CER Proposal No.": this.sanitizeFormula(proposal.cerprno),
-        "CER Owner Name": this.sanitizeFormula(proposal.owname),
-        "Owner Email": this.sanitizeFormula(proposal.owner_email),
-        "Block/SBU/Field": this.sanitizeFormula(proposal.sbu),
-        "Status": this.sanitizeFormula(proposal.status),
-        "Category": this.sanitizeFormula(proposal.cat),
-        "Objectives of CER": this.sanitizeFormula(proposal.object),
-        "Amount of CER": proposal.amount,
-        "Currency": this.sanitizeFormula(proposal.currency),
-        "Payback/Non Payback": this.sanitizeFormula(proposal.payable),
-        "Payback Period (Quarters)": proposal.payback_quarters || "N/A",
-        "Financial Benefits – NPV ($mm)": proposal.ben_npv,
-        "Financial Benefit – IRR (%)": proposal.ben_irr,
-        "Key Assumptions to Financial Benefit/Costs": this.sanitizeFormula(proposal.cost_assumptions),
-        "Start Date of Project": this.sanitizeFormula(proposal.st_date),
-        "Completion Date of Project": this.sanitizeFormula(proposal.com_date),
-        "Total Duration (Days)": calculateExactDays(proposal.st_date, proposal.com_date),
-        "Corporate Budget (Yes/No)": this.sanitizeFormula(proposal.cbudget),
-        "Corporate Budget Amount ($mm)": proposal.cb_amnt,
-        "Reason if not/partially budgeted": this.sanitizeFormula(proposal.reason),
-        "Aligned with JV (Yes/No/Under Discussion)": this.sanitizeFormula(proposal.jv),
-        "JV Cost Recoverable (Yes/No)": this.sanitizeFormula(proposal.jv_recoverable || "No"),
-        "JV Budget (Yes/No)": this.sanitizeFormula(proposal.jv_budget),
-        "JV Budget Amount ($mm)": proposal.jv_amnt,
-        "Reason if not/partially budgeted (JV)": this.sanitizeFormula(proposal.jv_reason),
-        [`Production (in mmbbls) - ${phTill}`]: proposal.prod_till,
-        [`Production (in mmbbls) - ${phFy}`]: proposal.prod_fy,
-        [`Production (in mmbbls) - ${phBeyond}`]: proposal.prod_beyond,
-        [`Capex ($mm) - ${phTill}`]: proposal.capex_till,
-        [`Capex ($mm) - ${phFy}`]: proposal.capex_fy,
-        [`Capex ($mm) - ${phBeyond}`]: proposal.capex_beyond,
-        [`Opex ($mm) - ${phTill}`]: proposal.opex_till,
-        [`Opex ($mm) - ${phFy}`]: proposal.opex_fy,
-        [`Opex ($mm) - ${phBeyond}`]: proposal.opex_beyond,
-        "Engineering ($mm)": proposal.engineer,
-        "Surface Facilities ($mm)": proposal.s_fac,
-        "Commissioning ($mm)": proposal.comis,
-        "Pre Operations ($mm)": proposal.preop,
-        "Others ($mm)": proposal.others,
-        "Total Cost Estimates ($mm)": proposal.total,
-        "Remarks (including Justification for Non Payback expenditure, etc.)": this.sanitizeFormula(proposal.remarks),
-        "Remarks on JV Risk (including risk carrying period)": this.sanitizeFormula(proposal.remarks_jv),
-        "Current Approval Level": proposal.current_level,
-        "Pending With Role": this.sanitizeFormula(proposal.pending_with_role),
-        "Created Date": proposal.created_date,
-        "Created By": this.sanitizeFormula(proposal.created_by),
-        "Last Modified Date": proposal.modified_date,
-        "Last Modified By": this.sanitizeFormula(proposal.modified_by)
-      }
+        "Proposal Name": this.sanitizeFormula(p.prName || p.pr_name),
+        "CER PR Number": this.sanitizeFormula(p.cerPrNo || p.cerprno),
+        "CER Owner": this.sanitizeFormula(p.cerOwner || p.owname),
+        "Owner Email": this.sanitizeFormula(p.ownerEmail || p.owner_email),
+        "SBU": this.sanitizeFormula(p.sbu),
+        "Status": this.sanitizeFormula(p.status),
+        "Category": this.sanitizeFormula(p.category || p.cat),
+        "Proposal Object": this.sanitizeFormula(p.object),
+        "Total Amount": p.amount,
+        "Currency": this.sanitizeFormula(p.currency),
+        "Payable By": this.sanitizeFormula(p.payable),
+        "Benefit Period": this.sanitizeFormula(p.period),
+        "Payback Quarters": p.paybackQuarters !== undefined && p.paybackQuarters !== null ? p.paybackQuarters : (p.payback_quarters !== undefined && p.payback_quarters !== null ? p.payback_quarters : "N/A"),
+        "Benefit NPV": p.benefitNpv !== undefined && p.benefitNpv !== null ? p.benefitNpv : p.ben_npv,
+        "Benefit IRR": p.benefitIrr !== undefined && p.benefitIrr !== null ? p.benefitIrr : p.ben_irr,
+        "Cost Assumptions": this.sanitizeFormula(p.costAssumptions || p.cost_assumptions),
+        "Start Date": this.sanitizeFormula(p.startDate || p.st_date),
+        "Completion Date": this.sanitizeFormula(p.completionDate || p.com_date),
+        "Duration Months": p.durationMonths !== undefined && p.durationMonths !== null ? p.durationMonths : (p.duration_months !== undefined && p.duration_months !== null ? p.duration_months : calculateExactDays(p.startDate || p.st_date, p.completionDate || p.com_date)),
+        "Current Budgeted?": this.sanitizeFormula(p.currentBudgeted || p.cbudget),
+        "Current Budget Amount": p.currentBudgetAmount !== undefined && p.currentBudgetAmount !== null ? p.currentBudgetAmount : p.cb_amnt,
+        "Current Budget Currency": this.sanitizeFormula(p.currentBudgetCurrency || p.cb_currency),
+        "Unbudgeted Reason": this.sanitizeFormula(p.unbudgetedReason || p.reason),
+        "Joint Venture?": this.sanitizeFormula(p.jointVenture || p.jv),
+        "JV Recoverable?": this.sanitizeFormula(p.jvRecoverable || p.jv_recoverable || "No"),
+        "JV Partner Cost": p.jvCost !== undefined && p.jvCost !== null ? p.jvCost : p.jv_cost,
+        "JV Budgeted?": this.sanitizeFormula(p.jvBudgeted || p.jv_budget),
+        "JV Partner Amount": p.jvAmount !== undefined && p.jvAmount !== null ? p.jvAmount : p.jv_amnt,
+        "JV Reason": this.sanitizeFormula(p.jvReason || p.jv_reason),
+        [`Production Prior (${phTill})`]: p.prodTill !== undefined && p.prodTill !== null ? p.prodTill : p.prod_till,
+        [`Production Current (${phFy})`]: p.prodFy !== undefined && p.prodFy !== null ? p.prodFy : p.prod_fy,
+        [`Production Beyond (${phBeyond})`]: p.prodBeyond !== undefined && p.prodBeyond !== null ? p.prodBeyond : p.prod_beyond,
+        [`Capex Prior (${phTill})`]: p.capexTill !== undefined && p.capexTill !== null ? p.capexTill : p.capex_till,
+        [`Capex Current (${phFy})`]: p.capexFy !== undefined && p.capexFy !== null ? p.capexFy : p.capex_fy,
+        [`Capex Beyond (${phBeyond})`]: p.capexBeyond !== undefined && p.capexBeyond !== null ? p.capexBeyond : p.capex_beyond,
+        [`Opex Prior (${phTill})`]: p.opexTill !== undefined && p.opexTill !== null ? p.opexTill : p.opex_till,
+        [`Opex Current (${phFy})`]: p.opexFy !== undefined && p.opexFy !== null ? p.opexFy : p.opex_fy,
+        [`Opex Beyond (${phBeyond})`]: p.opexBeyond !== undefined && p.opexBeyond !== null ? p.opexBeyond : p.opex_beyond,
+        "Engineering Cost": p.engineeringCost !== undefined && p.engineeringCost !== null ? p.engineeringCost : p.engineer,
+        "Surface Facilities Cost": p.surfaceFacilitiesCost !== undefined && p.surfaceFacilitiesCost !== null ? p.surfaceFacilitiesCost : p.s_fac,
+        "Commissioning Cost": p.commissioningCost !== undefined && p.commissioningCost !== null ? p.commissioningCost : p.comis,
+        "Preoperative Cost": p.preoperativeCost !== undefined && p.preoperativeCost !== null ? p.preoperativeCost : p.preop,
+        "Other Costs": p.otherCosts !== undefined && p.otherCosts !== null ? p.otherCosts : p.others,
+        "Total Item Cost": p.total,
+        "General Remarks": this.sanitizeFormula(p.remarks),
+        "JV Remarks": this.sanitizeFormula(p.remarksJv || p.remarks_jv),
+        "Current Approval Level": p.currentLevel !== undefined && p.currentLevel !== null ? p.currentLevel : p.current_level,
+        "Pending With Role": this.sanitizeFormula(p.pendingWithRole || p.pending_with_role),
+        "Pending With Email": this.sanitizeFormula(p.pendingWithEmail || p.pending_with_email),
+        "Revision Count": p.revisionCount !== undefined && p.revisionCount !== null ? p.revisionCount : (p.revision_count || 0),
+        "Created Date": p.created_date || p.Created,
+        "Created By": this.sanitizeFormula(p.created_by || p.Author?.Title),
+        "Last Modified Date": p.modified_date || p.Modified,
+        "Last Modified By": this.sanitizeFormula(p.modified_by || p.Editor?.Title),
+      },
     ];
 
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "CER Proposal");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "CERProposals");
 
     const now = new Date().toISOString().split("T")[0];
-    const fileName = `${proposal.cerprno}_Summary_${now}.xlsx`;
+    const fileName = `${p.cerPrNo || p.cerprno}_Summary_${now}.xlsx`;
     XLSX.writeFile(workbook, fileName);
   }
 
   /**
    * Exports an array of CER proposals for the Reports module (FR-04, FR-10)
+   * aligned with SHAREPOINT_LISTS_AND_COLUMNS_SETUP.md
    */
-  public static exportProposalList(proposals: ICERProposal[], reportTitle: string = "CER_Proposals_Report"): void {
+  public static exportProposalList(proposals: ICERProposal[], reportTitle: string = "CERProposals_Report"): void {
     if (!proposals || proposals.length === 0) {
       alert("No data available to export.");
       return;
     }
 
-    const data = proposals.map((p) => ({
-      "Proposal Number": this.sanitizeFormula(p.cerprno),
-      "Project Name": this.sanitizeFormula(p.pr_name),
-      "Owner": this.sanitizeFormula(p.owname),
-      "SBU": this.sanitizeFormula(p.sbu),
-      "Status": this.sanitizeFormula(p.status),
-      "Category": this.sanitizeFormula(p.cat),
-      "Payback Type": this.sanitizeFormula(p.payable),
-      "Amount": p.amount,
-      "Currency": this.sanitizeFormula(p.currency),
-      "NPV ($mm)": p.ben_npv,
-      "IRR (%)": p.ben_irr,
-      "Corporate Budget": this.sanitizeFormula(p.cbudget),
-      "Corporate Budget Amount": p.cb_amnt,
-      "JV Aligned": this.sanitizeFormula(p.jv),
-      "JV Amount": p.jv_amnt,
-      "Total Cost": p.total,
-      "Start Date": this.sanitizeFormula(p.st_date),
-      "Completion Date": this.sanitizeFormula(p.com_date),
-      "Duration (Days)": calculateExactDays(p.st_date, p.com_date),
-      "Current Level": p.current_level,
-      "Pending With": this.sanitizeFormula(p.pending_with_role),
-      "Created Date": p.created_date ? p.created_date.split("T")[0] : ""
+    const data = proposals.map((raw: any) => ({
+      "CER PR Number": this.sanitizeFormula(raw.cerPrNo || raw.cerprno),
+      "Proposal Name": this.sanitizeFormula(raw.prName || raw.pr_name),
+      "CER Owner": this.sanitizeFormula(raw.cerOwner || raw.owname),
+      "Owner Email": this.sanitizeFormula(raw.ownerEmail || raw.owner_email),
+      "SBU": this.sanitizeFormula(raw.sbu),
+      "Status": this.sanitizeFormula(raw.status),
+      "Category": this.sanitizeFormula(raw.category || raw.cat),
+      "Payable By": this.sanitizeFormula(raw.payable),
+      "Total Amount": raw.amount,
+      "Currency": this.sanitizeFormula(raw.currency),
+      "Benefit NPV": raw.benefitNpv !== undefined && raw.benefitNpv !== null ? raw.benefitNpv : raw.ben_npv,
+      "Benefit IRR": raw.benefitIrr !== undefined && raw.benefitIrr !== null ? raw.benefitIrr : raw.ben_irr,
+      "Current Budgeted?": this.sanitizeFormula(raw.currentBudgeted || raw.cbudget),
+      "Current Budget Amount": raw.currentBudgetAmount !== undefined && raw.currentBudgetAmount !== null ? raw.currentBudgetAmount : raw.cb_amnt,
+      "Joint Venture?": this.sanitizeFormula(raw.jointVenture || raw.jv),
+      "JV Partner Amount": raw.jvAmount !== undefined && raw.jvAmount !== null ? raw.jvAmount : raw.jv_amnt,
+      "Total Item Cost": raw.total,
+      "Start Date": this.sanitizeFormula(raw.startDate || raw.st_date),
+      "Completion Date": this.sanitizeFormula(raw.completionDate || raw.com_date),
+      "Duration Months": raw.durationMonths !== undefined && raw.durationMonths !== null ? raw.durationMonths : (raw.duration_months !== undefined && raw.duration_months !== null ? raw.duration_months : calculateExactDays(raw.startDate || raw.st_date, raw.completionDate || raw.com_date)),
+      "Current Approval Level": raw.currentLevel !== undefined && raw.currentLevel !== null ? raw.currentLevel : raw.current_level,
+      "Pending With Role": this.sanitizeFormula(raw.pendingWithRole || raw.pending_with_role),
+      "Pending With Email": this.sanitizeFormula(raw.pendingWithEmail || raw.pending_with_email),
+      "Created Date": (raw.created_date || raw.Created) ? String(raw.created_date || raw.Created).split("T")[0] : "",
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "CER Proposals");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "CERProposals");
 
     const now = new Date().toISOString().split("T")[0];
     const fileName = `${reportTitle}_${now}.xlsx`;

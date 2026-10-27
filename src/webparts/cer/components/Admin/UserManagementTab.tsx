@@ -79,6 +79,26 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
   const [approvalLevel, setApprovalLevel] = useState<number>(1);
   const [department, setDepartment] = useState("");
 
+  // Check if selected directory user already exists with an active role
+  const selectedEmail = (
+    selectedDirectoryUser?.mail ||
+    selectedDirectoryUser?.userPrincipalName ||
+    ""
+  ).toLowerCase().trim();
+  const selectedName = (selectedDirectoryUser?.displayName || "").toLowerCase().trim();
+
+  const existingAssignmentForSelected = selectedDirectoryUser
+    ? roles.find((r) => {
+        if (!r.is_active) return false;
+        const rEmail = (r.user_email || "").toLowerCase().trim();
+        const rLogin = (r.login_name || "").toLowerCase().trim();
+        const rName = (r.user_name || "").toLowerCase().trim();
+        const matchEmail = !!selectedEmail && (rEmail === selectedEmail || rLogin === selectedEmail);
+        const matchName = !!selectedName && rName === selectedName;
+        return matchEmail || matchName;
+      })
+    : null;
+
   // Confirmation Modals
   const [adminConfirmationTarget, setAdminConfirmationTarget] = useState<string | null>(null);
   const [revokingAssignment, setRevokingAssignment] = useState<IUserRoleAssignment | null>(null);
@@ -216,6 +236,13 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
       return;
     }
 
+    if (existingAssignmentForSelected) {
+      setErrorMessage(
+        `Cannot assign role: ${selectedDirectoryUser.displayName} already exists in User Management with active role '${existingAssignmentForSelected.role}'. Each employee assignment must be unique.`
+      );
+      return;
+    }
+
     const email = selectedDirectoryUser.mail || selectedDirectoryUser.userPrincipalName || "";
     if (!email || email.indexOf("@") === -1) {
       setErrorMessage("Selected directory user does not possess a valid corporate email address.");
@@ -235,7 +262,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
           user_name: selectedDirectoryUser.displayName,
           user_email: email,
           login_name: selectedDirectoryUser.userPrincipalName || email,
-          user_id: (selectedDirectoryUser.id && !isNaN(Number(selectedDirectoryUser.id))) ? Number(selectedDirectoryUser.id) : undefined,
+          user_id: undefined,
           role: selectedRole,
           approval_level: selectedRole === "Approver" ? Number(approvalLevel) : undefined,
           department: department.trim() || selectedDirectoryUser.department,
@@ -763,6 +790,16 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                   <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-elevated max-h-56 overflow-y-auto z-50 divide-y divide-slate-100">
                     {directoryResults.map((u) => {
                       const email = u.mail || u.userPrincipalName || "";
+                      const uEmail = email.toLowerCase().trim();
+                      const uName = (u.displayName || "").toLowerCase().trim();
+                      const uExisting = roles.find((r) => {
+                        if (!r.is_active) return false;
+                        const rEmail = (r.user_email || "").toLowerCase().trim();
+                        const rLogin = (r.login_name || "").toLowerCase().trim();
+                        const rName = (r.user_name || "").toLowerCase().trim();
+                        return (!!uEmail && (rEmail === uEmail || rLogin === uEmail)) || (!!uName && rName === uName);
+                      });
+
                       return (
                         <div
                           key={u.id || email || u.displayName}
@@ -784,11 +821,18 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                               </p>
                             </div>
                           </div>
-                          {u.department && (
-                            <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md font-medium shrink-0">
-                              {u.department}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {uExisting && (
+                              <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md font-semibold">
+                                Already Exists ({uExisting.role})
+                              </span>
+                            )}
+                            {u.department && (
+                              <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md font-medium">
+                                {u.department}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -806,7 +850,11 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 )}
 
                 {selectedDirectoryUser && (
-                  <div className="mt-2 p-2.5 bg-blue-50/60 border border-blue-200 rounded-xl flex items-center justify-between gap-3">
+                  <div className={`mt-2 p-2.5 rounded-xl flex items-center justify-between gap-3 border transition-colors ${
+                    existingAssignmentForSelected
+                      ? "bg-amber-50/70 border-amber-300"
+                      : "bg-blue-50/60 border-blue-200"
+                  }`}>
                     <div className="flex items-center gap-2.5 min-w-0">
                       <UserAvatar
                         name={selectedDirectoryUser.displayName}
@@ -814,15 +862,45 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                         size="md"
                       />
                       <div className="min-w-0">
-                        <p className="font-bold text-blue-900 truncate">{selectedDirectoryUser.displayName}</p>
-                        <p className="text-[11px] text-blue-700 truncate">
+                        <p className={`font-bold truncate ${
+                          existingAssignmentForSelected ? "text-amber-950" : "text-blue-900"
+                        }`}>
+                          {selectedDirectoryUser.displayName}
+                        </p>
+                        <p className={`text-[11px] truncate ${
+                          existingAssignmentForSelected ? "text-amber-800" : "text-blue-700"
+                        }`}>
                           {selectedDirectoryUser.mail || selectedDirectoryUser.userPrincipalName}
                         </p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-semibold text-blue-700 bg-white px-2 py-0.5 rounded-full border border-blue-200 shrink-0">
-                      Selected Employee
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${
+                      existingAssignmentForSelected
+                        ? "text-amber-800 bg-white border-amber-300"
+                        : "text-blue-700 bg-white border-blue-200"
+                    }`}>
+                      {existingAssignmentForSelected ? "Already Assigned" : "Selected Employee"}
                     </span>
+                  </div>
+                )}
+
+                {/* Inline Duplicate Validation Warning Banner */}
+                {selectedDirectoryUser && existingAssignmentForSelected && (
+                  <div className="mt-2.5 p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-rose-900 animate-fade-in shadow-2xs">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-bold text-rose-950">
+                          Employee Already Exists in User Management
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-rose-100 text-rose-800 rounded-md border border-rose-200">
+                          {existingAssignmentForSelected.role}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-rose-800 mt-1 leading-relaxed">
+                        <strong>{selectedDirectoryUser.displayName}</strong> already has an active assignment with role <strong>'{existingAssignmentForSelected.role}'</strong>{existingAssignmentForSelected.department ? ` in ${existingAssignmentForSelected.department}` : ""}. Each employee must be unique. To change their permissions or department, please edit their existing record in the table.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -915,8 +993,13 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-subtle hover:shadow-hover transition-all cursor-pointer flex items-center gap-1.5"
+                  disabled={isSubmitting || !!existingAssignmentForSelected}
+                  className={`px-5 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 ${
+                    isSubmitting || !!existingAssignmentForSelected
+                      ? "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed shadow-none"
+                      : "bg-blue-600 hover:bg-blue-700 text-white shadow-subtle hover:shadow-hover cursor-pointer"
+                  }`}
+                  title={existingAssignmentForSelected ? `Cannot assign: ${selectedDirectoryUser?.displayName} already exists with role '${existingAssignmentForSelected.role}'` : undefined}
                 >
                   {isSubmitting ? (
                     <>

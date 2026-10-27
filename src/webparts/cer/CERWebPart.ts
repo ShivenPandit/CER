@@ -216,10 +216,26 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
       "#SuiteNavWrapper",
       "#suiteBarDelta",
       "#suiteBarTop",
+      "#suiteBarWrapper",
+      "#suiteBar",
       "#O365_NavHeader",
       "#mru_nav_header",
+      "#headerRegion",
+      ".o365cs-base",
+      ".o365cs-nav-header",
+      "div[class*='headerRegion']",
+      "div[class*='suiteNav']",
+      "div[class*='suiteBar']",
+      "div[id*='suiteBar']",
+      "div[id*='SuiteNav']",
+      "div[id*='O365']",
+      "div[class*='o365']",
+      "[data-automation-id='searchBox']",
+      "#O365_SearchBoxContainer",
+      "#searchBoxPositioner",
       "#CommentsWrapper",
       "#sp-appBar",
+      "[data-automation-id='sp-appBar']",
       ".headerRow-107",
       ".commandBarButtonHeightAndColor",
       ".fui-Toolbar",
@@ -249,6 +265,8 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
         border: none !important;
         visibility: hidden !important;
         pointer-events: none !important;
+        position: absolute !important;
+        top: -9999px !important;
       }
       html, body {
         overflow-y: auto !important;
@@ -258,6 +276,8 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
         background-color: #F8FAFC !important;
         margin: 0 !important;
         padding: 0 !important;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
         border: none !important;
         -webkit-overflow-scrolling: touch !important;
       }
@@ -276,6 +296,8 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
         background-color: #F8FAFC !important;
         margin: 0 !important;
         padding: 0 !important;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
         border: none !important;
         -webkit-overflow-scrolling: touch !important;
       }
@@ -353,8 +375,21 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
     const hideExtraNodes = (): void => {
       // Hide specific chrome elements directly without hiding their parent container
       $(
-        "#spSiteHeader, #spTopPlaceholder, .spTopPlaceholder, div[data-automation-id='SiteHeader'], div[data-automation-id='pageHeader'], div[data-automation-id='SimpleFooter'], div[data-automation-id='SiteHeaderOverlay'], div[data-automation-id='gradientBox'], div[data-automation-id='LeftNavGroups'], #spCommandBar, .commandBarWrapper",
+        "#SuiteNavWrapper, #suiteBarTop, #suiteBarDelta, #suiteBarWrapper, #suiteBar, #O365_NavHeader, #mru_nav_header, #headerRegion, .o365cs-base, .o365cs-nav-header, #spSiteHeader, #spTopPlaceholder, .spTopPlaceholder, div[data-automation-id='SiteHeader'], div[data-automation-id='pageHeader'], div[data-automation-id='SimpleFooter'], div[data-automation-id='SiteHeaderOverlay'], div[data-automation-id='gradientBox'], div[data-automation-id='LeftNavGroups'], #spCommandBar, .commandBarWrapper, #sp-appBar, [data-automation-id='sp-appBar'], [data-automation-id='searchBox'], #O365_SearchBoxContainer, #searchBoxPositioner",
       ).hide();
+      if (document.body) {
+        document.body.style.setProperty("margin-top", "0px", "important");
+        document.body.style.setProperty("padding-top", "0px", "important");
+      }
+      if (document.documentElement) {
+        document.documentElement.style.setProperty("margin-top", "0px", "important");
+        document.documentElement.style.setProperty("padding-top", "0px", "important");
+      }
+      const scrollRegion = document.querySelector('div[data-automation-id="contentScrollRegion"]') as HTMLElement;
+      if (scrollRegion) {
+        scrollRegion.style.setProperty("margin-top", "0px", "important");
+        scrollRegion.style.setProperty("padding-top", "0px", "important");
+      }
       this._enforceFullBleed();
     };
 

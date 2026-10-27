@@ -23,6 +23,7 @@ import { validateAttachment } from "../utils/attachmentValidation";
 import { getCurrentFiscalYearPhasingLabels } from "../utils/dateUtils";
 import { SharePointOperations } from "../hooks/useSharePointOperations";
 import { PersonFieldService } from "./PersonFieldService";
+import { SP_LISTS } from "../constants";
 
 export class SharePointCERDataService implements ICERDataService {
   private _spHttpClient: SPHttpClient;
@@ -64,7 +65,7 @@ export class SharePointCERDataService implements ICERDataService {
     try {
       let fields: Array<{ InternalName: string; Title: string; Choices: string[]; DefaultValue: string }> = [];
       try {
-        fields = await this._sp.getListFields("CERProposals", {
+        fields = await this._sp.getListFields(SP_LISTS.CER_PROPOSALS, {
           filter: "TypeAsString eq 'Choice'",
           select: "InternalName,Title,Choices,DefaultValue",
         });
@@ -105,7 +106,7 @@ export class SharePointCERDataService implements ICERDataService {
         return resolved;
       }
     } catch (e) {
-      console.warn("[SharePointCERDataService] Error querying choice fields from CER_Proposals list, using default field choices:", e);
+      console.warn("[SharePointCERDataService] Error querying choice fields from CERProposals list, using default field choices:", e);
     }
 
     this._cachedFieldChoices = DEFAULT_FIELD_CHOICES;
@@ -113,11 +114,11 @@ export class SharePointCERDataService implements ICERDataService {
   }
 
   // ---------------------------------------------------------------------------
-  // 1. CER_Proposals Operations
+  // 1. CERProposals Operations
   // ---------------------------------------------------------------------------
 
   public async getAllProposals(): Promise<ICERProposal[]> {
-    const candidateLists = ["CERProposals", "CER_Proposals"];
+    const candidateLists = [SP_LISTS.CER_PROPOSALS, "CER_Proposals"];
     let lastErr: any = null;
 
     for (const listName of candidateLists) {
@@ -156,7 +157,7 @@ export class SharePointCERDataService implements ICERDataService {
   public async getProposalByNumber(
     cerprno: string,
   ): Promise<ICERProposal | null> {
-    const candidateLists = ["CERProposals", "CER_Proposals"];
+    const candidateLists = [SP_LISTS.CER_PROPOSALS, "CER_Proposals"];
     let lastErr: any = null;
 
     for (const listName of candidateLists) {
@@ -214,7 +215,7 @@ export class SharePointCERDataService implements ICERDataService {
     const year = new Date().getFullYear();
     const prefix = `CER-${year}-`;
     let highest = 0;
-    const candidateLists = ["CERProposals", "CER_Proposals"];
+    const candidateLists = [SP_LISTS.CER_PROPOSALS, "CER_Proposals"];
     let lastErr: any = null;
 
     for (const listName of candidateLists) {
@@ -284,27 +285,32 @@ export class SharePointCERDataService implements ICERDataService {
     let ownerSpUserId: number | null = null;
     if (newProposal.owner_email || newProposal.owname) {
       try {
-        const ensuredOwner = await this._sp.ensureUser(newProposal.owner_email || newProposal.owname);
+        const ensuredOwner = await PersonFieldService.resolveUser(
+          this._spHttpClient,
+          this._siteUrl,
+          newProposal.owner_email || newProposal.owname
+        );
         if (ensuredOwner && ensuredOwner.Id > 0) {
           ownerSpUserId = ensuredOwner.Id;
         }
-      } catch {
-        // Fallback gracefully
+      } catch (ensureErr) {
+        console.warn("[SharePointCERDataService] ensureUser resolution warning for cerOwner:", ensureErr);
       }
     }
 
     const modernPayload: any = this._mapProposalToModernSharePointItem(newProposal);
     const legacyPayload: any = this._mapProposalToLegacySharePointItem(newProposal);
     if (ownerSpUserId) {
-      modernPayload.cerOwnerId = ownerSpUserId;
+      const ownerPayload = PersonFieldService.formatPersonFieldPayload("cerOwner", ownerSpUserId);
+      Object.assign(modernPayload, ownerPayload);
       legacyPayload.cerOwnerId = ownerSpUserId;
       legacyPayload.ownameId = ownerSpUserId;
     }
 
-    // Check if an item with this cerprno already exists in CERProposals / CER_Proposals list (e.g. draft saved earlier)
+    // Check if an item with this cerprno already exists in CERProposals list (e.g. draft saved earlier)
     let existingItems: Array<{ Id: number }> = [];
-    let targetListName = "CERProposals";
-    for (const listName of ["CERProposals", "CER_Proposals"]) {
+    let targetListName: string = SP_LISTS.CER_PROPOSALS;
+    for (const listName of [SP_LISTS.CER_PROPOSALS, "CER_Proposals"]) {
       try {
         try {
           existingItems = await this._sp.getListItems<{ Id: number }>(listName, {
@@ -422,7 +428,7 @@ export class SharePointCERDataService implements ICERDataService {
       );
     }
 
-    // Secondary write: Initial narrative remarks into CER_RemarksHistory
+    // Secondary write: Initial narrative remarks into CERRemarksHistory
     if (newProposal.remarks && newProposal.remarks.trim()) {
       try {
         await this._createRemarksRecord(newProposal.cerprno, 1, newProposal.remarks, newProposal.created_by);
@@ -431,7 +437,7 @@ export class SharePointCERDataService implements ICERDataService {
       }
     }
 
-    // Secondary write: Workflow dispatch notification into CER_Notifications
+    // Secondary write: Workflow dispatch notification into CERNotifications
     if (!isDraft) {
       try {
         await this._createNotificationRecord(
@@ -487,7 +493,7 @@ export class SharePointCERDataService implements ICERDataService {
       throw new Error(`Unauthorized: Only the designated CER Owner (${original.owname}) or Administrator can edit this proposal.`);
     }
 
-    // 1. Calculate field-level deltas for CER_AuditTrail
+    // 1. Calculate field-level deltas for CERAuditTrail
     const auditRecords: ICERAuditRecord[] = [];
     const changedKeys = (Object.keys(proposal) as Array<keyof ICERProposal>).filter(
       (key) => {
@@ -565,10 +571,10 @@ export class SharePointCERDataService implements ICERDataService {
       revision_count: (original.revision_count || 0) + 1,
     };
 
-    // Find SharePoint Item ID in CERProposals / CER_Proposals
+    // Find SharePoint Item ID in CERProposals
     let existingItems: Array<{ Id: number }> = [];
-    let targetListName = "CERProposals";
-    for (const listName of ["CERProposals", "CER_Proposals"]) {
+    let targetListName: string = SP_LISTS.CER_PROPOSALS;
+    for (const listName of [SP_LISTS.CER_PROPOSALS, "CER_Proposals"]) {
       try {
         try {
           existingItems = await this._sp.getListItems<{ Id: number }>(listName, {
@@ -599,10 +605,33 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     const spItemId = existingItems[0].Id;
-    const modernPayload = this._mapProposalToModernSharePointItem(updatedProposal);
-    const legacyPayload = this._mapProposalToLegacySharePointItem(updatedProposal);
 
-    // Primary write: Update proposal in CERProposals / CER_Proposals
+    let ownerSpUserId: number | null = null;
+    if (updatedProposal.owner_email || updatedProposal.owname) {
+      try {
+        const ensuredOwner = await PersonFieldService.resolveUser(
+          this._spHttpClient,
+          this._siteUrl,
+          updatedProposal.owner_email || updatedProposal.owname
+        );
+        if (ensuredOwner && ensuredOwner.Id > 0) {
+          ownerSpUserId = ensuredOwner.Id;
+        }
+      } catch (ensureErr) {
+        console.warn("[SharePointCERDataService] ensureUser resolution warning for cerOwner on update:", ensureErr);
+      }
+    }
+
+    const modernPayload: any = this._mapProposalToModernSharePointItem(updatedProposal);
+    const legacyPayload: any = this._mapProposalToLegacySharePointItem(updatedProposal);
+    if (ownerSpUserId) {
+      const ownerPayload = PersonFieldService.formatPersonFieldPayload("cerOwner", ownerSpUserId);
+      Object.assign(modernPayload, ownerPayload);
+      legacyPayload.cerOwnerId = ownerSpUserId;
+      legacyPayload.ownameId = ownerSpUserId;
+    }
+
+    // Primary write: Update proposal in CERProposals
     try {
       try {
         await this._sp.updateListItem(targetListName, spItemId, modernPayload);
@@ -621,7 +650,7 @@ export class SharePointCERDataService implements ICERDataService {
       );
     }
 
-    // Secondary write: Write each delta row to CER_AuditTrail
+    // Secondary write: Write each delta row to CERAuditTrail
     for (const record of auditRecords) {
       try {
         await this._createAuditRecord(record);
@@ -630,7 +659,7 @@ export class SharePointCERDataService implements ICERDataService {
       }
     }
 
-    // Secondary write: If remarks changed, write new version to CER_RemarksHistory
+    // Secondary write: If remarks changed, write new version to CERRemarksHistory
     if (proposal.remarks !== original.remarks && proposal.remarks.trim()) {
       try {
         const nextVersion = (original.revision_count || 1) + 1;
@@ -640,7 +669,7 @@ export class SharePointCERDataService implements ICERDataService {
       }
     }
 
-    // Secondary write: Write notification to CER_Notifications
+    // Secondary write: Write notification to CERNotifications
     try {
       if (nextStatus === "In Approval") {
         await this._createNotificationRecord(
@@ -674,11 +703,11 @@ export class SharePointCERDataService implements ICERDataService {
   }
 
   // ---------------------------------------------------------------------------
-  // 2. CER_AuditTrail Operations
+  // 2. CERAuditTrail Operations
   // ---------------------------------------------------------------------------
 
   public async getAuditTrail(cerprno?: string): Promise<ICERAuditRecord[]> {
-    const candidateLists = ["CERAuditTrail", "CER_AuditTrail"];
+    const candidateLists = [SP_LISTS.CER_AUDIT_TRAIL, "CER_AuditTrail"];
     let lastErr: any = null;
 
     for (const listName of candidateLists) {
@@ -718,6 +747,7 @@ export class SharePointCERDataService implements ICERDataService {
           audit_time: item.audit_time || (item.timestamp && String(item.timestamp).includes("T") ? String(item.timestamp).split("T")[1].substring(0, 8) : ""),
           timestamp: item.timestamp || item.Created || new Date().toISOString(),
           is_long_text: !!item.is_long_text,
+          action_type: item.actionType || item.action_type || "UPDATE",
         }));
       } catch (err) {
         lastErr = err;
@@ -736,7 +766,7 @@ export class SharePointCERDataService implements ICERDataService {
   }
 
   private async _createAuditRecord(record: ICERAuditRecord): Promise<void> {
-    const candidateLists = ["CERAuditTrail", "CER_AuditTrail"];
+    const candidateLists = [SP_LISTS.CER_AUDIT_TRAIL, "CER_AuditTrail"];
     const modernPayload = {
       Title: record.cerprno,
       cerPrNo: record.cerprno,
@@ -745,7 +775,7 @@ export class SharePointCERDataService implements ICERDataService {
       newValue: record.new_value,
       userName: record.user_name,
       userEmail: record.user_email,
-      actionType: "UPDATE",
+      actionType: record.action_type || "UPDATE",
       timestamp: record.timestamp,
     };
     const legacyPayload = {
@@ -779,11 +809,11 @@ export class SharePointCERDataService implements ICERDataService {
   }
 
   // ---------------------------------------------------------------------------
-  // 3. CER_RemarksHistory Operations
+  // 3. CERRemarksHistory Operations
   // ---------------------------------------------------------------------------
 
   public async getRemarksHistory(cerprno: string): Promise<ICERRemarksVersion[]> {
-    const candidateLists = ["CERRemarksHistory", "CER_RemarksHistory"];
+    const candidateLists = [SP_LISTS.CER_REMARKS_HISTORY, "CER_RemarksHistory"];
     let lastErr: any = null;
 
     for (const listName of candidateLists) {
@@ -833,7 +863,7 @@ export class SharePointCERDataService implements ICERDataService {
     remarksText: string,
     createdBy: string,
   ): Promise<void> {
-    const candidateLists = ["CERRemarksHistory", "CER_RemarksHistory"];
+    const candidateLists = [SP_LISTS.CER_REMARKS_HISTORY, "CER_RemarksHistory"];
     const modernPayload = {
       Title: cerprno,
       cerPrNo: cerprno,
@@ -870,7 +900,7 @@ export class SharePointCERDataService implements ICERDataService {
   }
 
   // ---------------------------------------------------------------------------
-  // 4. CER_WorkflowLevels Operations
+  // 4. CERWorkflowLevels Operations
   // ---------------------------------------------------------------------------
 
   public async getWorkflowLevels(sbu?: string, forceRefresh = false): Promise<IWorkflowLevel[]> {
@@ -892,7 +922,7 @@ export class SharePointCERDataService implements ICERDataService {
     const fetchPromise = (async () => {
       try {
         let items: Record<string, any>[] = [];
-        const candidateLists = ["CERWorkflowLevels", "CER_WorkflowLevels"];
+        const candidateLists = [SP_LISTS.CER_WORKFLOW_LEVELS, "CER_WorkflowLevels"];
 
         for (const listName of candidateLists) {
           try {
@@ -983,7 +1013,7 @@ export class SharePointCERDataService implements ICERDataService {
           console.warn("[SharePointCERDataService] CERWorkflowLevels list not found on site, returning empty levels:", e);
           return [];
         }
-        console.error("[SharePointCERDataService] Error querying CER_WorkflowLevels from SharePoint:", e);
+        console.error("[SharePointCERDataService] Error querying CERWorkflowLevels from SharePoint:", e);
         throw new Error(`Unable to load workflow levels from SharePoint: ${e instanceof Error ? e.message : String(e)}`);
       } finally {
         this._inFlightWorkflowLevels.delete(cacheKey);
@@ -1000,8 +1030,8 @@ export class SharePointCERDataService implements ICERDataService {
     try {
       // 1. Fetch all existing items from CERWorkflowLevels / CER_WorkflowLevels
       let existingRaw: any[] = [];
-      let targetListName = "CERWorkflowLevels";
-      for (const listName of ["CERWorkflowLevels", "CER_WorkflowLevels"]) {
+      let targetListName: string = SP_LISTS.CER_WORKFLOW_LEVELS;
+      for (const listName of [SP_LISTS.CER_WORKFLOW_LEVELS, "CER_WorkflowLevels"]) {
         try {
           existingRaw = await this._sp.getListItems<any>(listName, {
             top: 100,
@@ -1101,7 +1131,7 @@ export class SharePointCERDataService implements ICERDataService {
     }
   }
 
-  private async _createWorkflowLevelRecord(payload: Record<string, any>, preferredListName = "CERWorkflowLevels"): Promise<number | undefined> {
+  private async _createWorkflowLevelRecord(payload: Record<string, any>, preferredListName: string = SP_LISTS.CER_WORKFLOW_LEVELS): Promise<number | undefined> {
     const modernPayload = {
       Title: payload.Title || `Level ${payload.levelId || payload.level_id}`,
       levelId: Number(payload.levelId ?? payload.level_id ?? 1),
@@ -1120,7 +1150,7 @@ export class SharePointCERDataService implements ICERDataService {
       assignment_type: payload.assignmentType || payload.assignment_type || "SpecificUser",
     };
 
-    const candidateLists = [preferredListName, preferredListName === "CERWorkflowLevels" ? "CER_WorkflowLevels" : "CERWorkflowLevels"];
+    const candidateLists = [preferredListName, preferredListName === SP_LISTS.CER_WORKFLOW_LEVELS ? "CER_WorkflowLevels" : SP_LISTS.CER_WORKFLOW_LEVELS];
     let lastErr: any = null;
 
     for (const listName of candidateLists) {
@@ -1141,11 +1171,11 @@ export class SharePointCERDataService implements ICERDataService {
   }
 
   // ---------------------------------------------------------------------------
-  // 5. CER_ApprovalDecisions Operations
+  // 5. CERApprovalDecisions Operations
   // ---------------------------------------------------------------------------
 
   public async getApprovalDecisions(cerprno: string): Promise<IApprovalDecision[]> {
-    const candidateLists = ["CERApprovalDecisions", "CER_ApprovalDecisions"];
+    const candidateLists = [SP_LISTS.CER_APPROVAL_DECISIONS, "CER_ApprovalDecisions"];
     let lastErr: any = null;
 
     for (const listName of candidateLists) {
@@ -1278,9 +1308,9 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     // 1. Fetch current proposal item to retrieve SBU, Creator email and ID from candidate lists
-    const candidateProposalLists = ["CERProposals", "CER_Proposals"];
+    const candidateProposalLists = [SP_LISTS.CER_PROPOSALS, "CER_Proposals"];
     let propItem: { Id: number; sbu?: string; owner_email?: string } | null = null;
-    let targetProposalList = "CERProposals";
+    let targetProposalList: string = SP_LISTS.CER_PROPOSALS;
 
     for (const listName of candidateProposalLists) {
       try {
@@ -1329,10 +1359,16 @@ export class SharePointCERDataService implements ICERDataService {
     let approverUserId: number | undefined;
     if (params.approver_email) {
       try {
-        const ensured = await this._sp.ensureUser(params.approver_email);
-        approverUserId = ensured.Id;
-      } catch {
-        // non-blocking
+        const ensured = await PersonFieldService.resolveUser(
+          this._spHttpClient,
+          this._siteUrl,
+          params.approver_email
+        );
+        if (ensured && ensured.Id > 0) {
+          approverUserId = ensured.Id;
+        }
+      } catch (ensureErr) {
+        console.warn("[SharePointCERDataService] ensureUser resolution warning for approver:", ensureErr);
       }
     }
 
@@ -1346,7 +1382,10 @@ export class SharePointCERDataService implements ICERDataService {
       decidedAt: now,
     };
     if (approverUserId) {
-      modernDecisionPayload.approverId = approverUserId;
+      Object.assign(
+        modernDecisionPayload,
+        PersonFieldService.formatPersonFieldPayload("approver", approverUserId)
+      );
     }
 
     const legacyDecisionPayload: Record<string, any> = {
@@ -1361,7 +1400,7 @@ export class SharePointCERDataService implements ICERDataService {
       decision_date: now,
     };
 
-    const candidateDecisionLists = ["CERApprovalDecisions", "CER_ApprovalDecisions"];
+    const candidateDecisionLists = [SP_LISTS.CER_APPROVAL_DECISIONS, "CER_ApprovalDecisions"];
     let decisionRecorded = false;
     let decisionErr: any = null;
 
@@ -1503,7 +1542,7 @@ export class SharePointCERDataService implements ICERDataService {
   // ---------------------------------------------------------------------------
 
   public async getAttachments(cerprno: string): Promise<ICERAttachment[]> {
-    const candidateLists = ["CERAttachments", "CER_Attachments"];
+    const candidateLists = [SP_LISTS.CER_ATTACHMENTS, "CER_Attachments"];
     let lastErr: any = null;
 
     for (const libName of candidateLists) {
@@ -1598,12 +1637,18 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     let uploadedById: number | undefined;
-    if (attachment.uploaded_by && attachment.uploaded_by.includes("@")) {
+    if (attachment.uploaded_by) {
       try {
-        const ensured = await this._sp.ensureUser(attachment.uploaded_by);
-        uploadedById = ensured.Id;
-      } catch {
-        // non-blocking
+        const ensured = await PersonFieldService.resolveUser(
+          this._spHttpClient,
+          this._siteUrl,
+          attachment.uploaded_by
+        );
+        if (ensured && ensured.Id > 0) {
+          uploadedById = ensured.Id;
+        }
+      } catch (ensureErr) {
+        console.warn("[SharePointCERDataService] ensureUser resolution warning for uploadedBy:", ensureErr);
       }
     }
 
@@ -1611,7 +1656,7 @@ export class SharePointCERDataService implements ICERDataService {
       cerPrNo: attachment.cerprno,
       category: attachment.type?.includes("pdf") ? "Technical" : "Other",
       uploadDate: new Date().toISOString(),
-      ...(uploadedById ? { uploadedById } : {}),
+      ...(uploadedById ? PersonFieldService.formatPersonFieldPayload("uploadedBy", uploadedById) : {}),
     };
 
     const fallbackMetadata: Record<string, any> = {
@@ -1624,7 +1669,7 @@ export class SharePointCERDataService implements ICERDataService {
       cerPrNo: attachment.cerprno,
     };
 
-    const candidateLibraries = ["CERAttachments", "CER_Attachments"];
+    const candidateLibraries = [SP_LISTS.CER_ATTACHMENTS, "CER_Attachments"];
     let uploaded = false;
     let lastErr: any = null;
 
@@ -1670,7 +1715,7 @@ export class SharePointCERDataService implements ICERDataService {
   }
 
   public async deleteAttachment(id: string): Promise<void> {
-    const candidateLibraries = ["CERAttachments", "CER_Attachments"];
+    const candidateLibraries = [SP_LISTS.CER_ATTACHMENTS, "CER_Attachments"];
     let deleted = false;
     let lastErr: any = null;
 
@@ -1699,7 +1744,7 @@ export class SharePointCERDataService implements ICERDataService {
   // ---------------------------------------------------------------------------
 
   public async getNotificationLogs(cerprno?: string): Promise<INotificationLog[]> {
-    const candidateLists = ["CERNotifications", "CER_Notifications"];
+    const candidateLists = [SP_LISTS.CER_NOTIFICATIONS, "CER_Notifications"];
     let lastErr: any = null;
 
     for (const listName of candidateLists) {
@@ -1779,7 +1824,7 @@ export class SharePointCERDataService implements ICERDataService {
       status: "SENT",
     };
 
-    const candidateLists = ["CERNotifications", "CER_Notifications"];
+    const candidateLists = [SP_LISTS.CER_NOTIFICATIONS, "CER_Notifications"];
     for (const listName of candidateLists) {
       try {
         try {
@@ -2107,7 +2152,7 @@ export class SharePointCERDataService implements ICERDataService {
     this._inFlightUserRoles = (async () => {
       try {
         let items: Record<string, any>[] = [];
-        const candidateLists = ["CERUserRoles"];
+        const candidateLists = [SP_LISTS.CER_USER_ROLES];
 
         for (const listName of candidateLists) {
           try {
@@ -2204,12 +2249,16 @@ export class SharePointCERDataService implements ICERDataService {
   ): Promise<IUserRoleAssignment> {
     this.clearCache();
     try {
-      // 1. Resolve SharePoint user ID using ensureUser for the assigned user
+      // 1. Resolve SharePoint user ID using PersonFieldService.resolveUser for the target employee
       let spUserId: number | null = assignment.user_id || null;
       if (!spUserId && (assignment.login_name || assignment.user_email)) {
         try {
           const targetLogon = assignment.login_name || assignment.user_email;
-          const ensured = await this._sp.ensureUser(targetLogon);
+          const ensured = await PersonFieldService.resolveUser(
+            this._spHttpClient,
+            this._siteUrl,
+            targetLogon
+          );
           spUserId = ensured.Id;
         } catch (ensureErr) {
           console.warn("[SharePointCERDataService] ensureUser resolution warning during assignUserRole:", ensureErr);
@@ -2220,7 +2269,11 @@ export class SharePointCERDataService implements ICERDataService {
       let assignedById: number | null = null;
       if (actor.email) {
         try {
-          const ensuredActor = await this._sp.ensureUser(actor.email);
+          const ensuredActor = await PersonFieldService.resolveUser(
+            this._spHttpClient,
+            this._siteUrl,
+            actor.email
+          );
           assignedById = ensuredActor.Id;
         } catch (actorErr) {
           console.warn("[SharePointCERDataService] ensureUser resolution warning for actor:", actorErr);
@@ -2238,14 +2291,14 @@ export class SharePointCERDataService implements ICERDataService {
         payload.approvalLevel = assignment.approval_level;
       }
       if (spUserId) {
-        payload.UserId = spUserId;
+        Object.assign(payload, PersonFieldService.formatPersonFieldPayload("User", spUserId));
       }
       if (assignedById) {
-        payload.assignedById = assignedById;
+        Object.assign(payload, PersonFieldService.formatPersonFieldPayload("assignedBy", assignedById));
       }
 
       let res: { Id?: number; ID?: number } | null = null;
-      const candidateLists = ["CERUserRoles"];
+      const candidateLists = [SP_LISTS.CER_USER_ROLES];
 
       for (const listName of candidateLists) {
         try {
@@ -2319,7 +2372,11 @@ export class SharePointCERDataService implements ICERDataService {
       if (!spUserId && (assignment.login_name || assignment.user_email)) {
         try {
           const targetLogon = assignment.login_name || assignment.user_email;
-          const ensured = await this._sp.ensureUser(targetLogon);
+          const ensured = await PersonFieldService.resolveUser(
+            this._spHttpClient,
+            this._siteUrl,
+            targetLogon
+          );
           spUserId = ensured.Id;
         } catch (ensureErr) {
           console.warn("[SharePointCERDataService] ensureUser resolution warning during updateUserRole:", ensureErr);
@@ -2336,10 +2393,10 @@ export class SharePointCERDataService implements ICERDataService {
         payload.approvalLevel = assignment.approval_level;
       }
       if (spUserId) {
-        payload.UserId = spUserId;
+        Object.assign(payload, PersonFieldService.formatPersonFieldPayload("User", spUserId));
       }
 
-      const candidateLists = ["CERUserRoles"];
+      const candidateLists = [SP_LISTS.CER_USER_ROLES];
       let updated = false;
 
       for (const listName of candidateLists) {
@@ -2366,7 +2423,7 @@ export class SharePointCERDataService implements ICERDataService {
       }
 
       if (!updated) {
-        throw new Error(`Failed to update item ${assignment.id} in CERUserRoles.`);
+        throw new Error(`Failed to update item ${assignment.id} in ${SP_LISTS.CER_USER_ROLES}.`);
       }
 
       try {
@@ -2396,7 +2453,7 @@ export class SharePointCERDataService implements ICERDataService {
   ): Promise<void> {
     this.clearCache();
     try {
-      const candidateLists = ["CERUserRoles"];
+      const candidateLists = [SP_LISTS.CER_USER_ROLES];
       let deleted = false;
       for (const listName of candidateLists) {
         try {
