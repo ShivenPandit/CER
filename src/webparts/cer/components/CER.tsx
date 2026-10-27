@@ -319,6 +319,22 @@ const CER: React.FC<ICERProps> = (props) => {
     };
   }, []);
 
+  // Ensure scroll is reset to top on view changes to prevent header clipping
+  useEffect(() => {
+    try {
+      window.scrollTo(0, 0);
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+      const scrollRegion = document.querySelector('div[data-automation-id="contentScrollRegion"]');
+      if (scrollRegion) scrollRegion.scrollTop = 0;
+      const chromeApp = document.querySelector("#spPageChromeAppDiv");
+      if (chromeApp) chromeApp.scrollTop = 0;
+      if (mainScrollRef.current) mainScrollRef.current.scrollTop = 0;
+    } catch {
+      // ignore
+    }
+  }, [currentView]);
+
   return (
     <div
       ref={appRootRef}
@@ -500,6 +516,11 @@ const CER: React.FC<ICERProps> = (props) => {
               dataService={dataService}
               currentUser={currentUser}
               onCancel={handleGoBack}
+              initialTab={
+                activeProposalId === "hierarchy" && PermissionService.canAccessApprovalHierarchy(currentUser)
+                  ? "hierarchy"
+                  : "users"
+              }
             />
           ) : (
             <AccessDeniedView

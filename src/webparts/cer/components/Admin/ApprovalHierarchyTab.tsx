@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Layers,
   Plus,
@@ -18,12 +19,14 @@ import {
   Filter,
   Sparkles,
   Eye,
+  ShieldAlert,
 } from "lucide-react";
 import { IWorkflowLevel, isProjectOwnerStage, ApproverAssignmentType } from "../../models/WorkflowModel";
 import { IAppUser, IUserRoleAssignment } from "../../models/UserModel";
 import { ICERDataService } from "../../services/ICERDataService";
 import { useDynamicPagination } from "../../hooks/useDynamicPagination";
 import { DataTablePagination } from '../Shared/DataTablePagination';
+import { PermissionService } from "../../services/PermissionService";
 
 export interface IApprovalHierarchyTabProps {
   dataService: ICERDataService;
@@ -40,6 +43,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
   isLoading = false,
   onRefreshLevels,
 }) => {
+  const isAuthorized = PermissionService.canAccessApprovalHierarchy(currentUser);
   const [levels, setLevels] = useState<IWorkflowLevel[]>([]);
   const [selectedSbuFilter, setSelectedSbuFilter] = useState<string>("ALL");
   const [isSaving, setIsSaving] = useState(false);
@@ -67,6 +71,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
   const [userRoles, setUserRoles] = useState<IUserRoleAssignment[]>([]);
 
   useEffect(() => {
+    if (!isAuthorized) return;
     let isMounted = true;
     if (dataService && dataService.getUserRoles) {
       dataService.getUserRoles().then((roles) => {
@@ -80,15 +85,19 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [dataService]);
+  }, [dataService, isAuthorized]);
 
   // Delete Level Modal State
   const [deletingLevel, setDeletingLevel] = useState<IWorkflowLevel | null>(null);
   const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
 
   useEffect(() => {
+    if (!isAuthorized) {
+      setLevels([]);
+      return;
+    }
     setLevels([...workflowLevels]);
-  }, [workflowLevels]);
+  }, [workflowLevels, isAuthorized]);
 
   // SBU Filtered & Sorted Levels
   const filteredLevels = levels
@@ -165,6 +174,10 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
 
   const handleAddLevelSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAuthorized) {
+      setAddModalError("Unauthorized: You do not have permission to modify Approval Hierarchy.");
+      return;
+    }
     setAddModalError(null);
 
     const trimmedName = newLevelName.trim();
@@ -262,6 +275,10 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
 
   const handleEditLevelSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAuthorized) {
+      setEditModalError("Unauthorized: You do not have permission to modify Approval Hierarchy.");
+      return;
+    }
     if (!editingLevel) return;
 
     setEditModalError(null);
@@ -368,7 +385,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
 
   // --- DELETE LEVEL MODAL HANDLERS ---
   const handleConfirmDelete = async () => {
-    if (!deletingLevel) return;
+    if (!isAuthorized || !deletingLevel) return;
 
     setIsSubmittingDelete(true);
     try {
@@ -412,6 +429,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
 
   // --- REORDER HANDLER (MOVE UP / MOVE DOWN) - SCOPED STRICTLY TO SBU ---
   const handleMove = async (level: IWorkflowLevel, direction: "up" | "down") => {
+    if (!isAuthorized) return;
     const sbu = level.sbu || "";
     const sbuLevels = getSbuLevels(sbu);
     const index = sbuLevels.findIndex((l) =>
@@ -451,6 +469,11 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
 
   // --- BATCH SAVE ALL CHANGES ---
   const handleSaveAll = async () => {
+    if (!isAuthorized) {
+      setErrorMessage("Unauthorized: You do not have permission to modify Approval Hierarchy.");
+      return;
+    }
+
     setErrorMessage(null);
     for (const l of levels) {
       if (!l.level_name.trim()) {
@@ -506,6 +529,23 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
       setIsSaving(false);
     }
   };
+
+  // Enforce access control on the rendered view
+  if (!isAuthorized) {
+    return (
+      <div className="bg-white rounded-2xl border border-rose-200/80 p-8 text-center space-y-3 shadow-subtle max-w-lg mx-auto my-12 animate-fade-in">
+        <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+          <ShieldAlert className="w-6 h-6" />
+        </div>
+        <h3 className="text-base font-bold text-slate-900">
+          Approval Hierarchy Access Restricted
+        </h3>
+        <p className="text-xs text-slate-600 leading-relaxed">
+          Access to view or configure the enterprise Approval Hierarchy is restricted exclusively to authorized personnel.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 animate-fade-in flex flex-col flex-1 min-h-0">
@@ -839,8 +879,8 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
       {/* ========================================================================= */}
       {/* MODAL 1: ADD APPROVAL LEVEL POPUP                                        */}
       {/* ========================================================================= */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in overflow-y-auto">
+      {isAddModalOpen && createPortal(
+        <div className="fixed inset-0 !m-0 !top-0 !left-0 !right-0 !bottom-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in overflow-y-auto">
           <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] my-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-100 bg-slate-50/50 shrink-0">
@@ -984,69 +1024,14 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                   </select>
                 </div>
 
-                {newAssignmentType === "ProjectOwnerAuto" ? (
-                  <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2.5">
-                    <div className="flex items-start gap-2">
-                      <UserCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                      <p className="text-[11px] text-amber-900 leading-snug">
-                        The approver will be automatically fetched from the Project Owner details of each CER proposal.
-                      </p>
-                    </div>
-
-                    {/* Concise Dynamic Assignment Preview */}
-                    <div className="p-2.5 bg-white rounded-lg border border-amber-200/90 text-[11px] space-y-1 shadow-2xs">
-                      <div className="font-bold text-amber-900 flex items-center gap-1.5 pb-1 border-b border-amber-100">
-                        <Eye className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Assignment Preview</span>
-                      </div>
-                      <div className="grid grid-cols-[84px_1fr] gap-x-2 gap-y-1 text-slate-600 pt-0.5">
-                        <span className="font-semibold text-slate-700">Approver:</span>
-                        <span className="font-bold text-amber-800">Auto — Project Owner</span>
-                        <span className="font-semibold text-slate-700">Source:</span>
-                        <span className="text-slate-800">CER Proposal &rarr; Project Owner Email (<code className="text-[10px] bg-slate-100 px-1 py-0.5 rounded font-mono text-slate-700">owner_email</code>)</span>
-                        <span className="font-semibold text-slate-700">Assignment:</span>
-                        <span className="text-amber-700 font-semibold">Dynamic per proposal</span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
-                    <div className="flex items-start gap-2">
-                      <User className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                      <p className="text-[11px] text-slate-600 leading-snug">
-                        Approvers for this stage are assigned to specific users in the <strong>User &amp; Role Management</strong> tab (Role: <em>Approver</em>, Level: <em>Stage {newSequence}</em>).
-                      </p>
-                    </div>
-
-                    {/* Concise Specific User Preview */}
-                    <div className="p-2.5 bg-white rounded-lg border border-slate-200 text-[11px] space-y-1 shadow-2xs">
-                      <div className="font-bold text-slate-800 flex items-center gap-1.5 pb-1 border-b border-slate-100">
-                        <Eye className="w-3.5 h-3.5 text-blue-600" />
-                        <span>Assignment Preview</span>
-                      </div>
-                      <div className="grid grid-cols-[84px_1fr] gap-x-2 gap-y-1 text-slate-600 pt-0.5">
-                        <span className="font-semibold text-slate-700">Approver:</span>
-                        <span className="font-medium text-slate-800">
-                          {userRoles.filter((u) => u.is_active && u.role === "Approver" && u.approval_level === newSequence).length > 0
-                            ? userRoles
-                                .filter((u) => u.is_active && u.role === "Approver" && u.approval_level === newSequence)
-                                .map((u) => `${u.user_name} (${u.user_email})`)
-                                .join(", ")
-                            : "Configured in User & Role Management"}
-                        </span>
-                        <span className="font-semibold text-slate-700">Source:</span>
-                        <span className="text-slate-800">CERUserRoles List (Stage {newSequence})</span>
-                        <span className="font-semibold text-slate-700">Assignment:</span>
-                        <span className="text-blue-700 font-semibold">Specific User</span>
-                      </div>
-                    </div>
+                {newAssignmentType === "ProjectOwnerAuto" && (
+                  <div className="p-2.5 bg-amber-50/70 border border-amber-200 rounded-xl flex items-center gap-2">
+                    <UserCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                    <p className="text-[11px] text-amber-900 leading-snug">
+                      Approver will be automatically fetched from the Project Owner of each proposal.
+                    </p>
                   </div>
                 )}
-              </div>
-
-              {/* Info Note on SBU-Wise Routing */}
-              <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 text-[11px] text-blue-700 leading-relaxed">
-                <strong>SBU-Wise Approval Routing:</strong> Each approval level is scoped to a specific SBU (RJ North, RJ South, CBOS, or RAVA). Approvers are mapped to this stage level in the <strong>User &amp; Role Management</strong> tab (or auto-fetched if Project Owner).
               </div>
 
               </div>
@@ -1081,14 +1066,15 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
       {/* MODAL 2: EDIT APPROVAL LEVEL POPUP                                       */}
       {/* ========================================================================= */}
-      {editingLevel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in overflow-y-auto">
+      {editingLevel && createPortal(
+        <div className="fixed inset-0 !m-0 !top-0 !left-0 !right-0 !bottom-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in overflow-y-auto">
           <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] my-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-100 bg-slate-50/50 shrink-0">
@@ -1248,69 +1234,14 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                   </select>
                 </div>
 
-                {editAssignmentType === "ProjectOwnerAuto" ? (
-                  <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2.5">
-                    <div className="flex items-start gap-2">
-                      <UserCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                      <p className="text-[11px] text-amber-900 leading-snug">
-                        The approver will be automatically fetched from the Project Owner details of each CER proposal.
-                      </p>
-                    </div>
-
-                    {/* Concise Dynamic Assignment Preview */}
-                    <div className="p-2.5 bg-white rounded-lg border border-amber-200/90 text-[11px] space-y-1 shadow-2xs">
-                      <div className="font-bold text-amber-900 flex items-center gap-1.5 pb-1 border-b border-amber-100">
-                        <Eye className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Assignment Preview</span>
-                      </div>
-                      <div className="grid grid-cols-[84px_1fr] gap-x-2 gap-y-1 text-slate-600 pt-0.5">
-                        <span className="font-semibold text-slate-700">Approver:</span>
-                        <span className="font-bold text-amber-800">Auto — Project Owner</span>
-                        <span className="font-semibold text-slate-700">Source:</span>
-                        <span className="text-slate-800">CER Proposal &rarr; Project Owner Email (<code className="text-[10px] bg-slate-100 px-1 py-0.5 rounded font-mono text-slate-700">owner_email</code>)</span>
-                        <span className="font-semibold text-slate-700">Assignment:</span>
-                        <span className="text-amber-700 font-semibold">Dynamic per proposal</span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
-                    <div className="flex items-start gap-2">
-                      <User className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                      <p className="text-[11px] text-slate-600 leading-snug">
-                        Approvers for this stage are assigned to specific users in the <strong>User &amp; Role Management</strong> tab (Role: <em>Approver</em>, Level: <em>Stage {editSequence}</em>).
-                      </p>
-                    </div>
-
-                    {/* Concise Specific User Preview */}
-                    <div className="p-2.5 bg-white rounded-lg border border-slate-200 text-[11px] space-y-1 shadow-2xs">
-                      <div className="font-bold text-slate-800 flex items-center gap-1.5 pb-1 border-b border-slate-100">
-                        <Eye className="w-3.5 h-3.5 text-blue-600" />
-                        <span>Assignment Preview</span>
-                      </div>
-                      <div className="grid grid-cols-[84px_1fr] gap-x-2 gap-y-1 text-slate-600 pt-0.5">
-                        <span className="font-semibold text-slate-700">Approver:</span>
-                        <span className="font-medium text-slate-800">
-                          {userRoles.filter((u) => u.is_active && u.role === "Approver" && u.approval_level === editSequence).length > 0
-                            ? userRoles
-                                .filter((u) => u.is_active && u.role === "Approver" && u.approval_level === editSequence)
-                                .map((u) => `${u.user_name} (${u.user_email})`)
-                                .join(", ")
-                            : (editingLevel.approver_name || "Configured in User & Role Management")}
-                        </span>
-                        <span className="font-semibold text-slate-700">Source:</span>
-                        <span className="text-slate-800">CERUserRoles List (Stage {editSequence})</span>
-                        <span className="font-semibold text-slate-700">Assignment:</span>
-                        <span className="text-blue-700 font-semibold">Specific User</span>
-                      </div>
-                    </div>
+                {editAssignmentType === "ProjectOwnerAuto" && (
+                  <div className="p-2.5 bg-amber-50/70 border border-amber-200 rounded-xl flex items-center gap-2">
+                    <UserCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                    <p className="text-[11px] text-amber-900 leading-snug">
+                      Approver will be automatically fetched from the Project Owner of each proposal.
+                    </p>
                   </div>
                 )}
-              </div>
-
-              {/* Info Note on SBU-Wise Routing */}
-              <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 text-[11px] text-blue-700 leading-relaxed">
-                <strong>SBU-Wise Approval Routing:</strong> Each approval level is scoped to a specific SBU (RJ North, RJ South, CBOS, or RAVA). Approvers are mapped to this stage level in the <strong>User &amp; Role Management</strong> tab (or auto-fetched if Project Owner).
               </div>
 
               </div>
@@ -1345,14 +1276,15 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
       {/* MODAL 3: DELETE LEVEL CONFIRMATION POPUP                                 */}
       {/* ========================================================================= */}
-      {deletingLevel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in overflow-y-auto">
+      {deletingLevel && createPortal(
+        <div className="fixed inset-0 !m-0 !top-0 !left-0 !right-0 !bottom-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in overflow-y-auto">
           <div className="relative w-full max-w-md bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden max-h-[calc(100vh-2rem)] my-auto flex flex-col">
             <div className="p-6 text-center space-y-4 overflow-y-auto flex-1 min-h-0">
               <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
@@ -1397,7 +1329,8 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

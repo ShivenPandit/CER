@@ -14,6 +14,7 @@ import {
 import { IWorkflowLevel } from "../../models/WorkflowModel";
 import { UserManagementTab } from "./UserManagementTab";
 import { ApprovalHierarchyTab } from "./ApprovalHierarchyTab";
+import { PermissionService } from "../../services/PermissionService";
 
 export type AdminConsoleTab = "users" | "hierarchy";
 
@@ -30,11 +31,22 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
   onCancel,
   initialTab = "users",
 }) => {
-  const [activeTab, setActiveTab] = React.useState<AdminConsoleTab>(initialTab);
+  const canAccessHierarchy = PermissionService.canAccessApprovalHierarchy(currentUser);
+  const safeInitialTab: AdminConsoleTab =
+    initialTab === "hierarchy" && !canAccessHierarchy ? "users" : initialTab;
+
+  const [activeTab, setActiveTab] = React.useState<AdminConsoleTab>(safeInitialTab);
   const [userRoles, setUserRoles] = React.useState<IUserRoleAssignment[]>([]);
   const [workflowLevels, setWorkflowLevels] = React.useState<IWorkflowLevel[]>([]);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState<boolean>(true);
+
+  // Fallback protection: if activeTab ever attempts to switch to hierarchy while unauthorized, reset immediately
+  React.useEffect(() => {
+    if (activeTab === "hierarchy" && !canAccessHierarchy) {
+      setActiveTab("users");
+    }
+  }, [activeTab, canAccessHierarchy]);
 
   const loadData = React.useCallback(async (forceRefresh = false) => {
     setIsLoading(true);
@@ -73,11 +85,15 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
       label: "User & Role Management",
       icon: <Users className="w-4 h-4" />,
     },
-    {
-      id: "hierarchy",
-      label: "Approval Hierarchy",
-      icon: <Layers className="w-4 h-4" />,
-    },
+    ...(canAccessHierarchy
+      ? [
+          {
+            id: "hierarchy" as AdminConsoleTab,
+            label: "Approval Hierarchy",
+            icon: <Layers className="w-4 h-4" />,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -153,7 +169,7 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
           />
         )}
 
-        {activeTab === "hierarchy" && (
+        {activeTab === "hierarchy" && canAccessHierarchy && (
           <ApprovalHierarchyTab
             workflowLevels={workflowLevels}
             currentUser={currentUser}

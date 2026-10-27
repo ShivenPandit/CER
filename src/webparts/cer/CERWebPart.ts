@@ -268,6 +268,10 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
         position: absolute !important;
         top: -9999px !important;
       }
+      .fixed, [class*="fixed"] {
+        margin: 0 !important;
+        margin-top: 0 !important;
+      }
       html, body {
         overflow-y: auto !important;
         overflow-x: hidden !important;
@@ -298,6 +302,9 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
         padding: 0 !important;
         margin-top: 0 !important;
         padding-top: 0 !important;
+        top: 0 !important;
+        position: static !important;
+        transform: none !important;
         border: none !important;
         -webkit-overflow-scrolling: touch !important;
       }
@@ -389,6 +396,14 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
       if (scrollRegion) {
         scrollRegion.style.setProperty("margin-top", "0px", "important");
         scrollRegion.style.setProperty("padding-top", "0px", "important");
+        scrollRegion.style.setProperty("top", "0px", "important");
+        scrollRegion.style.setProperty("position", "static", "important");
+      }
+      const chromeApp = document.querySelector("#spPageChromeAppDiv") as HTMLElement;
+      if (chromeApp) {
+        chromeApp.style.setProperty("margin-top", "0px", "important");
+        chromeApp.style.setProperty("padding-top", "0px", "important");
+        chromeApp.style.setProperty("top", "0px", "important");
       }
       this._enforceFullBleed();
     };

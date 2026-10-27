@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   Search,
   Shield,
@@ -64,8 +65,21 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
   // Assignment Modal
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Lock background scrolling while assign role modal is open
+  useEffect(() => {
+    if (isAssignModalOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isAssignModalOpen]);
 
   // Form Fields
   const [directorySearchQuery, setDirectorySearchQuery] = useState("");
@@ -214,6 +228,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
     setApprovalLevel(levels.length > 0 ? levels[0].level_id : 1);
     setDepartment("");
     setErrorMessage(null);
+    setHasAttemptedSubmit(false);
     setIsAssignModalOpen(true);
   };
 
@@ -222,6 +237,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
     setDirectorySearchQuery(user.displayName);
     setDirectoryResults([]);
     setIsDropdownOpen(false);
+    setErrorMessage(null);
     if (user.department) {
       setDepartment(user.department);
     }
@@ -229,17 +245,11 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
   const handleAssignRoleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setHasAttemptedSubmit(true);
     setErrorMessage(null);
 
-    if (!selectedDirectoryUser) {
-      setErrorMessage("Please select a verified employee from the directory search.");
-      return;
-    }
-
-    if (existingAssignmentForSelected) {
-      setErrorMessage(
-        `Cannot assign role: ${selectedDirectoryUser.displayName} already exists in User Management with active role '${existingAssignmentForSelected.role}'. Each employee assignment must be unique.`
-      );
+    // Inline validation blocks submission directly on the field
+    if (!selectedDirectoryUser || existingAssignmentForSelected) {
       return;
     }
 
@@ -696,8 +706,8 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
       </div>
 
       {/* Modal: Assign Role */}
-      {isAssignModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in overflow-y-auto">
+      {isAssignModalOpen && createPortal(
+        <div className="fixed inset-0 !m-0 !top-0 !left-0 !right-0 !bottom-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in overflow-y-auto">
           <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] my-auto">
             <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-100 bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
@@ -716,12 +726,6 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
             <form onSubmit={handleAssignRoleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
-              {errorMessage && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>{errorMessage}</span>
-                </div>
-              )}
 
               {/* Directory Search & People Picker */}
               <div className="relative" ref={dropdownContainerRef}>
@@ -739,25 +743,24 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                       if (selectedDirectoryUser && val !== selectedDirectoryUser.displayName) {
                         setSelectedDirectoryUser(null);
                       }
+                      if (val.trim().length >= 1) {
+                        setIsDropdownOpen(true);
+                      } else {
+                        setIsDropdownOpen(false);
+                        setDirectoryResults([]);
+                      }
                     }}
                     onFocus={() => {
-                      setIsDropdownOpen(true);
-                      if (!directorySearchQuery.trim() && !selectedDirectoryUser) {
-                        setIsSearchingDirectory(true);
-                        dataService
-                          .searchDirectoryUsers("")
-                          .then((results) => {
-                            setDirectoryResults(results || []);
-                            setIsSearchingDirectory(false);
-                          })
-                          .catch((err) => {
-                            console.warn("[UserManagementTab] Initial directory fetch failed:", err);
-                            setIsSearchingDirectory(false);
-                          });
+                      if (directorySearchQuery.trim().length >= 1) {
+                        setIsDropdownOpen(true);
                       }
                     }}
                     placeholder="Search employee by name or cairnindia email..."
-                    className="w-full pl-9 pr-9 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-colors"
+                    className={`w-full pl-9 pr-9 py-2 bg-slate-50 border rounded-xl text-xs focus:bg-white focus:outline-none transition-colors ${
+                      hasAttemptedSubmit && !selectedDirectoryUser
+                        ? "border-rose-500 bg-rose-50/20 focus:border-rose-600 focus:ring-2 focus:ring-rose-200 text-slate-900"
+                        : "border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                    }`}
                   />
                   {isSearchingDirectory ? (
                     <Loader2 className="w-4 h-4 text-blue-600 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />
@@ -778,15 +781,23 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                   ) : null}
                 </div>
 
-                {/* Directory Dropdown Results */}
-                {isDropdownOpen && isSearchingDirectory && (
+                {/* Inline validation when no employee selected */}
+                {hasAttemptedSubmit && !selectedDirectoryUser && (
+                  <p className="mt-1 text-xs text-rose-600 font-medium flex items-center gap-1 animate-fade-in">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <span>Please select a verified employee from the directory search.</span>
+                  </p>
+                )}
+
+                {/* Directory Dropdown Results (Only shown after typing 1 or more characters) */}
+                {isDropdownOpen && directorySearchQuery.trim().length >= 1 && isSearchingDirectory && (
                   <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-elevated p-3 z-50 flex items-center justify-center gap-2 text-slate-500">
                     <Loader2 className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
                     <span className="text-xs text-slate-600 font-medium">Searching directory...</span>
                   </div>
                 )}
 
-                {isDropdownOpen && !isSearchingDirectory && directoryResults.length > 0 && (
+                {isDropdownOpen && directorySearchQuery.trim().length >= 1 && !isSearchingDirectory && directoryResults.length > 0 && (
                   <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-elevated max-h-56 overflow-y-auto z-50 divide-y divide-slate-100">
                     {directoryResults.map((u) => {
                       const email = u.mail || u.userPrincipalName || "";
@@ -852,7 +863,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 {selectedDirectoryUser && (
                   <div className={`mt-2 p-2.5 rounded-xl flex items-center justify-between gap-3 border transition-colors ${
                     existingAssignmentForSelected
-                      ? "bg-amber-50/70 border-amber-300"
+                      ? "bg-rose-50/40 border-rose-300"
                       : "bg-blue-50/60 border-blue-200"
                   }`}>
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -863,12 +874,12 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                       />
                       <div className="min-w-0">
                         <p className={`font-bold truncate ${
-                          existingAssignmentForSelected ? "text-amber-950" : "text-blue-900"
+                          existingAssignmentForSelected ? "text-rose-950" : "text-blue-900"
                         }`}>
                           {selectedDirectoryUser.displayName}
                         </p>
                         <p className={`text-[11px] truncate ${
-                          existingAssignmentForSelected ? "text-amber-800" : "text-blue-700"
+                          existingAssignmentForSelected ? "text-rose-700" : "text-blue-700"
                         }`}>
                           {selectedDirectoryUser.mail || selectedDirectoryUser.userPrincipalName}
                         </p>
@@ -876,31 +887,21 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                     </div>
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${
                       existingAssignmentForSelected
-                        ? "text-amber-800 bg-white border-amber-300"
+                        ? "text-rose-800 bg-white border-rose-300"
                         : "text-blue-700 bg-white border-blue-200"
                     }`}>
-                      {existingAssignmentForSelected ? "Already Assigned" : "Selected Employee"}
+                      {existingAssignmentForSelected ? `Already Assigned (${existingAssignmentForSelected.role})` : "Selected Employee"}
                     </span>
                   </div>
                 )}
 
-                {/* Inline Duplicate Validation Warning Banner */}
+                {/* Compact Inline Duplicate Validation Notice */}
                 {selectedDirectoryUser && existingAssignmentForSelected && (
-                  <div className="mt-2.5 p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-rose-900 animate-fade-in shadow-2xs">
-                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xs font-bold text-rose-950">
-                          Employee Already Exists in User Management
-                        </span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 bg-rose-100 text-rose-800 rounded-md border border-rose-200">
-                          {existingAssignmentForSelected.role}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-rose-800 mt-1 leading-relaxed">
-                        <strong>{selectedDirectoryUser.displayName}</strong> already has an active assignment with role <strong>'{existingAssignmentForSelected.role}'</strong>{existingAssignmentForSelected.department ? ` in ${existingAssignmentForSelected.department}` : ""}. Each employee must be unique. To change their permissions or department, please edit their existing record in the table.
-                      </p>
-                    </div>
+                  <div className="mt-1.5 px-2.5 py-1.5 bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-1.5 text-rose-700 text-xs animate-fade-in">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                    <span className="truncate">
+                      Already assigned role <strong>'{existingAssignmentForSelected.role}'</strong>. Employee must be unique.
+                    </span>
                   </div>
                 )}
               </div>
@@ -993,13 +994,19 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !!existingAssignmentForSelected}
+                  disabled={isSubmitting}
                   className={`px-5 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 ${
-                    isSubmitting || !!existingAssignmentForSelected
+                    isSubmitting
                       ? "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed shadow-none"
                       : "bg-blue-600 hover:bg-blue-700 text-white shadow-subtle hover:shadow-hover cursor-pointer"
                   }`}
-                  title={existingAssignmentForSelected ? `Cannot assign: ${selectedDirectoryUser?.displayName} already exists with role '${existingAssignmentForSelected.role}'` : undefined}
+                  title={
+                    !selectedDirectoryUser
+                      ? "Please select a verified employee from directory search"
+                      : existingAssignmentForSelected
+                      ? `Cannot assign: ${selectedDirectoryUser?.displayName} already exists with role '${existingAssignmentForSelected.role}'`
+                      : undefined
+                  }
                 >
                   {isSubmitting ? (
                     <>
@@ -1013,12 +1020,13 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal: Edit Role Assignment */}
-      {editingAssignment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in overflow-y-auto">
+      {editingAssignment && createPortal(
+        <div className="fixed inset-0 !m-0 !top-0 !left-0 !right-0 !bottom-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in overflow-y-auto">
           <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] my-auto">
             <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-100 bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
@@ -1165,12 +1173,13 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal: Explicit Confirmation for Granting Admin */}
-      {adminConfirmationTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+      {adminConfirmationTarget && createPortal(
+        <div className="fixed inset-0 !m-0 !top-0 !left-0 !right-0 !bottom-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
           <div className="max-w-md w-full bg-white rounded-2xl shadow-elevated border border-slate-200 p-6 text-center space-y-4">
             <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center mx-auto">
               <ShieldAlert className="w-6 h-6" />
@@ -1196,12 +1205,13 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal: Confirmation for Revoking Role */}
-      {revokingAssignment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+      {revokingAssignment && createPortal(
+        <div className="fixed inset-0 !m-0 !top-0 !left-0 !right-0 !bottom-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
           <div className="max-w-md w-full bg-white rounded-2xl shadow-elevated border border-slate-200 p-6 text-center space-y-4">
             <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center mx-auto">
               <AlertTriangle className="w-6 h-6" />
@@ -1228,7 +1238,8 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

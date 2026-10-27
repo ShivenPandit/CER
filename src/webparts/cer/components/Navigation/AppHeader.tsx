@@ -68,7 +68,7 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
   const isHomeActive = currentView === "dashboard";
 
   return (
-    <header className="h-11 sm:h-11.5 lg:h-12 xl:h-12.5 2xl:h-13.5 bg-white border-b border-slate-200/90 shrink-0 shadow-2xs z-30 sticky top-0 w-full select-none">
+    <header className="h-12 sm:h-13 lg:h-14 bg-white border-b border-slate-200/90 shrink-0 shadow-2xs z-30 sticky top-0 w-full select-none">
       <div className="w-full max-w-[2560px] mx-auto h-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 3xl:px-16 flex items-center justify-between">
         {/* Left side: Platform Logo & Titles */}
         <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
@@ -85,7 +85,7 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
               <img
                 src={vedantaLogo}
                 alt="Vedanta"
-                className="h-6 sm:h-6.5 lg:h-7 xl:h-7.5 2xl:h-8 w-auto max-w-[140px] sm:max-w-[170px] md:max-w-[195px] 2xl:max-w-[220px] object-contain transform group-hover:scale-105 transition-transform"
+                className="h-7 sm:h-7.5 lg:h-8 w-auto max-w-[140px] sm:max-w-[170px] md:max-w-[195px] 2xl:max-w-[220px] object-contain transform group-hover:scale-105 transition-transform"
               />
             </div>
 

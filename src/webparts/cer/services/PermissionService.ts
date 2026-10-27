@@ -8,7 +8,40 @@ export interface IActionAuthResult {
   reason?: string;
 }
 
+/**
+ * Designated authority exclusively permitted to view and manage Approval Hierarchy.
+ * Comparison must be normalized (trimmed, case-insensitive, claims-stripped).
+ */
+export const AUTHORIZED_APPROVAL_HIERARCHY_EMAIL = "shiven.pandit@cairnindia.com";
+
 export class PermissionService {
+  public static readonly AUTHORIZED_APPROVAL_HIERARCHY_EMAIL = AUTHORIZED_APPROVAL_HIERARCHY_EMAIL;
+  /**
+   * Centralized access-control rule:
+   * Restricts the entire Approval Hierarchy feature exclusively to Shiven.Pandit@cairnindia.com.
+   * - Normalizes email/UPN by trimming whitespace and comparing case-insensitively.
+   * - Strips claims prefixes (i:0#.f|membership|).
+   * - Uses authenticated current user identity from SharePoint context.
+   * - Does NOT grant access merely because user has Admin role in application user-role list.
+   * - Denies by default if identity is unavailable, unresolved, or inactive.
+   */
+  public static canAccessApprovalHierarchy(user?: IAppUser | null): boolean {
+    if (!user || !user.is_active) {
+      return false;
+    }
+
+    const email = (user.email || "").trim().toLowerCase();
+    const login = (user.loginName || "")
+      .trim()
+      .toLowerCase()
+      .replace(/^i:0#\.f\|membership\|/i, "")
+      .replace(/^membership\|/i, "");
+
+    const target = AUTHORIZED_APPROVAL_HIERARCHY_EMAIL.toLowerCase();
+
+    return email === target || login === target;
+  }
+
   /**
    * Checks if user has a specific role (checks active roles array or primary role)
    */
