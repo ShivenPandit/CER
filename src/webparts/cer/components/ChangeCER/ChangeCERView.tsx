@@ -185,7 +185,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
     if (field === "cerprno") {
       if (cerNoDebounceTimer.current) clearTimeout(cerNoDebounceTimer.current);
       cerNoDebounceTimer.current = setTimeout(() => {
-        checkCerNoUniqueness(value);
+        void checkCerNoUniqueness(value);
       }, 400);
     }
   };
@@ -205,7 +205,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
     });
 
     if (field === "cerprno") {
-      checkCerNoUniqueness(formData.cerprno);
+      void checkCerNoUniqueness(formData.cerprno);
     }
   };
 
