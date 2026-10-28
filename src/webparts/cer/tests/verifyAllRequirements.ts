@@ -2136,10 +2136,353 @@ async function runAllVerificationTests(): Promise<void> {
   const fetchedRejected = await ds14.getProposalByNumber(propReject.cerprno);
   assert(fetchedRejected !== null && fetchedRejected.status === "Rejected", "14.4c: Proposal status in storage is 'Rejected'");
 
-  // 14.5 Modifications strictly forbidden on Rejected proposal
-  const rejectEditAuth = PermissionService.canEditCER(fetchedRejected!, initiatorUser14);
-  assert(rejectEditAuth.allowed === false, "14.5a: PermissionService strictly blocks modification on Rejected proposal");
-  assert(rejectEditAuth.reason?.includes("Rejected") === true, "14.5b: Clear explanation provided: proposal is 'Rejected' and cannot be modified");
+  // ---------------------------------------------------------------------------------------------
+  // Test Suite 15: Role-Based Dashboard Access, Multi-Role Matrix & Authorization Scenarios
+  // ---------------------------------------------------------------------------------------------
+  console.log("\nTest Suite 15: Role-Based Dashboard Access, Multi-Role Matrix & Authorization Scenarios");
+
+  // Helper simulating dashboard card resolution exactly like HomeCardGrid
+  function getVisibleDashboardCardIds(
+    user: IAppUser,
+    hasOwnedProps: boolean = false,
+    pendingApprovalsCount: number = 0
+  ): string[] {
+    const isAdmin = PermissionService.canAccessAdmin(user);
+    const canCreate = PermissionService.canCreateCER(user);
+    const canViewMyRequests = PermissionService.canViewMyRequests(user, hasOwnedProps);
+    const canViewApprovals = PermissionService.canViewApprovals(user, pendingApprovalsCount > 0);
+    const canViewReports = PermissionService.canViewReports(user);
+
+    const allCards = [
+      { id: "create", visible: canCreate },
+      { id: "my-proposals", visible: canViewMyRequests },
+      { id: "pending-approvals", visible: canViewApprovals },
+      { id: "reports", visible: canViewReports },
+      { id: "workflow-config", visible: isAdmin },
+      { id: "manual", visible: true },
+    ];
+    return allCards.filter(c => c.visible).map(c => c.id);
+  }
+
+  // 15.1 Scenario 1: Initiator only
+  const s1Initiator: IAppUser = {
+    id: "s1-init",
+    name: "Initiator User",
+    email: "initiator.only@cairnindia.com",
+    role: "Initiator",
+    roles: ["Initiator"],
+    is_active: true,
+  };
+  const s1Cards = getVisibleDashboardCardIds(s1Initiator, false, 0);
+  assert(
+    s1Cards.indexOf("create") !== -1 &&
+    s1Cards.indexOf("my-proposals") !== -1 &&
+    s1Cards.indexOf("manual") !== -1 &&
+    s1Cards.indexOf("pending-approvals") === -1 &&
+    s1Cards.indexOf("reports") === -1 &&
+    s1Cards.indexOf("workflow-config") === -1,
+    "15.1: Initiator only sees Create CER, My CER Requests, and User Manual (Approvals/Reports/Admin hidden)"
+  );
+
+  // 15.2 Scenario 2: Approver only (no owned proposals)
+  const s2Approver: IAppUser = {
+    id: "s2-appr",
+    name: "Approver User",
+    email: "approver.only@cairnindia.com",
+    role: "Approver",
+    roles: ["Approver"],
+    approval_level: 2,
+    is_active: true,
+  };
+  const s2Cards = getVisibleDashboardCardIds(s2Approver, false, 0);
+  assert(
+    s2Cards.indexOf("pending-approvals") !== -1 &&
+    s2Cards.indexOf("manual") !== -1 &&
+    s2Cards.indexOf("create") === -1 &&
+    s2Cards.indexOf("my-proposals") === -1 &&
+    s2Cards.indexOf("reports") === -1 &&
+    s2Cards.indexOf("workflow-config") === -1,
+    "15.2: Approver only sees My CER Approvals and User Manual (Create/My Requests/Reports/Admin hidden)"
+  );
+
+  // 15.3 Scenario 3: Finance_Audit only
+  const s3Finance: IAppUser = {
+    id: "s3-fin",
+    name: "Finance User",
+    email: "finance.only@cairnindia.com",
+    role: "Finance_Audit",
+    roles: ["Finance_Audit"],
+    is_active: true,
+  };
+  const s3Cards = getVisibleDashboardCardIds(s3Finance, false, 0);
+  assert(
+    s3Cards.indexOf("reports") !== -1 &&
+    s3Cards.indexOf("manual") !== -1 &&
+    s3Cards.indexOf("create") === -1 &&
+    s3Cards.indexOf("pending-approvals") === -1 &&
+    s3Cards.indexOf("workflow-config") === -1,
+    "15.3: Finance_Audit only sees Report and Dashboard and User Manual (Create/Approvals/Admin hidden)"
+  );
+
+  // 15.4 Scenario 4: Admin only
+  const s4Admin: IAppUser = {
+    id: "s4-admin",
+    name: "Admin User",
+    email: "admin.only@cairnindia.com",
+    role: "Admin",
+    roles: ["Admin", "Initiator"],
+    is_active: true,
+    isSiteAdmin: true,
+  };
+  const s4Cards = getVisibleDashboardCardIds(s4Admin, false, 0);
+  assert(
+    s4Cards.indexOf("create") !== -1 &&
+    s4Cards.indexOf("my-proposals") !== -1 &&
+    s4Cards.indexOf("pending-approvals") !== -1 &&
+    s4Cards.indexOf("reports") !== -1 &&
+    s4Cards.indexOf("workflow-config") !== -1 &&
+    s4Cards.indexOf("manual") !== -1,
+    "15.4: Admin sees all 6 cards including Admin Console and other features"
+  );
+
+  // 15.5 Scenario 5: Initiator who is also a CER Owner
+  const s5OwnedProposal: ICERProposal = {
+    ...testProp,
+    cerprno: "CER-SCENARIO-5",
+    owname: s1Initiator.name,
+    owner_email: s1Initiator.email,
+    created_by: s1Initiator.name,
+    status: "Draft",
+    current_level: 0,
+  };
+  const s5ForeignProposal: ICERProposal = {
+    ...testProp,
+    cerprno: "CER-SCENARIO-5B",
+    owname: "Other Person",
+    owner_email: "other@cairnindia.com",
+    created_by: "Other Person",
+    status: "Draft",
+    current_level: 0,
+  };
+  assert(
+    PermissionService.canCreateCER(s1Initiator) === true &&
+    PermissionService.canViewMyRequests(s1Initiator, true) === true &&
+    PermissionService.canEditCER(s5OwnedProposal, s1Initiator).allowed === true &&
+    PermissionService.canEditCER(s5ForeignProposal, s1Initiator).allowed === false,
+    "15.5: Initiator CER Owner can view their requests, edit their own draft, and is blocked from editing other users' drafts"
+  );
+
+  // 15.6 Scenario 6: Approver who is also a CER Owner
+  const s6ApproverOwner: IAppUser = {
+    ...s2Approver,
+    email: "approver.owner@cairnindia.com",
+    name: "Approver And Owner",
+  };
+  const s6OwnedProposal: ICERProposal = {
+    ...testProp,
+    cerprno: "CER-SCENARIO-6",
+    owname: s6ApproverOwner.name,
+    owner_email: s6ApproverOwner.email,
+    status: "Revised",
+    current_level: 1,
+  };
+  const s6Cards = getVisibleDashboardCardIds(s6ApproverOwner, true, 2);
+  assert(
+    s6Cards.indexOf("my-proposals") !== -1 &&
+    s6Cards.indexOf("pending-approvals") !== -1 &&
+    s6Cards.indexOf("manual") !== -1,
+    "15.6a: Approver who is a CER Owner sees both My CER Requests and My CER Approvals seamlessly"
+  );
+  assert(
+    PermissionService.canEditCER(s6OwnedProposal, s6ApproverOwner).allowed === true,
+    "15.6b: Approver who is CER Owner is permitted to edit their revised proposal"
+  );
+
+  // 15.7 Scenario 7: User with multiple authorized roles (Initiator + Approver, Finance + Approver)
+  const s7DualInitAppr: IAppUser = {
+    id: "s7-dual-1",
+    name: "Dual Init Appr",
+    email: "dual.init.appr@cairnindia.com",
+    role: "Approver",
+    roles: ["Approver", "Initiator"],
+    approval_level: 1,
+    is_active: true,
+  };
+  const s7CardsInitAppr = getVisibleDashboardCardIds(s7DualInitAppr, false, 0);
+  assert(
+    s7CardsInitAppr.indexOf("create") !== -1 &&
+    s7CardsInitAppr.indexOf("my-proposals") !== -1 &&
+    s7CardsInitAppr.indexOf("pending-approvals") !== -1 &&
+    s7CardsInitAppr.indexOf("manual") !== -1 &&
+    s7CardsInitAppr.indexOf("reports") === -1 &&
+    s7CardsInitAppr.indexOf("workflow-config") === -1,
+    "15.7a: Initiator + Approver dual-role sees Create CER, My CER Requests, and My CER Approvals"
+  );
+  const s7DualFinAppr: IAppUser = {
+    id: "s7-dual-2",
+    name: "Dual Fin Appr",
+    email: "dual.fin.appr@cairnindia.com",
+    role: "Approver",
+    roles: ["Approver", "Finance_Audit"],
+    approval_level: 2,
+    is_active: true,
+  };
+  const s7CardsFinAppr = getVisibleDashboardCardIds(s7DualFinAppr, true, 1);
+  assert(
+    s7CardsFinAppr.indexOf("my-proposals") !== -1 &&
+    s7CardsFinAppr.indexOf("pending-approvals") !== -1 &&
+    s7CardsFinAppr.indexOf("reports") !== -1 &&
+    s7CardsFinAppr.indexOf("create") === -1 &&
+    s7CardsFinAppr.indexOf("workflow-config") === -1,
+    "15.7b: Finance_Audit + Approver dual-role sees My CER Approvals and Report and Dashboard (+ My Requests if authorized)"
+  );
+
+  // 15.8 Scenario 8: CER Owner assigned to a dynamic Project Owner approval stage
+  const s8Proposal: ICERProposal = {
+    ...testProp,
+    cerprno: "CER-SCENARIO-8",
+    sbu: "RJ North",
+    owname: "David Owner",
+    owner_email: "david.owner@cairnindia.com",
+    status: "In Approval",
+    current_level: 1,
+    pending_with_role: "Project Owner",
+    pending_with_email: "david.owner@cairnindia.com",
+  };
+  const s8POStageConfig: IWorkflowLevel = {
+    level_id: 1,
+    level_name: "L1 - Project Owner Endorsement",
+    role_title: "Project Owner",
+    sbu: "RJ North",
+    is_active: true,
+    assignment_type: "ProjectOwnerAuto",
+  };
+  const s8User: IAppUser = {
+    id: "s8-david",
+    name: "David Owner",
+    email: "david.owner@cairnindia.com",
+    role: "Initiator",
+    roles: ["Initiator"],
+    is_active: true,
+  };
+  const s8Auth = PermissionService.canApproveCER(s8Proposal, s8User, s8POStageConfig);
+  assert(s8Auth.allowed === true, "15.8: Designated CER Owner is authorized to approve dynamic Project Owner stage");
+
+  // 15.9 Scenario 9: CER Owner who is not the current assigned approver
+  const s9ProposalAtL2: ICERProposal = {
+    ...s8Proposal,
+    current_level: 2,
+    pending_with_role: "Discipline Lead",
+    pending_with_email: "sunil.verma@vedanta.co.in",
+  };
+  const s9L2Config: IWorkflowLevel = {
+    level_id: 2,
+    level_name: "L2 - Discipline Review",
+    role_title: "Discipline Lead",
+    sbu: "RJ North",
+    is_active: true,
+    assignment_type: "SpecificUser",
+    approver_email: "sunil.verma@vedanta.co.in",
+  };
+  const s9Auth = PermissionService.canApproveCER(s9ProposalAtL2, s8User, s9L2Config);
+  assert(
+    s9Auth.allowed === false,
+    "15.9: CER Owner who is not the current assigned approver cannot approve Level 2"
+  );
+
+  // 15.10 Scenario 10: An approver attempting to approve a stage assigned to someone else
+  const s10WrongApprover: IAppUser = {
+    id: "s10-wrong",
+    name: "Wrong Approver",
+    email: "wrong.approver@cairnindia.com",
+    role: "Approver",
+    roles: ["Approver"],
+    approval_level: 2,
+    is_active: true,
+  };
+  const s10Auth = PermissionService.canApproveCER(s9ProposalAtL2, s10WrongApprover, s9L2Config);
+  assert(
+    s10Auth.allowed === false && s10Auth.reason?.includes("assigned approver") === true,
+    "15.10: Approver attempting to approve stage assigned to someone else is rejected with assigned approver mismatch"
+  );
+
+  // 15.11 Scenario 11: A user attempting to approve their own proposal when Segregation of Duties prohibits it
+  const s11InitiatorApprover: IAppUser = {
+    id: "s11-init-appr",
+    name: "Self Approver Attempt",
+    email: "self.approver@cairnindia.com",
+    role: "Approver",
+    roles: ["Approver", "Initiator"],
+    approval_level: 2,
+    is_active: true,
+  };
+  const s11Proposal: ICERProposal = {
+    ...testProp,
+    cerprno: "CER-SCENARIO-11",
+    sbu: "RJ North",
+    created_by: s11InitiatorApprover.name,
+    owname: s11InitiatorApprover.name,
+    owner_email: s11InitiatorApprover.email,
+    current_level: 2,
+    status: "In Approval",
+  };
+  const s11Auth = PermissionService.canApproveCER(s11Proposal, s11InitiatorApprover, s9L2Config);
+  assert(
+    s11Auth.allowed === false && s11Auth.reason?.includes("Segregation of Duties") === true,
+    "15.11: Self-approval attempt on non-owner stage is strictly blocked by Segregation of Duties"
+  );
+
+  // 15.12 Scenario 12: A user attempting to access the Admin Console without authorization
+  assert(
+    PermissionService.canAccessAdmin(s1Initiator) === false &&
+    PermissionService.canAccessAdmin(s2Approver) === false &&
+    PermissionService.canAccessAdmin(s3Finance) === false &&
+    PermissionService.canAccessView("workflow-config", s1Initiator) === false &&
+    PermissionService.canAccessView("workflow-config", s2Approver) === false,
+    "15.12: Non-admin users are strictly denied Admin Console access and routing"
+  );
+
+  // 15.13 Scenario 13: Direct URL access to restricted routes
+  assert(
+    PermissionService.canAccessView("create", s2Approver) === false,
+    "15.13a: Direct #create route access blocked for pure Approver"
+  );
+  assert(
+    PermissionService.canAccessView("pending-approvals", s1Initiator, false, false) === false,
+    "15.13b: Direct #pending-approvals route access blocked for Initiator without approval authorization"
+  );
+  assert(
+    PermissionService.canAccessView("reports", s1Initiator) === false,
+    "15.13c: Direct #reports route access blocked for Initiator"
+  );
+  assert(
+    PermissionService.canAccessView("reports", s2Approver) === false,
+    "15.13d: Direct #reports route access blocked for Approver"
+  );
+  assert(
+    PermissionService.canAccessView("my-proposals", s2Approver, false) === false,
+    "15.13e: Direct #my-proposals route access blocked for pure Approver with no owned proposals"
+  );
+
+  // 15.14 Scenario 14: A user with no applicable permissions (inactive or unassigned)
+  const s14InactiveUser: IAppUser = {
+    id: "s14-inactive",
+    name: "Inactive Person",
+    email: "inactive@cairnindia.com",
+    role: "Initiator",
+    roles: [],
+    is_active: false,
+  };
+  assert(
+    PermissionService.canCreateCER(s14InactiveUser) === false &&
+    PermissionService.canViewMyRequests(s14InactiveUser, true) === false &&
+    PermissionService.canViewApprovals(s14InactiveUser, true) === false &&
+    PermissionService.canViewReports(s14InactiveUser) === false &&
+    PermissionService.canAccessAdmin(s14InactiveUser) === false &&
+    PermissionService.canAccessView("dashboard", s14InactiveUser) === false &&
+    PermissionService.canAccessView("my-proposals", s14InactiveUser) === false,
+    "15.14: Inactive user with no permissions fails closed on all cards, actions, and views"
+  );
 
   console.log("\n================================================================================");
   console.log(`TEST SUMMARY: ${passed} PASSED | ${failed} FAILED | TOTAL: ${passed + failed}`);

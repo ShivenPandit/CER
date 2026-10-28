@@ -20,6 +20,7 @@ interface IHomeCardGridProps {
   onOpenManual: () => void;
   pendingApprovalsCount?: number;
   availableHeight?: number;
+  hasOwnedProposals?: boolean;
 }
 
 export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
@@ -28,6 +29,7 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
   onOpenManual,
   pendingApprovalsCount = 0,
   availableHeight,
+  hasOwnedProposals,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState<number>(1200);
@@ -141,19 +143,23 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
     },
   ];
 
-  // Role-based visibility filtering
-  const isApproverOrAdmin = currentUser
-    ? PermissionService.hasRole(currentUser, "Approver") || PermissionService.hasRole(currentUser, "Admin")
-    : true;
+  // Independent permission checks for each dashboard card per role-based access matrix
   const isAdmin = currentUser ? PermissionService.canAccessAdmin(currentUser) : true;
   const canCreate = currentUser ? PermissionService.canCreateCER(currentUser) : true;
-  const canViewMyRequests = currentUser ? PermissionService.canViewMyRequests(currentUser) : true;
+  const canViewMyRequests = currentUser
+    ? PermissionService.canViewMyRequests(currentUser, hasOwnedProposals)
+    : true;
+  const canViewApprovals = currentUser
+    ? PermissionService.canViewApprovals(currentUser, (pendingApprovalsCount || 0) > 0)
+    : true;
+  const canViewReports = currentUser ? PermissionService.canViewReports(currentUser) : true;
 
   const visibleCards = cards.filter((card) => {
     if (card.id === "workflow-config" && !isAdmin) return false;
-    if (card.id === "pending-approvals" && !isApproverOrAdmin) return false;
     if (card.id === "create" && !canCreate) return false;
     if (card.id === "my-proposals" && !canViewMyRequests) return false;
+    if (card.id === "pending-approvals" && !canViewApprovals) return false;
+    if (card.id.toLowerCase() === "reports" && !canViewReports) return false;
     return true;
   });
 

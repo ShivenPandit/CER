@@ -212,23 +212,56 @@ export class PermissionService {
 
   /**
    * Checks if user has permission to view their submitted requests ("my-proposals").
-   * Pure Approvers (who do not possess Initiator or Admin role) cannot create or own proposals,
-   * so "my-proposals" is hidden for them to avoid an empty dead-end view.
+   * - Initiators and Admins always have access to My CER Requests.
+   * - Approvers and Finance_Audit have access if they have permission to view their own requests
+   *   (e.g., they own one or more CER proposals as verified by hasOwnedProposals or hold Initiator/Admin role).
    */
-  public static canViewMyRequests(user?: IAppUser | null): boolean {
+  public static canViewMyRequests(user?: IAppUser | null, hasOwnedProposals?: boolean): boolean {
     if (!user || !user.is_active) return false;
-    const isApprover = this.hasRole(user, "Approver");
-    const isInitiatorOrAdmin = this.hasRole(user, "Initiator") || this.hasRole(user, "Admin");
-    if (isApprover && !isInitiatorOrAdmin) {
-      return false;
+    if (this.hasRole(user, "Initiator") || this.hasRole(user, "Admin")) {
+      return true;
     }
-    return true;
+    if (hasOwnedProposals) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Checks if user has approval authorization / responsibilities to view "My CER Approvals".
+   * - Approvers and Admins always have approval responsibilities.
+   * - Initiators or Finance_Audit have access only if they also have approval authorization
+   *   (e.g., designated as Project Owner on a pending proposal or hasApprovalAuth is true).
+   */
+  public static canViewApprovals(user?: IAppUser | null, hasApprovalAuth?: boolean): boolean {
+    if (!user || !user.is_active) return false;
+    if (this.hasRole(user, "Approver") || this.hasRole(user, "Admin")) {
+      return true;
+    }
+    if (hasApprovalAuth) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Checks if user has permission to view Report and Dashboard.
+   * Restricted to Finance_Audit and Admin roles per role-based access matrix.
+   */
+  public static canViewReports(user?: IAppUser | null): boolean {
+    if (!user || !user.is_active) return false;
+    return this.hasRole(user, "Finance_Audit") || this.hasRole(user, "Admin");
   }
 
   /**
    * Verifies if user has permission to navigate to a specific view
    */
-  public static canAccessView(view: NavView, user: IAppUser): boolean {
+  public static canAccessView(
+    view: NavView,
+    user: IAppUser,
+    hasOwnedProposals?: boolean,
+    hasApprovalAuth?: boolean
+  ): boolean {
     if (!user || !user.is_active) {
       return false;
     }
@@ -241,36 +274,26 @@ export class PermissionService {
         return true;
 
       case "my-proposals":
-        return this.canViewMyRequests(user);
+        return this.canViewMyRequests(user, hasOwnedProposals);
 
       case "create":
-        return this.hasRole(user, "Initiator") || this.hasRole(user, "Admin");
+        return this.canCreateCER(user);
 
       case "change":
-        // View can be opened, but specific proposal authorization is checked inside canEditCER
-        return this.hasRole(user, "Initiator") || this.hasRole(user, "Admin");
+        // Proposal-specific ownership check is enforced in canEditCER
+        return true;
 
       case "pending-approvals":
-        return this.hasRole(user, "Approver") || this.hasRole(user, "Admin");
+        return this.canViewApprovals(user, hasApprovalAuth);
 
       case "reports":
-        return (
-          this.hasRole(user, "Finance_Audit") ||
-          this.hasRole(user, "Admin") ||
-          this.hasRole(user, "Approver") ||
-          this.hasRole(user, "Initiator")
-        );
+        return this.canViewReports(user);
 
       case "audit-trail":
-        return (
-          this.hasRole(user, "Finance_Audit") ||
-          this.hasRole(user, "Admin") ||
-          this.hasRole(user, "Approver") ||
-          this.hasRole(user, "Initiator")
-        );
+        return true;
 
       case "workflow-config":
-        return this.hasRole(user, "Admin");
+        return this.canAccessAdmin(user);
 
       default:
         return false;

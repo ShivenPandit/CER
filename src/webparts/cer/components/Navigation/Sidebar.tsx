@@ -35,6 +35,7 @@ interface ISidebarProps {
   pendingApprovalsCount: number;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
+  hasOwnedProposals?: boolean;
 }
 
 export const Sidebar: React.FC<ISidebarProps> = ({
@@ -45,20 +46,24 @@ export const Sidebar: React.FC<ISidebarProps> = ({
   pendingApprovalsCount,
   isMobileOpen = false,
   onCloseMobile,
+  hasOwnedProposals,
 }) => {
   // Authorization checks for navigation items
   const canCreate = currentUser
     ? PermissionService.canCreateCER(currentUser)
     : userRole === "Initiator" || userRole === "Admin";
   const canApprove = currentUser
-    ? PermissionService.hasRole(currentUser, "Approver") || PermissionService.hasRole(currentUser, "Admin")
+    ? PermissionService.canViewApprovals(currentUser, pendingApprovalsCount > 0)
     : userRole === "Approver" || userRole === "Admin";
   const canConfigWorkflow = currentUser
     ? PermissionService.canAccessAdmin(currentUser)
     : userRole === "Admin";
   const canViewMyProposals = currentUser
-    ? PermissionService.canViewMyRequests(currentUser)
+    ? PermissionService.canViewMyRequests(currentUser, hasOwnedProposals)
     : userRole !== "Approver";
+  const canViewReports = currentUser
+    ? PermissionService.canViewReports(currentUser)
+    : userRole === "Finance_Audit" || userRole === "Admin";
 
   const navItems = [
     {
@@ -102,7 +107,7 @@ export const Sidebar: React.FC<ISidebarProps> = ({
       id: "Reports",
       label: "Reports & Analytics",
       icon: BarChart3,
-      visible: true,
+      visible: canViewReports,
     },
     {
       id: "audit-trail",

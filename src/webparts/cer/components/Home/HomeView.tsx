@@ -10,6 +10,7 @@ interface IHomeViewProps {
   onOpenManual: () => void;
   pendingCount?: number;
   availableHeight?: number;
+  hasOwnedProposals?: boolean;
 }
 
 export const HomeView: React.FC<IHomeViewProps> = ({
@@ -18,6 +19,7 @@ export const HomeView: React.FC<IHomeViewProps> = ({
   onOpenManual,
   pendingCount = 0,
   availableHeight,
+  hasOwnedProposals,
 }) => {
   return (
     <div className="w-full max-w-none flex-1 flex flex-col min-h-0 h-full bg-[#F8FAFC] overflow-hidden">
@@ -32,6 +34,7 @@ export const HomeView: React.FC<IHomeViewProps> = ({
           onOpenManual={onOpenManual}
           pendingApprovalsCount={pendingCount}
           availableHeight={availableHeight}
+          hasOwnedProposals={hasOwnedProposals}
         />
       </div>
 

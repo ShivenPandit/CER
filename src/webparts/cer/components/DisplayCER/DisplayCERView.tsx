@@ -438,7 +438,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                   <span>Status History</span>
                 </button>
 
-                {(currentUser.role === "Initiator" || currentUser.role === "Admin") && (() => {
+                {(() => {
                   const editAuth = proposal
                     ? PermissionService.canEditCER(proposal, currentUser)
                     : { allowed: false, reason: "Proposal not found" };

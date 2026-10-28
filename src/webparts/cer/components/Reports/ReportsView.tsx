@@ -471,7 +471,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
-                        {(currentUser.role === "Initiator" || currentUser.role === "Admin") && (() => {
+                        {(() => {
                           const editAuth = PermissionService.canEditCER(prop, currentUser);
                           const canEdit = editAuth.allowed;
                           const editTooltip = canEdit
@@ -557,7 +557,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                     <Eye className="w-3 h-3" />
                     <span>Display CER</span>
                   </button>
-                  {(currentUser.role === "Initiator" || currentUser.role === "Admin") && (() => {
+                  {(() => {
                     const editAuth = PermissionService.canEditCER(prop, currentUser);
                     const canEdit = editAuth.allowed;
                     const editTooltip = canEdit

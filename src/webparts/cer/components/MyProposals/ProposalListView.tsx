@@ -121,7 +121,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
             />
           </div>
 
-          {(currentUser.role === "Initiator" || currentUser.role === "Admin") && (
+          {PermissionService.canCreateCER(currentUser) && (
             <button
               onClick={onNavigateToCreate}
               className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-[#012964] hover:bg-[#001f4d] text-white text-xs font-semibold rounded-xl shadow-md shadow-[#012964]/20 transition-all hover:scale-[1.02] shrink-0 cursor-pointer"
@@ -232,7 +232,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
-                        {(currentUser.role === "Initiator" || currentUser.role === "Admin") && (() => {
+                        {(() => {
                           const editAuth = PermissionService.canEditCER(prop, currentUser);
                           const canEdit = editAuth.allowed;
                           const editTooltip = canEdit
@@ -342,7 +342,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                     <Eye className="w-3 h-3" />
                     <span>View</span>
                   </button>
-                  {(currentUser.role === "Initiator" || currentUser.role === "Admin") && (() => {
+                  {(() => {
                     const editAuth = PermissionService.canEditCER(prop, currentUser);
                     const canEdit = editAuth.allowed;
                     const editTooltip = canEdit

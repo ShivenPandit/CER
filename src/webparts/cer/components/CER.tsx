@@ -299,6 +299,11 @@ const CER: React.FC<ICERProps> = (props) => {
     }).length;
   }, [proposals, workflowLevels, currentUser]);
 
+  // Check if current user is owner of at least one proposal
+  const hasOwnedProposals = React.useMemo(() => {
+    return proposals.some((p) => PermissionService.isProposalOwner(p, currentUser));
+  }, [proposals, currentUser]);
+
   // Measure actual available application height after accounting for the SharePoint host page and header
   const appRootRef = React.useRef<HTMLDivElement | null>(null);
   const [availableHeight, setAvailableHeight] = useState<number | undefined>(undefined);
@@ -382,6 +387,7 @@ const CER: React.FC<ICERProps> = (props) => {
             onOpenManual={() => setIsUserManualOpen(true)}
             pendingCount={pendingCount}
             availableHeight={availableHeight}
+            hasOwnedProposals={hasOwnedProposals}
           />
         )}
 
@@ -439,7 +445,7 @@ const CER: React.FC<ICERProps> = (props) => {
         )}
 
         {currentView === "my-proposals" && (
-          PermissionService.canAccessView("my-proposals", currentUser) ? (
+          PermissionService.canAccessView("my-proposals", currentUser, hasOwnedProposals) ? (
             <ProposalListView
               proposals={proposals}
               currentUser={currentUser}
@@ -453,7 +459,7 @@ const CER: React.FC<ICERProps> = (props) => {
             <AccessDeniedView
               currentUser={currentUser}
               attemptedView="my-proposals"
-              customMessage="The My CER Requests view is reserved for Initiators and Administrators who submit proposals."
+              customMessage="The My CER Requests view is reserved for Initiators, Administrators, and authorized CER Owners."
               onGoHome={handleGoBack}
             />
           )
@@ -472,7 +478,7 @@ const CER: React.FC<ICERProps> = (props) => {
         )}
 
         {currentView === "pending-approvals" && (
-          PermissionService.canAccessView("pending-approvals", currentUser) ? (
+          PermissionService.canAccessView("pending-approvals", currentUser, hasOwnedProposals, pendingCount > 0) ? (
             <PendingApprovalsView
               dataService={dataService}
               currentUser={currentUser}
