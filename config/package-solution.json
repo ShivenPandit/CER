@@ -3,9 +3,9 @@
   "solution": {
     "name": "CER-client-side-solution",
     "id": "2b3b44ad-81e4-4f94-b04e-a3f700537c25",
-    "version": "1.0.1.0",
+    "version": "1.0.1.1",
     "includeClientSideAssets": true,
-    "skipFeatureDeployment": true,
+    "skipFeatureDeployment": false,
     "isDomainIsolated": false,
     "developer": {
       "name": "",
