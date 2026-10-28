@@ -2,7 +2,7 @@
   "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
   "solution": {
     "name": "CER-client-side-solution",
-    "id": "59e809d9-d370-41ae-a45d-bf5b0c6fcb6d",
+    "id": "2b3b44ad-81e4-4f94-b04e-a3f700537c25",
     "version": "1.0.1.0",
     "includeClientSideAssets": true,
     "skipFeatureDeployment": true,
