@@ -106,7 +106,7 @@ export const MOCK_DIRECTORY_USERS: IDirectoryUser[] = [
     displayName: "Priya Kalekar (STL Digital)",
     mail: "Priya.Kalekar@cairnindia.com",
     userPrincipalName: "70004733@cairnindia.com",
-    jobTitle: "Site Administrator",
+    jobTitle: "Portal Member",
     department: "CER Management Portal",
   },
   {

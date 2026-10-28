@@ -70,14 +70,7 @@ export class SharePointCERDataService implements ICERDataService {
           select: "InternalName,Title,Choices,DefaultValue",
         });
       } catch {
-        try {
-          fields = await this._sp.getListFields("CER_Proposals", {
-            filter: "TypeAsString eq 'Choice'",
-            select: "InternalName,Title,Choices,DefaultValue",
-          });
-        } catch {
-          fields = [];
-        }
+        fields = [];
       }
 
       if (fields.length > 0) {
@@ -118,7 +111,7 @@ export class SharePointCERDataService implements ICERDataService {
   // ---------------------------------------------------------------------------
 
   public async getAllProposals(): Promise<ICERProposal[]> {
-    const candidateLists = [SP_LISTS.CER_PROPOSALS, "CER_Proposals"];
+    const candidateLists = [SP_LISTS.CER_PROPOSALS];
     let lastErr: any = null;
 
     for (const listName of candidateLists) {
@@ -157,7 +150,7 @@ export class SharePointCERDataService implements ICERDataService {
   public async getProposalByNumber(
     cerprno: string,
   ): Promise<ICERProposal | null> {
-    const candidateLists = [SP_LISTS.CER_PROPOSALS, "CER_Proposals"];
+    const candidateLists = [SP_LISTS.CER_PROPOSALS];
     let lastErr: any = null;
 
     for (const listName of candidateLists) {
@@ -215,7 +208,7 @@ export class SharePointCERDataService implements ICERDataService {
     const year = new Date().getFullYear();
     const prefix = `CER-${year}-`;
     let highest = 0;
-    const candidateLists = [SP_LISTS.CER_PROPOSALS, "CER_Proposals"];
+    const candidateLists = [SP_LISTS.CER_PROPOSALS];
     let lastErr: any = null;
 
     for (const listName of candidateLists) {
@@ -309,29 +302,25 @@ export class SharePointCERDataService implements ICERDataService {
 
     // Check if an item with this cerprno already exists in CERProposals list (e.g. draft saved earlier)
     let existingItems: Array<{ Id: number }> = [];
-    let targetListName: string = SP_LISTS.CER_PROPOSALS;
-    for (const listName of [SP_LISTS.CER_PROPOSALS, "CER_Proposals"]) {
+    const targetListName: string = SP_LISTS.CER_PROPOSALS;
+    try {
       try {
-        try {
-          existingItems = await this._sp.getListItems<{ Id: number }>(listName, {
-            filter: `cerPrNo eq '${newProposal.cerprno}'`,
-            select: "Id",
-            top: 1,
-          });
-        } catch {
-          const allItems = await this._sp.getListItems<any>(listName, {
-            select: "Id,cerPrNo,Title",
-            top: 500,
-          });
-          existingItems = allItems.filter(
-            (it: any) => (it.cerPrNo || it.Title) === newProposal.cerprno
-          );
-        }
-        targetListName = listName;
-        break;
-      } catch (queryErr) {
-        // try next candidate
+        existingItems = await this._sp.getListItems<{ Id: number }>(targetListName, {
+          filter: `cerPrNo eq '${newProposal.cerprno}'`,
+          select: "Id",
+          top: 1,
+        });
+      } catch {
+        const allItems = await this._sp.getListItems<any>(targetListName, {
+          select: "Id,cerPrNo,Title",
+          top: 500,
+        });
+        existingItems = allItems.filter(
+          (it: any) => (it.cerPrNo || it.Title) === newProposal.cerprno
+        );
       }
+    } catch (queryErr) {
+      // ignore
     }
 
     let assignedProposalId = newProposal.id || "";
@@ -394,26 +383,22 @@ export class SharePointCERDataService implements ICERDataService {
     // If item does not exist, POST new record
     try {
       let createdItem: { Id: number } | undefined;
-      const candidateLists = [targetListName, targetListName === "CERProposals" ? "CER_Proposals" : "CERProposals"];
+      const listName = SP_LISTS.CER_PROPOSALS;
       let lastCreateErr: any = null;
 
-      for (const listName of candidateLists) {
+      try {
         try {
-          try {
-            createdItem = await this._sp.createListItem<{ Id: number }>(listName, modernPayload);
-            break;
-          } catch (initialErr: any) {
-            const errText = String(initialErr?.message || "").toLowerCase();
-            if (errText.includes("does not exist") || errText.includes("invalid field") || errText.includes("st_date") || errText.includes("startdate")) {
-              createdItem = await this._sp.createListItem<{ Id: number }>(listName, legacyPayload);
-              break;
-            } else {
-              throw initialErr;
-            }
+          createdItem = await this._sp.createListItem<{ Id: number }>(listName, modernPayload);
+        } catch (initialErr: any) {
+          const errText = String(initialErr?.message || "").toLowerCase();
+          if (errText.includes("does not exist") || errText.includes("invalid field") || errText.includes("st_date") || errText.includes("startdate")) {
+            createdItem = await this._sp.createListItem<{ Id: number }>(listName, legacyPayload);
+          } else {
+            throw initialErr;
           }
-        } catch (err) {
-          lastCreateErr = err;
         }
+      } catch (err) {
+        lastCreateErr = err;
       }
 
       if (createdItem && createdItem.Id) {
@@ -573,31 +558,25 @@ export class SharePointCERDataService implements ICERDataService {
 
     // Find SharePoint Item ID in CERProposals
     let existingItems: Array<{ Id: number }> = [];
-    let targetListName: string = SP_LISTS.CER_PROPOSALS;
-    for (const listName of [SP_LISTS.CER_PROPOSALS, "CER_Proposals"]) {
+    const targetListName: string = SP_LISTS.CER_PROPOSALS;
+    try {
       try {
-        try {
-          existingItems = await this._sp.getListItems<{ Id: number }>(listName, {
-            filter: `cerPrNo eq '${proposal.cerprno}'`,
-            select: "Id",
-            top: 1,
-          });
-        } catch {
-          const allItems = await this._sp.getListItems<any>(listName, {
-            select: "Id,cerPrNo,Title",
-            top: 500,
-          });
-          existingItems = allItems.filter(
-            (it: any) => (it.cerPrNo || it.Title) === proposal.cerprno
-          );
-        }
-        if (existingItems.length > 0) {
-          targetListName = listName;
-          break;
-        }
+        existingItems = await this._sp.getListItems<{ Id: number }>(targetListName, {
+          filter: `cerPrNo eq '${proposal.cerprno}'`,
+          select: "Id",
+          top: 1,
+        });
       } catch {
-        // try next
+        const allItems = await this._sp.getListItems<any>(targetListName, {
+          select: "Id,cerPrNo,Title",
+          top: 500,
+        });
+        existingItems = allItems.filter(
+          (it: any) => (it.cerPrNo || it.Title) === proposal.cerprno
+        );
       }
+    } catch {
+      // ignore
     }
 
     if (existingItems.length === 0) {
@@ -707,7 +686,7 @@ export class SharePointCERDataService implements ICERDataService {
   // ---------------------------------------------------------------------------
 
   public async getAuditTrail(cerprno?: string): Promise<ICERAuditRecord[]> {
-    const candidateLists = [SP_LISTS.CER_AUDIT_TRAIL, "CER_AuditTrail"];
+    const candidateLists = [SP_LISTS.CER_AUDIT_TRAIL];
     let lastErr: any = null;
 
     for (const listName of candidateLists) {
@@ -766,7 +745,7 @@ export class SharePointCERDataService implements ICERDataService {
   }
 
   private async _createAuditRecord(record: ICERAuditRecord): Promise<void> {
-    const candidateLists = [SP_LISTS.CER_AUDIT_TRAIL, "CER_AuditTrail"];
+    const candidateLists = [SP_LISTS.CER_AUDIT_TRAIL];
     const modernPayload = {
       Title: record.cerprno,
       cerPrNo: record.cerprno,
@@ -813,7 +792,7 @@ export class SharePointCERDataService implements ICERDataService {
   // ---------------------------------------------------------------------------
 
   public async getRemarksHistory(cerprno: string): Promise<ICERRemarksVersion[]> {
-    const candidateLists = [SP_LISTS.CER_REMARKS_HISTORY, "CER_RemarksHistory"];
+    const candidateLists = [SP_LISTS.CER_REMARKS_HISTORY];
     let lastErr: any = null;
 
     for (const listName of candidateLists) {
@@ -863,7 +842,7 @@ export class SharePointCERDataService implements ICERDataService {
     remarksText: string,
     createdBy: string,
   ): Promise<void> {
-    const candidateLists = [SP_LISTS.CER_REMARKS_HISTORY, "CER_RemarksHistory"];
+    const candidateLists = [SP_LISTS.CER_REMARKS_HISTORY];
     const modernPayload = {
       Title: cerprno,
       cerPrNo: cerprno,
@@ -922,7 +901,7 @@ export class SharePointCERDataService implements ICERDataService {
     const fetchPromise = (async () => {
       try {
         let items: Record<string, any>[] = [];
-        const candidateLists = [SP_LISTS.CER_WORKFLOW_LEVELS, "CER_WorkflowLevels"];
+        const candidateLists = [SP_LISTS.CER_WORKFLOW_LEVELS];
 
         for (const listName of candidateLists) {
           try {
@@ -1031,7 +1010,7 @@ export class SharePointCERDataService implements ICERDataService {
       // 1. Fetch all existing items from CERWorkflowLevels / CER_WorkflowLevels
       let existingRaw: any[] = [];
       let targetListName: string = SP_LISTS.CER_WORKFLOW_LEVELS;
-      for (const listName of [SP_LISTS.CER_WORKFLOW_LEVELS, "CER_WorkflowLevels"]) {
+      for (const listName of [SP_LISTS.CER_WORKFLOW_LEVELS]) {
         try {
           existingRaw = await this._sp.getListItems<any>(listName, {
             top: 100,
@@ -1150,7 +1129,7 @@ export class SharePointCERDataService implements ICERDataService {
       assignment_type: payload.assignmentType || payload.assignment_type || "SpecificUser",
     };
 
-    const candidateLists = [preferredListName, preferredListName === SP_LISTS.CER_WORKFLOW_LEVELS ? "CER_WorkflowLevels" : SP_LISTS.CER_WORKFLOW_LEVELS];
+    const candidateLists = [preferredListName];
     let lastErr: any = null;
 
     for (const listName of candidateLists) {
@@ -1175,7 +1154,7 @@ export class SharePointCERDataService implements ICERDataService {
   // ---------------------------------------------------------------------------
 
   public async getApprovalDecisions(cerprno: string): Promise<IApprovalDecision[]> {
-    const candidateLists = [SP_LISTS.CER_APPROVAL_DECISIONS, "CER_ApprovalDecisions"];
+    const candidateLists = [SP_LISTS.CER_APPROVAL_DECISIONS];
     let lastErr: any = null;
 
     for (const listName of candidateLists) {
@@ -1253,7 +1232,7 @@ export class SharePointCERDataService implements ICERDataService {
     level_id: number;
     approver_name: string;
     approver_email: string;
-    decision: "APPROVED" | "REJECTED";
+    decision: "APPROVED" | "REJECTED" | "SENT_BACK";
     comments: string;
   }): Promise<{ success: boolean; newStatus: string; nextLevel: number }> {
     const now = new Date().toISOString();
@@ -1308,7 +1287,7 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     // 1. Fetch current proposal item to retrieve SBU, Creator email and ID from candidate lists
-    const candidateProposalLists = [SP_LISTS.CER_PROPOSALS, "CER_Proposals"];
+    const candidateProposalLists = [SP_LISTS.CER_PROPOSALS];
     let propItem: { Id: number; sbu?: string; owner_email?: string } | null = null;
     let targetProposalList: string = SP_LISTS.CER_PROPOSALS;
 
@@ -1377,7 +1356,7 @@ export class SharePointCERDataService implements ICERDataService {
       Title: params.cerprno,
       cerPrNo: params.cerprno,
       levelId: params.level_id,
-      decision: params.decision === "REJECTED" ? "Rejected" : "Approved",
+      decision: params.decision === "REJECTED" ? "Rejected" : params.decision === "SENT_BACK" ? "Sent Back" : "Approved",
       remarks: params.comments || "",
       decidedAt: now,
     };
@@ -1395,12 +1374,12 @@ export class SharePointCERDataService implements ICERDataService {
       level_name: `Level ${params.level_id}`,
       approver_name: params.approver_name,
       approver_email: params.approver_email,
-      decision: params.decision,
+      decision: params.decision === "SENT_BACK" ? "Sent Back" : params.decision,
       comments: params.comments || "",
       decision_date: now,
     };
 
-    const candidateDecisionLists = [SP_LISTS.CER_APPROVAL_DECISIONS, "CER_ApprovalDecisions"];
+    const candidateDecisionLists = [SP_LISTS.CER_APPROVAL_DECISIONS];
     let decisionRecorded = false;
     let decisionErr: any = null;
 
@@ -1447,6 +1426,11 @@ export class SharePointCERDataService implements ICERDataService {
       newStatus = "Rejected";
       nextRole = "Rejected";
       nextEmail = "";
+    } else if (params.decision === "SENT_BACK") {
+      newStatus = "Revised";
+      nextLevel = 1;
+      nextRole = "Initiator (Rework)";
+      nextEmail = existingProposal.owner_email || creatorEmail;
     } else if (!nextLevelConfig) {
       newStatus = "Approved";
       nextLevel = activeLevels.length + 1;
@@ -1510,12 +1494,16 @@ export class SharePointCERDataService implements ICERDataService {
       ? (newStatus === "Approved"
           ? `[CER Final Sanction] Proposal ${params.cerprno} Approved at Final Level ${params.level_id}`
           : `[CER Approved Level ${params.level_id}] Proposal ${params.cerprno} Advanced to Level ${nextLevel}`)
+      : params.decision === "SENT_BACK"
+      ? `[CER Revision Requested] Proposal ${params.cerprno} Sent Back to Initiator by Level ${params.level_id}`
       : `[CER Rejected] Proposal ${params.cerprno} Rejected at Level ${params.level_id}`;
 
     const bodyText = params.decision === "APPROVED"
       ? (newStatus === "Approved"
           ? `Proposal ${params.cerprno} has received final executive sanction by ${params.approver_name}. Decision: ${params.decision}. Comments: "${params.comments}".${attachmentsSummary}`
           : `Proposal ${params.cerprno} approved at Level ${params.level_id} by ${params.approver_name}. Comments: "${params.comments}". Proposal is now pending action from ${nextRole} (${nextEmail}).${attachmentsSummary}`)
+      : params.decision === "SENT_BACK"
+      ? `Proposal ${params.cerprno} was sent back to initiator for rework/revision by ${params.approver_name} at Level ${params.level_id}. Required changes / notes: "${params.comments}". The initiator can edit and resubmit to restart approval.${attachmentsSummary}`
       : `Proposal ${params.cerprno} was rejected at Level ${params.level_id} by ${params.approver_name}. Reason / Comments: "${params.comments}".`;
 
     try {
@@ -1542,7 +1530,7 @@ export class SharePointCERDataService implements ICERDataService {
   // ---------------------------------------------------------------------------
 
   public async getAttachments(cerprno: string): Promise<ICERAttachment[]> {
-    const candidateLists = [SP_LISTS.CER_ATTACHMENTS, "CER_Attachments"];
+    const candidateLists = [SP_LISTS.CER_ATTACHMENTS];
     let lastErr: any = null;
 
     for (const libName of candidateLists) {
@@ -1669,7 +1657,7 @@ export class SharePointCERDataService implements ICERDataService {
       cerPrNo: attachment.cerprno,
     };
 
-    const candidateLibraries = [SP_LISTS.CER_ATTACHMENTS, "CER_Attachments"];
+    const candidateLibraries = [SP_LISTS.CER_ATTACHMENTS];
     let uploaded = false;
     let lastErr: any = null;
 
@@ -1715,7 +1703,7 @@ export class SharePointCERDataService implements ICERDataService {
   }
 
   public async deleteAttachment(id: string): Promise<void> {
-    const candidateLibraries = [SP_LISTS.CER_ATTACHMENTS, "CER_Attachments"];
+    const candidateLibraries = [SP_LISTS.CER_ATTACHMENTS];
     let deleted = false;
     let lastErr: any = null;
 
@@ -1744,7 +1732,7 @@ export class SharePointCERDataService implements ICERDataService {
   // ---------------------------------------------------------------------------
 
   public async getNotificationLogs(cerprno?: string): Promise<INotificationLog[]> {
-    const candidateLists = [SP_LISTS.CER_NOTIFICATIONS, "CER_Notifications"];
+    const candidateLists = [SP_LISTS.CER_NOTIFICATIONS];
     let lastErr: any = null;
 
     for (const listName of candidateLists) {
@@ -1824,7 +1812,7 @@ export class SharePointCERDataService implements ICERDataService {
       status: "SENT",
     };
 
-    const candidateLists = [SP_LISTS.CER_NOTIFICATIONS, "CER_Notifications"];
+    const candidateLists = [SP_LISTS.CER_NOTIFICATIONS];
     for (const listName of candidateLists) {
       try {
         try {
@@ -2152,44 +2140,78 @@ export class SharePointCERDataService implements ICERDataService {
     this._inFlightUserRoles = (async () => {
       try {
         let items: Record<string, any>[] = [];
-        const candidateLists = [SP_LISTS.CER_USER_ROLES];
+        const listName = SP_LISTS.CER_USER_ROLES;
 
-        for (const listName of candidateLists) {
+        const isListMissing = (err: any) => {
+          if (!err) return false;
+          const msg = String(err?.message || err).toLowerCase();
+          return (
+            (msg.includes("list") && msg.includes("does not exist")) ||
+            msg.includes("404") ||
+            msg.includes("itemnotfound")
+          );
+        };
+
+        // Tier 1: Modern schema with Person fields 'User' and 'assignedBy' expanded matching CERUserRoles
+        try {
+          items = await this._sp.getListItems<Record<string, any>>(listName, {
+            select: "Id,ID,Title,role,approvalLevel,department,assignedDate,Created,User/Id,User/Title,User/EMail,User/Name,assignedBy/Id,assignedBy/Title,assignedBy/EMail",
+            expand: "User,assignedBy",
+            top: 500,
+          });
+        } catch (t1Err: any) {
+          if (isListMissing(t1Err)) {
+            console.warn(`[SharePointCERDataService] ${listName} list not found on site, defaulting to empty roles:`, t1Err);
+            this._cachedUserRoles = [];
+            this._cachedUserRolesTimestamp = Date.now();
+            return [];
+          }
+          console.warn(`[SharePointCERDataService] Tier 1 fetch failed on ${listName}, trying Tier 2 (User only):`, t1Err);
           try {
-            // Tier 1: Modern schema with Person fields 'User' and 'assignedBy' expanded matching CERUserRoles
+            // Tier 2: Only User expanded
             items = await this._sp.getListItems<Record<string, any>>(listName, {
-              select: "Id,ID,Title,role,approvalLevel,department,assignedDate,Created,User/Id,User/Title,User/EMail,User/Name,assignedBy/Id,assignedBy/Title,assignedBy/EMail",
-              expand: "User,assignedBy",
+              select: "Id,ID,Title,role,approvalLevel,department,assignedDate,Created,User/Id,User/Title,User/EMail,User/Name",
+              expand: "User",
               top: 500,
             });
-            break;
-          } catch (t1Err) {
-            console.warn("[SharePointCERDataService] Tier 1 fetch failed, trying Tier 2 (User only):", t1Err);
+          } catch (t2Err: any) {
+            if (isListMissing(t2Err)) {
+              console.warn(`[SharePointCERDataService] ${listName} list not found on site, defaulting to empty roles:`, t2Err);
+              this._cachedUserRoles = [];
+              this._cachedUserRolesTimestamp = Date.now();
+              return [];
+            }
+            console.warn(`[SharePointCERDataService] Tier 2 fetch failed on ${listName}, trying Tier 3 (standard text columns):`, t2Err);
             try {
-              // Tier 2: Only User expanded
+              // Tier 3: Baseline fallback without Person expansion
               items = await this._sp.getListItems<Record<string, any>>(listName, {
-                select: "Id,ID,Title,role,approvalLevel,department,assignedDate,Created,User/Id,User/Title,User/EMail,User/Name",
-                expand: "User",
+                select: "Id,ID,Title,role,approvalLevel,department,assignedDate,Created",
                 top: 500,
               });
-              break;
-            } catch (t2Err) {
-              console.warn("[SharePointCERDataService] Tier 2 fetch failed, trying Tier 3 (no Person expand):", t2Err);
+            } catch (t3Err: any) {
+              if (isListMissing(t3Err)) {
+                console.warn(`[SharePointCERDataService] ${listName} list not found on site, defaulting to empty roles:`, t3Err);
+                this._cachedUserRoles = [];
+                this._cachedUserRolesTimestamp = Date.now();
+                return [];
+              }
+              console.warn(`[SharePointCERDataService] Tier 3 fetch failed on ${listName}, trying Tier 4 (safe baseline with no $select):`, t3Err);
               try {
-                // Tier 3: Baseline fallback without Person expansion
+                // Tier 4: Total safe baseline - NO $select projection. SharePoint never fails on column mismatch when $select is omitted!
                 items = await this._sp.getListItems<Record<string, any>>(listName, {
-                  select: "Id,ID,Title,role,approvalLevel,department,assignedDate,Created",
                   top: 500,
                 });
-                break;
-              } catch (t3Err) {
-                console.warn("[SharePointCERDataService] Tier 3 fetch failed, trying Tier 4 minimal:", t3Err);
-                // Tier 4: Minimal fields fallback
-                items = await this._sp.getListItems<Record<string, any>>(listName, {
-                  select: "Id,ID,Title,Created",
-                  top: 500,
-                });
-                break;
+              } catch (t4Err: any) {
+                if (isListMissing(t4Err)) {
+                  console.warn(`[SharePointCERDataService] ${listName} list not found on site, defaulting to empty roles:`, t4Err);
+                  this._cachedUserRoles = [];
+                  this._cachedUserRolesTimestamp = Date.now();
+                  return [];
+                }
+                console.warn(`[SharePointCERDataService] All tiers failed for ${listName}, defaulting to empty roles to prevent UI failure:`, t4Err);
+                this._cachedUserRoles = [];
+                this._cachedUserRolesTimestamp = Date.now();
+                return [];
               }
             }
           }
@@ -2228,12 +2250,10 @@ export class SharePointCERDataService implements ICERDataService {
         this._cachedUserRolesTimestamp = Date.now();
         return list;
       } catch (e) {
-        if (e && (String((e as any)?.message || e).includes("404") || String((e as any)?.message || e).includes("does not exist"))) {
-          console.warn("[SharePointCERDataService] CERUserRoles list not found on site, defaulting to empty roles:", e);
-          return [];
-        }
-        console.error("[SharePointCERDataService] Querying CERUserRoles failed:", e);
-        throw new Error(`Unable to load user roles from SharePoint: ${e instanceof Error ? e.message : String(e)}`);
+        console.warn("[SharePointCERDataService] Querying CERUserRoles caught unexpected error, defaulting to empty roles:", e);
+        this._cachedUserRoles = [];
+        this._cachedUserRolesTimestamp = Date.now();
+        return [];
       } finally {
         this._inFlightUserRoles = null;
       }
@@ -2298,37 +2318,35 @@ export class SharePointCERDataService implements ICERDataService {
       }
 
       let res: { Id?: number; ID?: number } | null = null;
-      const candidateLists = [SP_LISTS.CER_USER_ROLES];
+      const listName = SP_LISTS.CER_USER_ROLES;
+      let lastCreateErr: any = null;
 
-      for (const listName of candidateLists) {
+      try {
+        res = await this._sp.createListItem<{ Id?: number; ID?: number }>(listName, payload);
+      } catch (createErr: any) {
+        lastCreateErr = createErr;
+        const errStr = String(createErr?.message || "").toLowerCase();
+        const fallbackPayload: Record<string, any> = { ...payload };
+        if (errStr.includes("assignedbyid")) delete fallbackPayload.assignedById;
+        if (errStr.includes("userid") || errStr.includes("user")) delete fallbackPayload.UserId;
+        if (errStr.includes("approvallevel")) {
+          delete fallbackPayload.approvalLevel;
+          fallbackPayload.approval_level = assignment.approval_level || null;
+        }
+        if (errStr.includes("assigneddate")) {
+          delete fallbackPayload.assignedDate;
+          fallbackPayload.assigned_date = payload.assignedDate;
+          fallbackPayload.assigned_by = actor.name;
+        }
         try {
-          res = await this._sp.createListItem<{ Id?: number; ID?: number }>(listName, payload);
-          break;
-        } catch (createErr: any) {
-          const errStr = String(createErr?.message || "").toLowerCase();
-          const fallbackPayload: Record<string, any> = { ...payload };
-          if (errStr.includes("assignedbyid")) delete fallbackPayload.assignedById;
-          if (errStr.includes("userid") || errStr.includes("user")) delete fallbackPayload.UserId;
-          if (errStr.includes("approvallevel")) {
-            delete fallbackPayload.approvalLevel;
-            fallbackPayload.approval_level = assignment.approval_level || null;
-          }
-          if (errStr.includes("assigneddate")) {
-            delete fallbackPayload.assignedDate;
-            fallbackPayload.assigned_date = payload.assignedDate;
-            fallbackPayload.assigned_by = actor.name;
-          }
-          try {
-            res = await this._sp.createListItem<{ Id?: number; ID?: number }>(listName, fallbackPayload);
-            break;
-          } catch {
-            // Try next list name
-          }
+          res = await this._sp.createListItem<{ Id?: number; ID?: number }>(listName, fallbackPayload);
+        } catch (fbErr) {
+          lastCreateErr = fbErr;
         }
       }
 
       if (!res) {
-        throw new Error("Failed to write to CERUserRoles list.");
+        throw new Error(`Failed to write to CERUserRoles list. (${lastCreateErr instanceof Error ? lastCreateErr.message : String(lastCreateErr)})`);
       }
 
       const created: IUserRoleAssignment = {
@@ -2396,34 +2414,32 @@ export class SharePointCERDataService implements ICERDataService {
         Object.assign(payload, PersonFieldService.formatPersonFieldPayload("User", spUserId));
       }
 
-      const candidateLists = [SP_LISTS.CER_USER_ROLES];
+      const listName = SP_LISTS.CER_USER_ROLES;
       let updated = false;
+      let lastUpdateErr: any = null;
 
-      for (const listName of candidateLists) {
+      try {
+        await this._sp.updateListItem(listName, assignment.id, payload);
+        updated = true;
+      } catch (updateErr: any) {
+        lastUpdateErr = updateErr;
+        const errStr = String(updateErr?.message || "").toLowerCase();
+        const fallbackPayload: Record<string, any> = { ...payload };
+        if (errStr.includes("userid") || errStr.includes("user")) delete fallbackPayload.UserId;
+        if (errStr.includes("approvallevel")) {
+          delete fallbackPayload.approvalLevel;
+          fallbackPayload.approval_level = assignment.approval_level || null;
+        }
         try {
-          await this._sp.updateListItem(listName, assignment.id, payload);
+          await this._sp.updateListItem(listName, assignment.id, fallbackPayload);
           updated = true;
-          break;
-        } catch (updateErr: any) {
-          const errStr = String(updateErr?.message || "").toLowerCase();
-          const fallbackPayload: Record<string, any> = { ...payload };
-          if (errStr.includes("userid") || errStr.includes("user")) delete fallbackPayload.UserId;
-          if (errStr.includes("approvallevel")) {
-            delete fallbackPayload.approvalLevel;
-            fallbackPayload.approval_level = assignment.approval_level || null;
-          }
-          try {
-            await this._sp.updateListItem(listName, assignment.id, fallbackPayload);
-            updated = true;
-            break;
-          } catch {
-            // try next candidate
-          }
+        } catch (fbErr) {
+          lastUpdateErr = fbErr;
         }
       }
 
       if (!updated) {
-        throw new Error(`Failed to update item ${assignment.id} in ${SP_LISTS.CER_USER_ROLES}.`);
+        throw new Error(`Failed to update item ${assignment.id} in CERUserRoles. (${lastUpdateErr instanceof Error ? lastUpdateErr.message : String(lastUpdateErr)})`);
       }
 
       try {
@@ -2453,21 +2469,8 @@ export class SharePointCERDataService implements ICERDataService {
   ): Promise<void> {
     this.clearCache();
     try {
-      const candidateLists = [SP_LISTS.CER_USER_ROLES];
-      let deleted = false;
-      for (const listName of candidateLists) {
-        try {
-          await this._sp.deleteListItem(listName, assignmentId);
-          deleted = true;
-          break;
-        } catch {
-          // try next
-        }
-      }
-
-      if (!deleted) {
-        throw new Error(`Failed to delete item ${assignmentId} from CERUserRoles.`);
-      }
+      const listName = SP_LISTS.CER_USER_ROLES;
+      await this._sp.deleteListItem(listName, assignmentId);
 
       try {
         await this.logAdminAudit({
@@ -2490,57 +2493,50 @@ export class SharePointCERDataService implements ICERDataService {
   }
 
   // ---------------------------------------------------------------------------
-  // 7. Administrative Audit Log
+  // 7. Administrative Audit Log (Stored in CERAuditTrail)
   // ---------------------------------------------------------------------------
 
   public async getAdminAuditLog(): Promise<IAdminAuditRecord[]> {
-    for (const listName of ["CERAdminAuditLog", "CER_AdminAuditLog"]) {
-      try {
-        const items = await this._sp.getListItems<Record<string, any>>(listName, {
-          top: 500,
-          orderby: "Created desc",
-        });
+    try {
+      const items = await this._sp.getListItems<Record<string, any>>(SP_LISTS.CER_AUDIT_TRAIL, {
+        top: 500,
+        orderby: "Created desc",
+      });
 
-        return items.map((item: any) => ({
-          id: String(item.Id || item.id),
-          actor_name: item.actor_name || item.Title || "Admin",
-          actor_email: item.actor_email || "",
-          action: item.action || "SETTINGS_UPDATED",
-          target_type: item.target_type || "SETTINGS",
-          target_id: item.target_id || "",
-          details: item.details || "",
-          before_value: item.before_value || "",
-          after_value: item.after_value || "",
-          timestamp: item.timestamp || item.Created || new Date().toISOString(),
-        }));
-      } catch (e) {
-        // try next
-      }
+      return items.map((item: any) => ({
+        id: String(item.Id || item.id),
+        actor_name: item.userName || item.actor_name || item.Title || "Admin",
+        actor_email: item.userEmail || item.actor_email || "",
+        action: item.actionType || item.action || "UPDATE",
+        target_type: item.fieldName || item.target_type || "SETTINGS",
+        target_id: item.cerPrNo || item.target_id || "",
+        details: item.fieldName ? `Field '${item.fieldName}' changed from '${item.oldValue || ""}' to '${item.newValue || ""}'` : (item.details || ""),
+        before_value: item.oldValue || item.before_value || "",
+        after_value: item.newValue || item.after_value || "",
+        timestamp: item.timestamp || item.Created || new Date().toISOString(),
+      }));
+    } catch {
+      return [];
     }
-    return [];
   }
 
   public async logAdminAudit(record: Omit<IAdminAuditRecord, "id">): Promise<void> {
     const payload = {
-      Title: record.actor_name,
-      actor_name: record.actor_name,
-      actor_email: record.actor_email,
-      action: record.action,
-      target_type: record.target_type,
-      target_id: record.target_id,
-      details: record.details,
-      before_value: record.before_value || null,
-      after_value: record.after_value || null,
+      Title: record.target_id || "ADMIN",
+      cerPrNo: record.target_id || "ADMIN",
+      fieldName: record.target_type || "SETTINGS",
+      oldValue: record.before_value || "",
+      newValue: record.after_value || record.details || "",
+      userName: record.actor_name,
+      userEmail: record.actor_email,
+      actionType: "UPDATE",
       timestamp: record.timestamp || new Date().toISOString(),
     };
 
-    for (const listName of ["CERAdminAuditLog", "CER_AdminAuditLog"]) {
-      try {
-        await this._sp.createListItem(listName, payload);
-        return;
-      } catch (e) {
-        // try next
-      }
+    try {
+      await this._sp.createListItem(SP_LISTS.CER_AUDIT_TRAIL, payload);
+    } catch {
+      // non-blocking
     }
   }
 }

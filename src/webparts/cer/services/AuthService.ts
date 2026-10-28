@@ -35,8 +35,7 @@ export function normalizeUserIdentifier(val?: string): string {
  */
 export const DESIGNATED_ADMIN_IDENTIFIERS: string[] = [
   "70007144@cairnindia.com",
-  "priya.kalekar@cairnindia.com",
-  "70004733@cairnindia.com",
+  "shiven.pandit@cairnindia.com",
 ];
 
 export function isDesignatedAdmin(identifier?: string): boolean {
@@ -80,6 +79,34 @@ export class AuthService {
       allRoles = await dataService.getUserRoles();
     } catch (err) {
       console.warn("[AuthService] Failed to load role assignments:", err);
+    }
+
+    // Auto-clean any stale/invalid designated-admin auto-provisioned records for non-designated accounts (e.g. Priya Kalekar)
+    const invalidAutoAdmins = allRoles.filter((a) => {
+      const aEmail = normalizeUserIdentifier(a.user_email);
+      const aLogin = normalizeUserIdentifier(a.login_name);
+      const isAutoProvisioned =
+        a.role === "Admin" &&
+        (a.assigned_by === "SYSTEM_DESIGNATED_ADMIN_PROVISION" ||
+          a.department === "Enterprise Administration");
+      const isActuallyDesignated = isDesignatedAdmin(aEmail) || isDesignatedAdmin(aLogin);
+      return isAutoProvisioned && !isActuallyDesignated;
+    });
+
+    if (invalidAutoAdmins.length > 0) {
+      console.warn("[AuthService] Auto-revoking invalid auto-provisioned Admin records:", invalidAutoAdmins);
+      for (const invalid of invalidAutoAdmins) {
+        try {
+          await dataService.revokeUserRole(invalid.id, {
+            name: "System Bootstrapper",
+            email: "security@system.local",
+          });
+        } catch (revokeErr) {
+          console.warn("[AuthService] Could not auto-revoke invalid admin record:", invalid.id, revokeErr);
+        }
+      }
+      const invalidIds = new Set(invalidAutoAdmins.map((i) => i.id));
+      allRoles = allRoles.filter((a) => !invalidIds.has(a.id));
     }
 
     // Filter active roles assigned to current user by email or loginName

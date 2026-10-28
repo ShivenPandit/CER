@@ -253,8 +253,10 @@ const CER: React.FC<ICERProps> = (props) => {
           (found.owname.toLowerCase() === currentUser.name.toLowerCase() ||
             found.owner_email.toLowerCase() === currentUser.email.toLowerCase())
         ) {
-          handleNavigate("my-proposals", undefined, true);
-          return;
+          if (PermissionService.canViewMyRequests(currentUser)) {
+            handleNavigate("my-proposals", undefined, true);
+            return;
+          }
         }
       }
       const target =
@@ -430,15 +432,24 @@ const CER: React.FC<ICERProps> = (props) => {
         )}
 
         {currentView === "my-proposals" && (
-          <ProposalListView
-            proposals={proposals}
-            currentUser={currentUser}
-            mode="my"
-            onNavigateToCreate={() => handleNavigate("create")}
-            onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
-            onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
-            onCancel={handleGoBack}
-          />
+          PermissionService.canAccessView("my-proposals", currentUser) ? (
+            <ProposalListView
+              proposals={proposals}
+              currentUser={currentUser}
+              mode="my"
+              onNavigateToCreate={() => handleNavigate("create")}
+              onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
+              onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
+              onCancel={handleGoBack}
+            />
+          ) : (
+            <AccessDeniedView
+              currentUser={currentUser}
+              attemptedView="my-proposals"
+              customMessage="The My CER Requests view is reserved for Initiators and Administrators who submit proposals."
+              onGoHome={handleGoBack}
+            />
+          )
         )}
 
         {currentView === "all-proposals" && (

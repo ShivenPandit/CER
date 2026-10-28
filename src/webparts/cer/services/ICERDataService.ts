@@ -42,7 +42,7 @@ export interface ICERDataService {
     level_id: number;
     approver_name: string;
     approver_email: string;
-    decision: "APPROVED" | "REJECTED";
+    decision: "APPROVED" | "REJECTED" | "SENT_BACK";
     comments: string;
   }): Promise<{ success: boolean; newStatus: string; nextLevel: number }>;
 

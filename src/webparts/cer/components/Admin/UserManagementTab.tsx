@@ -195,8 +195,8 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
   // Fully Automatic Dynamic Table Pagination
   const pagination = useDynamicPagination({
     totalItems: filteredRoles.length,
-    defaultRowHeight: 52,
-    bufferBottom: 52,
+    defaultRowHeight: 58,
+    bufferBottom: 84,
   });
 
   const visibleRoles = pagination.paginateItems(filteredRoles);

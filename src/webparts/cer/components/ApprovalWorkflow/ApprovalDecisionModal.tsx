@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { CheckCircle2, XCircle, X, AlertTriangle, Paperclip, FileText, User, ShieldAlert } from "lucide-react";
+import { CheckCircle2, XCircle, RotateCcw, X, AlertTriangle, Paperclip, FileText, User, ShieldAlert } from "lucide-react";
 import { ICERProposal } from "../../models/CERModel";
 import { ICERAttachment } from "../../models/AttachmentModel";
 import { IWorkflowLevel } from "../../models/WorkflowModel";
@@ -14,7 +14,7 @@ interface IApprovalDecisionModalProps {
   currentUser: IAppUser;
   isOpen: boolean;
   onClose: () => void;
-  onSubmitDecision: (decision: "APPROVED" | "REJECTED", comments: string) => Promise<void>;
+  onSubmitDecision: (decision: "APPROVED" | "REJECTED" | "SENT_BACK", comments: string) => Promise<void>;
 }
 
 export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
@@ -26,7 +26,7 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
   onClose,
   onSubmitDecision,
 }) => {
-  const [decision, setDecision] = useState<"APPROVED" | "REJECTED">("APPROVED");
+  const [decision, setDecision] = useState<"APPROVED" | "REJECTED" | "SENT_BACK">("APPROVED");
   const [comments, setComments] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +43,10 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
     }
     if (decision === "REJECTED" && !comments.trim()) {
       setError("Please provide a mandatory justification comment for rejecting this proposal.");
+      return;
+    }
+    if (decision === "SENT_BACK" && !comments.trim()) {
+      setError("Please provide mandatory comments explaining what needs to be changed or corrected by the initiator.");
       return;
     }
 
@@ -183,31 +187,53 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
             <label className="block font-semibold text-slate-800 mb-2">
               Approval Decision <span className="text-rose-500">*</span>
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <button
                 type="button"
                 onClick={() => setDecision("APPROVED")}
-                className={`p-3 rounded-xl border flex items-center justify-center gap-2 font-semibold transition-all ${
+                className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition-all text-center ${
                   decision === "APPROVED"
                     ? "bg-emerald-50 border-emerald-300 text-emerald-800 ring-2 ring-emerald-500/20 shadow-sm"
                     : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                 }`}
               >
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Approve & Advance Level</span>
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span className="text-xs">Approve & Advance</span>
+                </div>
+                <span className="text-[10px] font-normal text-emerald-700">Advance to next stage</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDecision("SENT_BACK")}
+                className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition-all text-center ${
+                  decision === "SENT_BACK"
+                    ? "bg-amber-50 border-amber-300 text-amber-900 ring-2 ring-amber-500/20 shadow-sm"
+                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <RotateCcw className="w-4 h-4 text-amber-600" />
+                  <span className="text-xs">Send Back to Initiator</span>
+                </div>
+                <span className="text-[10px] font-normal text-amber-700">Allow initiator to edit & resubmit</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setDecision("REJECTED")}
-                className={`p-3 rounded-xl border flex items-center justify-center gap-2 font-semibold transition-all ${
+                className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition-all text-center ${
                   decision === "REJECTED"
                     ? "bg-rose-50 border-rose-300 text-rose-800 ring-2 ring-rose-500/20 shadow-sm"
                     : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                 }`}
               >
-                <XCircle className="w-4 h-4 text-rose-600" />
-                <span>Reject & Return to Initiator</span>
+                <div className="flex items-center gap-1.5">
+                  <XCircle className="w-4 h-4 text-rose-600" />
+                  <span className="text-xs">Reject Proposal</span>
+                </div>
+                <span className="text-[10px] font-normal text-rose-700">Permanent rejection (no edits)</span>
               </button>
             </div>
           </div>
@@ -216,7 +242,12 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
           <div>
             <label className="block font-semibold text-slate-800 mb-1.5">
               Reviewer Comments & Justification{" "}
-              {decision === "REJECTED" && <span className="text-rose-500">(Mandatory for rejection)</span>}
+              {decision === "REJECTED" && (
+                <span className="text-rose-500 font-normal">(Mandatory for rejection)</span>
+              )}
+              {decision === "SENT_BACK" && (
+                <span className="text-amber-600 font-normal">(Mandatory: state revision requirements)</span>
+              )}
             </label>
             <textarea
               rows={3}
@@ -225,10 +256,12 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
               placeholder={
                 decision === "APPROVED"
                   ? "Enter optional endorsement notes or approval conditions..."
-                  : "State specific reason for rejection, missing documentation, or necessary adjustments..."
+                  : decision === "SENT_BACK"
+                  ? "State specific changes, revisions, or missing documents required from the initiator..."
+                  : "State specific reason for permanent rejection..."
               }
               className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all text-slate-900 placeholder:text-slate-400 resize-none text-xs"
-              required={decision === "REJECTED"}
+              required={decision === "REJECTED" || decision === "SENT_BACK"}
             />
           </div>
 
@@ -266,10 +299,18 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
                   ? "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300"
                   : decision === "APPROVED"
                   ? "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                  : decision === "SENT_BACK"
+                  ? "bg-amber-600 hover:bg-amber-700 text-white cursor-pointer"
                   : "bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
               }`}
             >
-              {isSubmitting ? "Submitting Decision..." : `Confirm ${decision === "APPROVED" ? "Approval" : "Rejection"}`}
+              {isSubmitting
+                ? "Submitting Decision..."
+                : decision === "APPROVED"
+                ? "Confirm Approval"
+                : decision === "SENT_BACK"
+                ? "Confirm Send Back"
+                : "Confirm Rejection"}
             </button>
           </div>
         </div>

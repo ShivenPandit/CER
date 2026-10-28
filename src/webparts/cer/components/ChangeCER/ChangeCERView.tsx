@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, Save, Send, ArrowLeft, CheckCircle2, AlertCircle, ShieldAlert } from "lucide-react";
+import { Search, Save, Send, ArrowLeft, CheckCircle2, AlertCircle, ShieldAlert, RotateCcw } from "lucide-react";
 import { ICERProposal, IFieldChoices } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
 import { ICERAttachment } from "../../models/AttachmentModel";
@@ -317,6 +317,19 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
                 <p className="font-bold">Post-Approval Revision Mode (Doc §8 #7)</p>
                 <p className="text-amber-800 text-[11px] mt-0.5">
                   This proposal was previously approved. You may edit project parameters and justification; however, the proposal number is locked to preserve referential and audit integrity.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Sent Back for Revision Banner */}
+          {originalProposal?.status === "Revised" && (
+            <div className="p-4 rounded-xl bg-purple-50 border border-purple-200 text-purple-950 text-xs flex items-center gap-2.5">
+              <RotateCcw className="w-5 h-5 text-purple-600 shrink-0" />
+              <div>
+                <p className="font-bold text-purple-900">Proposal Sent Back for Revision</p>
+                <p className="text-purple-800 text-[11px] mt-0.5">
+                  This proposal was sent back by an approver for rework. Make any necessary updates, add or replace attachments, and click &ldquo;Save Changes &amp; Re-trigger Workflow&rdquo; below to restart the approval sequence from Level 1.
                 </p>
               </div>
             </div>

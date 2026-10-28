@@ -877,7 +877,7 @@ export class LocalMockCERDataService implements ICERDataService {
     level_id: number;
     approver_name: string;
     approver_email: string;
-    decision: "APPROVED" | "REJECTED";
+    decision: "APPROVED" | "REJECTED" | "SENT_BACK";
     comments: string;
   }): Promise<{ success: boolean; newStatus: string; nextLevel: number }> {
     const propIndex = this._proposals.findIndex(p => p.cerprno.toUpperCase() === params.cerprno.toUpperCase());
@@ -1026,19 +1026,39 @@ export class LocalMockCERDataService implements ICERDataService {
           console.warn("Notification error:", notifErr);
         }
       }
-    } else {
-      // REJECTED
-      proposal.status = "Rejected";
-      proposal.pending_with_role = "Returned to Initiator";
+    } else if (params.decision === "SENT_BACK") {
+      // SENT BACK TO INITIATOR (Allows Initiator to edit and re-trigger workflow)
+      proposal.status = "Revised";
+      proposal.pending_with_role = "Initiator (Rework)";
       proposal.pending_with_email = proposal.owner_email;
+      proposal.current_level = 1;
+      newStatus = "Revised";
+      nextLevelId = 1;
+
+      try {
+        this._recordNotification({
+          cerprno: proposal.cerprno,
+          recipients: notificationRecipients,
+          subject: `[CER Revision Requested] Proposal ${proposal.cerprno} Sent Back for Revision by ${params.approver_name}`,
+          body: `CER Proposal ${proposal.cerprno} has been SENT BACK for revision at Level ${params.level_id} by ${params.approver_name}. Revision requirements: "${params.comments}". The initiator may now edit and resubmit the proposal to restart the approval workflow.${attachmentSummary}`,
+          attachments_count: proposalAttachments.length
+        });
+      } catch (notifErr) {
+        console.warn("Notification error:", notifErr);
+      }
+    } else {
+      // PERMANENT REJECTION (No edits or modifications permitted)
+      proposal.status = "Rejected";
+      proposal.pending_with_role = "Rejected";
+      proposal.pending_with_email = "";
       newStatus = "Rejected";
 
       try {
         this._recordNotification({
           cerprno: proposal.cerprno,
           recipients: notificationRecipients,
-          subject: `[CER Rejected] Proposal ${proposal.cerprno} Rejected by ${params.approver_name}`,
-          body: `CER Proposal ${proposal.cerprno} has been REJECTED at Level ${params.level_id} by ${params.approver_name}. Rejection reason: "${params.comments}". Proposal returned to initiator.${attachmentSummary}`,
+          subject: `[CER Rejected] Proposal ${proposal.cerprno} Permanently Rejected by ${params.approver_name}`,
+          body: `CER Proposal ${proposal.cerprno} has been PERMANENTLY REJECTED at Level ${params.level_id} by ${params.approver_name}. Reason: "${params.comments}". No further modifications or edits are permitted.${attachmentSummary}`,
           attachments_count: proposalAttachments.length
         });
       } catch (notifErr) {

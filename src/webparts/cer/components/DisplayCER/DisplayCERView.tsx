@@ -25,6 +25,7 @@ import { IWorkflowLevel, IApprovalDecision, isProjectOwnerStage } from "../../mo
 import { ICERDataService } from "../../services/ICERDataService";
 import { PDFExportService } from "../../services/PDFExportService";
 import { ExcelExportService } from "../../services/ExcelExportService";
+import { PermissionService } from "../../services/PermissionService";
 import { StatusBadge } from '../Shared/StatusBadge';
 import { CategoryBadge } from '../Shared/CategoryBadge';
 import { ApprovalProgressTracker } from '../ApprovalWorkflow/ApprovalProgressTracker';
@@ -303,15 +304,31 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                   <span>Print</span>
                 </button>
 
-                {(currentUser.role === "Initiator" || currentUser.role === "Admin") && (
-                  <button
-                    onClick={() => onNavigateToChange(proposal.cerprno)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow-sm transition-all"
-                  >
-                    <Edit className="w-3.5 h-3.5" />
-                    <span>Change CER</span>
-                  </button>
-                )}
+                {(currentUser.role === "Initiator" || currentUser.role === "Admin") && (() => {
+                  const editAuth = proposal
+                    ? PermissionService.canEditCER(proposal, currentUser)
+                    : { allowed: false, reason: "Proposal not found" };
+                  const canEdit = editAuth.allowed;
+                  const editTooltip = canEdit
+                    ? "Modify Proposal Details (FR-02)"
+                    : editAuth.reason || "Proposal cannot be modified";
+                  return (
+                    <button
+                      disabled={!canEdit}
+                      onClick={canEdit ? () => onNavigateToChange(proposal.cerprno) : undefined}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg shadow-sm transition-all ${
+                        canEdit
+                          ? "bg-blue-600 hover:bg-blue-500 text-white cursor-pointer"
+                          : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-60"
+                      }`}
+                      title={editTooltip}
+                      aria-disabled={!canEdit}
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                      <span>Change CER</span>
+                    </button>
+                  );
+                })()}
 
                 <button
                   onClick={() => onNavigateToAudit(proposal.cerprno)}

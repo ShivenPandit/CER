@@ -117,28 +117,8 @@ export function useDynamicPagination({
         nonTableOverhead = footerHeight;
       }
 
-      // Measure actual rendered row heights (accounting for multiline cells/wrapping)
-      let measuredRowHeight = defaultRowHeight;
-      const tbody = container.querySelector("tbody");
-      if (tbody) {
-        const renderedRows = Array.from(tbody.querySelectorAll("tr")) as HTMLElement[];
-        if (renderedRows.length > 0) {
-          const totalRowHeights = renderedRows.reduce((sum, r) => sum + r.offsetHeight, 0);
-          const avg = totalRowHeights / renderedRows.length;
-          if (avg >= 30 && avg <= 200) {
-            measuredRowHeight = Math.round(avg);
-          }
-        }
-      } else {
-        const listItems = container.querySelectorAll("[data-role='list-item']") as NodeListOf<HTMLElement>;
-        if (listItems.length > 0) {
-          const totalHeight = Array.from(listItems).reduce((sum, item) => sum + item.offsetHeight, 0);
-          const avg = totalHeight / listItems.length;
-          if (avg >= 40 && avg <= 300) {
-            measuredRowHeight = Math.round(avg);
-          }
-        }
-      }
+      // Use stable row height to prevent page size fluctuation when different pages render rows of varying height
+      const measuredRowHeight = defaultRowHeight;
 
       // Overhead = nonTableOverhead + theadHeight + borders/safety margin
       const overhead = nonTableOverhead + theadHeight + 10;
@@ -150,17 +130,14 @@ export function useDynamicPagination({
 
       // Guard: only update state if changed to avoid unnecessary re-renders
       if (optimalRows !== lastCalculatedSizeRef.current) {
-        const prevSize = lastCalculatedSizeRef.current;
         lastCalculatedSizeRef.current = optimalRows;
 
         setEffectivePageSize(optimalRows);
 
-        // Adjust currentPage to keep the currently viewed item in view
+        // Keep currentPage within valid bounds without forcing user back to page 1
         setCurrentPage((prevPage) => {
-          const firstItemIndex = (prevPage - 1) * prevSize;
           const newTotal = Math.max(1, Math.ceil(totalItems / optimalRows));
-          const adjustedPage = Math.max(1, Math.min(Math.floor(firstItemIndex / optimalRows) + 1, newTotal));
-          return adjustedPage;
+          return Math.max(1, Math.min(prevPage, newTotal));
         });
       }
     } catch (e) {
@@ -189,10 +166,26 @@ export function useDynamicPagination({
     }, 60);
 
     const scrollParent = container.closest("main") || document.body;
+    let lastWidth = container.offsetWidth;
     let observer: ResizeObserver | null = null;
     if (typeof ResizeObserver !== "undefined") {
-      observer = new ResizeObserver(() => {
-        debouncedCalculate();
+      observer = new ResizeObserver((entries) => {
+        let shouldRecalculate = false;
+        for (const entry of entries) {
+          if (entry.target === container) {
+            // Only trigger if container width changed (layout/window resize), not on vertical height change caused by rendering fewer items
+            const currentWidth = Math.round(entry.contentRect.width);
+            if (currentWidth !== lastWidth) {
+              lastWidth = currentWidth;
+              shouldRecalculate = true;
+            }
+          } else {
+            shouldRecalculate = true;
+          }
+        }
+        if (shouldRecalculate) {
+          debouncedCalculate();
+        }
       });
       observer.observe(container);
       if (scrollParent && scrollParent !== container) {

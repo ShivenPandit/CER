@@ -217,9 +217,9 @@ async function runTests() {
 
   console.log("\nTest Suite 1: URL & Endpoint Encoding");
   {
-    const endpoint = sp.buildListEndpoint("CER_Proposals", "/items");
+    const endpoint = sp.buildListEndpoint("CERProposals", "/items");
     assert(
-      endpoint === `${mockSiteUrl}/_api/web/lists/getByTitle('CER_Proposals')/items`,
+      endpoint === `${mockSiteUrl}/_api/web/lists/getByTitle('CERProposals')/items`,
       "buildListEndpoint encodes standard list name correctly"
     );
 
@@ -262,7 +262,7 @@ async function runTests() {
   console.log("\nTest Suite 3: List Item CRUD & Pagination");
   {
     // getListItems
-    const items = await sp.getListItems("CER_Proposals", {
+    const items = await sp.getListItems("CERProposals", {
       select: "Id,Title",
       filter: "status eq 'Approved'",
       top: 10,
@@ -274,16 +274,16 @@ async function runTests() {
     assert(allItems.length === 3, "getAllListItems iterates across odata.nextLink pages and returns all 3 items");
 
     // createListItem
-    const created = await sp.createListItem("CER_Proposals", { cerprno: "CER-2026-0001" });
+    const created = await sp.createListItem("CERProposals", { cerprno: "CER-2026-0001" });
     assert(created.Id === 55, "createListItem creates list item with assigned Id");
 
     // updateListItem
-    await sp.updateListItem("CER_Proposals", 55, { status: "Approved" });
+    await sp.updateListItem("CERProposals", 55, { status: "Approved" });
     const lastMergeReq = requestLog.find((r) => r.method === "MERGE" && r.url.includes("items(55)"));
     assert(!!lastMergeReq, "updateListItem sends HTTP MERGE to target item endpoint");
 
     // deleteListItem
-    await sp.deleteListItem("CER_Proposals", 55);
+    await sp.deleteListItem("CERProposals", 55);
     const lastDelReq = requestLog.find((r) => r.method === "DELETE" && r.url.includes("items(55)"));
     assert(!!lastDelReq, "deleteListItem sends HTTP DELETE to target item endpoint");
   }
@@ -292,7 +292,7 @@ async function runTests() {
   {
     const dummyBuffer = new ArrayBuffer(16);
     const uploadRes = await sp.uploadFileToLibrary(
-      "CER_Attachments",
+      "CERAttachments",
       "proposal_doc.pdf",
       dummyBuffer,
       { cerprno: "CER-2026-0001", uploaded_by: "Shiven" }
@@ -302,7 +302,7 @@ async function runTests() {
     assert(uploadRes.serverRelativeUrl.includes("proposal_doc.pdf"), "uploadFileToLibrary returns serverRelativeUrl");
 
     // Check that metadata was updated with MERGE
-    const metaReq = requestLog.find((r) => r.method === "MERGE" && r.url.includes("CER_Attachments") && r.url.includes("items(99)"));
+    const metaReq = requestLog.find((r) => r.method === "MERGE" && r.url.includes("CERAttachments") && r.url.includes("items(99)"));
     assert(!!metaReq, "uploadFileToLibrary tags metadata via MERGE using item ETag");
 
     // recycleFile

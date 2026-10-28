@@ -54,6 +54,21 @@ export class PermissionService {
   }
 
   /**
+   * Checks if user has permission to view their submitted requests ("my-proposals").
+   * Pure Approvers (who do not possess Initiator or Admin role) cannot create or own proposals,
+   * so "my-proposals" is hidden for them to avoid an empty dead-end view.
+   */
+  public static canViewMyRequests(user?: IAppUser | null): boolean {
+    if (!user || !user.is_active) return false;
+    const isApprover = this.hasRole(user, "Approver");
+    const isInitiatorOrAdmin = this.hasRole(user, "Initiator") || this.hasRole(user, "Admin");
+    if (isApprover && !isInitiatorOrAdmin) {
+      return false;
+    }
+    return true;
+  }
+
+  /**
    * Verifies if user has permission to navigate to a specific view
    */
   public static canAccessView(view: NavView, user: IAppUser): boolean {
@@ -63,11 +78,13 @@ export class PermissionService {
 
     switch (view) {
       case "dashboard":
-      case "my-proposals":
       case "all-proposals":
       case "display":
       case "approval-history":
         return true;
+
+      case "my-proposals":
+        return this.canViewMyRequests(user);
 
       case "create":
         return this.hasRole(user, "Initiator") || this.hasRole(user, "Admin");
@@ -122,9 +139,15 @@ export class PermissionService {
       proposal.status === "Revised" ||
       proposal.status === "Approved";
     if (!isEditableStatus) {
+      const reason =
+        proposal.status === "In Approval"
+          ? "Proposal is currently 'In Approval' and locked for modification."
+          : proposal.status === "Rejected"
+          ? "Proposal is 'Rejected' and cannot be modified."
+          : `Proposal is in status '${proposal.status}' and cannot be modified.`;
       return {
         allowed: false,
-        reason: `Proposal is in status '${proposal.status}' and cannot be modified. Proposals currently 'In Approval' are locked during workflow review.`,
+        reason,
       };
     }
 

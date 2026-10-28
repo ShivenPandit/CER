@@ -15,6 +15,7 @@ import { IWorkflowLevel } from "../../models/WorkflowModel";
 import { UserManagementTab } from "./UserManagementTab";
 import { ApprovalHierarchyTab } from "./ApprovalHierarchyTab";
 import { PermissionService } from "../../services/PermissionService";
+import { isDesignatedAdmin, normalizeUserIdentifier } from "../../services/AuthService";
 
 export type AdminConsoleTab = "users" | "hierarchy";
 
@@ -59,7 +60,17 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
         dataService.getUserRoles ? dataService.getUserRoles(forceRefresh) : Promise.resolve([]),
         dataService.getWorkflowLevels(undefined, forceRefresh),
       ]);
-      setUserRoles(roles);
+      const cleanRoles = roles.filter((a) => {
+        const aEmail = normalizeUserIdentifier(a.user_email);
+        const aLogin = normalizeUserIdentifier(a.login_name);
+        const isAutoProvisioned =
+          a.role === "Admin" &&
+          (a.assigned_by === "SYSTEM_DESIGNATED_ADMIN_PROVISION" ||
+            a.department === "Enterprise Administration");
+        const isActuallyDesignated = isDesignatedAdmin(aEmail) || isDesignatedAdmin(aLogin);
+        return !(isAutoProvisioned && !isActuallyDesignated);
+      });
+      setUserRoles(cleanRoles);
       setWorkflowLevels(levels);
     } catch (err: any) {
       console.error("[AdminConsoleView] Failed to load admin records:", err);

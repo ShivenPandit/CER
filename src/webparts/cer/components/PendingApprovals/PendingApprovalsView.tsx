@@ -118,7 +118,10 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
     setIsDecisionModalOpen(true);
   };
 
-  const handleSubmitDecision = async (decision: "APPROVED" | "REJECTED", comments: string) => {
+  const handleSubmitDecision = async (
+    decision: "APPROVED" | "REJECTED" | "SENT_BACK",
+    comments: string
+  ) => {
     if (!selectedProposal) return;
 
     const result = await dataService.recordDecision({
@@ -133,7 +136,9 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
     setFeedbackNotice(
       decision === "APPROVED"
         ? `Proposal ${selectedProposal.cerprno} successfully APPROVED. Advanced to ${result.newStatus}.`
-        : `Proposal ${selectedProposal.cerprno} REJECTED and returned to Initiator.`
+        : decision === "SENT_BACK"
+        ? `Proposal ${selectedProposal.cerprno} SENT BACK to Initiator for revision.`
+        : `Proposal ${selectedProposal.cerprno} REJECTED.`
     );
 
     await loadData();

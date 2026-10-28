@@ -14,6 +14,7 @@ import { StatusBadge } from '../Shared/StatusBadge';
 import { CategoryBadge } from '../Shared/CategoryBadge';
 import { PDFExportService } from "../../services/PDFExportService";
 import { ExcelExportService } from "../../services/ExcelExportService";
+import { PermissionService } from "../../services/PermissionService";
 import { useDynamicPagination } from "../../hooks/useDynamicPagination";
 import { DataTablePagination } from '../Shared/DataTablePagination';
 
@@ -205,11 +206,19 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                         title={
                           prop.status === "Approved"
                             ? "Approved"
+                            : prop.status === "Rejected"
+                            ? "Rejected"
+                            : prop.status === "Revised"
+                            ? "Initiator (Rework)"
                             : `L${prop.current_level} - ${prop.pending_with_role}`
                         }
                       >
                         {prop.status === "Approved" ? (
                           <span className="text-emerald-700 font-semibold">Approved</span>
+                        ) : prop.status === "Rejected" ? (
+                          <span className="text-rose-700 font-semibold">Rejected</span>
+                        ) : prop.status === "Revised" ? (
+                          <span className="text-purple-700 font-semibold">Initiator (Rework)</span>
                         ) : (
                           `L${prop.current_level} - ${prop.pending_with_role}`
                         )}
@@ -225,16 +234,29 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
-                        {(currentUser.role === "Initiator" || currentUser.role === "Admin") && (
-                          <button
-                            onClick={() => onNavigateToChange(prop.cerprno)}
-                            className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Change CER (FR-02)"
-                            aria-label={`Change CER ${prop.cerprno}`}
-                          >
-                            <Edit className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                        {(currentUser.role === "Initiator" || currentUser.role === "Admin") && (() => {
+                          const editAuth = PermissionService.canEditCER(prop, currentUser);
+                          const canEdit = editAuth.allowed;
+                          const editTooltip = canEdit
+                            ? "Change CER (FR-02)"
+                            : editAuth.reason || "Proposal cannot be modified";
+                          return (
+                            <button
+                              disabled={!canEdit}
+                              onClick={canEdit ? () => onNavigateToChange(prop.cerprno) : undefined}
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                canEdit
+                                  ? "text-blue-600 hover:text-blue-800 hover:bg-blue-50 cursor-pointer"
+                                  : "text-slate-300 hover:text-slate-300 bg-transparent cursor-not-allowed opacity-50"
+                              }`}
+                              title={editTooltip}
+                              aria-label={`Change CER ${prop.cerprno}`}
+                              aria-disabled={!canEdit}
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                          );
+                        })()}
                         <button
                           onClick={() => handleDownloadPDF(prop)}
                           className="p-1.5 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-lg transition-colors"
@@ -302,7 +324,13 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                       Pending
                     </span>
                     <span className="text-slate-600 text-[11px]">
-                      {prop.status === "Approved" ? "Approved" : `L${prop.current_level} Review`}
+                      {prop.status === "Approved"
+                        ? "Approved"
+                        : prop.status === "Rejected"
+                        ? "Rejected"
+                        : prop.status === "Revised"
+                        ? "Initiator Rework"
+                        : `L${prop.current_level} Review`}
                     </span>
                   </div>
                 </div>
@@ -316,15 +344,29 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                     <Eye className="w-3 h-3" />
                     <span>View</span>
                   </button>
-                  {(currentUser.role === "Initiator" || currentUser.role === "Admin") && (
-                    <button
-                      onClick={() => onNavigateToChange(prop.cerprno)}
-                      className="flex-1 py-1.5 px-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-lg text-center flex items-center justify-center gap-1 text-[11px] transition-colors"
-                    >
-                      <Edit className="w-3 h-3" />
-                      <span>Edit</span>
-                    </button>
-                  )}
+                  {(currentUser.role === "Initiator" || currentUser.role === "Admin") && (() => {
+                    const editAuth = PermissionService.canEditCER(prop, currentUser);
+                    const canEdit = editAuth.allowed;
+                    const editTooltip = canEdit
+                      ? "Change CER"
+                      : editAuth.reason || "Proposal cannot be modified";
+                    return (
+                      <button
+                        disabled={!canEdit}
+                        onClick={canEdit ? () => onNavigateToChange(prop.cerprno) : undefined}
+                        className={`flex-1 py-1.5 px-2 font-semibold rounded-lg text-center flex items-center justify-center gap-1 text-[11px] transition-colors ${
+                          canEdit
+                            ? "bg-blue-50 hover:bg-blue-100 text-blue-700 cursor-pointer"
+                            : "bg-slate-100 text-slate-400 cursor-not-allowed opacity-60"
+                        }`}
+                        title={editTooltip}
+                        aria-disabled={!canEdit}
+                      >
+                        <Edit className="w-3 h-3" />
+                        <span>Edit</span>
+                      </button>
+                    );
+                  })()}
                   <button
                     onClick={() => handleDownloadPDF(prop)}
                     className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-center transition-colors"

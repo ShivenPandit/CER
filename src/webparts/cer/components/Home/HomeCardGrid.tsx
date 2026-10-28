@@ -148,11 +148,13 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
     : true;
   const isAdmin = currentUser ? PermissionService.canAccessAdmin(currentUser) : true;
   const canCreate = currentUser ? PermissionService.canCreateCER(currentUser) : true;
+  const canViewMyRequests = currentUser ? PermissionService.canViewMyRequests(currentUser) : true;
 
   const visibleCards = cards.filter((card) => {
     if (card.id === "workflow-config" && !isAdmin) return false;
     if (card.id === "pending-approvals" && !isApproverOrAdmin) return false;
     if (card.id === "create" && !canCreate) return false;
+    if (card.id === "my-proposals" && !canViewMyRequests) return false;
     return true;
   });
 

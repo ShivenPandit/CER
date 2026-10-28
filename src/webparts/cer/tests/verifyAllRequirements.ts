@@ -1964,6 +1964,138 @@ async function runAllVerificationTests(): Promise<void> {
   }
   assert(sharePointErrorCaught === true, "13.11b: SharePoint write failures are reported accurately");
 
+  // =========================================================================
+  // TEST SUITE 14: Distinct Separation of 'Send Back to Initiator' vs 'Reject Proposal'
+  // =========================================================================
+  console.log("\nTest Suite 14: Distinct Separation of 'Send Back to Initiator' vs 'Reject Proposal'");
+  const ds14 = new LocalMockCERDataService();
+
+  const initiatorUser14: IAppUser = {
+    id: "init-14",
+    name: "Initiator Fourteen",
+    email: "initiator14@cairnindia.com",
+    role: "Initiator",
+    roles: ["Initiator"],
+    is_active: true,
+  };
+
+  const approverUser14: IAppUser = {
+    id: "app-14",
+    name: "Approver Fourteen",
+    email: "approver14@cairnindia.com",
+    role: "Approver",
+    roles: ["Approver"],
+    approval_level: 1,
+    is_active: true,
+  };
+
+  await ds14.saveWorkflowLevels([
+    { level_id: 1, level_name: "L1 - Technical Review", role_title: "Technical Reviewer", approver_name: approverUser14.name, approver_email: approverUser14.email, sbu: "RJ North", is_active: true },
+    { level_id: 2, level_name: "L2 - SBU Head", role_title: "SBU Head", approver_name: "SBU Head", approver_email: "head@cairnindia.com", sbu: "RJ North", is_active: true },
+  ]);
+
+  // 14.1 Create proposal for Send Back test
+  const createSendBackRes = await ds14.createProposal({
+    cerprno: "CER-2026-SB01",
+    pr_name: "Proposal for Send Back Workflow",
+    owname: initiatorUser14.name,
+    owner_email: initiatorUser14.email,
+    sbu: "RJ North",
+    cat: "Vital",
+    amount: 75000,
+    currency: "USD",
+    period: "6 Months",
+    payable: "Payback",
+    remarks: "Initial submission",
+  } as any);
+
+  const propSendBack = createSendBackRes.proposal;
+  assert(propSendBack.status === "In Approval", "14.1a: Proposal created with In Approval status");
+
+  // Approver records SENT_BACK decision
+  const sendBackResult = await ds14.recordDecision({
+    cerprno: propSendBack.cerprno,
+    level_id: 1,
+    approver_name: approverUser14.name,
+    approver_email: approverUser14.email,
+    decision: "SENT_BACK",
+    comments: "Please revise Section B financial benefits and attach updated vendor quotes.",
+  });
+
+  assert(sendBackResult.success === true, "14.1b: recordDecision returns success for SENT_BACK");
+  assert(sendBackResult.newStatus === "Revised", "14.1c: Proposal transitions to status 'Revised'");
+
+  const fetchedRevised = await ds14.getProposalByNumber(propSendBack.cerprno);
+  assert(fetchedRevised !== null && fetchedRevised.status === "Revised", "14.1d: Proposal status in storage is 'Revised'");
+  assert(fetchedRevised?.pending_with_role === "Initiator (Rework)", "14.1e: pending_with_role is 'Initiator (Rework)'");
+  assert(fetchedRevised?.current_level === 1, "14.1f: current_level is reset to 1");
+  assert(fetchedRevised?.pending_with_email === initiatorUser14.email, "14.1g: pending_with_email is set to initiator's email");
+
+  // 14.2 Initiator is allowed to edit proposal in Revised status
+  const initiatorEditAuth = PermissionService.canEditCER(fetchedRevised!, initiatorUser14);
+  assert(initiatorEditAuth.allowed === true, "14.2a: Initiator is permitted to modify proposal in Revised status");
+
+  // Non-owner cannot edit
+  const otherUser14: IAppUser = {
+    id: "other-14",
+    name: "Other User",
+    email: "other14@cairnindia.com",
+    role: "Initiator",
+    roles: ["Initiator"],
+    is_active: true,
+  };
+  const otherEditAuth = PermissionService.canEditCER(fetchedRevised!, otherUser14);
+  assert(otherEditAuth.allowed === false, "14.2b: Non-owner is blocked from modifying revised proposal");
+
+  // 14.3 Initiator modifies proposal and re-triggers workflow
+  const updatedRevised = await ds14.updateProposal({
+    ...fetchedRevised!,
+    amount: 82000,
+    remarks: "Updated with revised vendor quotations as requested.",
+    status: "In Approval",
+    current_level: 1,
+  }, { name: initiatorUser14.name, email: initiatorUser14.email });
+
+  assert(updatedRevised.proposal.status === "In Approval", "14.3a: Resubmitted proposal reverts to 'In Approval'");
+  assert(updatedRevised.proposal.current_level === 1, "14.3b: Resubmitted proposal restarts at Level 1");
+  assert(updatedRevised.auditRowsCount > 0, "14.3c: Field delta audit records generated on revision resubmit");
+
+  // 14.4 Create proposal for Permanent Rejection test
+  const createRejectRes = await ds14.createProposal({
+    cerprno: "CER-2026-REJ01",
+    pr_name: "Proposal for Permanent Rejection",
+    owname: initiatorUser14.name,
+    owner_email: initiatorUser14.email,
+    sbu: "RJ North",
+    cat: "Vital",
+    amount: 150000,
+    currency: "USD",
+    period: "12 Months",
+    payable: "Payback",
+    remarks: "Initial submission for reject",
+  } as any);
+
+  const propReject = createRejectRes.proposal;
+  const rejectResult = await ds14.recordDecision({
+    cerprno: propReject.cerprno,
+    level_id: 1,
+    approver_name: approverUser14.name,
+    approver_email: approverUser14.email,
+    decision: "REJECTED",
+    comments: "Project cannot be sanctioned due to strategic budget realignment.",
+  });
+
+  assert(rejectResult.success === true, "14.4a: recordDecision returns success for REJECTED");
+  assert(rejectResult.newStatus === "Rejected", "14.4b: Proposal transitions to status 'Rejected'");
+
+  const fetchedRejected = await ds14.getProposalByNumber(propReject.cerprno);
+  assert(fetchedRejected !== null && fetchedRejected.status === "Rejected", "14.4c: Proposal status in storage is 'Rejected'");
+
+  // 14.5 Modifications strictly forbidden on Rejected proposal
+  const rejectEditAuth = PermissionService.canEditCER(fetchedRejected!, initiatorUser14);
+  assert(rejectEditAuth.allowed === false, "14.5a: PermissionService strictly blocks modification on Rejected proposal");
+  assert(rejectEditAuth.reason?.includes("Rejected") === true, "14.5b: Clear explanation provided: proposal is 'Rejected' and cannot be modified");
+
   console.log("\n================================================================================");
   console.log(`TEST SUMMARY: ${passed} PASSED | ${failed} FAILED | TOTAL: ${passed + failed}`);
   console.log("================================================================================\n");

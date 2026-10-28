@@ -616,6 +616,63 @@ async function runApprovalHierarchyAccessTests(): Promise<void> {
   assert(finalProposal?.status === "Approved", "10j. Proposal status verified in storage as 'Approved'");
 
   // ---------------------------------------------------------------------------------------------
+  // Test Suite 11: "My CER Request" Access & Visibility Restrictions
+  // ---------------------------------------------------------------------------------------------
+  console.log("\nTest Suite 11: 'My CER Request' Role-Based Visibility");
+
+  const pureApprover: IAppUser = {
+    id: "user-approver-priya",
+    email: "priya.kalekar@cairnindia.com",
+    name: "Priya Kalekar",
+    role: "Approver",
+    roles: ["Approver"],
+    is_active: true,
+  };
+
+  const dualRoleUser: IAppUser = {
+    id: "user-dual",
+    email: "dual.user@cairnindia.com",
+    name: "Dual Role User",
+    role: "Approver",
+    roles: ["Approver", "Initiator"],
+    is_active: true,
+  };
+
+  const testInitiatorUser: IAppUser = {
+    id: "user-initiator",
+    email: "initiator@cairnindia.com",
+    name: "Regular Initiator",
+    role: "Initiator",
+    roles: ["Initiator"],
+    is_active: true,
+  };
+
+  assert(
+    PermissionService.canViewMyRequests(pureApprover) === false,
+    "11a. Pure Approver cannot view 'My CER Requests' (canViewMyRequests === false)"
+  );
+  assert(
+    PermissionService.canAccessView("my-proposals", pureApprover) === false,
+    "11b. Pure Approver route access to 'my-proposals' is denied (canAccessView === false)"
+  );
+  assert(
+    PermissionService.canViewMyRequests(dualRoleUser) === true,
+    "11c. Dual-role (Approver + Initiator) user can view 'My CER Requests'"
+  );
+  assert(
+    PermissionService.canAccessView("my-proposals", dualRoleUser) === true,
+    "11d. Dual-role user route access to 'my-proposals' is granted"
+  );
+  assert(
+    PermissionService.canViewMyRequests(testInitiatorUser) === true,
+    "11e. Initiator user can view 'My CER Requests'"
+  );
+  assert(
+    PermissionService.canViewMyRequests(authorizedUser) === true,
+    "11f. Admin user can view 'My CER Requests'"
+  );
+
+  // ---------------------------------------------------------------------------------------------
   // Summary
   // ---------------------------------------------------------------------------------------------
   console.log("\n================================================================================");

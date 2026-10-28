@@ -90,11 +90,11 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
             </div>
 
             {/* Titles */}
-            <div className="min-w-0 flex flex-col justify-center">
-              <h1 className="text-sm sm:text-[15px] lg:text-[16px] xl:text-[16.5px] 2xl:text-[17.5px] font-bold text-[#0A1E38] tracking-tight leading-tight truncate group-hover:text-blue-700 transition-colors max-w-[180px] xs:max-w-[240px] sm:max-w-none">
+            <div className="flex flex-col justify-center shrink-0">
+              <h1 className="text-sm sm:text-[15px] lg:text-[16px] xl:text-[16.5px] 2xl:text-[17.5px] font-bold text-[#0A1E38] tracking-tight leading-tight whitespace-nowrap group-hover:text-blue-700 transition-colors">
                 Capital Expenditure Request (CER)
               </h1>
-              <p className="hidden xs:block text-[9.5px] sm:text-[10.5px] 2xl:text-[11.5px] font-medium text-slate-500 tracking-tight leading-none mt-0.5 truncate">
+              <p className="hidden xs:block text-[9.5px] sm:text-[10.5px] 2xl:text-[11.5px] font-medium text-slate-500 tracking-tight leading-none mt-0.5 whitespace-nowrap">
                 Management System
               </p>
             </div>

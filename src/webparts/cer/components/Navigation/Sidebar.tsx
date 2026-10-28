@@ -12,7 +12,8 @@ import {
   ChevronRight,
   X,
 } from "lucide-react";
-import { UserRole } from "../../models/UserModel";
+import { IAppUser, UserRole } from "../../models/UserModel";
+import { PermissionService } from "../../services/PermissionService";
 import { VedantaLogo } from '../Shared/VedantaLogo';
 
 export type NavView =
@@ -30,6 +31,7 @@ interface ISidebarProps {
   currentView: NavView;
   onNavigate: (view: NavView, proposalId?: string) => void;
   userRole: UserRole;
+  currentUser?: IAppUser;
   pendingApprovalsCount: number;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
@@ -39,18 +41,28 @@ export const Sidebar: React.FC<ISidebarProps> = ({
   currentView,
   onNavigate,
   userRole,
+  currentUser,
   pendingApprovalsCount,
   isMobileOpen = false,
   onCloseMobile,
 }) => {
   // Authorization checks for navigation items
-  const canCreate = userRole === "Initiator" || userRole === "Admin";
-  const canApprove = userRole === "Approver" || userRole === "Admin";
-  const canConfigWorkflow = userRole === "Admin";
+  const canCreate = currentUser
+    ? PermissionService.canCreateCER(currentUser)
+    : userRole === "Initiator" || userRole === "Admin";
+  const canApprove = currentUser
+    ? PermissionService.hasRole(currentUser, "Approver") || PermissionService.hasRole(currentUser, "Admin")
+    : userRole === "Approver" || userRole === "Admin";
+  const canConfigWorkflow = currentUser
+    ? PermissionService.canAccessAdmin(currentUser)
+    : userRole === "Admin";
+  const canViewMyProposals = currentUser
+    ? PermissionService.canViewMyRequests(currentUser)
+    : userRole !== "Approver";
 
   const navItems = [
     {
-      id: "Dashboard",
+      id: "dashboard",
       label: "Dashboard",
       icon: LayoutDashboard,
       visible: true,
@@ -65,7 +77,7 @@ export const Sidebar: React.FC<ISidebarProps> = ({
       id: "my-proposals",
       label: "My CER Proposals",
       icon: FileText,
-      visible: true,
+      visible: canViewMyProposals,
     },
     {
       id: "all-proposals",

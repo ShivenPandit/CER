@@ -72,11 +72,14 @@ export class PDFExportService {
 
       currentY += 15;
 
+      const CORPORATE_NAVY: [number, number, number] = [15, 23, 42]; // Consistent Corporate Navy
+      const HEADER_TEXT_COLOR = 255;
+
       // Section A: Project Information & Scope
       autoTable(doc, {
         startY: currentY,
         margin: { left: margin, right: margin },
-        head: [["SECTION A — PROJECT IDENTIFICATION & SCOPE", ""]],
+        head: [[{ content: "SECTION A — PROJECT IDENTIFICATION & SCOPE", colSpan: 2, styles: { halign: "left" } }]],
         body: [
           ["Proposal Name", (proposal as any).prName || proposal.pr_name],
           ["CER PR Number", (proposal as any).cerPrNo || proposal.cerprno],
@@ -87,7 +90,7 @@ export class PDFExportService {
           ["Project Schedule", `${(proposal as any).startDate || proposal.st_date} to ${(proposal as any).completionDate || proposal.com_date} (${calculateExactDays((proposal as any).startDate || proposal.st_date, (proposal as any).completionDate || proposal.com_date)} Days)`],
         ],
         theme: "grid",
-        headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: "bold", fontSize: 9 },
+        headStyles: { fillColor: CORPORATE_NAVY, textColor: HEADER_TEXT_COLOR, fontStyle: "bold", fontSize: 9 },
         columnStyles: {
           0: { cellWidth: 50, fontStyle: "bold", textColor: [51, 65, 85], fontSize: 8.5 },
           1: { fontSize: 8.5, textColor: [15, 23, 42] },
@@ -100,7 +103,7 @@ export class PDFExportService {
       autoTable(doc, {
         startY: currentY,
         margin: { left: margin, right: margin },
-        head: [["SECTION B, C & D — FINANCIAL EVALUATION & BUDGET", ""]],
+        head: [[{ content: "SECTION B, C & D — FINANCIAL EVALUATION & BUDGET", colSpan: 2, styles: { halign: "left" } }]],
         body: [
           ["Total Amount", `${proposal.currency} ${Number(proposal.amount || 0).toLocaleString()}`],
           ["Payable By", proposal.payable],
@@ -114,7 +117,7 @@ export class PDFExportService {
           ["Cost Assumptions", (proposal as any).costAssumptions || proposal.cost_assumptions || "None recorded"],
         ],
         theme: "grid",
-        headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: "bold", fontSize: 9 },
+        headStyles: { fillColor: CORPORATE_NAVY, textColor: HEADER_TEXT_COLOR, fontStyle: "bold", fontSize: 9 },
         columnStyles: {
           0: { cellWidth: 50, fontStyle: "bold", textColor: [51, 65, 85], fontSize: 8.5 },
           1: { fontSize: 8.5, textColor: [15, 23, 42] },
@@ -161,7 +164,7 @@ export class PDFExportService {
           ],
         ],
         theme: "grid",
-        headStyles: { fillColor: [71, 85, 105], textColor: 255, fontStyle: "bold", fontSize: 8.5 },
+        headStyles: { fillColor: CORPORATE_NAVY, textColor: HEADER_TEXT_COLOR, fontStyle: "bold", fontSize: 8.5 },
         styles: { fontSize: 8, halign: "right" },
         columnStyles: {
           0: { cellWidth: 50, halign: "left", fontStyle: "bold", textColor: [51, 65, 85] },
@@ -169,6 +172,13 @@ export class PDFExportService {
       });
 
       currentY = (doc as any).lastAutoTable.finalY + 6;
+
+      // Clean page break before Section F if insufficient room for the full table (~50mm)
+      // This prevents the table from being awkwardly split across page 1 and page 2
+      if (currentY > 165) {
+        doc.addPage();
+        currentY = 16;
+      }
 
       // Section F: CAPEX Cost Estimates Basis
       autoTable(doc, {
@@ -184,7 +194,7 @@ export class PDFExportService {
           ["Total Item Cost", Number(proposal.total || 0).toLocaleString(), "100.0%"],
         ],
         theme: "grid",
-        headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 8.5 },
+        headStyles: { fillColor: CORPORATE_NAVY, textColor: HEADER_TEXT_COLOR, fontStyle: "bold", fontSize: 8.5 },
         styles: { fontSize: 8, halign: "right" },
         columnStyles: {
           0: { cellWidth: 80, halign: "left", fontStyle: "bold", textColor: [51, 65, 85] },
@@ -196,12 +206,12 @@ export class PDFExportService {
       currentY = (doc as any).lastAutoTable.finalY + 6;
 
       // Check if we need page break for Remarks and Sign-off
-      if (currentY > 220) {
+      if (currentY > 210) {
         doc.addPage();
         currentY = 16;
       }
 
-      // Section E: Business Remarks & Justification
+      // Section G: Business Remarks & Justification
       autoTable(doc, {
         startY: currentY,
         margin: { left: margin, right: margin },
@@ -211,13 +221,18 @@ export class PDFExportService {
           [(proposal as any).remarksJv || proposal.remarks_jv ? `JV Remarks: ${(proposal as any).remarksJv || proposal.remarks_jv}` : "JV Remarks: None recorded."],
         ],
         theme: "grid",
-        headStyles: { fillColor: [51, 65, 85], textColor: 255, fontStyle: "bold", fontSize: 8.5 },
+        headStyles: { fillColor: CORPORATE_NAVY, textColor: HEADER_TEXT_COLOR, fontStyle: "bold", fontSize: 8.5 },
         styles: { fontSize: 8, textColor: [15, 23, 42] },
       });
 
       currentY = (doc as any).lastAutoTable.finalY + 6;
 
-      // Section F: Approval Decisions Trail
+      if (currentY > 215) {
+        doc.addPage();
+        currentY = 16;
+      }
+
+      // Section H: Approval Decisions Trail
       const decisionRows = decisions.map((d) => [
         `Level ${d.level_id}: ${d.level_name}`,
         d.approver_name,
@@ -236,7 +251,7 @@ export class PDFExportService {
         head: [["APPROVAL LEVEL", "APPROVER", "DECISION", "DATE & TIME", "COMMENTS"]],
         body: decisionRows,
         theme: "grid",
-        headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 8 },
+        headStyles: { fillColor: CORPORATE_NAVY, textColor: HEADER_TEXT_COLOR, fontStyle: "bold", fontSize: 8 },
         styles: { fontSize: 7.5 },
         columnStyles: {
           0: { fontStyle: "bold" },
