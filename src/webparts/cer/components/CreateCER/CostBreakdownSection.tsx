@@ -46,12 +46,12 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-5" id="section-capex-estimates">
+    <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-sm space-y-3.5" id="section-capex-estimates">
       {/* Section Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+      <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
-            <Calculator className="w-5 h-5" />
+          <div className="p-1.5 rounded-lg bg-[#012964]/10 text-[#012964]">
+            <Calculator className="w-4 h-4" />
           </div>
           <div>
             <h3 className="font-bold text-slate-900 text-sm">
@@ -66,7 +66,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
 
       {/* Reconciliation status banner */}
       {hasMismatch && (
-        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-3">
+        <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>
@@ -80,18 +80,18 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
       )}
 
       {isBalanced && (
-        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+        <div className="p-2.5 rounded-lg bg-[#66CC33]/15 border border-[#66CC33]/40 text-[#012964] text-xs flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-[#387a15] shrink-0" />
           <span>
             <strong>Estimates Balanced:</strong> Total CAPEX Cost Estimates reconciles with Amount of CER ({currSymbol}{computedTotal.toLocaleString()}{currUnit}).
           </span>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 text-xs">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-3.5 text-xs">
         {/* Engineering */}
         <div id="field-engineer">
-          <label htmlFor="engineer" className="block font-semibold text-slate-700 mb-1.5">
+          <label htmlFor="engineer" className="block font-semibold text-slate-700 mb-1">
             Engineering
           </label>
           <input
@@ -103,10 +103,10 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             value={formData.engineer === 0 ? "" : formData.engineer}
             onChange={(e) => onChange("engineer", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("engineer")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+            className={`w-full px-3 py-2 rounded-lg transition-colors font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("engineer")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-[#012964]/15 focus:border-[#012964]"
             }`}
           />
           {getFieldError("engineer") && (
@@ -119,7 +119,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
 
         {/* Surface Facilities */}
         <div id="field-s_fac">
-          <label htmlFor="s_fac" className="block font-semibold text-slate-700 mb-1.5">
+          <label htmlFor="s_fac" className="block font-semibold text-slate-700 mb-1">
             Surface Facilities
           </label>
           <input
@@ -131,10 +131,10 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             value={formData.s_fac === 0 ? "" : formData.s_fac}
             onChange={(e) => onChange("s_fac", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("s_fac")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+            className={`w-full px-3 py-2 rounded-lg transition-colors font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("s_fac")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-[#012964]/15 focus:border-[#012964]"
             }`}
           />
           {getFieldError("s_fac") && (
@@ -147,7 +147,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
 
         {/* Commissioning */}
         <div id="field-comis">
-          <label htmlFor="comis" className="block font-semibold text-slate-700 mb-1.5">
+          <label htmlFor="comis" className="block font-semibold text-slate-700 mb-1">
             Commissioning
           </label>
           <input
@@ -159,10 +159,10 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             value={formData.comis === 0 ? "" : formData.comis}
             onChange={(e) => onChange("comis", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("comis")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+            className={`w-full px-3 py-2 rounded-lg transition-colors font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("comis")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-[#012964]/15 focus:border-[#012964]"
             }`}
           />
           {getFieldError("comis") && (
@@ -175,7 +175,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
 
         {/* Pre Operations */}
         <div id="field-preop">
-          <label htmlFor="preop" className="block font-semibold text-slate-700 mb-1.5">
+          <label htmlFor="preop" className="block font-semibold text-slate-700 mb-1">
             Pre Operations
           </label>
           <input
@@ -187,10 +187,10 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             value={formData.preop === 0 ? "" : formData.preop}
             onChange={(e) => onChange("preop", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("preop")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+            className={`w-full px-3 py-2 rounded-lg transition-colors font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("preop")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-[#012964]/15 focus:border-[#012964]"
             }`}
           />
           {getFieldError("preop") && (
@@ -203,7 +203,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
 
         {/* Others */}
         <div id="field-others">
-          <label htmlFor="others" className="block font-semibold text-slate-700 mb-1.5">
+          <label htmlFor="others" className="block font-semibold text-slate-700 mb-1">
             Others
           </label>
           <input
@@ -215,10 +215,10 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             value={formData.others === 0 ? "" : formData.others}
             onChange={(e) => onChange("others", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("others")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-all font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+            className={`w-full px-3 py-2 rounded-lg transition-colors font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("others")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-[#012964]/15 focus:border-[#012964]"
             }`}
           />
           {getFieldError("others") && (
@@ -231,31 +231,31 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
 
         {/* Total — Read-Only Auto-Calculated */}
         <div id="field-total" className="flex flex-col justify-start">
-          <div className="flex items-center justify-between mb-1.5 min-h-[18px]">
-            <label className="block font-semibold text-slate-700">
+          <div className="flex items-center justify-between mb-1 min-h-[16px]">
+            <label className="block font-semibold text-slate-700 text-xs">
               Total (auto-calculated)
             </label>
             {cerAmount > 0 && (
               isBalanced ? (
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Reconciled
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#012964] bg-[#66CC33]/15 px-1.5 py-0.5 rounded border border-[#66CC33]/40">
+                  <CheckCircle2 className="w-3 h-3 text-[#387a15]" /> Reconciled
                 </span>
               ) : hasMismatch ? (
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60">
-                  <AlertCircle className="w-3.5 h-3.5 text-amber-600" /> Variance
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60">
+                  <AlertCircle className="w-3 h-3 text-amber-600" /> Variance
                 </span>
               ) : null
             )}
           </div>
-          <div className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50/90 border border-slate-300/80 flex items-center justify-between min-h-[42px] transition-all">
-            <span className="font-mono font-bold text-slate-900 text-sm">
+          <div className="w-full px-3 py-2 rounded-lg bg-slate-50/90 border border-slate-300/80 flex items-center justify-between min-h-[38px] transition-all">
+            <span className="font-mono font-bold text-slate-900 text-xs">
               {currSymbol}{computedTotal.toLocaleString()}{currUnit}
             </span>
-            <span className="text-[11px] font-medium text-slate-400">
+            <span className="text-[10px] font-medium text-slate-400">
               Sum of components
             </span>
           </div>
-          <p className="mt-1 text-[11px] text-slate-400">
+          <p className="mt-0.5 text-[10px] text-slate-400">
             Read-only summary synced with CAPEX breakdown
           </p>
         </div>

@@ -124,6 +124,14 @@ async function runAllVerificationTests(): Promise<void> {
   }
   assert(duplicateRejected, "Duplicate proposal number submission rejected successfully");
 
+  // Verify unique proposal number generation & collision avoidance
+  const nextGeneratedNo = await service.generateProposalNumber();
+  assert(nextGeneratedNo !== testProp.cerprno, "Generated proposal number is distinct and non-colliding");
+  const existingCheck = await service.getProposalByNumber(testProp.cerprno);
+  assert(existingCheck !== null && existingCheck.cerprno === testProp.cerprno, "getProposalByNumber accurately confirms proposal number existence");
+  const nonExistingCheck = await service.getProposalByNumber("CER-9999-9999");
+  assert(nonExistingCheck === null, "getProposalByNumber accurately returns null for unused proposal number");
+
   // ---------------------------------------------------------------------------------------------
   // Test Suite 2: FR-02 Change CER & Delta Audit Trail
   // ---------------------------------------------------------------------------------------------
@@ -1463,7 +1471,44 @@ async function runAllVerificationTests(): Promise<void> {
   assert(approvedL2Result.nextLevel === 3, "12.6d: Proposal advanced to Level 3 in response");
   assert(propAfterL2.current_level === 3, "12.6e: Proposal current_level is 3");
 
-  // 12.7 Admin Override on Project Owner Stage
+  // 12.6f Dual-Role (Finance Approver + Project Owner) on non-initiator CER
+  const dualRoleFinanceOwnerProp: ICERProposal = {
+    ...testProp,
+    cerprno: "CER-DUAL-ROLE-001",
+    sbu: "RJ North",
+    created_by: "shiven.pandit@cairnindia.com",
+    owname: priyaUser.name,
+    owner_email: priyaUser.email,
+    current_level: 1,
+    status: "In Approval",
+  };
+  const rjNorthL1FinanceConfig: IWorkflowLevel = {
+    level_id: 1,
+    level_name: "Finance Review",
+    role_title: "Finance",
+    sbu: "RJ North",
+    is_active: true,
+    assignment_type: "SpecificUser",
+    approver_email: "",
+  };
+  const priyaAsL1FinanceApprover: IAppUser = {
+    ...priyaUser,
+    role: "Approver",
+    roles: ["Approver"],
+    approval_level: 1,
+    is_active: true,
+  };
+  const canPriyaApproveDualFinance = PermissionService.canApproveCER(
+    dualRoleFinanceOwnerProp,
+    priyaAsL1FinanceApprover,
+    rjNorthL1FinanceConfig
+  );
+  assert(
+    canPriyaApproveDualFinance.allowed === true,
+    "12.6f: Dual-Role: Assigned Level 1 Finance approver is permitted to approve even if designated as Project Owner on a CER initiated by another employee"
+  );
+
+  // 12.7 Strict Stage Restriction: Only Designated Project Owner Can Approve Project Owner Stage
   const cbosPropRes = await sbuService.createProposal({
     ...testProp,
     cerprno: "CER-CBOS-TEST-001",
@@ -1474,17 +1519,17 @@ async function runAllVerificationTests(): Promise<void> {
   });
   const cbosL1Config = cbosLevels[0];
   const canAdminApprove = PermissionService.canApproveCER(cbosPropRes.proposal, adminUser, cbosL1Config);
-  assert(canAdminApprove.allowed === true, "12.7a: Admin authorized to act on Project Owner stage");
-  const adminApproved = await sbuService.recordDecision({
+  assert(canAdminApprove.allowed === false, "12.7a: Admin strictly blocked from approving Project Owner stage when not designated owner");
+  const ownerApproved = await sbuService.recordDecision({
     cerprno: cbosPropRes.proposal.cerprno,
     level_id: 1,
     decision: "APPROVED",
-    approver_name: adminUser.name,
-    approver_email: adminUser.email,
-    comments: "Admin sign-off on behalf of Project Owner",
+    approver_name: "Harish Rao",
+    approver_email: "harish.rao@vedanta.co.in",
+    comments: "Designated Project Owner approval",
   });
   const cbosAfterL1 = (await sbuService.getProposalByNumber(cbosPropRes.proposal.cerprno))!;
-  assert(adminApproved.nextLevel === 2, "12.7b: Admin approval advances proposal to Level 2 in response");
+  assert(ownerApproved.nextLevel === 2, "12.7b: Project Owner approval advances proposal to Level 2 in response");
   assert(cbosAfterL1.current_level === 2, "12.7c: Proposal current_level updated to 2");
 
   // 12.8 Resequencing Stages strictly within SBU
@@ -1563,7 +1608,7 @@ async function runAllVerificationTests(): Promise<void> {
   assert(priyaInboxMatch.allowed === true, "12.11a: Designated Project Owner sees proposal in Pending Approvals inbox");
 
   const adminInboxMatch = PermissionService.canApproveCER(propAtPOStage, adminUser, rjNorthL1Inbox);
-  assert(adminInboxMatch.allowed === true, "12.11b: Administrator sees proposal in Pending Approvals inbox");
+  assert(adminInboxMatch.allowed === false, "12.11b: Administrator does NOT see proposal in Pending Approvals inbox when not designated approver or owner");
 
   const otherInboxMatch = PermissionService.canApproveCER(propAtPOStage, sunilUser, rjNorthL1Inbox);
   assert(otherInboxMatch.allowed === false, "12.11c: Unrelated Approver does NOT see proposal in Pending Approvals inbox");

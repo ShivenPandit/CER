@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ICERProps } from "./ICERProps";
 import { ICERProposal, IFieldChoices, DEFAULT_FIELD_CHOICES } from "../models/CERModel";
 import { IAppUser } from "../models/UserModel";
-import { INotificationLog } from "../models/WorkflowModel";
+import { INotificationLog, IWorkflowLevel } from "../models/WorkflowModel";
 import { DataServiceFactory } from "../services/DataServiceFactory";
 import { ICERDataService } from "../services/ICERDataService";
 import { AuthService, isDesignatedAdmin } from "../services/AuthService";
@@ -26,13 +26,13 @@ import { AuditTrailView } from "./Audit/AuditTrailView";
 
 // Common Modals
 import { AccessDeniedView } from "./Shared/AccessDeniedView";
-import { NotificationCenter } from "./Shared/NotificationCenter";
 import { RemarksHistoryModal } from "./Audit/RemarksHistoryModal";
 import { UserManualModal } from "./UserManual/UserManualModal";
 
 const CER: React.FC<ICERProps> = (props) => {
   const [dataService] = useState<ICERDataService>(() => DataServiceFactory.getService(props));
   const [proposals, setProposals] = useState<ICERProposal[]>([]);
+  const [workflowLevels, setWorkflowLevels] = useState<IWorkflowLevel[]>([]);
   const [fieldChoices, setFieldChoices] = useState<IFieldChoices>(DEFAULT_FIELD_CHOICES);
   // Helper to parse current URL hash into view & proposalId for deep-linking
   const parseHash = (): { view: NavView; proposalId?: string } => {
@@ -134,7 +134,6 @@ const CER: React.FC<ICERProps> = (props) => {
 
   // Notifications
   const [notifications, setNotifications] = useState<INotificationLog[]>([]);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   // Remarks History Modal
   const [remarksHistoryCerprno, setRemarksHistoryCerprno] = useState<string | null>(null);
@@ -147,15 +146,19 @@ const CER: React.FC<ICERProps> = (props) => {
 
   const loadInitialData = async (): Promise<void> => {
     try {
-      const [propsList, notifs, choices] = await Promise.all([
+      const [propsList, notifs, choices, levels] = await Promise.all([
         dataService.getAllProposals(),
         dataService.getNotificationLogs(),
         dataService.getFieldChoices(),
+        dataService.getWorkflowLevels(),
       ]);
       setProposals(propsList);
       setNotifications(notifs);
       if (choices) {
         setFieldChoices(choices);
+      }
+      if (levels) {
+        setWorkflowLevels(levels);
       }
     } catch (e) {
       console.error("[CER] Error loading proposals:", e);
@@ -188,19 +191,28 @@ const CER: React.FC<ICERProps> = (props) => {
 
   const handleRefreshProposals = async (): Promise<void> => {
     try {
-      const [propsList, notifs] = await Promise.all([
+      const [propsList, notifs, levels] = await Promise.all([
         dataService.getAllProposals(),
         dataService.getNotificationLogs(),
+        dataService.getWorkflowLevels(),
       ]);
       setProposals(propsList);
       setNotifications(notifs);
+      if (levels) {
+        setWorkflowLevels(levels);
+      }
     } catch (e) {
       console.error("[CER] Error refreshing proposals:", e);
     }
   };
 
-  const handleNavigate = (view: NavView, proposalId?: string, isBackNavigation: boolean = false): void => {
-    if (!isBackNavigation) {
+  const handleNavigate = (
+    view: NavView,
+    proposalId?: string,
+    isBackNavigation: boolean = false,
+    replaceHistory: boolean = false
+  ): void => {
+    if (!isBackNavigation && !replaceHistory) {
       // Record previous screen into history stack if it's a new screen
       if (currentView !== view || activeProposalId !== proposalId) {
         setHistoryStack((prev) => [...prev, { view: currentView, proposalId: activeProposalId }].slice(-25));
@@ -220,7 +232,9 @@ const CER: React.FC<ICERProps> = (props) => {
     setActiveProposalId(proposalId);
     // Sync browser address bar URL hash
     const targetHash = proposalId ? `#${view}/${encodeURIComponent(proposalId)}` : `#${view}`;
-    if (window.location.hash !== targetHash) {
+    if (replaceHistory && window.history && window.history.replaceState) {
+      window.history.replaceState(null, "", targetHash);
+    } else if (window.location.hash !== targetHash) {
       window.location.hash = targetHash;
     }
     const spScrollRegion = document.querySelector('div[data-automation-id="contentScrollRegion"]');
@@ -238,36 +252,24 @@ const CER: React.FC<ICERProps> = (props) => {
     if (historyStack.length > 0) {
       const prev = historyStack[historyStack.length - 1];
       setHistoryStack((prevStack) => prevStack.slice(0, -1));
+      // If previous entry was create or change (a submitted or locked form), do not return to it - redirect to Home
+      if (prev.view === "create" || prev.view === "change") {
+        handleNavigate("dashboard", undefined, true);
+        return;
+      }
       handleNavigate(prev.view, prev.proposalId, true);
       return;
     }
 
     // Fallback if no history recorded (e.g., user directly loaded or refreshed the URL)
-    if (currentView === "change" && activeProposalId) {
-      handleNavigate("display", activeProposalId, true);
-    } else if (currentView === "display" || currentView === "change") {
-      if (activeProposalId && proposals.length > 0) {
-        const found = proposals.find((p) => p.cerprno === activeProposalId);
-        if (
-          found &&
-          (found.owname.toLowerCase() === currentUser.name.toLowerCase() ||
-            found.owner_email.toLowerCase() === currentUser.email.toLowerCase())
-        ) {
-          if (PermissionService.canViewMyRequests(currentUser)) {
-            handleNavigate("my-proposals", undefined, true);
-            return;
-          }
-        }
+    if (currentView === "change" || currentView === "create") {
+      handleNavigate("dashboard", undefined, true);
+    } else if (currentView === "display") {
+      if (activeParentView && activeParentView !== "display" && activeParentView !== "change") {
+        handleNavigate(activeParentView, undefined, true);
+      } else {
+        handleNavigate("dashboard", undefined, true);
       }
-      const target =
-        activeParentView && activeParentView !== "display" && activeParentView !== "change"
-          ? activeParentView
-          : "all-proposals";
-      handleNavigate(target, undefined, true);
-    } else if (currentView === "create") {
-      const target =
-        activeParentView && activeParentView !== "create" ? activeParentView : "dashboard";
-      handleNavigate(target, undefined, true);
     } else if (currentView === "audit-trail") {
       if (activeProposalId) {
         handleNavigate("display", activeProposalId, true);
@@ -284,15 +286,18 @@ const CER: React.FC<ICERProps> = (props) => {
   };
 
   // Pending tasks count for badge
-  const pendingCount = proposals.filter((p) => {
-    if (p.status !== "In Approval") return false;
-    const userRoles = currentUser.roles || [currentUser.role];
-    if (userRoles.indexOf("Admin") !== -1) return true;
-    if (userRoles.indexOf("Approver") !== -1) {
-      return p.current_level === (currentUser.approval_level || 1);
-    }
-    return false;
-  }).length;
+  const pendingCount = React.useMemo(() => {
+    return proposals.filter((p) => {
+      if (p.status !== "In Approval") return false;
+      const propSbu = (p.sbu || "").trim().toLowerCase();
+      const stageConfig = workflowLevels.find(
+        (l) =>
+          (l.sbu || "").trim().toLowerCase() === propSbu &&
+          l.level_id === p.current_level
+      );
+      return PermissionService.canApproveCER(p, currentUser, stageConfig).allowed;
+    }).length;
+  }, [proposals, workflowLevels, currentUser]);
 
   // Measure actual available application height after accounting for the SharePoint host page and header
   const appRootRef = React.useRef<HTMLDivElement | null>(null);
@@ -348,7 +353,7 @@ const CER: React.FC<ICERProps> = (props) => {
         overflow: currentView === "dashboard" ? "hidden" : "visible",
         backgroundColor: "#F8FAFC",
       }}
-      className="flex flex-col flex-1 w-full max-w-none bg-[#F8FAFC] font-sans text-slate-800 antialiased selection:bg-blue-600 selection:text-white"
+      className="flex flex-col flex-1 w-full max-w-none bg-[#F8FAFC] font-sans text-slate-800 antialiased selection:bg-[#012964] selection:text-white"
     >
       {/* Top Header matching reference screenshot */}
       <AppHeader
@@ -358,8 +363,6 @@ const CER: React.FC<ICERProps> = (props) => {
         onGoBack={handleGoBack}
         canGoBack={historyStack.length > 0 || currentView !== "dashboard"}
         onSelectUser={(u) => setCurrentUser(u)}
-        onOpenNotifications={() => setIsNotificationsOpen(true)}
-        notificationCount={notifications.length}
       />
 
       {/* Main Content Area - Full Document Flow with Natural Scrolling */}
@@ -391,7 +394,9 @@ const CER: React.FC<ICERProps> = (props) => {
               onCancel={handleGoBack}
               onSuccess={(cerprno) => {
                 handleRefreshProposals().catch((e) => console.error(e));
-                handleNavigate("display", cerprno);
+                setHistoryStack([{ view: "dashboard" }]);
+                setActiveParentView("dashboard");
+                handleNavigate("display", cerprno, false, true);
               }}
             />
           ) : (
@@ -413,7 +418,9 @@ const CER: React.FC<ICERProps> = (props) => {
             onCancel={handleGoBack}
             onSuccess={(cerprno) => {
               handleRefreshProposals().catch((e) => console.error(e));
-              handleNavigate("display", cerprno);
+              setHistoryStack([{ view: "dashboard" }]);
+              setActiveParentView("dashboard");
+              handleNavigate("display", cerprno, false, true);
             }}
             onViewRemarksHistory={(cerprno) => setRemarksHistoryCerprno(cerprno)}
           />
@@ -469,6 +476,8 @@ const CER: React.FC<ICERProps> = (props) => {
             <PendingApprovalsView
               dataService={dataService}
               currentUser={currentUser}
+              initialProposals={proposals}
+              initialWorkflowLevels={workflowLevels}
               onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
               onRefreshProposals={handleRefreshProposals}
               onCancel={handleGoBack}
@@ -545,12 +554,6 @@ const CER: React.FC<ICERProps> = (props) => {
       </main>
 
       {/* Global Modals */}
-
-      <NotificationCenter
-        isOpen={isNotificationsOpen}
-        onClose={() => setIsNotificationsOpen(false)}
-        notifications={notifications}
-      />
 
       {remarksHistoryCerprno && (
         <RemarksHistoryModal

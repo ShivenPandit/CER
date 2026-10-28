@@ -42,7 +42,7 @@ export const NotificationCenter: React.FC<INotificationCenterProps> = ({
           <div className="px-5 py-3 bg-blue-50/50 border-b border-blue-100 text-xs text-blue-800 flex items-start gap-2">
             <Users className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
             <span>
-              <strong>Visibility Rule (Doc §8 #4):</strong> All workflow communications are marked to the <em>Creator</em>, <em>All Previous Approvers</em>, and the <em>Next Approver</em>.
+              <strong>Visibility Rule:</strong> All workflow communications are marked to the <em>Creator</em>, <em>All Previous Approvers</em>, and the <em>Next Approver</em>.
             </span>
           </div>
 

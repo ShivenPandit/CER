@@ -58,19 +58,19 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-5" id="section-phasing">
+    <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-sm space-y-3.5" id="section-phasing">
       {/* Section Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+      <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
-            <BarChart2 className="w-5 h-5" />
+          <div className="p-1.5 rounded-lg bg-[#012964]/10 text-[#012964]">
+            <BarChart2 className="w-4 h-4" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-bold text-slate-900 text-sm">
                 Section E — Expenditure phasing
               </h3>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#012964]/5 text-[#012964] border border-[#012964]/20">
                 Indian FY (Apr 1 – Mar 31)
               </span>
             </div>
@@ -83,7 +83,7 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
 
       {/* Capex Balance Banner */}
       {hasCapexMismatch && (
-        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-3">
+        <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>
@@ -97,8 +97,8 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
       )}
 
       {isCapexBalanced && (
-        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+        <div className="p-2.5 rounded-lg bg-[#66CC33]/15 border border-[#66CC33]/40 text-[#012964] text-xs flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-[#387a15] shrink-0" />
           <span>
             <strong>Phasing Balanced:</strong> Total phased Capex ({currSymbol}{capexTotal.toLocaleString()}) reconciles with Amount of CER.
           </span>
@@ -110,20 +110,20 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
         <table className="w-full text-xs text-left border-collapse">
           <thead>
             <tr className="border-b border-slate-200 text-slate-600 font-bold bg-slate-50/70">
-              <th className="py-3 px-3 w-56">Expenditure stream</th>
-              <th className="py-3 px-3 text-right">{period1Label}</th>
-              <th className="py-3 px-3 text-right">{period2Label}</th>
-              <th className="py-3 px-3 text-right">{period3Label}</th>
-              <th className="py-3 px-3 text-right font-bold text-slate-800 w-36">Total</th>
+              <th className="py-2 px-2.5 w-56">Expenditure stream</th>
+              <th className="py-2 px-2.5 text-right">{period1Label}</th>
+              <th className="py-2 px-2.5 text-right">{period2Label}</th>
+              <th className="py-2 px-2.5 text-right">{period3Label}</th>
+              <th className="py-2 px-2.5 text-right font-bold text-slate-800 w-36">Total</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {/* Production (in mmbbls) */}
             <tr className="hover:bg-slate-50/50">
-              <td className="py-3 px-3 font-semibold text-slate-800">
+              <td className="py-2 px-2.5 font-semibold text-slate-800">
                 Production (in mmbbls)
               </td>
-              <td className="py-2.5 px-3 text-right">
+              <td className="py-1.5 px-2.5 text-right">
                 <input
                   type="number"
                   disabled={isReadOnly}
@@ -132,14 +132,14 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   value={formData.prod_till === 0 ? "" : formData.prod_till}
                   onChange={(e) => onChange("prod_till", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("prod_till")}
-                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+                  className={`w-28 sm:w-32 px-2.5 py-1 rounded-md text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                     getCellError("prod_till")
                       ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
                   }`}
                 />
               </td>
-              <td className="py-2.5 px-3 text-right">
+              <td className="py-1.5 px-2.5 text-right">
                 <input
                   type="number"
                   disabled={isReadOnly}
@@ -148,14 +148,14 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   value={formData.prod_fy === 0 ? "" : formData.prod_fy}
                   onChange={(e) => onChange("prod_fy", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("prod_fy")}
-                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+                  className={`w-28 sm:w-32 px-2.5 py-1 rounded-md text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                     getCellError("prod_fy")
                       ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
                   }`}
                 />
               </td>
-              <td className="py-2.5 px-3 text-right">
+              <td className="py-1.5 px-2.5 text-right">
                 <input
                   type="number"
                   disabled={isReadOnly}
@@ -164,24 +164,24 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   value={formData.prod_beyond === 0 ? "" : formData.prod_beyond}
                   onChange={(e) => onChange("prod_beyond", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("prod_beyond")}
-                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+                  className={`w-28 sm:w-32 px-2.5 py-1 rounded-md text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                     getCellError("prod_beyond")
                       ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
                   }`}
                 />
               </td>
-              <td className="py-2.5 px-3 text-right font-bold text-slate-800">
+              <td className="py-2 px-2.5 text-right font-bold text-slate-800">
                 {prodTotal.toLocaleString()}
               </td>
             </tr>
 
             {/* Capex ($mm) */}
             <tr className="hover:bg-slate-50/50">
-              <td className="py-3 px-3 font-semibold text-slate-800">
+              <td className="py-2 px-2.5 font-semibold text-slate-800">
                 Capex ($mm)
               </td>
-              <td className="py-2.5 px-3 text-right">
+              <td className="py-1.5 px-2.5 text-right">
                 <input
                   type="number"
                   disabled={isReadOnly}
@@ -190,14 +190,14 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   value={formData.capex_till === 0 ? "" : formData.capex_till}
                   onChange={(e) => onChange("capex_till", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("capex_till")}
-                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+                  className={`w-28 sm:w-32 px-2.5 py-1 rounded-md text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                     getCellError("capex_till")
                       ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
                   }`}
                 />
               </td>
-              <td className="py-2.5 px-3 text-right">
+              <td className="py-1.5 px-2.5 text-right">
                 <input
                   type="number"
                   disabled={isReadOnly}
@@ -206,14 +206,14 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   value={formData.capex_fy === 0 ? "" : formData.capex_fy}
                   onChange={(e) => onChange("capex_fy", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("capex_fy")}
-                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+                  className={`w-28 sm:w-32 px-2.5 py-1 rounded-md text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                     getCellError("capex_fy")
                       ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
                   }`}
                 />
               </td>
-              <td className="py-2.5 px-3 text-right">
+              <td className="py-1.5 px-2.5 text-right">
                 <input
                   type="number"
                   disabled={isReadOnly}
@@ -222,24 +222,24 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   value={formData.capex_beyond === 0 ? "" : formData.capex_beyond}
                   onChange={(e) => onChange("capex_beyond", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("capex_beyond")}
-                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+                  className={`w-28 sm:w-32 px-2.5 py-1 rounded-md text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                     getCellError("capex_beyond")
                       ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
                   }`}
                 />
               </td>
-              <td className="py-2.5 px-3 text-right font-bold text-slate-800">
+              <td className="py-2 px-2.5 text-right font-bold text-slate-800">
                 {capexTotal.toLocaleString()}
               </td>
             </tr>
 
             {/* Opex ($mm) */}
             <tr className="hover:bg-slate-50/50">
-              <td className="py-3 px-3 font-semibold text-slate-800">
+              <td className="py-2 px-2.5 font-semibold text-slate-800">
                 Opex ($mm)
               </td>
-              <td className="py-2.5 px-3 text-right">
+              <td className="py-1.5 px-2.5 text-right">
                 <input
                   type="number"
                   disabled={isReadOnly}
@@ -248,14 +248,14 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   value={formData.opex_till === 0 ? "" : formData.opex_till}
                   onChange={(e) => onChange("opex_till", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("opex_till")}
-                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+                  className={`w-28 sm:w-32 px-2.5 py-1 rounded-md text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                     getCellError("opex_till")
                       ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
                   }`}
                 />
               </td>
-              <td className="py-2.5 px-3 text-right">
+              <td className="py-1.5 px-2.5 text-right">
                 <input
                   type="number"
                   disabled={isReadOnly}
@@ -264,14 +264,14 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   value={formData.opex_fy === 0 ? "" : formData.opex_fy}
                   onChange={(e) => onChange("opex_fy", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("opex_fy")}
-                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+                  className={`w-28 sm:w-32 px-2.5 py-1 rounded-md text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                     getCellError("opex_fy")
                       ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
                   }`}
                 />
               </td>
-              <td className="py-2.5 px-3 text-right">
+              <td className="py-1.5 px-2.5 text-right">
                 <input
                   type="number"
                   disabled={isReadOnly}
@@ -280,25 +280,25 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   value={formData.opex_beyond === 0 ? "" : formData.opex_beyond}
                   onChange={(e) => onChange("opex_beyond", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("opex_beyond")}
-                  className={`w-32 px-3 py-1.5 rounded-lg text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+                  className={`w-28 sm:w-32 px-2.5 py-1 rounded-md text-right font-medium text-slate-900 focus:outline-none transition-colors disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                     getCellError("opex_beyond")
                       ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                      : "bg-white border border-slate-300 hover:border-slate-400 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
                   }`}
                 />
               </td>
-              <td className="py-2.5 px-3 text-right font-bold text-slate-800">
+              <td className="py-2 px-2.5 text-right font-bold text-slate-800">
                 {opexTotal.toLocaleString()}
               </td>
             </tr>
           </tbody>
           <tfoot>
             <tr className="border-t border-slate-200 bg-slate-50/90 font-semibold text-slate-900">
-              <td className="py-3 px-3">Total Phased Outflow</td>
-              <td className="py-3 px-3 text-right font-mono">{tillTotal.toLocaleString()}</td>
-              <td className="py-3 px-3 text-right font-mono">{fyTotal.toLocaleString()}</td>
-              <td className="py-3 px-3 text-right font-mono">{beyondTotal.toLocaleString()}</td>
-              <td className="py-3 px-3 text-right text-blue-700 font-mono font-bold text-sm">
+              <td className="py-2.5 px-2.5">Total Phased Outflow</td>
+              <td className="py-2.5 px-2.5 text-right font-mono">{tillTotal.toLocaleString()}</td>
+              <td className="py-2.5 px-2.5 text-right font-mono">{fyTotal.toLocaleString()}</td>
+              <td className="py-2.5 px-2.5 text-right font-mono">{beyondTotal.toLocaleString()}</td>
+              <td className="py-2.5 px-2.5 text-right text-[#012964] font-mono font-bold text-xs">
                 {grandTotal.toLocaleString()}
               </td>
             </tr>

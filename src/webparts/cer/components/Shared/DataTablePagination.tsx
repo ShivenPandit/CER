@@ -123,9 +123,9 @@ export const DataTablePagination: React.FC<IDataTablePaginationProps> = ({
               <button
                 key={`page-${p}`}
                 onClick={() => onPageChange(p as number)}
-                className={`min-w-[28px] h-7 px-2 rounded-lg font-semibold text-xs transition-colors flex items-center justify-center ${
+                className={`min-w-[28px] h-7 px-2 rounded-lg font-semibold text-xs transition-colors flex items-center justify-center cursor-pointer ${
                   isCurrent
-                    ? "bg-blue-600 text-white shadow-2xs"
+                    ? "bg-[#012964] text-white shadow-2xs"
                     : "bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200 shadow-2xs"
                 }`}
                 aria-label={`Page ${p}`}

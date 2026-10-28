@@ -260,9 +260,12 @@ export class PersonFieldService {
     }
 
     if (flatId !== undefined && flatId !== null && !isNaN(Number(flatId))) {
+      const rawTitle = String(rawItem.Title || "").trim();
+      const isCerPrNo = rawTitle.startsWith("CER-") || (rawItem.cerPrNo && rawTitle === String(rawItem.cerPrNo).trim());
+      const fallbackName = isCerPrNo ? String(rawItem.user_name || "").trim() : String(rawItem.Title || rawItem.user_name || "").trim();
       return {
         id: Number(flatId),
-        name: String(rawItem.Title || rawItem.user_name || "").trim(),
+        name: fallbackName,
         email: String(rawItem.user_email || "").trim(),
         loginName: String(rawItem.login_name || rawItem.user_email || "").trim(),
       };

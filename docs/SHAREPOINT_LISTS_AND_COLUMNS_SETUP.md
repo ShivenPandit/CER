@@ -24,6 +24,17 @@ When creating lists manually in SharePoint (**Site Contents -> New -> List -> Bl
 
 ---
 
+> [!IMPORTANT]
+> ### Built-in System Columns Notice: "Author" (`Created By`) and "Editor" (`Modified By`)
+> - In SharePoint, every list **automatically includes built-in system fields** for item authorship:
+>   - **`Created By`** (Internal Name: **`Author`**, Type: Person or Group)
+>   - **`Modified By`** (Internal Name: **`Editor`**, Type: Person or Group)
+> - **DO NOT create custom columns named `Author` or `Editor`!**
+>   - If you click "+ Add Column" and name it "Author" or "Editor", SharePoint creates a duplicate custom field (such as `Author0` or `Editor0`), which will always remain empty/blank because SharePoint and this application record creator/modifier metadata into the native built-in `Author` (`Created By`) and `Editor` (`Modified By`) fields.
+> - **If you have already created custom "Author" or "Editor" columns in SharePoint:**
+>   - **They are completely useless and safe to delete.** Go to **List Settings**, click on the custom `Author` and `Editor` columns, and click **Delete**.
+>   - In your SharePoint List View (**Edit Current View**), check the checkboxes for the built-in columns **"Created By"** and **"Modified By"**. They will immediately display the true author, editor, timestamps, and M365 user cards for all items.
+
 ## 2. Complete List Specifications & Column Schemas
 
 ---

@@ -5,7 +5,7 @@ import { IWorkflowLevel, IApprovalDecision, INotificationLog, isProjectOwnerStag
 import { ICERAttachment } from "../models/AttachmentModel";
 import { IDirectoryUser, MOCK_DIRECTORY_USERS, IUserRoleAssignment, IAdminAuditRecord } from "../models/UserModel";
 import { validateAttachment } from "../utils/attachmentValidation";
-import { getCurrentFiscalYearPhasingLabels } from "../utils/dateUtils";
+import { getCurrentFiscalYearPhasingLabels, getLocalComponents } from "../utils/dateUtils";
 
 const STORAGE_KEYS = {
   PROPOSALS: "CER_APP_PROPOSALS",
@@ -553,9 +553,23 @@ export class LocalMockCERDataService implements ICERDataService {
 
   public async generateProposalNumber(): Promise<string> {
     const year = new Date().getFullYear();
-    const count = this._proposals.length + 1;
-    const formatted = `CER-${year}-${("0000" + count).slice(-4)}`;
-    return formatted;
+    const prefix = `CER-${year}-`;
+    let highest = 0;
+    for (const p of this._proposals) {
+      if (p.cerprno && p.cerprno.toUpperCase().startsWith(prefix)) {
+        const numPart = parseInt(p.cerprno.toUpperCase().replace(prefix, ""), 10);
+        if (!isNaN(numPart) && numPart > highest) {
+          highest = numPart;
+        }
+      }
+    }
+    let nextNum = highest + 1;
+    let candidate = `${prefix}${("0000" + nextNum).slice(-4)}`;
+    while (this._proposals.some(p => p.cerprno.toUpperCase() === candidate.toUpperCase())) {
+      nextNum++;
+      candidate = `${prefix}${("0000" + nextNum).slice(-4)}`;
+    }
+    return candidate;
   }
 
   public async createProposal(proposal: ICERProposal): Promise<{ success: boolean; message: string; proposal: ICERProposal }> {
@@ -675,8 +689,9 @@ export class LocalMockCERDataService implements ICERDataService {
     }
 
     const now = new Date();
-    const dateStr = now.toISOString().split("T")[0];
-    const timeStr = now.toTimeString().split(" ")[0];
+    const local = getLocalComponents(now);
+    const dateStr = local.localDate;
+    const timeStr = local.localTime;
 
     // Compute field-level delta (FR-06)
     const auditRows: ICERAuditRecord[] = [];
@@ -906,21 +921,47 @@ export class LocalMockCERDataService implements ICERDataService {
     const isNameMatch = approverName && ownerName && approverName === ownerName;
     const isOwner = isEmailMatch || isNameMatch;
 
-    const isAdmin = this._userRoles.some(
-      r => r.is_active && r.role === "Admin" && r.user_email.toLowerCase() === approverEmail
-    );
+    const stageApproverEmail = (currentLevelConfig?.approver_email || "").trim().toLowerCase();
+    const initiatorEmail = (proposal.created_by || "").trim().toLowerCase();
+    const isCreator = Boolean(initiatorEmail && (initiatorEmail === approverEmail || initiatorEmail === approverName));
 
     if (isCurrentPO) {
-      // Must be designated Project Owner (or Admin)
-      if (!isOwner && !isAdmin) {
+      // Dynamic Project Owner stage: ONLY the designated Project Owner can approve
+      if (!isOwner) {
         throw new Error(
-          `Access Denied: Only the designated Project Owner (${proposal.owname || proposal.owner_email}) or an Administrator can approve this stage.`
+          `Access Denied: Only the designated Project Owner (${proposal.owname || proposal.owner_email}) can approve this stage.`
         );
       }
     } else {
       // Non-Project Owner stage: Segregation of Duties strictly enforced
-      if (isOwner && !isAdmin) {
+      if (isCreator) {
         throw new Error("Segregation of Duties Enforcement: You cannot approve a CER proposal that you initiated.");
+      }
+
+      if (isOwner) {
+        const isApproverForLevel = this._userRoles.some(
+          (r) =>
+            r.is_active &&
+            r.role === "Approver" &&
+            r.approval_level === params.level_id &&
+            (r.user_email.toLowerCase() === approverEmail ||
+              (r.login_name && r.login_name.toLowerCase() === approverEmail))
+        );
+
+        const isAllowedDualOwnerApprover =
+          Boolean(currentLevelConfig) &&
+          isApproverForLevel &&
+          (!stageApproverEmail || stageApproverEmail === approverEmail);
+
+        if (!isAllowedDualOwnerApprover) {
+          throw new Error("Segregation of Duties Enforcement: You cannot approve a CER proposal that you initiated or own on non-Project-Owner stages.");
+        }
+      }
+
+      if (stageApproverEmail && stageApproverEmail !== approverEmail) {
+        throw new Error(
+          `Access Denied: This approval stage is assigned to designated approver (${stageApproverEmail}). Only the assigned approver can approve this level.`
+        );
       }
     }
 
@@ -1105,7 +1146,7 @@ export class LocalMockCERDataService implements ICERDataService {
     this._saveToStorage(STORAGE_KEYS.ATTACHMENTS, this._attachments);
   }
 
-  public async getNotificationLogs(cerprno?: string): Promise<INotificationLog[]> {
+  public async getNotificationLogs(cerprno?: string, forceRefresh?: boolean): Promise<INotificationLog[]> {
     if (cerprno) {
       const trimmed = cerprno.trim().toUpperCase();
       return this._notifications.filter(n => n.cerprno.toUpperCase() === trimmed);

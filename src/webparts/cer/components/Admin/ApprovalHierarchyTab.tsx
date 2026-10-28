@@ -598,7 +598,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
             <button
               type="button"
               onClick={handleOpenAddModal}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-subtle hover:shadow-hover transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-[#012964] hover:bg-[#001f4d] text-white text-xs font-semibold rounded-xl shadow-subtle hover:shadow-hover transition-all cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Add Level</span>
@@ -686,7 +686,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
         </div>
       ) : levels.length === 0 ? (
         <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center flex flex-col items-center justify-center shadow-subtle">
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+          <div className="w-12 h-12 rounded-2xl bg-[#012964]/10 text-[#012964] flex items-center justify-center mb-3">
             <Layers className="w-6 h-6" />
           </div>
           <h4 className="text-sm font-bold text-slate-900">No Approval Levels Configured</h4>
@@ -696,7 +696,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
           <button
             type="button"
             onClick={handleOpenAddModal}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-subtle hover:shadow-hover transition-all cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#012964] hover:bg-[#001f4d] text-white text-xs font-bold rounded-xl shadow-subtle hover:shadow-hover transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Add Level</span>
@@ -714,7 +714,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
           <button
             type="button"
             onClick={handleOpenAddModal}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-subtle hover:shadow-hover transition-all cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#012964] hover:bg-[#001f4d] text-white text-xs font-bold rounded-xl shadow-subtle hover:shadow-hover transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Add Level for {selectedSbuFilter}</span>
@@ -765,7 +765,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                     </div>
 
                     {/* Sequential Level ID Badge */}
-                    <div className="w-8 h-8 rounded-xl bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs shrink-0">
+                    <div className="w-8 h-8 rounded-xl bg-[#012964] text-white font-bold text-xs flex items-center justify-center shadow-xs shrink-0">
                       {level.level_id}
                     </div>
 
@@ -776,7 +776,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                           {level.level_name}
                         </span>
                         {/* Sequential Stage Badge */}
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#012964]/10 text-[#012964] border border-[#012964]/20 shrink-0">
                           <span>Stage {level.level_id}</span>
                         </span>
                         {/* SBU Scope Badge */}
@@ -833,7 +833,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                     <button
                       type="button"
                       onClick={() => handleOpenEditModal(level)}
-                      className="p-1.5 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-50 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-lg text-[#012964] hover:bg-[#012964]/10 transition-colors cursor-pointer"
                       title={`Edit Approval Level ${level.level_id}`}
                       aria-label={`Edit Approval Level ${level.level_id}`}
                     >
@@ -885,7 +885,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-100 bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0">
+                <div className="w-7 h-7 rounded-lg bg-[#012964]/10 text-[#012964] flex items-center justify-center font-bold text-xs shrink-0">
                   {newSequence}
                 </div>
                 <div>
@@ -1049,7 +1049,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmittingAdd}
-                  className="flex items-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-subtle hover:shadow-hover transition cursor-pointer disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-5 py-2 bg-[#012964] hover:bg-[#001f4d] text-white font-semibold rounded-xl shadow-subtle hover:shadow-hover transition cursor-pointer disabled:opacity-50"
                 >
                   {isSubmittingAdd ? (
                     <>
@@ -1079,7 +1079,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-100 bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                <div className="w-7 h-7 rounded-lg bg-[#012964] text-white flex items-center justify-center font-bold text-xs shrink-0">
                   {editSequence}
                 </div>
                 <div>
@@ -1259,7 +1259,7 @@ export const ApprovalHierarchyTab: React.FC<IApprovalHierarchyTabProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmittingEdit}
-                  className="flex items-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-subtle hover:shadow-hover transition cursor-pointer disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-5 py-2 bg-[#012964] hover:bg-[#001f4d] text-white font-semibold rounded-xl shadow-subtle hover:shadow-hover transition cursor-pointer disabled:opacity-50"
                 >
                   {isSubmittingEdit ? (
                     <>

@@ -20,7 +20,7 @@ import {
 import { ICERAttachment } from "../models/AttachmentModel";
 import { IDirectoryUser, IUserRoleAssignment, IAdminAuditRecord } from "../models/UserModel";
 import { validateAttachment } from "../utils/attachmentValidation";
-import { getCurrentFiscalYearPhasingLabels } from "../utils/dateUtils";
+import { getCurrentFiscalYearPhasingLabels, formatLocalDate, formatLocalTime, getLocalComponents } from "../utils/dateUtils";
 import { SharePointOperations } from "../hooks/useSharePointOperations";
 import { PersonFieldService } from "./PersonFieldService";
 import { SP_LISTS } from "../constants";
@@ -40,10 +40,38 @@ export class SharePointCERDataService implements ICERDataService {
   private _cachedWorkflowLevels: Map<string, { data: IWorkflowLevel[]; timestamp: number }> = new Map();
   private _inFlightWorkflowLevels: Map<string, Promise<IWorkflowLevel[]>> = new Map();
 
+  // In-memory caching & request deduplication for proposals, decisions, attachments & notifications
+  private _cachedProposals: { data: ICERProposal[]; timestamp: number } | null = null;
+  private _inFlightProposals: Promise<ICERProposal[]> | null = null;
+
+  private _cachedProposalByNumber: Map<string, { data: ICERProposal; timestamp: number }> = new Map();
+  private _inFlightProposalByNumber: Map<string, Promise<ICERProposal | null>> = new Map();
+
+  private _cachedApprovalDecisions: Map<string, { data: IApprovalDecision[]; timestamp: number }> = new Map();
+  private _inFlightApprovalDecisions: Map<string, Promise<IApprovalDecision[]>> = new Map();
+
+  private _cachedAttachments: Map<string, { data: ICERAttachment[]; timestamp: number }> = new Map();
+  private _inFlightAttachments: Map<string, Promise<ICERAttachment[]>> = new Map();
+
+  private _cachedNotificationLogs: Map<string, { data: INotificationLog[]; timestamp: number }> = new Map();
+  private _inFlightNotificationLogs: Map<string, Promise<INotificationLog[]>> = new Map();
+
   public clearCache(): void {
     this._cachedUserRoles = null;
     this._cachedUserRolesTimestamp = 0;
+    this._inFlightUserRoles = null;
     this._cachedWorkflowLevels.clear();
+    this._inFlightWorkflowLevels.clear();
+    this._cachedProposals = null;
+    this._inFlightProposals = null;
+    this._cachedProposalByNumber.clear();
+    this._inFlightProposalByNumber.clear();
+    this._cachedApprovalDecisions.clear();
+    this._inFlightApprovalDecisions.clear();
+    this._cachedAttachments.clear();
+    this._inFlightAttachments.clear();
+    this._cachedNotificationLogs.clear();
+    this._inFlightNotificationLogs.clear();
   }
 
   constructor(spHttpClient: SPHttpClient, siteUrl: string, context?: WebPartContext) {
@@ -92,7 +120,14 @@ export class SharePointCERDataService implements ICERDataService {
           jv: (choicesMap.jointVenture || choicesMap.jv) && (choicesMap.jointVenture || choicesMap.jv).length > 0 ? (choicesMap.jointVenture || choicesMap.jv) : DEFAULT_FIELD_CHOICES.jv,
           jv_recoverable: (choicesMap.jvRecoverable || choicesMap.jv_recoverable) && (choicesMap.jvRecoverable || choicesMap.jv_recoverable).length > 0 ? (choicesMap.jvRecoverable || choicesMap.jv_recoverable) : DEFAULT_FIELD_CHOICES.jv_recoverable,
           jv_budget: (choicesMap.jvBudgeted || choicesMap.jv_budget) && (choicesMap.jvBudgeted || choicesMap.jv_budget).length > 0 ? (choicesMap.jvBudgeted || choicesMap.jv_budget) : DEFAULT_FIELD_CHOICES.jv_budget,
-          status: choicesMap.status && choicesMap.status.length > 0 ? choicesMap.status : DEFAULT_FIELD_CHOICES.status,
+          status: Array.from(
+            new Set(
+              (choicesMap.status && choicesMap.status.length > 0 ? choicesMap.status : DEFAULT_FIELD_CHOICES.status)
+                .map((s: string) => (s === "Approval" ? "In Approval" : s.trim()))
+                .concat(["In Approval", "Approved", "Draft", "Rejected", "Revised"])
+                .filter(Boolean)
+            )
+          ),
         };
 
         this._cachedFieldChoices = resolved;
@@ -110,98 +145,186 @@ export class SharePointCERDataService implements ICERDataService {
   // 1. CERProposals Operations
   // ---------------------------------------------------------------------------
 
-  public async getAllProposals(): Promise<ICERProposal[]> {
-    const candidateLists = [SP_LISTS.CER_PROPOSALS];
-    let lastErr: any = null;
+  public async getAllProposals(forceRefresh: boolean = false): Promise<ICERProposal[]> {
+    const now = Date.now();
+    const CACHE_TTL_MS = 25000;
 
-    for (const listName of candidateLists) {
-      try {
-        let items: any[] = [];
-        try {
-          items = await this._sp.getListItems(listName, {
-            top: 500,
-            orderby: "Created desc",
-            expand: "cerOwner",
-            select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name",
-          });
-        } catch {
-          items = await this._sp.getListItems(listName, {
-            top: 500,
-            orderby: "Created desc",
-          });
-        }
-        return items.map((item: Record<string, unknown>) =>
-          this._mapSharePointItemToProposal(item),
-        );
-      } catch (e) {
-        lastErr = e;
-      }
+    if (!forceRefresh && this._cachedProposals && now - this._cachedProposals.timestamp < CACHE_TTL_MS) {
+      return this._cachedProposals.data.map((p) => ({ ...p }));
     }
 
-    console.error(
-      "[SharePointCERDataService] Failed to query CERProposals list from SharePoint:",
-      lastErr,
-    );
-    throw new Error(
-      `Unable to load CER proposals from SharePoint: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`,
-    );
+    if (!forceRefresh && this._inFlightProposals) {
+      const res = await this._inFlightProposals;
+      return res.map((p) => ({ ...p }));
+    }
+
+    const fetchPromise = (async () => {
+      const candidateLists = [SP_LISTS.CER_PROPOSALS];
+      let lastErr: any = null;
+
+      for (const listName of candidateLists) {
+        try {
+          let items: any[] = [];
+          // Primary query with full Person & System expansion (cerOwner, Author, Editor)
+          try {
+            items = await this._sp.getListItems(listName, {
+              top: 500,
+              orderby: "Created desc",
+              expand: "cerOwner,Author,Editor",
+              select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
+            });
+          } catch (expandErr) {
+            // Tier 2: Fallback with cerOwner only
+            try {
+              items = await this._sp.getListItems(listName, {
+                top: 500,
+                orderby: "Created desc",
+                expand: "cerOwner",
+                select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name",
+              });
+            } catch (cerOwnerErr) {
+              // Tier 3: Unexpanded query
+              items = await this._sp.getListItems(listName, {
+                top: 500,
+                orderby: "Created desc",
+              });
+            }
+          }
+          const mapped = items.map((item: Record<string, unknown>) =>
+            this._mapSharePointItemToProposal(item),
+          );
+          this._cachedProposals = { data: mapped, timestamp: Date.now() };
+          // Prime individual proposal lookup cache
+          for (const p of mapped) {
+            if (p.cerprno) {
+              this._cachedProposalByNumber.set(p.cerprno.trim().toUpperCase(), {
+                data: p,
+                timestamp: Date.now(),
+              });
+            }
+          }
+          return mapped;
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+
+      console.error(
+        "[SharePointCERDataService] Failed to query CERProposals list from SharePoint:",
+        lastErr,
+      );
+      throw new Error(
+        `Unable to load CER proposals from SharePoint: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`,
+      );
+    })();
+
+    this._inFlightProposals = fetchPromise;
+    try {
+      const res = await fetchPromise;
+      return res.map((p) => ({ ...p }));
+    } finally {
+      this._inFlightProposals = null;
+    }
   }
 
   public async getProposalByNumber(
     cerprno: string,
+    forceRefresh: boolean = false,
   ): Promise<ICERProposal | null> {
-    const candidateLists = [SP_LISTS.CER_PROPOSALS];
-    let lastErr: any = null;
+    const key = (cerprno || "").trim().toUpperCase();
+    const now = Date.now();
+    const CACHE_TTL_MS = 25000;
 
-    for (const listName of candidateLists) {
-      try {
-        let items: any[] = [];
-        // Tier 1: Query by linking column cerPrNo with cerOwner Person field expanded
+    if (!forceRefresh) {
+      const cached = this._cachedProposalByNumber.get(key);
+      if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+        return { ...cached.data };
+      }
+      if (this._cachedProposals && now - this._cachedProposals.timestamp < CACHE_TTL_MS) {
+        const found = this._cachedProposals.data.find(
+          (p) => (p.cerprno || "").trim().toUpperCase() === key,
+        );
+        if (found) {
+          this._cachedProposalByNumber.set(key, { data: found, timestamp: now });
+          return { ...found };
+        }
+      }
+    }
+
+    const inFlight = this._inFlightProposalByNumber.get(key);
+    if (!forceRefresh && inFlight) {
+      const res = await inFlight;
+      return res ? { ...res } : null;
+    }
+
+    const fetchPromise = (async () => {
+      const candidateLists = [SP_LISTS.CER_PROPOSALS];
+      let lastErr: any = null;
+
+      for (const listName of candidateLists) {
         try {
-          items = await this._sp.getListItems(listName, {
-            filter: `cerPrNo eq '${cerprno}'`,
-            orderby: "Modified desc",
-            expand: "cerOwner",
-            select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name",
-            top: 1,
-          });
-        } catch (t1Err) {
-          // Tier 2: Query by linking column cerPrNo without Person field expansion
+          let items: any[] = [];
+          // Tier 1: With full Person & System expansion (cerOwner, Author, Editor)
           try {
             items = await this._sp.getListItems(listName, {
               filter: `cerPrNo eq '${cerprno}'`,
               orderby: "Modified desc",
+              expand: "cerOwner,Author,Editor",
+              select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
               top: 1,
             });
-          } catch (t2Err) {
-            // Tier 3: Fetch recent list items and match by cerPrNo in memory
+          } catch (t1Err) {
+            // Tier 2: With cerOwner only
             try {
-              const allItems = await this._sp.getListItems(listName, {
-                top: 500,
-                orderby: "Created desc",
+              items = await this._sp.getListItems(listName, {
+                filter: `cerPrNo eq '${cerprno}'`,
+                orderby: "Modified desc",
+                expand: "cerOwner",
+                select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name",
+                top: 1,
               });
-              items = allItems.filter(
-                (it: any) => (it.cerPrNo || it.Title) === cerprno
-              );
-            } catch (t3Err) {
-              items = [];
+            } catch (t2Err) {
+              // Tier 3: Fetch recent list items with expand and match in memory
+              try {
+                const allItems = await this._sp.getListItems(listName, {
+                  top: 500,
+                  orderby: "Created desc",
+                  expand: "cerOwner,Author,Editor",
+                  select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
+                });
+                items = allItems.filter(
+                  (it: any) => (it.cerPrNo || it.Title) === cerprno,
+                );
+              } catch (t3Err) {
+                items = [];
+              }
             }
           }
-        }
 
-        if (items.length > 0) {
-          return this._mapSharePointItemToProposal(items[0]);
+          if (items.length > 0) {
+            const mapped = this._mapSharePointItemToProposal(items[0]);
+            this._cachedProposalByNumber.set(key, { data: mapped, timestamp: Date.now() });
+            return mapped;
+          }
+          return null;
+        } catch (e) {
+          lastErr = e;
         }
-        return null;
-      } catch (e) {
-        lastErr = e;
       }
-    }
 
-    console.error(`[SharePointCERDataService] Failed to query proposal '${cerprno}' from SharePoint:`, lastErr);
-    throw new Error(
-      `Unable to load proposal '${cerprno}' from SharePoint: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`,
-    );
+      console.error(`[SharePointCERDataService] Failed to query proposal '${cerprno}' from SharePoint:`, lastErr);
+      throw new Error(
+        `Unable to load proposal '${cerprno}' from SharePoint: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`,
+      );
+    })();
+
+    this._inFlightProposalByNumber.set(key, fetchPromise);
+    try {
+      const res = await fetchPromise;
+      return res ? { ...res } : null;
+    } finally {
+      this._inFlightProposalByNumber.delete(key);
+    }
   }
 
   public async generateProposalNumber(): Promise<string> {
@@ -301,18 +424,18 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     // Check if an item with this cerprno already exists in CERProposals list (e.g. draft saved earlier)
-    let existingItems: Array<{ Id: number }> = [];
+    let existingItems: Array<{ Id: number; Status?: string; cerStatus?: string }> = [];
     const targetListName: string = SP_LISTS.CER_PROPOSALS;
     try {
       try {
-        existingItems = await this._sp.getListItems<{ Id: number }>(targetListName, {
+        existingItems = await this._sp.getListItems<{ Id: number; Status?: string; cerStatus?: string }>(targetListName, {
           filter: `cerPrNo eq '${newProposal.cerprno}'`,
-          select: "Id",
+          select: "Id,Status,cerStatus",
           top: 1,
         });
       } catch {
         const allItems = await this._sp.getListItems<any>(targetListName, {
-          select: "Id,cerPrNo,Title",
+          select: "Id,cerPrNo,Title,Status,cerStatus",
           top: 500,
         });
         existingItems = allItems.filter(
@@ -326,7 +449,16 @@ export class SharePointCERDataService implements ICERDataService {
     let assignedProposalId = newProposal.id || "";
 
     if (existingItems.length > 0) {
-      const spItemId = existingItems[0].Id;
+      const existing = existingItems[0];
+      const existingStatus = String(existing.Status || existing.cerStatus || "").trim();
+      // If the item already exists in SharePoint and is not an unsubmitted draft, reject duplicate submission
+      if (existingStatus && existingStatus !== "Draft") {
+        throw new Error(
+          `CER Proposal No. '${newProposal.cerprno}' already exists in SharePoint. Proposal numbers must be unique.`
+        );
+      }
+
+      const spItemId = existing.Id;
       assignedProposalId = String(spItemId);
 
       try {
@@ -370,6 +502,9 @@ export class SharePointCERDataService implements ICERDataService {
           console.warn("[SharePointCERDataService] Secondary notification write warning:", notifErr);
         }
       }
+
+      this._cachedProposals = null;
+      this._cachedProposalByNumber.delete(newProposal.cerprno.toUpperCase());
 
       return {
         success: true,
@@ -437,6 +572,9 @@ export class SharePointCERDataService implements ICERDataService {
       }
     }
 
+    this._cachedProposals = null;
+    this._cachedProposalByNumber.delete(newProposal.cerprno.toUpperCase());
+
     return {
       success: true,
       message: isDraft
@@ -489,9 +627,9 @@ export class SharePointCERDataService implements ICERDataService {
       },
     );
 
-    const nowParts = now.split("T");
-    const dateOnly = nowParts[0];
-    const timeOnly = nowParts[1] ? nowParts[1].substring(0, 8) : "12:00:00";
+    const local = getLocalComponents(new Date());
+    const dateOnly = local.localDate;
+    const timeOnly = local.localTime;
 
     for (const key of changedKeys) {
       const oldVal = original[key];
@@ -671,6 +809,9 @@ export class SharePointCERDataService implements ICERDataService {
       console.warn("[SharePointCERDataService] Secondary notification write warning:", notifErr);
     }
 
+    this._cachedProposals = null;
+    this._cachedProposalByNumber.delete(proposal.cerprno.toUpperCase());
+
     return {
       success: true,
       message: isDraft
@@ -713,21 +854,26 @@ export class SharePointCERDataService implements ICERDataService {
           });
         }
 
-        return items.map((item) => ({
-          id: String(item.Id || item.id),
-          cerprno: item.cerPrNo || item.cerprno || item.Title || "",
-          field_name: item.fieldName || item.field_name || "",
-          field_desc: item.fieldName || item.field_desc || AUDIT_FIELD_DESCRIPTIONS[item.fieldName || item.field_name] || item.fieldName || item.field_name,
-          old_value: item.oldValue || item.old_value || "",
-          new_value: item.newValue || item.new_value || "",
-          user_name: item.userName || item.user_name || "",
-          user_email: item.userEmail || item.user_email || "",
-          audit_date: item.audit_date || (item.timestamp ? String(item.timestamp).split("T")[0] : ""),
-          audit_time: item.audit_time || (item.timestamp && String(item.timestamp).includes("T") ? String(item.timestamp).split("T")[1].substring(0, 8) : ""),
-          timestamp: item.timestamp || item.Created || new Date().toISOString(),
-          is_long_text: !!item.is_long_text,
-          action_type: item.actionType || item.action_type || "UPDATE",
-        }));
+        return items.map((item) => {
+          const rawTimestamp = item.timestamp || item.Created;
+          const auditDate = formatLocalDate(rawTimestamp) || item.audit_date || (rawTimestamp ? String(rawTimestamp).split("T")[0] : "");
+          const auditTime = formatLocalTime(rawTimestamp) || item.audit_time || "";
+          return {
+            id: String(item.Id || item.id),
+            cerprno: item.cerPrNo || item.cerprno || item.Title || "",
+            field_name: item.fieldName || item.field_name || "",
+            field_desc: item.fieldName || item.field_desc || AUDIT_FIELD_DESCRIPTIONS[item.fieldName || item.field_name] || item.fieldName || item.field_name,
+            old_value: item.oldValue || item.old_value || "",
+            new_value: item.newValue || item.new_value || "",
+            user_name: item.userName || item.user_name || "",
+            user_email: item.userEmail || item.user_email || "",
+            audit_date: auditDate,
+            audit_time: auditTime,
+            timestamp: rawTimestamp || new Date().toISOString(),
+            is_long_text: !!item.is_long_text,
+            action_type: item.actionType || item.action_type || "UPDATE",
+          };
+        });
       } catch (err) {
         lastErr = err;
       }
@@ -1153,78 +1299,132 @@ export class SharePointCERDataService implements ICERDataService {
   // 5. CERApprovalDecisions Operations
   // ---------------------------------------------------------------------------
 
-  public async getApprovalDecisions(cerprno: string): Promise<IApprovalDecision[]> {
-    const candidateLists = [SP_LISTS.CER_APPROVAL_DECISIONS];
-    let lastErr: any = null;
+  public async getApprovalDecisions(cerprno: string, forceRefresh: boolean = false): Promise<IApprovalDecision[]> {
+    const key = (cerprno || "").trim().toUpperCase();
+    const now = Date.now();
+    const CACHE_TTL_MS = 25000;
 
-    for (const listName of candidateLists) {
-      try {
-        let items: Record<string, any>[] = [];
-        // Tier 1: Modern schema with linking column cerPrNo, Author & approver Person fields expanded
+    const cached = this._cachedApprovalDecisions.get(key);
+    if (!forceRefresh && cached && now - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data.map((d) => ({ ...d }));
+    }
+
+    const inFlight = this._inFlightApprovalDecisions.get(key);
+    if (!forceRefresh && inFlight) {
+      const res = await inFlight;
+      return res.map((d) => ({ ...d }));
+    }
+
+    const fetchPromise = (async () => {
+      const candidateLists = [SP_LISTS.CER_APPROVAL_DECISIONS];
+      let lastErr: any = null;
+
+      for (const listName of candidateLists) {
         try {
-          items = await this._sp.getListItems<Record<string, any>>(listName, {
-            filter: `cerPrNo eq '${cerprno}'`,
-            select: "Id,Title,cerPrNo,levelId,decision,remarks,decidedAt,Created,Author/Id,Author/Title,Author/EMail,approver/Id,approver/Title,approver/EMail",
-            expand: "Author,approver",
-            top: 100,
-            orderby: "Created desc",
-          });
-        } catch {
-          // Tier 2: Query by linking column cerPrNo without Person field expansion
+          let items: Record<string, any>[] = [];
+          // Tier 1: Modern schema with linking column cerPrNo, Author & approver Person fields expanded
           try {
             items = await this._sp.getListItems<Record<string, any>>(listName, {
               filter: `cerPrNo eq '${cerprno}'`,
-              select: "Id,Title,cerPrNo,levelId,decision,remarks,decidedAt,Created",
+              select: "Id,Title,cerPrNo,levelId,decision,remarks,decidedAt,Created,Author/Id,Author/Title,Author/EMail,approver/Id,approver/Title,approver/EMail",
+              expand: "Author,approver",
               top: 100,
               orderby: "Created desc",
             });
           } catch {
-            // Tier 3: Fetch recent list items and match by cerPrNo in memory
+            // Tier 2: Query by linking column cerPrNo with Author expanded (built-in SharePoint field)
             try {
-              const allItems = await this._sp.getListItems<Record<string, any>>(listName, {
+              items = await this._sp.getListItems<Record<string, any>>(listName, {
+                filter: `cerPrNo eq '${cerprno}'`,
+                select: "Id,Title,cerPrNo,levelId,decision,remarks,decidedAt,Created,Author/Id,Author/Title,Author/EMail",
+                expand: "Author",
                 top: 100,
                 orderby: "Created desc",
               });
-              items = allItems.filter(
-                (it: any) => (it.cerPrNo || it.Title) === cerprno
-              );
             } catch {
-              items = [];
+              // Tier 3: Fetch recent list items and match by cerPrNo in memory with Author expanded
+              try {
+                const allItems = await this._sp.getListItems<Record<string, any>>(listName, {
+                  select: "Id,Title,cerPrNo,levelId,decision,remarks,decidedAt,Created,Author/Id,Author/Title,Author/EMail",
+                  expand: "Author",
+                  top: 100,
+                  orderby: "Created desc",
+                });
+                items = allItems.filter(
+                  (it: any) => (it.cerPrNo || it.Title) === cerprno
+                );
+              } catch {
+                try {
+                  const allItems = await this._sp.getListItems<Record<string, any>>(listName, {
+                    top: 100,
+                    orderby: "Created desc",
+                  });
+                  items = allItems.filter(
+                    (it: any) => (it.cerPrNo || it.Title) === cerprno
+                  );
+                } catch {
+                  items = [];
+                }
+              }
             }
           }
+
+          const mapped = items.map((item) => {
+            const approverPerson =
+              PersonFieldService.extractPersonField(item, "approver") ||
+              PersonFieldService.extractPersonField(item, "Author");
+
+            const approverName =
+              approverPerson?.name ||
+              item.approver_name ||
+              item.approverName ||
+              (typeof item.approver === "string" ? item.approver : "") ||
+              "";
+
+            const approverEmail =
+              approverPerson?.email ||
+              item.approver_email ||
+              item.approverEmail ||
+              "";
+            const levelId = Number(item.levelId ?? item.level_id ?? 1);
+
+            return {
+              id: String(item.Id || item.id),
+              cerprno: item.cerPrNo || item.cerprno || item.Title,
+              level_id: levelId,
+              level_name: item.level_name || `Level ${levelId}`,
+              approver_name: approverName,
+              approver_email: approverEmail,
+              decision: (item.decision ? String(item.decision).toUpperCase() : "APPROVED") as "APPROVED" | "REJECTED",
+              comments: item.remarks || item.comments || "",
+              decision_date: item.decidedAt || item.decision_date || item.Created || new Date().toISOString(),
+              timestamp: item.decidedAt || item.decision_date || item.Created || new Date().toISOString(),
+            };
+          });
+
+          this._cachedApprovalDecisions.set(key, { data: mapped, timestamp: Date.now() });
+          return mapped;
+        } catch (e) {
+          lastErr = e;
         }
-
-        return items.map((item) => {
-          const approverPerson = PersonFieldService.extractPersonField(item, "approver") || PersonFieldService.extractPersonField(item, "Author");
-          const approverName = approverPerson?.name || item.approver_name || (typeof item.approver === "string" ? item.approver : "") || "";
-          const approverEmail = approverPerson?.email || item.approver_email || "";
-          const levelId = Number(item.levelId ?? item.level_id ?? 1);
-
-          return {
-            id: String(item.Id || item.id),
-            cerprno: item.cerPrNo || item.cerprno || item.Title,
-            level_id: levelId,
-            level_name: item.level_name || `Level ${levelId}`,
-            approver_name: approverName,
-            approver_email: approverEmail,
-            decision: (item.decision ? String(item.decision).toUpperCase() : "APPROVED") as "APPROVED" | "REJECTED",
-            comments: item.remarks || item.comments || "",
-            decision_date: item.decidedAt || item.decision_date || item.Created || new Date().toISOString(),
-            timestamp: item.decidedAt || item.decision_date || item.Created || new Date().toISOString(),
-          };
-        });
-      } catch (e) {
-        lastErr = e;
       }
-    }
 
-    if (lastErr && (String(lastErr?.message || lastErr).includes("404") || String(lastErr?.message || lastErr).includes("does not exist"))) {
-      console.warn("[SharePointCERDataService] CERApprovalDecisions list not found on site, defaulting to empty decisions list:", lastErr);
-      return [];
-    }
+      if (lastErr && (String(lastErr?.message || lastErr).includes("404") || String(lastErr?.message || lastErr).includes("does not exist"))) {
+        console.warn("[SharePointCERDataService] CERApprovalDecisions list not found on site, defaulting to empty decisions list:", lastErr);
+        return [];
+      }
 
-    console.error("[SharePointCERDataService] Error querying CERApprovalDecisions from SharePoint:", lastErr);
-    throw new Error(`Unable to load approval decisions from SharePoint: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`);
+      console.error("[SharePointCERDataService] Error querying CERApprovalDecisions from SharePoint:", lastErr);
+      throw new Error(`Unable to load approval decisions from SharePoint: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`);
+    })();
+
+    this._inFlightApprovalDecisions.set(key, fetchPromise);
+    try {
+      const res = await fetchPromise;
+      return res.map((d) => ({ ...d }));
+    } finally {
+      this._inFlightApprovalDecisions.delete(key);
+    }
   }
 
   public async recordDecision(params: {
@@ -1261,28 +1461,53 @@ export class SharePointCERDataService implements ICERDataService {
     const isNameMatch = approverName && ownerName && approverName === ownerName;
     const isOwner = isEmailMatch || isNameMatch;
 
-    // Check if the actor is an Administrator
-    let isUserAdmin = false;
-    try {
-      const userRoles = await this.getUserRoles();
-      isUserAdmin = userRoles.some(
-        (r) => r.is_active && r.role === "Admin" && r.user_email.toLowerCase() === approverEmail
-      );
-    } catch {
-      // non-blocking
-    }
+    const stageApproverEmail = (currentLevelConfig?.approver_email || "").trim().toLowerCase();
+    const creator = (existingProposal.created_by || "").trim().toLowerCase();
+    const isCreator = Boolean(creator && (creator === approverEmail || creator === approverName));
 
     if (isCurrentPO) {
-      // Must be designated Project Owner (or Admin)
-      if (!isOwner && !isUserAdmin) {
+      // Dynamic Project Owner stage: ONLY the designated Project Owner can approve
+      if (!isOwner) {
         throw new Error(
-          `Access Denied: Only the designated Project Owner (${existingProposal.owname || existingProposal.owner_email}) or an Administrator can approve this stage.`
+          `Access Denied: Only the designated Project Owner (${existingProposal.owname || existingProposal.owner_email}) can approve this stage.`
         );
       }
     } else {
       // Non-Project Owner stage: Segregation of Duties strictly enforced
-      if (isOwner && !isUserAdmin) {
+      if (isCreator) {
         throw new Error("Segregation of Duties Enforcement: You cannot approve a CER proposal that you initiated.");
+      }
+
+      if (isOwner) {
+        let isApproverForLevel = false;
+        try {
+          const userRoles = await this.getUserRoles();
+          isApproverForLevel = userRoles.some(
+            (r) =>
+              r.is_active &&
+              r.role === "Approver" &&
+              r.approval_level === params.level_id &&
+              (r.user_email.toLowerCase() === approverEmail ||
+                (r.login_name && r.login_name.toLowerCase() === approverEmail))
+          );
+        } catch {
+          // non-blocking
+        }
+
+        const isAllowedDualOwnerApprover =
+          Boolean(currentLevelConfig) &&
+          isApproverForLevel &&
+          (!stageApproverEmail || stageApproverEmail === approverEmail);
+
+        if (!isAllowedDualOwnerApprover) {
+          throw new Error("Segregation of Duties Enforcement: You cannot approve a CER proposal that you initiated or own on non-Project-Owner stages.");
+        }
+      }
+
+      if (stageApproverEmail && stageApproverEmail !== approverEmail) {
+        throw new Error(
+          `Access Denied: This approval stage is assigned to designated approver (${stageApproverEmail}). Only the assigned approver can approve this level.`
+        );
       }
     }
 
@@ -1518,6 +1743,10 @@ export class SharePointCERDataService implements ICERDataService {
       console.warn("[SharePointCERDataService] Secondary notification write warning:", notifErr);
     }
 
+    this._cachedProposals = null;
+    this._cachedProposalByNumber.delete(params.cerprno.toUpperCase());
+    this._cachedApprovalDecisions.delete(params.cerprno.toUpperCase());
+
     return {
       success: true,
       newStatus,
@@ -1529,86 +1758,114 @@ export class SharePointCERDataService implements ICERDataService {
   // 6. CERAttachments Operations (Document Library)
   // ---------------------------------------------------------------------------
 
-  public async getAttachments(cerprno: string): Promise<ICERAttachment[]> {
-    const candidateLists = [SP_LISTS.CER_ATTACHMENTS];
-    let lastErr: any = null;
+  public async getAttachments(cerprno: string, forceRefresh: boolean = false): Promise<ICERAttachment[]> {
+    const key = (cerprno || "").trim().toUpperCase();
+    const now = Date.now();
+    const CACHE_TTL_MS = 25000;
 
-    for (const libName of candidateLists) {
-      try {
-        let items: Record<string, any>[] = [];
-        // Tier 1: Query by cerPrNo with File and uploadedBy expanded
+    const cached = this._cachedAttachments.get(key);
+    if (!forceRefresh && cached && now - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data.map((a) => ({ ...a }));
+    }
+
+    const inFlight = this._inFlightAttachments.get(key);
+    if (!forceRefresh && inFlight) {
+      const res = await inFlight;
+      return res.map((a) => ({ ...a }));
+    }
+
+    const fetchPromise = (async () => {
+      const candidateLists = [SP_LISTS.CER_ATTACHMENTS];
+      let lastErr: any = null;
+
+      for (const libName of candidateLists) {
         try {
-          items = await this._sp.getListItems<Record<string, any>>(libName, {
-            filter: `cerPrNo eq '${cerprno}'`,
-            select: "Id,FileLeafRef,FileRef,cerPrNo,category,uploadDate,Created,File/ServerRelativeUrl,File/Length,uploadedBy/Id,uploadedBy/Title,uploadedBy/EMail",
-            expand: "File,uploadedBy",
-            top: 100,
-          });
-        } catch (t1Err) {
-          // Tier 2: Query by cerPrNo with only File expanded
+          let items: Record<string, any>[] = [];
+          // Tier 1: Query by cerPrNo with File and uploadedBy expanded
           try {
             items = await this._sp.getListItems<Record<string, any>>(libName, {
               filter: `cerPrNo eq '${cerprno}'`,
-              select: "Id,FileLeafRef,FileRef,cerPrNo,category,uploadDate,Created,File/ServerRelativeUrl,File/Length",
-              expand: "File",
+              select: "Id,FileLeafRef,FileRef,cerPrNo,category,uploadDate,Created,File/ServerRelativeUrl,File/Length,uploadedBy/Id,uploadedBy/Title,uploadedBy/EMail",
+              expand: "File,uploadedBy",
               top: 100,
             });
-          } catch (t2Err) {
-            // Tier 3: Query without filter if cerPrNo column isn't indexed or configured, filter in memory
+          } catch (t1Err) {
+            // Tier 2: Query by cerPrNo with only File expanded
             try {
               items = await this._sp.getListItems<Record<string, any>>(libName, {
-                select: "Id,FileLeafRef,FileRef,Created,File/ServerRelativeUrl,File/Length",
+                filter: `cerPrNo eq '${cerprno}'`,
+                select: "Id,FileLeafRef,FileRef,cerPrNo,category,uploadDate,Created,File/ServerRelativeUrl,File/Length",
                 expand: "File",
-                top: 200,
-              });
-              items = items.filter((it) => {
-                const leaf = String(it.FileLeafRef || "");
-                const cNo = String(it.cerPrNo || it.cerprno || "");
-                return cNo === cerprno || leaf.startsWith(cerprno) || leaf.includes(cerprno);
-              });
-            } catch (t3Err) {
-              // Tier 4: Minimal query fallback
-              items = await this._sp.getListItems<Record<string, any>>(libName, {
                 top: 100,
               });
-              items = items.filter((it) => {
-                const leaf = String(it.FileLeafRef || "");
-                const cNo = String(it.cerPrNo || it.cerprno || "");
-                return cNo === cerprno || leaf.startsWith(cerprno) || leaf.includes(cerprno);
-              });
+            } catch (t2Err) {
+              // Tier 3: Query without filter if cerPrNo column isn't indexed or configured, filter in memory
+              try {
+                items = await this._sp.getListItems<Record<string, any>>(libName, {
+                  select: "Id,FileLeafRef,FileRef,Created,File/ServerRelativeUrl,File/Length",
+                  expand: "File",
+                  top: 200,
+                });
+                items = items.filter((it) => {
+                  const leaf = String(it.FileLeafRef || "");
+                  const cNo = String(it.cerPrNo || it.cerprno || "");
+                  return cNo === cerprno || leaf.startsWith(cerprno) || leaf.includes(cerprno);
+                });
+              } catch (t3Err) {
+                // Tier 4: Minimal query fallback
+                items = await this._sp.getListItems<Record<string, any>>(libName, {
+                  top: 100,
+                });
+                items = items.filter((it) => {
+                  const leaf = String(it.FileLeafRef || "");
+                  const cNo = String(it.cerPrNo || it.cerprno || "");
+                  return cNo === cerprno || leaf.startsWith(cerprno) || leaf.includes(cerprno);
+                });
+              }
             }
           }
+
+          const mapped = items.map((item) => {
+            const uploaderPerson = PersonFieldService.extractPersonField(item, "uploadedBy") || PersonFieldService.extractPersonField(item, "Author");
+            const uploaderName = uploaderPerson?.name || item.uploaded_by || (typeof item.uploadedBy === "string" ? item.uploadedBy : "") || "User";
+            const uploadDate = item.uploadDate || item.Created || new Date().toISOString();
+            const fileSize = Number(item.File?.Length || item.file_size || 0);
+
+            return {
+              id: String(item.Id || item.id),
+              cerprno: item.cerPrNo || item.cerprno || cerprno,
+              name: item.FileLeafRef || item.File?.Name || "document",
+              size: fileSize,
+              type: item.file_type || (item.FileLeafRef && item.FileLeafRef.endsWith(".pdf") ? "application/pdf" : "application/octet-stream"),
+              data_url: item.File?.ServerRelativeUrl || item.FileRef || "",
+              uploaded_by: uploaderName,
+              uploaded_date: uploadDate,
+            };
+          });
+
+          this._cachedAttachments.set(key, { data: mapped, timestamp: Date.now() });
+          return mapped;
+        } catch (e) {
+          lastErr = e;
         }
-
-        return items.map((item) => {
-          const uploaderPerson = PersonFieldService.extractPersonField(item, "uploadedBy") || PersonFieldService.extractPersonField(item, "Author");
-          const uploaderName = uploaderPerson?.name || item.uploaded_by || (typeof item.uploadedBy === "string" ? item.uploadedBy : "") || "User";
-          const uploadDate = item.uploadDate || item.Created || new Date().toISOString();
-          const fileSize = Number(item.File?.Length || item.file_size || 0);
-
-          return {
-            id: String(item.Id || item.id),
-            cerprno: item.cerPrNo || item.cerprno || cerprno,
-            name: item.FileLeafRef || item.File?.Name || "document",
-            size: fileSize,
-            type: item.file_type || (item.FileLeafRef && item.FileLeafRef.endsWith(".pdf") ? "application/pdf" : "application/octet-stream"),
-            data_url: item.File?.ServerRelativeUrl || item.FileRef || "",
-            uploaded_by: uploaderName,
-            uploaded_date: uploadDate,
-          };
-        });
-      } catch (e) {
-        lastErr = e;
       }
-    }
 
-    if (lastErr && (String(lastErr?.message || lastErr).includes("404") || String(lastErr?.message || lastErr).includes("does not exist"))) {
-      console.warn(`[SharePointCERDataService] CERAttachments library not found on site for CER '${cerprno}', defaulting to empty list:`, lastErr);
-      return [];
-    }
+      if (lastErr && (String(lastErr?.message || lastErr).includes("404") || String(lastErr?.message || lastErr).includes("does not exist"))) {
+        console.warn(`[SharePointCERDataService] CERAttachments library not found on site for CER '${cerprno}', defaulting to empty list:`, lastErr);
+        return [];
+      }
 
-    console.error("[SharePointCERDataService] Error querying CERAttachments from SharePoint:", lastErr);
-    throw new Error(`Unable to load attachments for CER '${cerprno}' from SharePoint: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`);
+      console.error("[SharePointCERDataService] Error querying CERAttachments from SharePoint:", lastErr);
+      throw new Error(`Unable to load attachments for CER '${cerprno}' from SharePoint: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`);
+    })();
+
+    this._inFlightAttachments.set(key, fetchPromise);
+    try {
+      const res = await fetchPromise;
+      return res.map((a) => ({ ...a }));
+    } finally {
+      this._inFlightAttachments.delete(key);
+    }
   }
 
   public async addAttachment(attachment: ICERAttachment): Promise<void> {
@@ -1699,6 +1956,7 @@ export class SharePointCERDataService implements ICERDataService {
           `Unable to save attachment '${attachment.name}' to SharePoint CERAttachments library: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`
         );
       }
+      this._cachedAttachments.clear();
     }
   }
 
@@ -1712,6 +1970,7 @@ export class SharePointCERDataService implements ICERDataService {
         if (/^\d+$/.test(id)) {
           await this._sp.deleteListItem(libName, id);
           deleted = true;
+          this._cachedAttachments.clear();
           break;
         }
       } catch (err) {
@@ -1727,62 +1986,86 @@ export class SharePointCERDataService implements ICERDataService {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // 7. CERNotifications Operations
-  // ---------------------------------------------------------------------------
+  public async getNotificationLogs(cerprno?: string, forceRefresh: boolean = false): Promise<INotificationLog[]> {
+    const key = (cerprno || "ALL").trim().toUpperCase();
+    const now = Date.now();
+    const CACHE_TTL_MS = 25000;
 
-  public async getNotificationLogs(cerprno?: string): Promise<INotificationLog[]> {
-    const candidateLists = [SP_LISTS.CER_NOTIFICATIONS];
-    let lastErr: any = null;
+    const cached = this._cachedNotificationLogs.get(key);
+    if (!forceRefresh && cached && now - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data.map((l) => ({ ...l }));
+    }
 
-    for (const listName of candidateLists) {
-      try {
-        let items: Record<string, any>[] = [];
-        if (cerprno) {
-          try {
+    const inFlight = this._inFlightNotificationLogs.get(key);
+    if (!forceRefresh && inFlight) {
+      const res = await inFlight;
+      return res.map((l) => ({ ...l }));
+    }
+
+    const fetchPromise = (async () => {
+      const candidateLists = [SP_LISTS.CER_NOTIFICATIONS];
+      let lastErr: any = null;
+
+      for (const listName of candidateLists) {
+        try {
+          let items: Record<string, any>[] = [];
+          if (cerprno) {
+            try {
+              items = await this._sp.getListItems<Record<string, any>>(listName, {
+                filter: `cerPrNo eq '${cerprno}'`,
+                top: 100,
+                orderby: "Created desc",
+              });
+            } catch {
+              const allItems = await this._sp.getListItems<Record<string, any>>(listName, {
+                top: 100,
+                orderby: "Created desc",
+              });
+              items = allItems.filter((it: any) => (it.cerPrNo || it.Title) === cerprno);
+            }
+          } else {
             items = await this._sp.getListItems<Record<string, any>>(listName, {
-              filter: `cerPrNo eq '${cerprno}'`,
               top: 100,
               orderby: "Created desc",
             });
-          } catch {
-            const allItems = await this._sp.getListItems<Record<string, any>>(listName, {
-              top: 100,
-              orderby: "Created desc",
-            });
-            items = allItems.filter((it: any) => (it.cerPrNo || it.Title) === cerprno);
           }
-        } else {
-          items = await this._sp.getListItems<Record<string, any>>(listName, {
-            top: 100,
-            orderby: "Created desc",
-          });
+
+          const result: INotificationLog[] = items.map((item) => ({
+            id: String(item.Id || item.id),
+            cerprno: item.cerPrNo || item.cerprno || item.Title,
+            recipients: item.recipients ? item.recipients.split(";").map((s: string) => s.trim()) : [],
+            subject: item.subject || "",
+            body: item.bodyPreview || item.body || "",
+            attachments_count: Number(item.attachments_count || 0),
+            timestamp: item.Created || item.dispatch_timestamp || item.timestamp || new Date().toISOString(),
+            status: (item.status as "SENT" | "PENDING" | "FAILED") || "SENT",
+          }));
+
+          this._cachedNotificationLogs.set(key, { data: result, timestamp: Date.now() });
+          return result;
+        } catch (e) {
+          lastErr = e;
         }
-
-        return items.map((item) => ({
-          id: String(item.Id || item.id),
-          cerprno: item.cerPrNo || item.cerprno || item.Title,
-          recipients: item.recipients ? item.recipients.split(";").map((s: string) => s.trim()) : [],
-          subject: item.subject || "",
-          body: item.bodyPreview || item.body || "",
-          attachments_count: Number(item.attachments_count || 0),
-          timestamp: item.Created || item.dispatch_timestamp || item.timestamp || new Date().toISOString(),
-          status: (item.status as "SENT" | "PENDING" | "FAILED") || "SENT",
-        }));
-      } catch (e) {
-        lastErr = e;
       }
-    }
 
-    if (lastErr && (String(lastErr?.message || lastErr).includes("404") || String(lastErr?.message || lastErr).includes("does not exist"))) {
-      console.warn("[SharePointCERDataService] CERNotifications list not found on site, defaulting to empty list:", lastErr);
-      return [];
-    }
+      if (lastErr && (String(lastErr?.message || lastErr).includes("404") || String(lastErr?.message || lastErr).includes("does not exist"))) {
+        console.warn("[SharePointCERDataService] CERNotifications list not found on site, defaulting to empty list:", lastErr);
+        this._cachedNotificationLogs.set(key, { data: [], timestamp: Date.now() });
+        return [];
+      }
 
-    console.error("[SharePointCERDataService] Error querying CERNotifications from SharePoint:", lastErr);
-    throw new Error(
-      `Unable to load notification logs from SharePoint: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`
-    );
+      console.error("[SharePointCERDataService] Error querying CERNotifications from SharePoint:", lastErr);
+      throw new Error(
+        `Unable to load notification logs from SharePoint: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`
+      );
+    })();
+
+    this._inFlightNotificationLogs.set(key, fetchPromise);
+    try {
+      return await fetchPromise;
+    } finally {
+      this._inFlightNotificationLogs.delete(key);
+    }
   }
 
   private async _createNotificationRecord(
@@ -1817,9 +2100,11 @@ export class SharePointCERDataService implements ICERDataService {
       try {
         try {
           await this._sp.createListItem(listName, modernPayload);
+          this._cachedNotificationLogs.clear();
           return;
         } catch {
           await this._sp.createListItem(listName, legacyPayload);
+          this._cachedNotificationLogs.clear();
           return;
         }
       } catch {
@@ -1850,10 +2135,10 @@ export class SharePointCERDataService implements ICERDataService {
       id: String(item.Id || item.id),
       cerprno: item.cerPrNo || item.cerprno || item.Title,
       pr_name: item.prName || item.pr_name || "",
-      owname: ownerPerson?.name || (typeof item.cerOwner === "string" ? item.cerOwner : "") || (typeof item.owname === "string" ? item.owname : "") || item.ownname || "",
-      owner_email: ownerPerson?.email || item.owner_email || "",
+      owname: ownerPerson?.name || (typeof item.cerOwner === "string" ? item.cerOwner : "") || (typeof item.owname === "string" ? item.owname : "") || item.ownname || (item.Author?.Title ? item.Author.Title : ""),
+      owner_email: ownerPerson?.email || item.owner_email || (item.Author?.EMail ? item.Author.EMail : ""),
       sbu: item.sbu || "RJ North",
-      status: item.status || "In Approval",
+      status: (item.status === "Approval" ? "In Approval" : item.status) || "In Approval",
       object: item.object || "",
       amount: Number(item.amount || 0),
       currency: item.currency || "USD",

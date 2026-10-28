@@ -60,7 +60,15 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
       }
 
       // Status
-      if (statusFilter !== "ALL" && p.status !== statusFilter) return false;
+      if (statusFilter !== "ALL") {
+        const filterVal = statusFilter.toLowerCase().trim();
+        const propStatus = (p.status || "").toLowerCase().trim();
+        if (filterVal === "in approval" || filterVal === "approval") {
+          if (propStatus !== "in approval" && propStatus !== "approval") return false;
+        } else if (propStatus !== filterVal) {
+          return false;
+        }
+      }
 
       // Category
       if (categoryFilter !== "ALL" && p.cat !== categoryFilter) return false;
@@ -80,6 +88,21 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
       return true;
     });
   }, [proposals, searchTerm, statusFilter, categoryFilter, sbuFilter, ownerFilter, dateFrom, dateTo]);
+
+  // Canonical Workflow Status Options: In Approval, Approved, Draft, Rejected, Revised
+  const statusOptions = useMemo(() => {
+    const standard = ["In Approval", "Approved", "Draft", "Rejected", "Revised"];
+    const set = new Set<string>(standard);
+    if (fieldChoices?.status && Array.isArray(fieldChoices.status)) {
+      fieldChoices.status.forEach((st) => {
+        const normalized = st === "Approval" ? "In Approval" : st.trim();
+        if (normalized) {
+          set.add(normalized);
+        }
+      });
+    }
+    return Array.from(set);
+  }, [fieldChoices?.status]);
 
   // Sorting logic
   const sortedProposals = useMemo(() => {
@@ -220,10 +243,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
               className="w-full px-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
             >
               <option value="ALL">All Statuses</option>
-              {(fieldChoices?.status && fieldChoices.status.length > 0
-                ? fieldChoices.status
-                : ["In Approval", "Approved", "Draft", "Rejected", "Revised"]
-              ).map((st) => (
+              {statusOptions.map((st) => (
                 <option key={st} value={st}>
                   {st}
                 </option>

@@ -42,9 +42,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
   const filteredProposals = proposals.filter((p) => {
     // Mode filter
     if (mode === "my") {
-      const isOwner =
-        p.owname.toLowerCase() === currentUser.name.toLowerCase() ||
-        p.owner_email.toLowerCase() === currentUser.email.toLowerCase();
+      const isOwner = PermissionService.isProposalOwner(p, currentUser);
       if (!isOwner) return false;
     }
 
@@ -102,7 +100,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
               {mode === "my"
-                ? "Proposals initiated by you, current approval statuses, and revisions"
+                ? "Proposals initiated by you or where you are designated as the Project Owner"
                 : "Enterprise-wide capital expenditure proposals across all Strategic Business Units"}
             </p>
           </div>
@@ -119,14 +117,14 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                 pagination.setCurrentPage(1);
               }}
               placeholder="Filter proposals..."
-              className="w-full sm:w-56 pl-8 pr-3 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
+              className="w-full sm:w-56 pl-8 pr-3 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
             />
           </div>
 
           {(currentUser.role === "Initiator" || currentUser.role === "Admin") && (
             <button
               onClick={onNavigateToCreate}
-              className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-md shadow-blue-600/20 transition-all hover:scale-[1.02] shrink-0"
+              className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-[#012964] hover:bg-[#001f4d] text-white text-xs font-semibold rounded-xl shadow-md shadow-[#012964]/20 transition-all hover:scale-[1.02] shrink-0 cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" />
               <span>Create CER</span>
@@ -172,7 +170,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                     <td className="py-2.5 px-3 font-mono font-bold text-slate-900 whitespace-nowrap">
                       <button
                         onClick={() => onNavigateToDisplay(prop.cerprno)}
-                        className="hover:text-blue-600 transition-colors text-left"
+                        className="hover:text-[#012964] transition-colors text-left"
                         title="Display CER Proposal"
                       >
                         {prop.cerprno}
@@ -246,7 +244,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                               onClick={canEdit ? () => onNavigateToChange(prop.cerprno) : undefined}
                               className={`p-1.5 rounded-lg transition-colors ${
                                 canEdit
-                                  ? "text-blue-600 hover:text-blue-800 hover:bg-blue-50 cursor-pointer"
+                                  ? "text-[#012964] hover:bg-[#012964]/10 cursor-pointer"
                                   : "text-slate-300 hover:text-slate-300 bg-transparent cursor-not-allowed opacity-50"
                               }`}
                               title={editTooltip}
@@ -356,7 +354,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                         onClick={canEdit ? () => onNavigateToChange(prop.cerprno) : undefined}
                         className={`flex-1 py-1.5 px-2 font-semibold rounded-lg text-center flex items-center justify-center gap-1 text-[11px] transition-colors ${
                           canEdit
-                            ? "bg-blue-50 hover:bg-blue-100 text-blue-700 cursor-pointer"
+                            ? "bg-[#012964]/10 hover:bg-[#012964]/20 text-[#012964] cursor-pointer"
                             : "bg-slate-100 text-slate-400 cursor-not-allowed opacity-60"
                         }`}
                         title={editTooltip}

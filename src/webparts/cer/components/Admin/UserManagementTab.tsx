@@ -210,7 +210,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
       case "Admin":
         return "bg-purple-50 text-purple-700 border-purple-200";
       case "Approver":
-        return "bg-blue-50 text-blue-700 border-blue-200";
+        return "bg-[#012964]/10 text-[#012964] border-[#012964]/20";
       case "Finance_Audit":
         return "bg-emerald-50 text-emerald-700 border-emerald-200";
       case "Initiator":
@@ -390,7 +390,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search by name, email, or department..."
-            className="w-full pl-9 pr-3.5 py-2 text-xs 2xl:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 focus:bg-white transition-all text-slate-900 placeholder:text-slate-400"
+            className="w-full pl-9 pr-3.5 py-2 text-xs 2xl:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] focus:bg-white transition-all text-slate-900 placeholder:text-slate-400"
           />
         </div>
 
@@ -402,7 +402,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="w-full sm:w-auto text-xs 2xl:text-sm bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="w-full sm:w-auto text-xs 2xl:text-sm bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964]"
             >
               <option value="ALL">All Roles</option>
               <option value="Admin">Admin</option>
@@ -415,7 +415,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
           {/* Assign Role Button */}
           <button
             onClick={handleOpenAssignModal}
-            className="flex items-center justify-center gap-1.5 px-4 py-2 2xl:px-5 2xl:py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs 2xl:text-sm font-semibold rounded-xl shadow-subtle hover:shadow-hover transition-all cursor-pointer w-full sm:w-auto sm:ml-auto"
+            className="flex items-center justify-center gap-1.5 px-4 py-2 2xl:px-5 2xl:py-2.5 bg-[#012964] hover:bg-[#001f4d] text-white text-xs 2xl:text-sm font-semibold rounded-xl shadow-subtle hover:shadow-hover transition-all cursor-pointer w-full sm:w-auto sm:ml-auto"
           >
             <UserPlus className="w-4 h-4" />
             <span>Assign Role</span>
@@ -523,7 +523,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                       <td className="py-3 px-4 2xl:py-4 2xl:px-6">
                         {assignment.role === "Approver" && assignment.approval_level ? (
                           <div className="flex flex-col">
-                            <span className="font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 2xl:px-2.5 2xl:py-1 rounded border border-blue-200 text-xs w-fit">
+                            <span className="font-semibold text-[#012964] bg-[#012964]/10 px-2 py-0.5 2xl:px-2.5 2xl:py-1 rounded border border-[#012964]/20 text-xs w-fit">
                               Level {assignment.approval_level}
                             </span>
                             {(() => {
@@ -550,7 +550,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                           {/* Edit Role Button */}
                           <button
                             onClick={() => handleOpenEditModal(assignment)}
-                            className="p-1.5 2xl:p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                            className="p-1.5 2xl:p-2 rounded-lg text-[#012964] hover:bg-[#012964]/10 transition-colors cursor-pointer"
                             title="Edit role assignment"
                             aria-label="Edit role assignment"
                           >
@@ -640,7 +640,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                     </span>
 
                     {assignment.role === "Approver" && assignment.approval_level && (
-                      <span className="font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-[10px]">
+                      <span className="font-semibold text-[#012964] bg-[#012964]/10 px-2 py-0.5 rounded border border-[#012964]/20 text-[10px]">
                         Level {assignment.approval_level}
                       </span>
                     )}
@@ -662,7 +662,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                       {/* Edit Role Button */}
                       <button
                         onClick={() => handleOpenEditModal(assignment)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#012964]/10 text-[#012964] border border-[#012964]/20 hover:bg-[#012964]/20 transition-colors cursor-pointer"
                         title="Edit role assignment"
                         aria-label="Edit role assignment"
                       >
@@ -711,7 +711,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
           <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] my-auto">
             <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-100 bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
-                <UserPlus className="w-4 h-4 text-blue-600" />
+                <UserPlus className="w-4 h-4 text-[#012964]" />
                 <h3 className="text-sm font-bold text-slate-900">
                   Assign Enterprise Role
                 </h3>
@@ -759,11 +759,11 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                     className={`w-full pl-9 pr-9 py-2 bg-slate-50 border rounded-xl text-xs focus:bg-white focus:outline-none transition-colors ${
                       hasAttemptedSubmit && !selectedDirectoryUser
                         ? "border-rose-500 bg-rose-50/20 focus:border-rose-600 focus:ring-2 focus:ring-rose-200 text-slate-900"
-                        : "border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                        : "border-slate-300 focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964]"
                     }`}
                   />
                   {isSearchingDirectory ? (
-                    <Loader2 className="w-4 h-4 text-blue-600 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />
+                    <Loader2 className="w-4 h-4 text-[#012964] animate-spin absolute right-3 top-1/2 -translate-y-1/2" />
                   ) : directorySearchQuery ? (
                     <button
                       type="button"
@@ -792,7 +792,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 {/* Directory Dropdown Results (Only shown after typing 1 or more characters) */}
                 {isDropdownOpen && directorySearchQuery.trim().length >= 1 && isSearchingDirectory && (
                   <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-elevated p-3 z-50 flex items-center justify-center gap-2 text-slate-500">
-                    <Loader2 className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
+                    <Loader2 className="w-4 h-4 text-[#012964] animate-spin shrink-0" />
                     <span className="text-xs text-slate-600 font-medium">Searching directory...</span>
                   </div>
                 )}
@@ -815,7 +815,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                         <div
                           key={u.id || email || u.displayName}
                           onClick={() => handleSelectDirectoryUser(u)}
-                          className="p-2.5 hover:bg-blue-50/70 cursor-pointer flex items-center justify-between transition-colors gap-2.5 group"
+                          className="p-2.5 hover:bg-[#012964]/5 cursor-pointer flex items-center justify-between transition-colors gap-2.5 group"
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <UserAvatar
@@ -824,7 +824,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                               size="md"
                             />
                             <div className="min-w-0">
-                              <p className="font-bold text-slate-900 group-hover:text-blue-700 transition-colors truncate">
+                              <p className="font-bold text-slate-900 group-hover:text-[#012964] transition-colors truncate">
                                 {u.displayName}
                               </p>
                               <p className="text-[11px] text-slate-500 truncate">
@@ -864,7 +864,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                   <div className={`mt-2 p-2.5 rounded-xl flex items-center justify-between gap-3 border transition-colors ${
                     existingAssignmentForSelected
                       ? "bg-rose-50/40 border-rose-300"
-                      : "bg-blue-50/60 border-blue-200"
+                      : "bg-[#012964]/5 border-[#012964]/20"
                   }`}>
                     <div className="flex items-center gap-2.5 min-w-0">
                       <UserAvatar
@@ -874,12 +874,12 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                       />
                       <div className="min-w-0">
                         <p className={`font-bold truncate ${
-                          existingAssignmentForSelected ? "text-rose-950" : "text-blue-900"
+                          existingAssignmentForSelected ? "text-rose-950" : "text-[#012964]"
                         }`}>
                           {selectedDirectoryUser.displayName}
                         </p>
                         <p className={`text-[11px] truncate ${
-                          existingAssignmentForSelected ? "text-rose-700" : "text-blue-700"
+                          existingAssignmentForSelected ? "text-rose-700" : "text-[#012964]/80"
                         }`}>
                           {selectedDirectoryUser.mail || selectedDirectoryUser.userPrincipalName}
                         </p>
@@ -888,7 +888,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${
                       existingAssignmentForSelected
                         ? "text-rose-800 bg-white border-rose-300"
-                        : "text-blue-700 bg-white border-blue-200"
+                        : "text-[#012964] bg-white border-[#012964]/20"
                     }`}>
                       {existingAssignmentForSelected ? `Already Assigned (${existingAssignmentForSelected.role})` : "Selected Employee"}
                     </span>
@@ -914,7 +914,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 <select
                   value={selectedRole}
                   onChange={(e) => setSelectedRole(e.target.value as UserRole)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964]"
                 >
                   <option value="Initiator">Initiator (Create & track proposals)</option>
                   <option value="Approver">Approver (Review assigned stages)</option>
@@ -932,7 +932,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                   <select
                     value={approvalLevel}
                     onChange={(e) => setApprovalLevel(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 font-medium"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] font-medium"
                   >
                     {levels.length > 0 ? (
                       levels
@@ -967,7 +967,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
                   placeholder="e.g. Operations, Finance, IT"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 font-medium"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] font-medium"
                 />
               </div>
 
@@ -998,7 +998,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                   className={`px-5 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 ${
                     isSubmitting
                       ? "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed shadow-none"
-                      : "bg-blue-600 hover:bg-blue-700 text-white shadow-subtle hover:shadow-hover cursor-pointer"
+                      : "bg-[#012964] hover:bg-[#001f4d] text-white shadow-subtle hover:shadow-hover cursor-pointer"
                   }`}
                   title={
                     !selectedDirectoryUser
@@ -1030,7 +1030,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
           <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] my-auto">
             <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-100 bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
-                <Edit className="w-4 h-4 text-blue-600" />
+                <Edit className="w-4 h-4 text-[#012964]" />
                 <h3 className="text-sm font-bold text-slate-900">
                   Edit Role Assignment
                 </h3>
@@ -1078,7 +1078,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 <select
                   value={editRole}
                   onChange={(e) => setEditRole(e.target.value as UserRole)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964]"
                 >
                   <option value="Initiator">Initiator (Create & track proposals)</option>
                   <option value="Approver">Approver (Review assigned stages)</option>
@@ -1096,7 +1096,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                   <select
                     value={editApprovalLevel}
                     onChange={(e) => setEditApprovalLevel(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 font-medium"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] font-medium"
                   >
                     {levels.length > 0 ? (
                       levels
@@ -1131,7 +1131,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                   value={editDepartment}
                   onChange={(e) => setEditDepartment(e.target.value)}
                   placeholder="e.g. Operations, Finance, IT"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 font-medium"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] font-medium"
                 />
               </div>
 
@@ -1159,7 +1159,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-subtle transition-all disabled:opacity-50 cursor-pointer"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-[#012964] hover:bg-[#001f4d] text-white text-xs font-semibold rounded-xl shadow-subtle transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmitting ? (
                     <>

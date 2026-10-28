@@ -70,9 +70,9 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
       };
     }
     return {
-      bar: "bg-blue-600",
-      text: "text-blue-700",
-      bg: "bg-blue-50 border-blue-200",
+      bar: "bg-[#012964]",
+      text: "text-[#012964]",
+      bg: "bg-[#012964]/5 border-[#012964]/20",
     };
   }, [usagePercent]);
 
@@ -240,14 +240,14 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
 
   return (
     <div
-      className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-subtle space-y-5"
+      className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-sm space-y-3.5"
       id="section-supporting-documents"
     >
       {/* Section Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2.5 border-b border-slate-100 gap-2.5">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-blue-50 text-blue-600 shrink-0">
-            <Paperclip className="w-5 h-5" />
+          <div className="p-1.5 rounded-lg bg-[#012964]/10 text-[#012964] shrink-0">
+            <Paperclip className="w-4 h-4" />
           </div>
           <div>
             <h3 className="font-bold text-slate-900 text-sm">
@@ -261,11 +261,11 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
 
         {/* Limits & Capacity Pill */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] font-semibold text-slate-600 bg-slate-100/90 border border-slate-200 px-2.5 py-1 rounded-full whitespace-nowrap">
+          <span className="text-[10px] font-semibold text-slate-600 bg-slate-100/90 border border-slate-200 px-2 py-0.5 rounded-full whitespace-nowrap">
             Max 10 MB/file · Max 20 MB total
           </span>
           <span
-            className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border whitespace-nowrap ${statusColor.bg} ${statusColor.text}`}
+            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${statusColor.bg} ${statusColor.text}`}
           >
             {formatBytes(currentTotalBytes)} / 20 MB used
           </span>
@@ -273,13 +273,13 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
       </div>
 
       {/* Usage Indicator & Progress Bar */}
-      <div className="bg-slate-50/70 border border-slate-200/70 rounded-xl p-3.5 space-y-2">
+      <div className="bg-slate-50/70 border border-slate-200/70 rounded-lg p-2.5 space-y-1.5">
         <div className="flex items-center justify-between text-xs text-slate-600">
           <div className="flex items-center gap-1.5 font-medium">
             <HardDrive className="w-3.5 h-3.5 text-slate-500" />
             <span>Attachment Storage Capacity</span>
           </div>
-          <div className="font-medium text-slate-700">
+          <div className="font-medium text-slate-700 text-[11px]">
             <span className="font-bold text-slate-900">{formatBytes(currentTotalBytes)}</span> of{" "}
             <span className="font-bold text-slate-900">20 MB</span> used ({usagePercent}%) •{" "}
             <span className="text-slate-500 font-normal">{formatBytes(remainingBytes)} remaining</span>
@@ -287,7 +287,7 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
         </div>
 
         {/* Visual Progress Bar */}
-        <div className="w-full bg-slate-200/80 rounded-full h-2 overflow-hidden">
+        <div className="w-full bg-slate-200/80 rounded-full h-1.5 overflow-hidden">
           <div
             className={`h-full transition-all duration-300 rounded-full ${statusColor.bar}`}
             style={{ width: `${usagePercent}%` }}
@@ -297,10 +297,10 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
 
       {/* Inline Validation Errors */}
       {validationErrors.length > 0 && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs space-y-1.5 relative">
+        <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-xs space-y-1 relative">
           <div className="flex items-center justify-between font-bold text-rose-800">
             <div className="flex items-center gap-1.5">
-              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
               <span>Attachment Validation Notice</span>
             </div>
             <button
@@ -311,7 +311,7 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
               Dismiss
             </button>
           </div>
-          <ul className="list-disc list-inside space-y-1 text-rose-700 pt-1">
+          <ul className="list-disc list-inside space-y-0.5 text-rose-700 pt-0.5">
             {validationErrors.map((err, idx) => (
               <li key={idx} className="leading-snug">
                 {err}
@@ -328,10 +328,10 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all group ${
+          className={`border-2 border-dashed rounded-xl p-4 sm:p-5 text-center cursor-pointer transition-all group ${
             isDragOver
-              ? "border-blue-500 bg-blue-50/50 scale-[1.005]"
-              : "border-slate-300 hover:border-blue-500 bg-slate-50/50 hover:bg-blue-50/20"
+              ? "border-[#012964] bg-[#012964]/5 scale-[1.005]"
+              : "border-slate-300 hover:border-[#012964]/50 bg-slate-50/50 hover:bg-[#012964]/5"
           }`}
         >
           <input
@@ -343,23 +343,23 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
             className="hidden"
           />
 
-          <div className="w-10 h-10 rounded-xl bg-white shadow-xs border border-slate-200 flex items-center justify-center text-blue-600 mx-auto group-hover:scale-105 transition-transform">
+          <div className="w-8 h-8 rounded-lg bg-white shadow-xs border border-slate-200 flex items-center justify-center text-[#012964] mx-auto group-hover:scale-105 transition-transform">
             {isProcessing ? (
-              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+              <Loader2 className="w-4 h-4 animate-spin text-[#012964]" />
             ) : (
-              <Upload className="w-5 h-5" />
+              <Upload className="w-4 h-4" />
             )}
           </div>
 
-          <p className="text-xs font-semibold text-slate-800 mt-3">
+          <p className="text-xs font-semibold text-slate-800 mt-2">
             {isProcessing ? "Processing attachments..." : "Click to browse or drag and drop supporting files"}
           </p>
 
-          <p className="text-[11px] text-slate-500 mt-1">
+          <p className="text-[11px] text-slate-500 mt-0.5">
             Supports <strong className="text-slate-700">PDF, Word (.doc, .docx), Excel (.xls, .xlsx), Images (.png, .jpg, .webp)</strong>
           </p>
 
-          <div className="flex items-center justify-center gap-3 text-[11px] text-slate-400 mt-1.5 font-medium">
+          <div className="flex items-center justify-center gap-3 text-[10px] text-slate-400 mt-1 font-medium">
             <span>• Max 10 MB per individual file</span>
             <span>• Max 20 MB total combined capacity</span>
           </div>

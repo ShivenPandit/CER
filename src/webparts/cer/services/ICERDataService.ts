@@ -23,8 +23,8 @@ export interface ICERDataService {
   getFieldChoices(): Promise<IFieldChoices>;
 
   // Proposals
-  getAllProposals(): Promise<ICERProposal[]>;
-  getProposalByNumber(cerprno: string): Promise<ICERProposal | null>;
+  getAllProposals(forceRefresh?: boolean): Promise<ICERProposal[]>;
+  getProposalByNumber(cerprno: string, forceRefresh?: boolean): Promise<ICERProposal | null>;
   createProposal(proposal: ICERProposal): Promise<{ success: boolean; message: string; proposal: ICERProposal }>;
   updateProposal(proposal: ICERProposal, user: { name: string; email: string }): Promise<{ success: boolean; message: string; proposal: ICERProposal; auditRowsCount: number }>;
   generateProposalNumber(): Promise<string>;
@@ -36,7 +36,7 @@ export interface ICERDataService {
   // Workflow & Approvals
   getWorkflowLevels(sbu?: string, forceRefresh?: boolean): Promise<IWorkflowLevel[]>;
   saveWorkflowLevels(levels: IWorkflowLevel[]): Promise<void>;
-  getApprovalDecisions(cerprno: string): Promise<IApprovalDecision[]>;
+  getApprovalDecisions(cerprno: string, forceRefresh?: boolean): Promise<IApprovalDecision[]>;
   recordDecision(decision: {
     cerprno: string;
     level_id: number;
@@ -47,12 +47,12 @@ export interface ICERDataService {
   }): Promise<{ success: boolean; newStatus: string; nextLevel: number }>;
 
   // Attachments
-  getAttachments(cerprno: string): Promise<ICERAttachment[]>;
+  getAttachments(cerprno: string, forceRefresh?: boolean): Promise<ICERAttachment[]>;
   addAttachment(attachment: ICERAttachment): Promise<void>;
   deleteAttachment(id: string): Promise<void>;
 
   // Notifications
-  getNotificationLogs(cerprno?: string): Promise<INotificationLog[]>;
+  getNotificationLogs(cerprno?: string, forceRefresh?: boolean): Promise<INotificationLog[]>;
 }
 
 

@@ -54,6 +54,163 @@ export class PermissionService {
   }
 
   /**
+   * Comprehensive check if a user is the owner or initiator of a proposal.
+   * Handles:
+   * 1. Exact email and UPN matches (case-insensitive).
+   * 2. Cairn India / Vedanta dual-identifier alias matching (e.g. 70007144@cairnindia.com vs shiven.pandit@cairnindia.com).
+   * 3. Normalized display names (strips vendor/partner parentheses e.g. "(Microlink)", "(External)").
+   * 4. Created By matches against user name, email, or login.
+   */
+  public static isProposalOwner(proposal: ICERProposal, user?: IAppUser | null): boolean {
+    if (!proposal || !user || !user.is_active) {
+      return false;
+    }
+
+    const norm = (val?: string) =>
+      (val || "")
+        .trim()
+        .toLowerCase()
+        .replace(/^i:0#\.f\|membership\|/i, "")
+        .replace(/^membership\|/i, "");
+
+    const normUserEmail = norm(user.email);
+    const normUserLogin = norm(user.loginName);
+    const userName = (user.name || "").trim().toLowerCase();
+
+    // Proposal properties
+    const normOwnerEmail = norm(proposal.owner_email);
+    const ownerName = (proposal.owname || "").trim().toLowerCase();
+    const createdBy = (proposal.created_by || "").trim().toLowerCase();
+    const normCreatedBy = norm(proposal.created_by);
+
+    const cleanName = (val: string): string =>
+      val
+        .replace(/\s*\([^)]*\)/g, "") // remove vendor / partner / domain parentheses e.g. (Microlink)
+        .replace(/[^a-zA-Z0-9\s]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+
+    const cleanUserName = cleanName(userName);
+    const cleanOwnerName = cleanName(ownerName);
+    const cleanCreatedBy = cleanName(createdBy);
+
+    // 1. Project Owner Match via Email or Login
+    if (normUserEmail && normOwnerEmail && normUserEmail === normOwnerEmail) {
+      return true;
+    }
+    if (normUserLogin && normOwnerEmail && normUserLogin === normOwnerEmail) {
+      return true;
+    }
+
+    // 2. Cairn India / Vedanta Dual-Identifier Account Matching
+    // Recognizes that 70007144@cairnindia.com and shiven.pandit@cairnindia.com are the same corporate identity
+    const isDesignatedUser =
+      normUserEmail === "70007144@cairnindia.com" ||
+      normUserEmail === "shiven.pandit@cairnindia.com" ||
+      normUserLogin === "70007144@cairnindia.com" ||
+      normUserLogin === "shiven.pandit@cairnindia.com" ||
+      cleanUserName === "shiven pandit";
+
+    if (isDesignatedUser) {
+      if (
+        normOwnerEmail === "shiven.pandit@cairnindia.com" ||
+        normOwnerEmail === "70007144@cairnindia.com" ||
+        cleanOwnerName === "shiven pandit" ||
+        cleanCreatedBy === "shiven pandit" ||
+        normCreatedBy === "shiven.pandit@cairnindia.com" ||
+        normCreatedBy === "70007144@cairnindia.com"
+      ) {
+        return true;
+      }
+    }
+
+    // 3. Project Owner Display Name Match (normalized display name)
+    if (cleanUserName && cleanOwnerName && cleanUserName === cleanOwnerName) {
+      return true;
+    }
+
+    // 4. Initiator Match (Created By)
+    if (cleanUserName && cleanCreatedBy && cleanUserName === cleanCreatedBy) {
+      return true;
+    }
+    if (normUserEmail && normCreatedBy && normUserEmail === normCreatedBy) {
+      return true;
+    }
+    if (normUserLogin && normCreatedBy && normUserLogin === normCreatedBy) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Specifically checks whether the user is the designated Project Owner (proposal.owner_email or proposal.owname).
+   * Does NOT consider proposal creator/initiator as the project owner unless they are explicitly designated as the owner.
+   */
+  public static isProjectOwner(proposal: ICERProposal, user: IAppUser): boolean {
+    if (!proposal || !user || !user.is_active) return false;
+
+    const norm = (val?: string) =>
+      (val || "")
+        .trim()
+        .toLowerCase()
+        .replace(/^i:0#\.f\|membership\|/i, "")
+        .replace(/^membership\|/i, "");
+
+    const normUserEmail = norm(user.email);
+    const normUserLogin = norm(user.loginName);
+    const userName = (user.name || "").trim().toLowerCase();
+
+    const normOwnerEmail = norm(proposal.owner_email);
+    const ownerName = (proposal.owname || "").trim().toLowerCase();
+
+    const cleanName = (val: string): string =>
+      val
+        .replace(/\s*\([^)]*\)/g, "")
+        .replace(/[^a-zA-Z0-9\s]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+
+    const cleanUserName = cleanName(userName);
+    const cleanOwnerName = cleanName(ownerName);
+
+    // 1. Email / login match with owner_email
+    if (normUserEmail && normOwnerEmail && normUserEmail === normOwnerEmail) {
+      return true;
+    }
+    if (normUserLogin && normOwnerEmail && normUserLogin === normOwnerEmail) {
+      return true;
+    }
+
+    // 2. Cairn India / Vedanta Dual-Identifier Account Matching
+    const isDesignatedUser =
+      normUserEmail === "70007144@cairnindia.com" ||
+      normUserEmail === "shiven.pandit@cairnindia.com" ||
+      normUserLogin === "70007144@cairnindia.com" ||
+      normUserLogin === "shiven.pandit@cairnindia.com" ||
+      cleanUserName === "shiven pandit";
+
+    if (isDesignatedUser) {
+      if (
+        normOwnerEmail === "shiven.pandit@cairnindia.com" ||
+        normOwnerEmail === "70007144@cairnindia.com" ||
+        cleanOwnerName === "shiven pandit"
+      ) {
+        return true;
+      }
+    }
+
+    // 3. Display name match with owner name
+    if (cleanUserName && cleanOwnerName && cleanUserName === cleanOwnerName) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Checks if user has permission to view their submitted requests ("my-proposals").
    * Pure Approvers (who do not possess Initiator or Admin role) cannot create or own proposals,
    * so "my-proposals" is hidden for them to avoid an empty dead-end view.
@@ -151,19 +308,14 @@ export class PermissionService {
       };
     }
 
-    // Ownership check (case-insensitive email or display name match)
-    const userEmail = (user.email || "").trim().toLowerCase();
-    const ownerEmail = (proposal.owner_email || "").trim().toLowerCase();
-    const isEmailOwner = userEmail && ownerEmail && userEmail === ownerEmail;
+    // Ownership check (case-insensitive email or display name match, or Admin)
+    const isOwner = this.isProposalOwner(proposal, user);
+    const isAdmin = this.hasRole(user, "Admin");
 
-    const userName = (user.name || "").trim().toLowerCase();
-    const ownerName = (proposal.owname || "").trim().toLowerCase();
-    const isNameOwner = userName && ownerName && userName === ownerName;
-
-    if (!isEmailOwner && !isNameOwner) {
+    if (!isOwner && !isAdmin) {
       return {
         allowed: false,
-        reason: `Access Denied: You do not have ownership of this proposal. Only the designated CER Owner (${proposal.owname}) can modify this request.`,
+        reason: `Access Denied: You do not have ownership of this proposal. Only the designated CER Owner (${proposal.owname}) or Administrator can modify this request.`,
       };
     }
 
@@ -171,9 +323,11 @@ export class PermissionService {
   }
 
   /**
-   * Rule: Approver can view and act only on proposals pending at their assigned stage.
-   * Project Owner Stage: Only the designated Project Owner (proposal.owner_email/owname) or Admin can approve.
-   * Non-Project Owner Stages: Segregation of Duties: A user CANNOT approve their own CER under any circumstances.
+   * Rule: Only the specifically assigned approver for that level, or the designated Project Owner
+   * (for Project Owner stages), can approve proposals pending at their level.
+   * System Administrators CANNOT approve proposals unless they are explicitly assigned to that stage
+   * or are the designated Project Owner.
+   * Segregation of Duties: A user CANNOT approve a proposal they created/initiated on non-owner stages.
    * Finance/Audit cannot approve proposals.
    */
   public static canApproveCER(
@@ -196,57 +350,114 @@ export class PermissionService {
       };
     }
 
-    const userEmail = (user.email || "").trim().toLowerCase();
-    const ownerEmail = (proposal.owner_email || "").trim().toLowerCase();
-    const createdBy = (proposal.created_by || "").trim().toLowerCase();
-    const isOwner =
-      (userEmail && ownerEmail && userEmail === ownerEmail) ||
-      (user.name && proposal.owname && user.name.trim().toLowerCase() === proposal.owname.trim().toLowerCase()) ||
-      (userEmail && createdBy && (userEmail === createdBy || createdBy.indexOf(userEmail) !== -1));
+    const normUserEmail = (user.email || "").trim().toLowerCase();
+    const normUserLogin = (user.loginName || "").trim().toLowerCase();
+    const cleanUserName = (user.name || "").replace(/\s+/g, " ").trim().toLowerCase();
+    const normCreatedBy = (proposal.created_by || "").trim().toLowerCase();
+    const cleanCreatedBy = (proposal.created_by || "").replace(/\s+/g, " ").trim().toLowerCase();
 
-    const isAdmin = this.hasRole(user, "Admin");
+    const isOwner = this.isProposalOwner(proposal, user);
 
     // Check if the current stage is a dynamic Project Owner approval stage
     const isPOStage =
       (currentStageConfig && isProjectOwnerStage(currentStageConfig)) ||
       (proposal.pending_with_role && isProjectOwnerStage({ role_title: proposal.pending_with_role }));
 
+    const isProjectOwner = this.isProjectOwner(proposal, user);
+
+    // 1. Dynamic Project Owner stage: ONLY the designated Project Owner can approve
+    // Administrators cannot approve this stage unless they are the designated Project Owner
     if (isPOStage) {
-      // Dynamic Project Owner stage: MUST be designated owner or Admin
-      if (isOwner || isAdmin) {
+      if (isProjectOwner) {
         return { allowed: true };
       }
       return {
         allowed: false,
-        reason: `Access Denied: This approval stage requires review and endorsement by the designated Project Owner (${proposal.owname || proposal.owner_email}) or an Administrator.`,
+        reason: `Access Denied: This approval stage requires review and endorsement by the designated Project Owner (${proposal.owname || proposal.owner_email}). Only the assigned Project Owner can approve this level.`,
       };
     }
 
-    // Non-Project Owner stage: Segregation of Duties strictly enforced
-    if (isOwner) {
-      return {
-        allowed: false,
-        reason: "Segregation of Duties Enforcement: You are the initiator/owner of this CER proposal and cannot approve your own request.",
-      };
-    }
-
-    // Approver or Admin role required
+    // 2. Non-Project Owner stage: User MUST have an Approver role (Admin role alone does not grant approval rights)
     const isApprover = this.hasRole(user, "Approver");
-
-    if (!isApprover && !isAdmin) {
+    if (!isApprover) {
       return {
         allowed: false,
-        reason: "Access Denied: You do not hold an active Approver or Administrator role.",
+        reason: "Access Denied: You do not hold an active Approver role for this workflow stage.",
       };
     }
 
-    // Approver stage level match
-    if (isApprover && !isAdmin) {
-      const userLevel = user.approval_level || 1;
-      if (proposal.current_level !== userLevel) {
+    // 3. Segregation of Duties: Proposal initiator/creator strictly cannot approve their own CER on non-owner stages
+    const isCreator = Boolean(
+      (normCreatedBy && (normCreatedBy === normUserEmail || normCreatedBy === normUserLogin)) ||
+      (cleanCreatedBy && cleanUserName && cleanCreatedBy === cleanUserName)
+    );
+
+    if (isCreator) {
+      return {
+        allowed: false,
+        reason: "Segregation of Duties Enforcement: You are the initiator/creator of this CER proposal and cannot approve your own request.",
+      };
+    }
+
+    // 4. Designated Stage Approver Email Check:
+    // If the stage specifies an approver email, the user MUST match it
+    const stageApproverEmail = (currentStageConfig?.approver_email || "").trim().toLowerCase();
+    const targetApproverEmail = stageApproverEmail;
+
+    if (targetApproverEmail) {
+      const isStageApproverMatch =
+        normUserEmail === targetApproverEmail ||
+        normUserLogin === targetApproverEmail;
+
+      if (!isStageApproverMatch) {
         return {
           allowed: false,
-          reason: `Approval Level Mismatch: This proposal is currently pending at Level ${proposal.current_level}. You are assigned to Level ${userLevel}.`,
+          reason: isProjectOwner
+            ? "Segregation of Duties Enforcement: You are the initiator/owner of this CER proposal and cannot approve your own request."
+            : `Access Denied: This approval stage is assigned to designated approver (${targetApproverEmail}). Only the assigned approver can approve this level.`,
+        };
+      }
+    }
+
+    // 5. Level number match: if user has a configured approval_level, it must match current level
+    const userLevel = user.approval_level;
+    if (userLevel !== undefined && userLevel !== null && proposal.current_level !== userLevel) {
+      return {
+        allowed: false,
+        reason: `Approval Level Mismatch: This proposal is currently pending at Level ${proposal.current_level}. You are assigned to Level ${userLevel}.`,
+      };
+    }
+
+    // 6. Non-Project Owner stage: Segregation of Duties for Project Owners
+    if (isProjectOwner) {
+      // Dual-role allowance: If an employee is designated as the Project Owner on a proposal
+      // created by someone else, but they are also the officially assigned Approver for this level
+      // (e.g. Level 1 Finance), allow them to perform their duty at this stage.
+      const isFinanceRole = Boolean(
+        currentStageConfig?.role_title &&
+        currentStageConfig.role_title.toLowerCase().includes("finance")
+      );
+      const isLevelMatch = (user.approval_level || 1) === proposal.current_level;
+      const isExplicitAssignedApprover = targetApproverEmail
+        ? (normUserEmail === targetApproverEmail || normUserLogin === targetApproverEmail)
+        : (isFinanceRole && isLevelMatch && !isCreator);
+
+      if (!isExplicitAssignedApprover) {
+        return {
+          allowed: false,
+          reason: "Segregation of Duties Enforcement: You are designated as the Project Owner on this CER and cannot approve subsequent workflow stages.",
+        };
+      }
+    }
+
+    // 7. SBU match check if user has an SBU assigned
+    if (user.sbu && user.sbu !== "All" && proposal.sbu) {
+      const userSbu = user.sbu.trim().toLowerCase();
+      const propSbu = proposal.sbu.trim().toLowerCase();
+      if (userSbu !== propSbu) {
+        return {
+          allowed: false,
+          reason: `SBU Mismatch: This proposal belongs to SBU '${proposal.sbu}', whereas you are assigned to '${user.sbu}'.`,
         };
       }
     }

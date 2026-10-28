@@ -193,7 +193,7 @@ export const UserManualModal: React.FC<IUserManualModalProps> = ({
                     key={s.step}
                     className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200 bg-white shadow-2xs"
                   >
-                    <div className="w-7 h-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                    <div className="w-7 h-7 rounded-full bg-[#012964] text-white font-bold text-xs flex items-center justify-center shrink-0">
                       {s.step}
                     </div>
                     <div>
@@ -325,7 +325,7 @@ export const UserManualModal: React.FC<IUserManualModalProps> = ({
           </span>
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"
+            className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-[#012964] hover:bg-[#001f4d] transition-colors shadow-sm cursor-pointer"
           >
             Close Manual
           </button>

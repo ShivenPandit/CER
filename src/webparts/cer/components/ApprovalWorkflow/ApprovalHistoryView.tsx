@@ -27,11 +27,10 @@ export const ApprovalHistoryView: React.FC<IApprovalHistoryViewProps> = ({
   const loadDecisions = async (): Promise<void> => {
     setIsLoading(true);
     try {
-      const results: IApprovalDecision[] = [];
-      for (const p of proposals) {
-        const decs = await dataService.getApprovalDecisions(p.cerprno);
-        results.push(...decs);
-      }
+      const decisionsArrays = await Promise.all(
+        proposals.map((p) => dataService.getApprovalDecisions(p.cerprno))
+      );
+      const results = decisionsArrays.reduce((acc, val) => acc.concat(val), []);
       results.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       setDecisions(results);
     } catch (e) {
@@ -43,18 +42,18 @@ export const ApprovalHistoryView: React.FC<IApprovalHistoryViewProps> = ({
 
   useEffect(() => {
     loadDecisions().catch((e) => console.error(e));
-  }, []);
+  }, [proposals]);
 
-  const filteredDecisions = decisions.filter((d) => {
-    if (!searchTerm.trim()) return true;
+  const filteredDecisions = React.useMemo(() => {
+    if (!searchTerm.trim()) return decisions;
     const q = searchTerm.toLowerCase();
-    return (
+    return decisions.filter((d) =>
       d.cerprno.toLowerCase().includes(q) ||
       d.approver_name.toLowerCase().includes(q) ||
       d.level_name.toLowerCase().includes(q) ||
       d.comments.toLowerCase().includes(q)
     );
-  });
+  }, [decisions, searchTerm]);
 
   // Fully Automatic Dynamic Table Pagination
   const pagination = useDynamicPagination({

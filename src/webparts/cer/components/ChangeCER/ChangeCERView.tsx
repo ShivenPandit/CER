@@ -47,6 +47,8 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
+  const [isCheckingCerNo, setIsCheckingCerNo] = useState(false);
+  const cerNoDebounceTimer = React.useRef<any>(null);
 
   const loadProposal = async (cerprno: string): Promise<void> => {
     // Specific mandatory validation as required by FR-02:
@@ -115,6 +117,51 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
     loadProposal(proposalNumberInput).catch((err) => console.error(err));
   };
 
+  const checkCerNoUniqueness = React.useCallback(
+    async (cerNo: string) => {
+      const trimmed = (cerNo || "").trim();
+      if (!trimmed) return;
+      const originalNo = (originalProposal?.cerprno || "").trim().toUpperCase();
+      if (trimmed.toUpperCase() === originalNo) {
+        setErrors((prev) => {
+          if (prev.cerprno && prev.cerprno.includes("already exists")) {
+            const copy = { ...prev };
+            delete copy.cerprno;
+            return copy;
+          }
+          return prev;
+        });
+        return;
+      }
+
+      setIsCheckingCerNo(true);
+      try {
+        const existing = await dataService.getProposalByNumber(trimmed);
+        if (existing && (existing.cerprno || "").trim().toUpperCase() !== originalNo) {
+          setErrors((prev) => ({
+            ...prev,
+            cerprno: `CER Proposal No. '${trimmed}' already exists on another project. Please enter a unique number.`,
+          }));
+          setTouched((prev) => ({ ...prev, cerprno: true }));
+        } else {
+          setErrors((prev) => {
+            if (prev.cerprno && prev.cerprno.includes("already exists")) {
+              const copy = { ...prev };
+              delete copy.cerprno;
+              return copy;
+            }
+            return prev;
+          });
+        }
+      } catch {
+        // non-blocking
+      } finally {
+        setIsCheckingCerNo(false);
+      }
+    },
+    [dataService, originalProposal]
+  );
+
   const handleFieldChange = (field: keyof ICERProposal, value: any) => {
     if (!formData) return;
     setFormData((prev) => {
@@ -134,6 +181,13 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
       }
       return updated;
     });
+
+    if (field === "cerprno") {
+      if (cerNoDebounceTimer.current) clearTimeout(cerNoDebounceTimer.current);
+      cerNoDebounceTimer.current = setTimeout(() => {
+        checkCerNoUniqueness(value);
+      }, 400);
+    }
   };
 
   const handleFieldBlur = (field: keyof ICERProposal) => {
@@ -149,6 +203,10 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
       }
       return updated;
     });
+
+    if (field === "cerprno") {
+      checkCerNoUniqueness(formData.cerprno);
+    }
   };
 
   const handleAddAttachment = async (att: ICERAttachment) => {
@@ -210,6 +268,35 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         scrollToFirstError(firstErrorField);
       }
       return;
+    }
+
+    // Verify CER Proposal No. uniqueness before saving
+    const trimmedNo = (formData.cerprno || "").trim();
+    if (!trimmedNo) {
+      setErrors((prev) => ({ ...prev, cerprno: "CER Proposal Number is required." }));
+      setTouched((prev) => ({ ...prev, cerprno: true }));
+      setErrorMessage("Make an entry in mandatory field 'CER Proposal No.'");
+      scrollToFirstError("cerprno");
+      return;
+    }
+
+    const originalNo = (originalProposal?.cerprno || "").trim().toUpperCase();
+    if (trimmedNo.toUpperCase() !== originalNo) {
+      try {
+        const existing = await dataService.getProposalByNumber(trimmedNo);
+        if (existing && (existing.cerprno || "").trim().toUpperCase() !== originalNo) {
+          setErrors((prev) => ({
+            ...prev,
+            cerprno: `CER Proposal No. '${trimmedNo}' already exists on another project. Please enter a unique number.`,
+          }));
+          setTouched((prev) => ({ ...prev, cerprno: true }));
+          setErrorMessage(`CER Proposal No. '${trimmedNo}' already exists on another project. Please choose a unique proposal number.`);
+          scrollToFirstError("cerprno");
+          return;
+        }
+      } catch {
+        // non-blocking
+      }
     }
 
     setIsSubmitting(true);
@@ -277,7 +364,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
               value={proposalNumberInput}
               onChange={(e) => setProposalNumberInput(e.target.value)}
               placeholder="Enter CER Proposal No..."
-              className="w-56 px-3.5 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs font-mono font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
+              className="w-56 px-3.5 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs font-mono font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
             />
           </div>
           <button
@@ -314,7 +401,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
             <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2.5">
               <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
               <div>
-                <p className="font-bold">Post-Approval Revision Mode (Doc §8 #7)</p>
+                <p className="font-bold">Post-Approval Revision Mode</p>
                 <p className="text-amber-800 text-[11px] mt-0.5">
                   This proposal was previously approved. You may edit project parameters and justification; however, the proposal number is locked to preserve referential and audit integrity.
                 </p>
@@ -345,6 +432,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
             isChangeMode={true}
             dataService={dataService}
             fieldChoices={fieldChoices}
+            isCheckingCerNo={isCheckingCerNo}
           />
 
           {/* Section B — Financial benefits and payback */}
@@ -411,7 +499,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           <CategoryDefinitionSection />
 
           {/* Sticky Bottom Actions Bar */}
-          <div className="fixed bottom-0 left-0 lg:left-64 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 sm:px-8 py-3 flex items-center justify-between shadow-elevated z-30">
+          <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 sm:px-5 lg:px-6 2xl:px-8 py-2.5 flex items-center justify-between shadow-elevated z-30">
             <div className="text-xs text-slate-500 hidden md:block">
               Saving will create field-level audit rows and route to Level 1 approver.
             </div>
@@ -444,7 +532,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
                 type="button"
                 onClick={() => handleSaveChange(false)}
                 disabled={isSubmitting || isUploadingAttachments}
-                className="flex items-center gap-2 px-4 sm:px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-600/30 transition-all hover:scale-[1.02] disabled:opacity-50 cursor-pointer"
+                className="flex items-center gap-2 px-4 sm:px-5 py-2 text-xs font-semibold text-white bg-[#012964] hover:bg-[#001f4d] rounded-xl shadow-md shadow-[#012964]/25 transition-all hover:scale-[1.02] disabled:opacity-50 cursor-pointer"
               >
                 {formData.status === "Draft" ? (
                   <>

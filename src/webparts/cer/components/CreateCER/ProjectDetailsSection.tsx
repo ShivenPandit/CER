@@ -18,6 +18,7 @@ interface IProjectDetailsSectionProps {
   onGenerateNewNumber?: () => void;
   dataService?: ICERDataService;
   fieldChoices?: IFieldChoices;
+  isCheckingCerNo?: boolean;
 }
 
 export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
@@ -31,6 +32,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
   onGenerateNewNumber,
   dataService,
   fieldChoices,
+  isCheckingCerNo = false,
 }) => {
   const effectiveDataService = React.useMemo(() => dataService || new LocalMockCERDataService(), [dataService]);
 
@@ -61,12 +63,12 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
 
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-subtle space-y-6">
+    <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-sm space-y-3.5">
       {/* Section Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+      <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
-            <FolderGit2 className="w-5 h-5" />
+          <div className="p-1.5 rounded-lg bg-[#012964]/10 text-[#012964]">
+            <FolderGit2 className="w-4 h-4" />
           </div>
           <div>
             <h3 className="font-bold text-slate-900 text-sm">
@@ -79,10 +81,10 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 text-xs">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 text-xs">
         {/* Name of Project */}
         <div className="md:col-span-2" id="field-pr_name">
-          <label htmlFor="pr_name" className="block font-semibold text-slate-700 mb-1.5">
+          <label htmlFor="pr_name" className="block font-semibold text-slate-700 mb-1">
             Name of Project <span className="text-rose-500">*</span>
           </label>
           <input
@@ -92,17 +94,17 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.pr_name}
             onChange={(e) => onChange("pr_name", e.target.value)}
             onBlur={() => onBlur && onBlur("pr_name")}
-            className={`w-full px-3.5 py-2.5 rounded-xl font-medium transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none ${
+            className={`w-full px-3 py-2 rounded-lg font-medium transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none ${
               getFieldError("pr_name")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-[#012964] focus:ring-2 focus:ring-[#012964]/15"
             }`}
             required
             aria-invalid={!!getFieldError("pr_name")}
             aria-describedby={getFieldError("pr_name") ? "pr_name-error" : undefined}
           />
           {getFieldError("pr_name") && (
-            <p id="pr_name-error" className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
+            <p id="pr_name-error" className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{getFieldError("pr_name")}</span>
             </p>
@@ -111,7 +113,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
 
         {/* CER Proposal No. */}
         <div id="field-cerprno">
-          <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center justify-between mb-1">
             <label htmlFor="cerprno" className="font-semibold text-slate-700">
               CER Proposal No. <span className="text-rose-500">*</span>
             </label>
@@ -119,36 +121,55 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
               <button
                 type="button"
                 onClick={onGenerateNewNumber}
-                className="text-[11px] font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                className="text-xs font-semibold text-[#012964] hover:underline flex items-center gap-1"
                 title="Generate fresh unique proposal number"
               >
                 <RefreshCw className="w-3 h-3" /> Auto
               </button>
             )}
           </div>
-          <input
-            id="cerprno"
-            type="text"
-            readOnly={isReadOnly}
-            disabled={isReadOnly}
-            value={formData.cerprno}
-            onChange={(e) => onChange("cerprno", e.target.value)}
-            onBlur={() => onBlur && onBlur("cerprno")}
-            className={`w-full px-3.5 py-2.5 rounded-xl font-mono font-semibold transition-colors focus:outline-none ${
-              isReadOnly
-                ? "bg-slate-100 border border-slate-200 text-slate-500 cursor-not-allowed shadow-none"
-                : "bg-white border border-slate-300 hover:border-slate-400 text-slate-900 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
-            }`}
-            required
-          />
-          <p className="text-[10px] text-slate-400 mt-1">
-            Required proposal identifier. Editable by user or auto-generated.
-          </p>
+          <div className="relative">
+            <input
+              id="cerprno"
+              type="text"
+              readOnly={isReadOnly}
+              disabled={isReadOnly}
+              value={formData.cerprno}
+              onChange={(e) => onChange("cerprno", e.target.value)}
+              onBlur={() => onBlur && onBlur("cerprno")}
+              className={`w-full px-3 py-2 rounded-lg font-mono font-semibold transition-colors focus:outline-none ${
+                isReadOnly
+                  ? "bg-slate-100 border border-slate-200 text-slate-500 cursor-not-allowed shadow-none"
+                  : getFieldError("cerprno")
+                  ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 text-rose-950"
+                  : "bg-white border border-slate-300 hover:border-slate-400 text-slate-900 focus:border-[#012964] focus:ring-2 focus:ring-[#012964]/15"
+              }`}
+              required
+              aria-invalid={!!getFieldError("cerprno")}
+              aria-describedby={getFieldError("cerprno") ? "cerprno-error" : undefined}
+            />
+            {isCheckingCerNo && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-xs text-slate-400">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#012964]" />
+                <span className="text-[11px]">Checking...</span>
+              </div>
+            )}
+          </div>
+          {getFieldError("cerprno") ? (
+            <p id="cerprno-error" className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>{getFieldError("cerprno")}</span>
+            </p>
+          ) : (
+            <p className="text-[10px] text-slate-400 mt-0.5">
+              Required proposal identifier. Must be unique across all proposals.
+            </p>
+          )}
         </div>
 
         {/* CER Owner Name — Directory Search */}
         <div id="field-owname">
-          <label htmlFor="owname-people-picker" className="block font-semibold text-slate-700 mb-1.5">
+          <label htmlFor="owname-people-picker" className="block font-semibold text-slate-700 mb-1">
             CER Owner Name <span className="text-rose-500">*</span>
             <span className="text-[10px] font-normal text-slate-400 ml-1.5">(Authorized Portal Members)</span>
           </label>
@@ -175,7 +196,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
 
         {/* Block/SBU/Field */}
         <div id="field-sbu">
-          <label htmlFor="sbu" className="block font-semibold text-slate-700 mb-1.5">
+          <label htmlFor="sbu" className="block font-semibold text-slate-700 mb-1">
             Block/SBU/Field <span className="text-rose-500">*</span>
           </label>
           <select
@@ -184,7 +205,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.sbu}
             onChange={(e) => onChange("sbu", e.target.value as SBUOption)}
             onBlur={() => onBlur && onBlur("sbu")}
-            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-colors font-medium text-slate-900 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+            className="w-full px-3 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-lg focus:border-[#012964] focus:ring-2 focus:ring-[#012964]/15 focus:outline-none transition-colors font-medium text-slate-900 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
           >
             {(fieldChoices?.sbu && fieldChoices.sbu.length > 0 ? fieldChoices.sbu : SBU_OPTIONS).map((opt) => (
               <option key={opt} value={opt}>
@@ -193,7 +214,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             ))}
           </select>
           {getFieldError("sbu") && (
-            <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
+            <p className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{getFieldError("sbu")}</span>
             </p>
@@ -202,7 +223,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
 
         {/* Category */}
         <div id="field-cat">
-          <label htmlFor="cat" className="block font-semibold text-slate-700 mb-1.5">
+          <label htmlFor="cat" className="block font-semibold text-slate-700 mb-1">
             Category <span className="text-rose-500">*</span>
           </label>
           <select
@@ -211,7 +232,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.cat}
             onChange={(e) => onChange("cat", e.target.value as CERCategory)}
             onBlur={() => onBlur && onBlur("cat")}
-            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-colors font-medium text-slate-900 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+            className="w-full px-3 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-lg focus:border-[#012964] focus:ring-2 focus:ring-[#012964]/15 focus:outline-none transition-colors font-medium text-slate-900 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
           >
             {(fieldChoices?.cat && fieldChoices.cat.length > 0 ? fieldChoices.cat : ["Essential", "Vital", "Desirable"]).map((cat) => (
               <option key={cat} value={cat}>
@@ -220,7 +241,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             ))}
           </select>
           {getFieldError("cat") && (
-            <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
+            <p className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{getFieldError("cat")}</span>
             </p>
@@ -229,7 +250,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
 
         {/* Start Date of Project */}
         <div id="field-st_date">
-          <label htmlFor="st_date" className="block font-semibold text-slate-700 mb-1.5">
+          <label htmlFor="st_date" className="block font-semibold text-slate-700 mb-1">
             Start Date of the Project <span className="text-rose-500">*</span>
           </label>
           <input
@@ -239,15 +260,15 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.st_date}
             onChange={(e) => handleDateChange(true, e.target.value)}
             onBlur={() => onBlur && onBlur("st_date")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-colors text-slate-900 focus:outline-none ${
+            className={`w-full px-3 py-2 rounded-lg transition-colors text-slate-900 focus:outline-none ${
               getFieldError("st_date")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-[#012964] focus:ring-2 focus:ring-[#012964]/15"
             }`}
             required
           />
           {getFieldError("st_date") && (
-            <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
+            <p className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{getFieldError("st_date")}</span>
             </p>
@@ -256,7 +277,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
 
         {/* Completion Date of Project (Optional) */}
         <div id="field-com_date">
-          <label htmlFor="com_date" className="block font-semibold text-slate-700 mb-1.5">
+          <label htmlFor="com_date" className="block font-semibold text-slate-700 mb-1">
             Completion Date of Project <span className="text-[10px] font-normal text-slate-400">(Optional)</span>
           </label>
           <input
@@ -267,14 +288,14 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             min={formData.st_date}
             onChange={(e) => handleDateChange(false, e.target.value)}
             onBlur={() => onBlur && onBlur("com_date")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-colors text-slate-900 focus:outline-none ${
+            className={`w-full px-3 py-2 rounded-lg transition-colors text-slate-900 focus:outline-none ${
               getFieldError("com_date")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-[#012964] focus:ring-2 focus:ring-[#012964]/15"
             }`}
           />
           {getFieldError("com_date") && (
-            <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
+            <p className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{getFieldError("com_date")}</span>
             </p>
@@ -283,16 +304,16 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
 
         {/* Total Duration */}
         <div id="field-duration_months">
-          <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center justify-between mb-1">
             <label htmlFor="duration_months" className="block font-semibold text-slate-700">
               Total Duration
             </label>
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-md border border-slate-200 text-xs">
               <button
                 type="button"
                 onClick={() => setDurationUnit("days")}
                 title="Display duration in exact days (Default)"
-                className={`px-2.5 py-0.5 rounded-md font-medium transition-colors ${
+                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
                   durationUnit === "days"
                     ? "bg-white text-slate-800 shadow-sm"
                     : "text-slate-500 hover:text-slate-700"
@@ -304,7 +325,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
                 type="button"
                 onClick={() => setDurationUnit("months")}
                 title="Display duration in months"
-                className={`px-2.5 py-0.5 rounded-md font-medium transition-colors ${
+                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
                   durationUnit === "months"
                     ? "bg-white text-slate-800 shadow-sm"
                     : "text-slate-500 hover:text-slate-700"
@@ -321,18 +342,18 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
               readOnly
               disabled
               value={exactDays > 0 ? formatDuration(exactDays, durationUnit) : "-"}
-              className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl font-semibold text-slate-700 cursor-not-allowed shadow-none"
+              className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg font-semibold text-slate-700 cursor-not-allowed shadow-none"
             />
           </div>
         </div>
 
         {/* Objectives of CER */}
         <div className="md:col-span-2 lg:col-span-3" id="field-object">
-          <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center justify-between mb-1">
             <label htmlFor="object" className="font-semibold text-slate-700">
               Objectives of CER <span className="text-rose-500">*</span>
             </label>
-            <span className="text-[11px] text-slate-400">
+            <span className="text-[11px] text-slate-400 font-medium">
               {formData.object ? formData.object.trim().length : 0} / 2,000 characters
             </span>
           </div>
@@ -343,15 +364,15 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.object}
             onChange={(e) => onChange("object", e.target.value)}
             onBlur={() => onBlur && onBlur("object")}
-            className={`w-full px-3.5 py-2.5 rounded-xl transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none resize-y ${
+            className={`w-full px-3 py-2 rounded-lg transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none resize-y ${
               getFieldError("object")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-[#012964] focus:ring-2 focus:ring-[#012964]/15"
             }`}
             required
           />
           {getFieldError("object") && (
-            <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
+            <p className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{getFieldError("object")}</span>
             </p>

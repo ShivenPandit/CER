@@ -151,7 +151,7 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-all ${
                   isSelected
-                    ? "bg-blue-600 text-white shadow-sm ring-1 ring-blue-700/20 font-bold"
+                    ? "bg-[#012964] text-white shadow-sm ring-1 ring-[#012964]/20 font-bold"
                     : "text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium"
                 }`}
               >

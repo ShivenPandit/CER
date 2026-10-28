@@ -101,11 +101,50 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
+  const [isCheckingCerNo, setIsCheckingCerNo] = useState(false);
+  const cerNoDebounceTimer = React.useRef<any>(null);
+
+  const checkCerNoUniqueness = React.useCallback(
+    async (cerNo: string) => {
+      const trimmed = (cerNo || "").trim();
+      if (!trimmed) return;
+      setIsCheckingCerNo(true);
+      try {
+        const existing = await dataService.getProposalByNumber(trimmed);
+        if (existing) {
+          setErrors((prev) => ({
+            ...prev,
+            cerprno: `CER Proposal No. '${trimmed}' already exists in the system. Please enter a unique number or click Auto.`,
+          }));
+          setTouched((prev) => ({ ...prev, cerprno: true }));
+        } else {
+          setErrors((prev) => {
+            if (prev.cerprno && prev.cerprno.includes("already exists")) {
+              const copy = { ...prev };
+              delete copy.cerprno;
+              return copy;
+            }
+            return prev;
+          });
+        }
+      } catch {
+        // non-blocking
+      } finally {
+        setIsCheckingCerNo(false);
+      }
+    },
+    [dataService]
+  );
 
   const generateProposalNumber = async (): Promise<void> => {
     try {
       const generatedNo = await dataService.generateProposalNumber();
       setFormData((prev) => ({ ...prev, cerprno: generatedNo }));
+      setErrors((prev) => {
+        const copy = { ...prev };
+        delete copy.cerprno;
+        return copy;
+      });
     } catch (e) {
       console.error("Error generating proposal number:", e);
     }
@@ -133,6 +172,13 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
       }
       return updated;
     });
+
+    if (field === "cerprno") {
+      if (cerNoDebounceTimer.current) clearTimeout(cerNoDebounceTimer.current);
+      cerNoDebounceTimer.current = setTimeout(() => {
+        checkCerNoUniqueness(value);
+      }, 400);
+    }
   };
 
   // On blur: mark field as touched and validate immediately
@@ -148,6 +194,10 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
       }
       return updated;
     });
+
+    if (field === "cerprno") {
+      checkCerNoUniqueness(formData.cerprno);
+    }
   };
 
   const handleAddAttachment = (att: ICERAttachment) => {
@@ -209,6 +259,32 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
       return;
     }
 
+    // Verify CER Proposal No. uniqueness before submitting
+    const trimmedNo = (formData.cerprno || "").trim();
+    if (!trimmedNo) {
+      setErrors((prev) => ({ ...prev, cerprno: "CER Proposal Number is required." }));
+      setTouched((prev) => ({ ...prev, cerprno: true }));
+      setErrorMessage("Make an entry in mandatory field 'CER Proposal No.'");
+      scrollToFirstError("cerprno");
+      return;
+    }
+
+    try {
+      const existing = await dataService.getProposalByNumber(trimmedNo);
+      if (existing) {
+        setErrors((prev) => ({
+          ...prev,
+          cerprno: `CER Proposal No. '${trimmedNo}' already exists in the system. Please enter a unique number or click Auto.`,
+        }));
+        setTouched((prev) => ({ ...prev, cerprno: true }));
+        setErrorMessage(`CER Proposal No. '${trimmedNo}' already exists. Please choose a unique proposal number.`);
+        scrollToFirstError("cerprno");
+        return;
+      }
+    } catch {
+      // non-blocking
+    }
+
     setIsSubmitting(true);
     try {
       const payload: ICERProposal = {
@@ -235,19 +311,73 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
   };
 
   return (
-    <div className="space-y-6 pb-28 sm:pb-32">
+    <div className="cer-create-scope space-y-3.5 sm:space-y-4 pb-16 sm:pb-20">
+      {/* Page-Scoped Brand Colour Tokens & Compact Enterprise Style */}
+      <style>{`
+        .cer-create-scope {
+          --cer-brand-blue: #012964;
+          --cer-brand-green: #66CC33;
+        }
+
+        .cer-create-scope .cer-btn-primary {
+          background-color: var(--cer-brand-blue) !important;
+          color: #ffffff !important;
+        }
+        .cer-create-scope .cer-btn-primary:hover:not(:disabled) {
+          opacity: 0.92 !important;
+        }
+
+        .cer-create-scope .cer-text-blue {
+          color: var(--cer-brand-blue) !important;
+        }
+        .cer-create-scope .cer-text-green {
+          color: var(--cer-brand-green) !important;
+        }
+
+        .cer-create-scope .cer-border-blue {
+          border-color: var(--cer-brand-blue) !important;
+        }
+        .cer-create-scope .cer-border-green {
+          border-color: var(--cer-brand-green) !important;
+        }
+
+        .cer-create-scope .cer-bg-blue {
+          background-color: var(--cer-brand-blue) !important;
+          color: #ffffff !important;
+        }
+        .cer-create-scope .cer-bg-green {
+          background-color: var(--cer-brand-green) !important;
+          color: var(--cer-brand-blue) !important;
+        }
+
+        .cer-create-scope input:focus,
+        .cer-create-scope select:focus,
+        .cer-create-scope textarea:focus {
+          outline: none !important;
+          border-color: var(--cer-brand-blue) !important;
+          box-shadow: 0 0 0 2px rgba(1, 41, 100, 0.15) !important;
+        }
+
+        .sp-skipToContent:not(:focus):not(:focus-within),
+        #sp-skipToContent:not(:focus):not(:focus-within) {
+          position: absolute !important;
+          top: -9999px !important;
+          left: -9999px !important;
+        }
+      `}</style>
+
       {/* View Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-subtle">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white px-4 py-3 sm:px-5 sm:py-3.5 rounded-xl border border-slate-200/80 shadow-sm">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={onCancel}
-            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
             title="Go back"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
               Create Capital Expenditure Request (CER)
             </h2>
             <p className="text-xs text-slate-500">
@@ -257,7 +387,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-3 py-1 rounded-lg border border-blue-200">
+          <span className="text-xs font-mono font-bold text-[#012964] bg-[#012964]/5 px-2.5 py-1 rounded-md border border-[#012964]/20">
             {formData.cerprno || "GENERATING..."}
           </span>
         </div>
@@ -265,14 +395,14 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
 
       {/* Error / Success Alerts */}
       {errorMessage && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2.5 animate-shake">
+        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2.5 animate-shake">
           <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
           <span className="font-medium">{errorMessage}</span>
         </div>
       )}
 
       {successNotice && (
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5">
+        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5">
           <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
           <span className="font-semibold">{successNotice}</span>
         </div>
@@ -288,6 +418,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         onGenerateNewNumber={generateProposalNumber}
         dataService={dataService}
         fieldChoices={fieldChoices}
+        isCheckingCerNo={isCheckingCerNo}
       />
 
       {/* Section B — Financial benefits and payback */}
@@ -350,47 +481,51 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
       {/* Critical Client Requirement: Category Definition at the end of the Form */}
       <CategoryDefinitionSection />
 
-      {/* Sticky Bottom Actions Bar */}
-      <div className="fixed bottom-0 left-0 lg:left-64 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 sm:px-8 py-3 flex items-center justify-between shadow-elevated z-30">
-        <div className="text-xs text-slate-500 hidden md:block">
-          All changes are tracked in the field-level audit trail upon submission.
-        </div>
+      {/* Compact Fixed Bottom Actions Bar - Full Width, Aligned with Form Grid */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-elevated z-30 py-2.5 px-3 sm:px-5 lg:px-6 2xl:px-8">
+        <div className="w-full flex items-center justify-between gap-3">
+          <div className="text-xs text-slate-500 hidden sm:flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+            <span>All changes are tracked in the field-level audit trail upon submission.</span>
+          </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 ml-auto flex-wrap justify-end w-full sm:w-auto">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isSubmitting || isUploadingAttachments}
-            className="px-3 sm:px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-50"
-          >
-            Cancel
-          </button>
+          <div className="flex items-center gap-2 sm:gap-2.5 ml-auto flex-wrap justify-end">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isSubmitting || isUploadingAttachments}
+              className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
 
-          <button
-            type="button"
-            onClick={() => handleSubmit(true)}
-            disabled={isSubmitting || isUploadingAttachments}
-            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors disabled:opacity-50"
-          >
-            <Save className="w-4 h-4" />
-            <span>Save Draft</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => handleSubmit(true)}
+              disabled={isSubmitting || isUploadingAttachments}
+              className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>Save Draft</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => handleSubmit(false)}
-            disabled={isSubmitting || isUploadingAttachments}
-            className="flex items-center gap-2 px-4 sm:px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-600/30 transition-all hover:scale-[1.02] disabled:opacity-50"
-          >
-            <Send className="w-4 h-4" />
-            <span>
-              {isSubmitting
-                ? "Submitting..."
-                : isUploadingAttachments
-                ? "Processing Attachments..."
-                : "Submit for Approval"}
-            </span>
-          </button>
+            <button
+              type="button"
+              onClick={() => handleSubmit(false)}
+              disabled={isSubmitting || isUploadingAttachments}
+              className="flex items-center gap-1.5 px-4 sm:px-5 py-1.5 sm:py-2 text-xs font-semibold text-white rounded-lg shadow-sm transition-all hover:opacity-90 disabled:opacity-50 cer-btn-primary"
+              style={{ backgroundColor: '#012964' }}
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>
+                {isSubmitting
+                  ? "Submitting..."
+                  : isUploadingAttachments
+                  ? "Processing Attachments..."
+                  : "Submit for Approval"}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

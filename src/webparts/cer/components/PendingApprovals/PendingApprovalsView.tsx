@@ -24,6 +24,8 @@ interface IPendingApprovalsViewProps {
   onNavigateToDisplay: (cerprno: string) => void;
   onRefreshProposals: () => Promise<void>;
   onCancel?: () => void;
+  initialProposals?: ICERProposal[];
+  initialWorkflowLevels?: IWorkflowLevel[];
 }
 
 export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
@@ -32,75 +34,79 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
   onNavigateToDisplay,
   onRefreshProposals,
   onCancel,
+  initialProposals,
+  initialWorkflowLevels,
 }) => {
-  const [proposals, setProposals] = useState<ICERProposal[]>([]);
-  const [levels, setLevels] = useState<IWorkflowLevel[]>([]);
+  const [proposals, setProposals] = useState<ICERProposal[]>(initialProposals || []);
+  const [levels, setLevels] = useState<IWorkflowLevel[]>(initialWorkflowLevels || []);
+  const [isLoading, setIsLoading] = useState<boolean>(!initialProposals || initialProposals.length === 0);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProposal, setSelectedProposal] = useState<ICERProposal | null>(null);
   const [selectedAttachments, setSelectedAttachments] = useState<ICERAttachment[]>([]);
   const [isDecisionModalOpen, setIsDecisionModalOpen] = useState(false);
   const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
 
-  const loadData = async (): Promise<void> => {
+  useEffect(() => {
+    if (initialProposals && initialProposals.length > 0) {
+      setProposals(initialProposals);
+      setIsLoading(false);
+    }
+  }, [initialProposals]);
+
+  useEffect(() => {
+    if (initialWorkflowLevels && initialWorkflowLevels.length > 0) {
+      setLevels(initialWorkflowLevels);
+    }
+  }, [initialWorkflowLevels]);
+
+  const loadData = async (force: boolean = false): Promise<void> => {
     try {
+      if (!force && initialProposals && initialProposals.length > 0 && initialWorkflowLevels && initialWorkflowLevels.length > 0) {
+        setIsLoading(false);
+        return;
+      }
+      setIsLoading(true);
       const [allProps, allLevels] = await Promise.all([
-        dataService.getAllProposals(),
-        dataService.getWorkflowLevels(),
+        dataService.getAllProposals(force),
+        dataService.getWorkflowLevels(undefined, force),
       ]);
       setProposals(allProps);
       setLevels(allLevels);
     } catch (e) {
       console.error("Error loading pending approvals:", e);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData().catch((e) => console.error(e));
+    if (!initialProposals || initialProposals.length === 0 || !initialWorkflowLevels || initialWorkflowLevels.length === 0) {
+      loadData().catch((e) => console.error(e));
+    }
   }, [currentUser]);
 
-  // Filter proposals awaiting action by current user (Approver at current level or Admin)
-  // Finance_Audit role explicitly cannot approve proposals
-  const pendingList = proposals.filter((p) => {
-    if (p.status !== "In Approval") return false;
-    const isAdmin = PermissionService.hasRole(currentUser, "Admin");
-    const isApprover = PermissionService.hasRole(currentUser, "Approver");
+  // Filter proposals awaiting action by current user:
+  // Only proposals where the current user is the designated Project Owner (on PO stages)
+  // or the explicitly assigned Approver for that specific level
+  const pendingList = React.useMemo(() => {
+    return proposals.filter((p) => {
+      if (p.status !== "In Approval") return false;
 
-    if (isAdmin) return true;
+      // SBU-specific stage lookup
+      const propSbu = (p.sbu || "").trim().toLowerCase();
+      const stageConfig = levels.find(
+        (l) =>
+          (l.sbu || "").trim().toLowerCase() === propSbu &&
+          l.level_id === p.current_level
+      );
 
-    // SBU-specific stage lookup
-    const propSbu = (p.sbu || "").trim().toLowerCase();
-    const stageConfig = levels.find(
-      (l) =>
-        (l.sbu || "").trim().toLowerCase() === propSbu &&
-        l.level_id === p.current_level
-    );
-
-    const isPO =
-      (stageConfig && isProjectOwnerStage(stageConfig)) ||
-      (p.pending_with_role && isProjectOwnerStage({ role_title: p.pending_with_role }));
-
-    const userEmail = (currentUser.email || "").trim().toLowerCase();
-    const ownerEmail = (p.owner_email || "").trim().toLowerCase();
-    const isOwner =
-      (userEmail && ownerEmail && userEmail === ownerEmail) ||
-      (currentUser.name && p.owname && currentUser.name.trim().toLowerCase() === p.owname.trim().toLowerCase());
-
-    if (isPO) {
-      // Must be designated Project Owner
-      return isOwner;
-    }
-
-    if (isApprover) {
-      // Segregation of Duties: Owner cannot approve their own non-Project Owner stages
-      if (isOwner) return false;
-      return p.current_level === (currentUser.approval_level || 1);
-    }
-    return false;
-  }).filter((p) => {
-    if (!searchTerm.trim()) return true;
-    const q = searchTerm.toLowerCase();
-    return p.cerprno.toLowerCase().includes(q) || p.pr_name.toLowerCase().includes(q) || p.owname.toLowerCase().includes(q);
-  });
+      return PermissionService.canApproveCER(p, currentUser, stageConfig).allowed;
+    }).filter((p) => {
+      if (!searchTerm.trim()) return true;
+      const q = searchTerm.toLowerCase();
+      return p.cerprno.toLowerCase().includes(q) || p.pr_name.toLowerCase().includes(q) || p.owname.toLowerCase().includes(q);
+    });
+  }, [proposals, levels, currentUser, searchTerm]);
 
   // Fully Automatic Dynamic Table Pagination
   const pagination = useDynamicPagination({
@@ -141,8 +147,8 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
         : `Proposal ${selectedProposal.cerprno} REJECTED.`
     );
 
-    await loadData();
     await onRefreshProposals();
+    await loadData(true);
   };
 
   return (
@@ -181,7 +187,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
                 pagination.setCurrentPage(1);
               }}
               placeholder="Search queue..."
-              className="w-full sm:w-48 pl-8 pr-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
+              className="w-full sm:w-48 pl-8 pr-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
             />
           </div>
 
@@ -212,7 +218,17 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
         className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden flex flex-col"
       >
         <div className="p-4 sm:p-5 space-y-4">
-          {visiblePendingList.length === 0 ? (
+          {isLoading ? (
+            <div className="space-y-4">
+              {[1, 2].map((idx) => (
+                <div key={idx} className="bg-slate-50/50 rounded-xl border border-slate-200 p-4 sm:p-5 animate-pulse">
+                  <div className="h-4 bg-slate-200 rounded w-1/4 mb-3" />
+                  <div className="h-6 bg-slate-200 rounded w-1/2 mb-2" />
+                  <div className="h-3 bg-slate-200 rounded w-1/3" />
+                </div>
+              ))}
+            </div>
+          ) : visiblePendingList.length === 0 ? (
             <div className="py-12 text-center text-slate-400">
               <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-500 mb-2 opacity-80" />
               <h3 className="font-bold text-slate-800 text-sm">No Pending Approvals</h3>
@@ -239,7 +255,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
                       </span>
                       <CategoryBadge category={prop.cat} />
                       <StatusBadge status={prop.status} size="sm" />
-                      <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                      <span className="text-[11px] font-semibold text-[#012964] bg-[#012964]/10 px-2 py-0.5 rounded border border-[#012964]/20">
                         Level {prop.current_level}: {currentLevelCfg ? currentLevelCfg.level_name : prop.pending_with_role}
                       </span>
                     </div>
@@ -282,7 +298,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
 
                       <button
                         onClick={() => handleOpenDecision(prop)}
-                        className="flex-1 sm:flex-initial px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-600/30 transition-all hover:scale-[1.02] flex items-center justify-center gap-1.5"
+                        className="flex-1 sm:flex-initial px-4 py-2 text-xs font-semibold text-white bg-[#012964] hover:bg-[#001f4d] rounded-xl shadow-md shadow-[#012964]/25 transition-all hover:scale-[1.02] flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <CheckSquare className="w-3.5 h-3.5" />
                         <span>Review & Decide</span>

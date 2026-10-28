@@ -78,7 +78,7 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
       id: "my-proposals",
       title: "My CER Request",
       description:
-        "View and track your submitted CER requests with current status, history and actions.",
+        "View and track your submitted CER requests or proposals where you are the project owner.",
       actionLabel: "View My Requests",
       bgGradient: "from-[#ECFDF5] via-[#E6F9F0] to-[#D4F5E6]",
       borderClass: "border-[#A7F3D0] hover:border-[#6EE7B7]",
@@ -93,7 +93,6 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
       description:
         "Review and take action on pending CER approvals assigned to you.",
       actionLabel: "View Pending Approvals",
-      badgeCount: pendingApprovalsCount,
       bgGradient: "from-[#FFFBEB] via-[#FFF8E7] to-[#FEF2D6]",
       borderClass: "border-[#FDE68A] hover:border-[#FCD34D]",
       dotColor: "text-[#FCD34D]",
@@ -228,24 +227,17 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
               <div className="flex items-start justify-between gap-3 sm:gap-4 2xl:gap-5 z-10 min-w-0">
                 {/* Left Side: Title, Description */}
                 <div className="flex-1 pr-1 xs:pr-2 min-w-0">
-                  {/* Heading & Badge */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3
-                      style={{
-                        fontSize: isVeryTall
-                          ? "clamp(15px, 1.2vw, 24px)"
-                          : "clamp(13.5px, 1.15vw, 24px)",
-                      }}
-                      className="font-bold text-slate-900 tracking-tight leading-snug group-hover:text-blue-950 transition-colors 2xl:text-[22px] 3xl:text-2xl"
-                    >
-                      {card.title}
-                    </h3>
-                    {card.badgeCount && card.badgeCount > 0 ? (
-                      <span className="inline-flex items-center justify-center px-1.5 py-0.2 2xl:px-2.5 2xl:py-0.5 rounded-full bg-rose-600 text-white text-[10px] 2xl:text-xs 3xl:text-sm font-bold shadow-xs">
-                        {card.badgeCount}
-                      </span>
-                    ) : null}
-                  </div>
+                  {/* Heading */}
+                  <h3
+                    style={{
+                      fontSize: isVeryTall
+                        ? "clamp(15px, 1.2vw, 24px)"
+                        : "clamp(13.5px, 1.15vw, 24px)",
+                    }}
+                    className="font-bold text-slate-900 tracking-tight leading-snug group-hover:text-blue-950 transition-colors 2xl:text-[22px] 3xl:text-2xl"
+                  >
+                    {card.title}
+                  </h3>
 
                   {/* Description - fluid text that wraps naturally with expanded horizontal room */}
                   <p

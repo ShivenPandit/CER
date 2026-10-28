@@ -6,12 +6,19 @@ import {
   ArrowUpDown,
   Lock,
   ArrowLeft,
+  ShieldCheck,
+  History,
+  Calendar,
+  Tag,
+  Clock,
 } from "lucide-react";
 import { ICERAuditRecord } from "../../models/AuditModel";
 import { ICERDataService } from "../../services/ICERDataService";
 import { RemarksDiffModal } from "./RemarksDiffModal";
 import { useDynamicPagination } from "../../hooks/useDynamicPagination";
 import { DataTablePagination } from '../Shared/DataTablePagination';
+import { UserAvatar } from "../Common/UserAvatar";
+import { formatLocalDate, formatLocalTime } from "../../utils/dateUtils";
 
 interface IAuditTrailViewProps {
   dataService: ICERDataService;
@@ -35,6 +42,8 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
   // Sorting
   const [sortField, setSortField] = useState<keyof ICERAuditRecord>("timestamp");
   const [sortAsc, setSortAsc] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<"cards" | "table">("cards");
 
   // Modal state
   const [activeDiffRow, setActiveDiffRow] = useState<ICERAuditRecord | null>(null);
@@ -67,6 +76,16 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
       return true;
     });
   }, [auditRows, filterUser, filterField]);
+
+  const uniqueFields = useMemo(() => {
+    const fields = new Set(auditRows.map((r) => r.field_desc).filter(Boolean));
+    return Array.from(fields);
+  }, [auditRows]);
+
+  const uniqueUsers = useMemo(() => {
+    const users = new Set(auditRows.map((r) => r.user_name).filter(Boolean));
+    return Array.from(users);
+  }, [auditRows]);
 
   // Sorted rows
   const sortedRows = useMemo(() => {
@@ -126,13 +145,13 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Modern Dark Hero Header */}
+      <div className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 shadow-elevated flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           {onCancel && (
             <button
               onClick={onCancel}
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0"
+              className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition-colors shrink-0"
               title="Go back"
               aria-label="Go back"
             >
@@ -141,16 +160,17 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
           )}
           <div>
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                <Lock className="w-3 h-3 text-emerald-600" /> Immutable Audit Ledger
+              <span className="text-[10px] font-bold text-emerald-300 bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-700/60 flex items-center gap-1">
+                <Lock className="w-3 h-3 text-emerald-400" /> Immutable Audit Ledger
               </span>
-              <span className="text-xs text-slate-400">FR-06 & FR-07 Compliant</span>
+              <span className="text-[11px] font-medium text-slate-400">FR-06 & FR-07 Compliant</span>
             </div>
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-              Field-Level Audit Trail & Change History
+            <h2 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-blue-400 shrink-0" />
+              <span>Field-Level Audit Trail & Change History</span>
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Granular ledger tracking every field modification with old value, new value, user, and timestamp
+            <p className="text-xs text-slate-400 mt-0.5">
+              Immutable ledger capturing every proposal field delta, old value, new value, modifier, and timestamp
             </p>
           </div>
         </div>
@@ -162,11 +182,11 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
             value={filterProposal}
             onChange={(e) => setFilterProposal(e.target.value)}
             placeholder="Filter by CER Proposal No..."
-            className="w-full sm:w-52 px-3 py-1.5 sm:py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs font-mono font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
+            className="w-full sm:w-56 px-3 py-1.5 sm:py-2 bg-slate-950/80 border border-slate-700 hover:border-slate-500 rounded-xl text-xs font-mono font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
           />
           <button
             type="submit"
-            className="px-3.5 py-1.5 sm:py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium rounded-xl shadow-sm transition-colors flex items-center gap-1.5"
+            className="px-3.5 py-1.5 sm:py-2 bg-[#012964] hover:bg-[#001f4d] text-white text-xs font-semibold rounded-xl shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <Search className="w-3.5 h-3.5" />
             <span>Search</span>
@@ -175,7 +195,7 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
             <button
               type="button"
               onClick={handleReset}
-              className="p-1.5 sm:p-2 text-slate-500 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors"
+              className="p-1.5 sm:p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl border border-slate-700 transition-colors"
               title="Reset Filter"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -184,18 +204,72 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
         </form>
       </div>
 
-      {/* Grid Table Container */}
+      {/* KPI Summary Strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-subtle">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Changes Logged</span>
+          <p className="font-extrabold text-slate-900 text-base mt-0.5">
+            {auditRows.length} record{auditRows.length === 1 ? "" : "s"}
+          </p>
+        </div>
+
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-subtle">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block">Fields Modified</span>
+          <p className="font-extrabold text-blue-700 text-base mt-0.5">
+            {uniqueFields.length} distinct field{uniqueFields.length === 1 ? "" : "s"}
+          </p>
+        </div>
+
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-subtle">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block">Contributors</span>
+          <p className="font-extrabold text-slate-800 text-base mt-0.5">
+            {uniqueUsers.length} user{uniqueUsers.length === 1 ? "" : "s"}
+          </p>
+        </div>
+
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-subtle">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block">Scope Filter</span>
+          <p className="font-bold text-purple-700 truncate mt-0.5">
+            {filterProposal ? filterProposal : "All Proposals Ledger"}
+          </p>
+        </div>
+      </div>
+
+      {/* Container with Tabs & Filters */}
       <div
         ref={pagination.tableContainerRef}
         className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden flex flex-col"
       >
-        {/* Secondary Filter Bar */}
-        <div className="p-3 sm:p-4 bg-slate-50 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-          <span className="text-slate-600 font-semibold">
-            {sortedRows.length} change record{sortedRows.length === 1 ? "" : "s"} logged
-          </span>
+        {/* View Tabs & Search Filters Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 sm:px-5 pt-3 border-b border-slate-200 bg-white gap-3">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setActiveTab("cards")}
+              className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors flex items-center gap-2 ${
+                activeTab === "cards"
+                  ? "border-blue-600 text-blue-700 bg-blue-50/40"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <History className="w-4 h-4" />
+              <span>Change Cards Timeline ({filteredRows.length})</span>
+            </button>
 
-          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setActiveTab("table")}
+              className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors flex items-center gap-2 ${
+                activeTab === "table"
+                  ? "border-blue-600 text-blue-700 bg-blue-50/40"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>Tabular Ledger ({filteredRows.length})</span>
+            </button>
+          </div>
+
+          {/* Quick Filters */}
+          <div className="flex flex-wrap items-center gap-2 pb-2">
             <input
               type="text"
               value={filterField}
@@ -204,7 +278,7 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
                 pagination.setCurrentPage(1);
               }}
               placeholder="Filter by field..."
-              className="flex-1 sm:flex-initial px-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
+              className="px-3 py-1.5 bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all w-36"
             />
             <input
               type="text"
@@ -214,15 +288,160 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
                 pagination.setCurrentPage(1);
               }}
               placeholder="Filter by user..."
-              className="flex-1 sm:flex-initial px-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
+              className="px-3 py-1.5 bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all w-36"
             />
+            {(filterField || filterUser) && (
+              <button
+                onClick={() => {
+                  setFilterField("");
+                  setFilterUser("");
+                }}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded"
+                title="Reset filters"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Desktop / Tablet Table */}
-        <div className="hidden sm:block overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse table-fixed">
-            <thead>
+        {/* Change Cards View */}
+        {activeTab === "cards" && (
+          <div className="p-4 sm:p-5 space-y-3 bg-slate-50/40">
+            {isLoading ? (
+              <div className="py-12 text-center text-slate-400">
+                <Clock className="w-8 h-8 mx-auto text-blue-500 animate-spin mb-2" />
+                <p className="text-xs font-medium">Loading audit trail records...</p>
+              </div>
+            ) : visibleRows.length === 0 ? (
+              <div className="py-12 text-center bg-white rounded-xl border border-slate-200 text-slate-400">
+                <ShieldCheck className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                <p className="font-semibold text-sm text-slate-700">No Change Records Found</p>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                  {filterProposal || filterField || filterUser
+                    ? "No audit records match your active search and filter criteria."
+                    : "No audit records logged yet."}
+                </p>
+              </div>
+            ) : (
+              visibleRows.map((row) => {
+                const isLongRemarks =
+                  row.is_long_text ||
+                  row.field_name === "remarks" ||
+                  row.field_name === "remarks_jv";
+
+                return (
+                  <div
+                    key={row.id}
+                    className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs hover:shadow-subtle transition-all space-y-3"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-100 text-xs">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {onNavigateToDisplay ? (
+                          <button
+                            onClick={() => onNavigateToDisplay(row.cerprno)}
+                            className="font-mono font-bold text-xs bg-slate-100 hover:bg-slate-200 text-blue-700 px-2 py-0.5 rounded border border-slate-300 transition-colors"
+                          >
+                            {row.cerprno}
+                          </button>
+                        ) : (
+                          <span className="font-mono font-bold text-xs bg-slate-100 text-slate-900 px-2 py-0.5 rounded border border-slate-300">
+                            {row.cerprno}
+                          </span>
+                        )}
+
+                        <span className="font-bold text-xs text-blue-900 bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-200 flex items-center gap-1">
+                          <Tag className="w-3 h-3 text-blue-600" />
+                          {row.field_desc}
+                        </span>
+
+                        <span className="text-[11px] font-mono text-slate-400">
+                          [{row.field_name}]
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-slate-500 text-[11px]">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                        <span>
+                          {formatLocalDate(row.timestamp || row.audit_date)} {formatLocalTime(row.timestamp || row.audit_time)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Modifier User Info */}
+                    <div className="flex items-center gap-2 text-xs text-slate-600">
+                      <UserAvatar name={row.user_name} size="xs" />
+                      <span>
+                        Modified by: <strong className="text-slate-900">{row.user_name}</strong>
+                      </span>
+                    </div>
+
+                    {/* Delta Comparison Container */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1 text-xs">
+                      {/* Previous Value */}
+                      <div className="p-3 bg-rose-50/50 rounded-xl border border-rose-200/80 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-rose-600 tracking-wider block">
+                          Previous Value
+                        </span>
+                        {isLongRemarks ? (
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500 italic text-[11px] truncate max-w-[200px]">
+                              {row.old_value ? `"${row.old_value.slice(0, 40)}..."` : "Empty narrative"}
+                            </span>
+                            <button
+                              onClick={() => setActiveDiffRow(row)}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-rose-200 rounded text-[11px] font-semibold text-rose-700 hover:bg-rose-50 shadow-2xs transition-colors"
+                            >
+                              <FileText className="w-3 h-3" />
+                              <span>View Diff</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="text-rose-900 font-medium break-words">
+                            {row.old_value || <span className="text-rose-400 italic">Empty / None</span>}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Updated Value */}
+                      <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-200/80 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-wider block">
+                          Updated Value
+                        </span>
+                        {isLongRemarks ? (
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-700 italic text-[11px] truncate max-w-[200px]">
+                              {row.new_value ? `"${row.new_value.slice(0, 40)}..."` : "Empty narrative"}
+                            </span>
+                            <button
+                              onClick={() => setActiveDiffRow(row)}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-emerald-200 rounded text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50 shadow-2xs transition-colors"
+                            >
+                              <FileText className="w-3 h-3" />
+                              <span>View Diff</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="text-emerald-950 font-bold break-words">
+                            {row.new_value || <span className="text-emerald-500 italic">Cleared</span>}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {/* Tabular Ledger View (Desktop & Mobile) */}
+        {activeTab === "table" && (
+          <div>
+            {/* Desktop / Tablet Table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse table-fixed">
+                <thead>
               <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider select-none">
                 <th
                   onClick={() => handleSort("cerprno")}
@@ -345,10 +564,10 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
                       </td>
 
                       <td className="py-2.5 px-2.5 text-slate-600 truncate">
-                        {row.audit_date}
+                        {formatLocalDate(row.timestamp || row.audit_date)}
                       </td>
                       <td className="py-2.5 px-2 text-slate-500 font-mono text-[11px] truncate">
-                        {row.audit_time}
+                        {formatLocalTime(row.timestamp || row.audit_time)}
                       </td>
                       <td className="py-2.5 px-3 text-slate-800 font-medium">
                         <span className="truncate block" title={row.user_name}>
@@ -383,7 +602,7 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
                       {row.cerprno}
                     </span>
                     <span className="text-[11px] text-slate-500 font-mono">
-                      {row.audit_date} {row.audit_time}
+                      {formatLocalDate(row.timestamp || row.audit_date)} {formatLocalTime(row.timestamp || row.audit_time)}
                     </span>
                   </div>
 
@@ -437,6 +656,8 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
             })
           )}
         </div>
+      </div>
+    )}
 
         {/* Dynamic Pagination Bar */}
         <DataTablePagination
@@ -467,8 +688,8 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
           oldValue={activeDiffRow.old_value}
           newValue={activeDiffRow.new_value}
           userName={activeDiffRow.user_name}
-          auditDate={activeDiffRow.audit_date}
-          auditTime={activeDiffRow.audit_time}
+          auditDate={formatLocalDate(activeDiffRow.timestamp || activeDiffRow.audit_date)}
+          auditTime={formatLocalTime(activeDiffRow.timestamp || activeDiffRow.audit_time)}
         />
       )}
     </div>

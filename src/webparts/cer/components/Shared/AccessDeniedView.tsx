@@ -80,7 +80,7 @@ export const AccessDeniedView: React.FC<IAccessDeniedViewProps> = ({
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <button
             onClick={onGoHome}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold transition-all shadow-subtle hover:shadow-hover cursor-pointer"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-[#012964] hover:bg-[#001f4d] text-white text-xs sm:text-sm font-semibold transition-all shadow-subtle hover:shadow-hover cursor-pointer"
           >
             <Home className="w-4 h-4" />
             <span>Return to Dashboard</span>

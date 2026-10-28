@@ -90,3 +90,83 @@ export function getCurrentFiscalYearPhasingLabels(referenceDate: Date = new Date
     ph_beyond_label: `Beyond FY'${endYear2Digit}`,
   };
 }
+
+/**
+ * Formats an ISO timestamp or date/time string to the user's local 24-hour time (HH:mm:ss).
+ * If the string is in UTC format (e.g. ISO string ending in Z or from SharePoint), it converts
+ * it accurately to the user's browser local timezone.
+ */
+export function formatLocalTime(timestampOrTime?: string | Date): string {
+  if (!timestampOrTime) return "";
+  let d: Date;
+  if (timestampOrTime instanceof Date) {
+    d = timestampOrTime;
+  } else {
+    let str = String(timestampOrTime).trim();
+    if (!str) return "";
+    // If it's already an explicit HH:mm:ss without date or timezone info, return it
+    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(str)) {
+      return str;
+    }
+    // If it's an ISO date without timezone indicator Z, treat as UTC
+    if (str.includes("T") && !str.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(str)) {
+      str = str + "Z";
+    }
+    d = new Date(str);
+  }
+  if (isNaN(d.getTime())) return String(timestampOrTime);
+  const pad2 = (n: number | string): string => ("0" + n).slice(-2);
+
+  const hours = pad2(d.getHours());
+  const minutes = pad2(d.getMinutes());
+  const seconds = pad2(d.getSeconds());
+  return `${hours}:${minutes}:${seconds}`;
+}
+
+/**
+ * Formats an ISO timestamp or date string to local calendar date (YYYY-MM-DD).
+ * Converts UTC ISO dates to the user's browser local calendar date.
+ */
+export function formatLocalDate(timestampOrDate?: string | Date): string {
+  if (!timestampOrDate) return "";
+  let d: Date;
+  if (timestampOrDate instanceof Date) {
+    d = timestampOrDate;
+  } else {
+    let str = String(timestampOrDate).trim();
+    if (!str) return "";
+    // If it's already just YYYY-MM-DD without time or timezone info, return it
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      return str;
+    }
+    if (str.includes("T") && !str.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(str)) {
+      str = str + "Z";
+    }
+    d = new Date(str);
+  }
+  if (isNaN(d.getTime())) return String(timestampOrDate);
+  const pad2 = (n: number | string): string => ("0" + n).slice(-2);
+  const year = d.getFullYear();
+  const month = pad2(d.getMonth() + 1);
+  const day = pad2(d.getDate());
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Returns current local date (YYYY-MM-DD) and local time (HH:mm:ss) from a Date instance (defaults to now).
+ */
+export function getLocalComponents(date: Date = new Date()): { localDate: string; localTime: string; isoString: string } {
+  const pad2 = (n: number | string): string => ("0" + n).slice(-2);
+  const year = date.getFullYear();
+  const month = pad2(date.getMonth() + 1);
+  const day = pad2(date.getDate());
+  const hours = pad2(date.getHours());
+  const minutes = pad2(date.getMinutes());
+  const seconds = pad2(date.getSeconds());
+  return {
+    localDate: `${year}-${month}-${day}`,
+    localTime: `${hours}:${minutes}:${seconds}`,
+    isoString: date.toISOString(),
+  };
+}
+
