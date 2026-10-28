@@ -312,7 +312,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
                   const isPOStage = isProjectOwnerStage(lvl);
                   const configuredApproverName = isPOStage
                     ? `${proposal.owname || "Project Owner"} (Project Owner)`
-                    : lvl.approver_name || "Assigned Level Approver";
+                    : lvl.approver_name || lvl.role_title || "Assigned Level Approver";
                   const configuredApproverEmail = isPOStage
                     ? proposal.owner_email || ""
                     : lvl.approver_email || "";

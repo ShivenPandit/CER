@@ -111,13 +111,13 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
             };
           }
 
-          // If approver_name is missing, resolve from CERUserRoles
+          // If approver_name is missing, resolve from CERUserRoles strictly for active users holding the 'Approver' role at this level
           if (!lvl.approver_name) {
             const roleMatch = (roles || []).find(
               (r) =>
                 r.is_active &&
-                (r.approval_level === lvl.level_id ||
-                  (r.department && lvl.role_title && r.department.toLowerCase() === lvl.role_title.toLowerCase()))
+                r.role === "Approver" &&
+                r.approval_level === lvl.level_id
             );
             if (roleMatch && roleMatch.user_name) {
               return {

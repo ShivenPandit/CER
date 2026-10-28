@@ -15,6 +15,7 @@ import { IWorkflowLevel, IApprovalDecision } from "../../models/WorkflowModel";
 import { CERStatus, ICERProposal } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
 import { UserAvatar } from "../Common/UserAvatar";
+import { PermissionService } from "../../services/PermissionService";
 
 export interface IApprovalProgressTrackerProps {
   levels: IWorkflowLevel[];
@@ -82,23 +83,17 @@ export const ApprovalProgressTracker: React.FC<IApprovalProgressTrackerProps> = 
 
   const isCurrentUserApprover = (lvl: IWorkflowLevel): boolean => {
     if (!currentUser) return false;
-    if (
-      currentUser.role === "Admin" ||
-      (currentUser.roles && currentUser.roles.indexOf("Admin") !== -1)
-    ) {
-      return true;
+    // Only current pending level during 'In Approval' status can have an action required
+    if (lvl.level_id !== currentLevel || status !== "In Approval") {
+      return false;
+    }
+    if (proposal) {
+      return PermissionService.canApproveCER(proposal, currentUser, lvl).allowed;
     }
     if (
       lvl.approver_email &&
       currentUser.email &&
       lvl.approver_email.toLowerCase() === currentUser.email.toLowerCase()
-    ) {
-      return true;
-    }
-    if (
-      currentUser.role &&
-      lvl.role_title &&
-      currentUser.role.toLowerCase() === lvl.role_title.toLowerCase()
     ) {
       return true;
     }
