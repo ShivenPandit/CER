@@ -160,6 +160,57 @@ export class PersonFieldService {
   }
 
   /**
+   * Resolves a SharePoint user by their integer User ID via /_api/web/getUserById.
+   * Caches results in memory to avoid repeated network round-trips.
+   *
+   * @param client - SPHttpClient instance
+   * @param siteUrl - Absolute site URL
+   * @param userId - Integer user ID in site collection User Information List
+   */
+  public static async resolveUserById(
+    client: SPHttpClient,
+    siteUrl: string,
+    userId: number
+  ): Promise<ISharePointUser | null> {
+    if (!client || !siteUrl || !userId || isNaN(userId) || userId <= 0) return null;
+
+    const cacheKey = `${siteUrl.toLowerCase()}::id::${userId}`;
+    const now = Date.now();
+    const cached = this._userCache.get(cacheKey);
+    if (cached && (now - cached.timestamp < this.CACHE_TTL_MS)) {
+      return cached.user;
+    }
+
+    try {
+      const endpoint = `${siteUrl.replace(/\/+$/, "")}/_api/web/getUserById(${userId})?$select=Id,Title,Email,LoginName,IsSiteAdmin`;
+      const response: SPHttpClientResponse = await client.get(
+        endpoint,
+        SPHttpClient.configurations.v1,
+        {
+          headers: {
+            Accept: "application/json;odata=nometadata",
+          },
+        }
+      );
+      if (!response.ok) {
+        return null;
+      }
+      const data = await response.json();
+      const resolved: ISharePointUser = {
+        Id: Number(data.Id || userId),
+        Title: String(data.Title || data.title || ""),
+        Email: String(data.Email || data.email || data.EMail || ""),
+        LoginName: String(data.LoginName || data.loginName || ""),
+        IsSiteAdmin: !!data.IsSiteAdmin,
+      };
+      this._userCache.set(cacheKey, { user: resolved, timestamp: now });
+      return resolved;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Formats a single-person field payload for SharePoint REST POST or MERGE operations.
    *
    * In SharePoint REST API, single-person fields with internal name `FieldName` MUST be saved

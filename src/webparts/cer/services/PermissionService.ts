@@ -2,6 +2,7 @@ import { IAppUser, UserRole } from "../models/UserModel";
 import { ICERProposal } from "../models/CERModel";
 import { IWorkflowLevel, isProjectOwnerStage } from "../models/WorkflowModel";
 import { NavView } from "../components/Navigation/Sidebar";
+import { isDesignatedAdmin, normalizeUserIdentifier } from "./AuthService";
 
 export interface IActionAuthResult {
   allowed: boolean;
@@ -38,19 +39,20 @@ export class PermissionService {
 
     // Direct check against dynamic list of authorized emails if passed
     if (Array.isArray(authorizedHierarchyEmails) && authorizedHierarchyEmails.length > 0) {
-      const email = (user.email || "").trim().toLowerCase();
-      const login = (user.loginName || "")
-        .trim()
-        .toLowerCase()
-        .replace(/^i:0#\.f\|membership\|/i, "")
-        .replace(/^membership\|/i, "");
+      const email = normalizeUserIdentifier(user.email);
+      const login = normalizeUserIdentifier(user.loginName);
+      const isUserDesignated = isDesignatedAdmin(email) || isDesignatedAdmin(login);
+
       return authorizedHierarchyEmails.some((h) => {
-        const normH = (h || "")
-          .trim()
-          .toLowerCase()
-          .replace(/^i:0#\.f\|membership\|/i, "")
-          .replace(/^membership\|/i, "");
-        return Boolean(normH && (normH === email || normH === login));
+        const normH = normalizeUserIdentifier(h);
+        if (!normH) return false;
+        if (normH === email || normH === login) return true;
+        if (isUserDesignated && isDesignatedAdmin(normH)) return true;
+        const hPrefix = normH.split("@")[0];
+        const emailPrefix = email ? email.split("@")[0] : "";
+        const loginPrefix = login ? login.split("@")[0] : "";
+        if (hPrefix && (hPrefix === emailPrefix || hPrefix === loginPrefix)) return true;
+        return false;
       });
     }
 

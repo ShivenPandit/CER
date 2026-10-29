@@ -23,6 +23,7 @@ import { validateAttachment } from "../utils/attachmentValidation";
 import { getCurrentFiscalYearPhasingLabels, formatLocalDate, formatLocalTime, getLocalComponents } from "../utils/dateUtils";
 import { SharePointOperations } from "../hooks/useSharePointOperations";
 import { PersonFieldService } from "./PersonFieldService";
+import { isDesignatedAdmin, DESIGNATED_ADMIN_IDENTIFIERS } from "./AuthService";
 import { SP_LISTS } from "../constants";
 
 export class SharePointCERDataService implements ICERDataService {
@@ -2846,21 +2847,37 @@ export class SharePointCERDataService implements ICERDataService {
         const listName = SP_LISTS.CER_HIERARCHY_ADMINS;
 
         try {
-          // Tier 1: Expand native User Person column
+          // Tier 1: Expand native User Person column with explicit clean $select
           items = await this._sp.getListItems<Record<string, any>>(listName, {
-            select: "Id,ID,Title,isActive,is_active,User/Id,User/Title,User/EMail,User/Name",
+            select: "Id,Title,isActive,User/Id,User/Title,User/EMail,User/Name",
             expand: "User",
             top: 200,
           });
         } catch (t1Err: any) {
           try {
-            // Tier 2: Safe fetch without $select projection
+            // Tier 2: Safe fetch without $select projection, but with User expansion
             items = await this._sp.getListItems<Record<string, any>>(listName, {
+              expand: "User",
               top: 200,
             });
           } catch (t2Err: any) {
-            console.warn(`[SharePointCERDataService] ${listName} list not accessible or empty:`, t2Err?.message || t2Err);
-            items = [];
+            try {
+              // Tier 3: User0 expansion fallback if column internal name differs
+              items = await this._sp.getListItems<Record<string, any>>(listName, {
+                expand: "User0",
+                top: 200,
+              });
+            } catch (t3Err: any) {
+              try {
+                // Tier 4: Total safe baseline without any $select or $expand
+                items = await this._sp.getListItems<Record<string, any>>(listName, {
+                  top: 200,
+                });
+              } catch (t4Err: any) {
+                console.warn(`[SharePointCERDataService] ${listName} list not accessible or empty:`, t4Err?.message || t4Err);
+                items = [];
+              }
+            }
           }
         }
 
@@ -2869,14 +2886,39 @@ export class SharePointCERDataService implements ICERDataService {
           const isActive = item.isActive !== undefined ? Boolean(item.isActive) : (item.is_active !== undefined ? Boolean(item.is_active) : true);
           if (!isActive) continue;
 
-          const userPerson = PersonFieldService.extractPersonField(item, "User");
-          const email = userPerson?.email || item.userEmail || item.user_email || item.email || "";
-          const login = userPerson?.loginName || item.loginName || item.login_name || "";
-          const title = item.Title || "";
+          const userPerson = PersonFieldService.extractPersonField(item, "User") ||
+                             PersonFieldService.extractPersonField(item, "User0");
+
+          let email = userPerson?.email || item.userEmail || item.user_email || item.email || "";
+          let login = userPerson?.loginName || item.loginName || item.login_name || "";
+          const title = String(item.Title || "").trim();
+          const notes = String(item.notes || item.Notes || "").trim();
+
+          // If email or loginName is missing, resolve flat User ID if available
+          const flatUserId = userPerson?.id || item.UserId || item.User0Id || item.UserStringId;
+          if ((!email || !login) && flatUserId && Number(flatUserId) > 0) {
+            try {
+              const resolved = await PersonFieldService.resolveUserById(this._spHttpClient, this._siteUrl, Number(flatUserId));
+              if (resolved) {
+                if (!email && resolved.Email) email = resolved.Email;
+                if (!login && resolved.LoginName) login = resolved.LoginName;
+              }
+            } catch (resErr) {
+              console.warn("[SharePointCERDataService] Could not resolve flat UserId:", flatUserId, resErr);
+            }
+          }
 
           if (email) activeAdmins.push(email.trim().toLowerCase());
           if (login) activeAdmins.push(login.trim().toLowerCase());
           if (title && title.indexOf("@") !== -1) activeAdmins.push(title.trim().toLowerCase());
+          if (notes && notes.indexOf("@") !== -1) activeAdmins.push(notes.trim().toLowerCase());
+
+          // Alias matching: If the resolved admin is a designated corporate administrator, include aliases
+          if (isDesignatedAdmin(email) || isDesignatedAdmin(login) || isDesignatedAdmin(title)) {
+            for (const desId of DESIGNATED_ADMIN_IDENTIFIERS) {
+              activeAdmins.push(desId.toLowerCase());
+            }
+          }
         }
 
         const uniqueAdmins = Array.from(new Set(activeAdmins));
