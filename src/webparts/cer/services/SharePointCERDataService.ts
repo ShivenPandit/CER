@@ -2195,7 +2195,7 @@ export class SharePointCERDataService implements ICERDataService {
       cerPrNo: cerprno,
       recipients: recipients.join("; "),
       subject: subject,
-      bodyPreview: body.length > 500 ? body.slice(0, 500) + "..." : body,
+      bodyPreview: body,
       triggerEvent: subject.includes("Rejected") ? "REJECT" : (subject.includes("Sanction") || subject.includes("Final") || subject.includes("Approved") ? "APPROVE" : "SUBMIT"),
     };
 

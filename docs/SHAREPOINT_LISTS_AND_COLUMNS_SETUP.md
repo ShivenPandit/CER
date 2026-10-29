@@ -21,20 +21,9 @@ When creating lists manually in SharePoint (**Site Contents -> New -> List -> Bl
 | 6   | **`CERAttachments`**       | Document Library | Associated technical and financial PDF/Excel documentation.            |
 | 7   | **`CERNotifications`**     | Custom List      | Email notification dispatch records and recipient logs.                |
 | 8   | **`CERUserRoles`**         | Custom List      | Enterprise Role-Based Access Control (RBAC) registry.                  |
-| 9   | **`CERHierarchyAdmins`**   | Custom List      | Granular registry designating authorized Approval Hierarchy admins.     |
+| 9   | **`CERHierarchyAdmins`**   | Custom List      | Granular registry designating authorized Approval Hierarchy admins.    |
 
 ---
-
-> [!IMPORTANT]
-> ### Built-in System Columns Notice: "Author" (`Created By`) and "Editor" (`Modified By`)
-> - In SharePoint, every list **automatically includes built-in system fields** for item authorship:
->   - **`Created By`** (Internal Name: **`Author`**, Type: Person or Group)
->   - **`Modified By`** (Internal Name: **`Editor`**, Type: Person or Group)
-> - **DO NOT create custom columns named `Author` or `Editor`!**
->   - If you click "+ Add Column" and name it "Author" or "Editor", SharePoint creates a duplicate custom field (such as `Author0` or `Editor0`), which will always remain empty/blank because SharePoint and this application record creator/modifier metadata into the native built-in `Author` (`Created By`) and `Editor` (`Modified By`) fields.
-> - **If you have already created custom "Author" or "Editor" columns in SharePoint:**
->   - **They are completely useless and safe to delete.** Go to **List Settings**, click on the custom `Author` and `Editor` columns, and click **Delete**.
->   - In your SharePoint List View (**Edit Current View**), check the checkboxes for the built-in columns **"Created By"** and **"Modified By"**. They will immediately display the true author, editor, timestamps, and M365 user cards for all items.
 
 ## 2. Complete List Specifications & Column Schemas
 
@@ -312,12 +301,12 @@ Go to **List Settings -> Indexed Columns -> Create a new index**:
 
 Stores granular permission records designating which specific enterprise accounts are permitted to configure SBU approval levels and workflow hierarchies. Eliminates hardcoded administrator identities in source code.
 
-| Display Name | Internal Column Name | SharePoint Field Type | Required | Unique? | Indexed? | Choices / Format / Constraints | Business Description |
-| ------------ | -------------------- | --------------------- | -------- | ------- | -------- | ------------------------------ | -------------------- |
-| **Title**    | `Title`              | Single line of text   | Yes      | No      | No       | Full Display Name              | Administrator display name. |
+| Display Name | Internal Column Name | SharePoint Field Type | Required | Unique? | Indexed? | Choices / Format / Constraints | Business Description                                                                                                                                                                                                                    |
+| ------------ | -------------------- | --------------------- | -------- | ------- | -------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Title**    | `Title`              | Single line of text   | Yes      | No      | No       | Full Display Name              | Administrator display name.                                                                                                                                                                                                             |
 | **User**     | **`User`**           | **Person or Group**   | **Yes**  | **Yes** | **Yes**  | **`SPFieldUser` (Single)**     | **Native SharePoint Person column.** Populated via `UserId: <IntegerId>` obtained from `ensureUser`. Stores full employee identity including corporate email (`User/EMail`), login name (`User/Name`), presence, and M365 profile card. |
-| **Active?**  | **`isActive`**       | **Yes/No**            | **Yes**  | No      | **Yes**  | Default: `Yes` (Boolean)       | Toggle to enable or suspend hierarchy management access without deleting historical record. |
-| Notes        | `notes`              | Single line of text   | No       | No      | No       | Free text (max 255 chars)      | Optional delegation reason or authorization notes. |
+| **Active?**  | **`isActive`**       | **Yes/No**            | **Yes**  | No      | **Yes**  | Default: `Yes` (Boolean)       | Toggle to enable or suspend hierarchy management access without deleting historical record.                                                                                                                                             |
+| Notes        | `notes`              | Single line of text   | No       | No      | No       | Free text (max 255 chars)      | Optional delegation reason or authorization notes.                                                                                                                                                                                      |
 
 #### `CERHierarchyAdmins` — Columns to Index in SharePoint List Settings:
 
