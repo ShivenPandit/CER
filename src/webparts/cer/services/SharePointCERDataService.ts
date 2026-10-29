@@ -2848,27 +2848,29 @@ export class SharePointCERDataService implements ICERDataService {
         try {
           // Tier 1: Expand native User Person column with explicit clean $select
           items = await this._sp.getListItems<Record<string, any>>(listName, {
-            select: "Id,Title,isActive,User/Id,User/Title,User/EMail,User/Name",
+            select: "Id,Title,isActive,UserId,User/Id,User/Title,User/EMail,User/Name,notes",
             expand: "User",
             top: 200,
           });
         } catch (t1Err: any) {
           try {
-            // Tier 2: Safe fetch without $select projection, but with User expansion
+            // Tier 2: Safe select without isActive projection in case column name is IsActive/is_active
             items = await this._sp.getListItems<Record<string, any>>(listName, {
+              select: "Id,Title,User/Id,User/Title,User/EMail,User/Name",
               expand: "User",
               top: 200,
             });
           } catch (t2Err: any) {
             try {
-              // Tier 3: User0 expansion fallback if column internal name differs
+              // Tier 3: User0 expansion fallback with explicit $select
               items = await this._sp.getListItems<Record<string, any>>(listName, {
+                select: "Id,Title,User0/Id,User0/Title,User0/EMail,User0/Name",
                 expand: "User0",
                 top: 200,
               });
             } catch (t3Err: any) {
               try {
-                // Tier 4: Total safe baseline without any $select or $expand
+                // Tier 4: Total safe baseline without any $select or $expand (returns raw flat fields)
                 items = await this._sp.getListItems<Record<string, any>>(listName, {
                   top: 200,
                 });
@@ -2882,7 +2884,8 @@ export class SharePointCERDataService implements ICERDataService {
 
         const activeAdmins: string[] = [];
         for (const item of items) {
-          const isActive = item.isActive !== undefined ? Boolean(item.isActive) : (item.is_active !== undefined ? Boolean(item.is_active) : true);
+          const rawActive = item.isActive !== undefined ? item.isActive : (item.is_active !== undefined ? item.is_active : item.IsActive);
+          const isActive = rawActive !== undefined ? (rawActive === true || rawActive === 1 || String(rawActive).toLowerCase() === "true" || String(rawActive).toLowerCase() === "yes") : true;
           if (!isActive) continue;
 
           const userPerson = PersonFieldService.extractPersonField(item, "User") ||
@@ -2890,30 +2893,79 @@ export class SharePointCERDataService implements ICERDataService {
 
           let email = userPerson?.email || item.userEmail || item.user_email || item.email || "";
           let login = userPerson?.loginName || item.loginName || item.login_name || "";
+          let userName = (userPerson?.name || "").trim();
           const title = String(item.Title || "").trim();
           const notes = String(item.notes || item.Notes || "").trim();
 
           // If email or loginName is missing, resolve flat User ID if available
           const flatUserId = userPerson?.id || item.UserId || item.User0Id || item.UserStringId;
-          if ((!email || !login) && flatUserId && Number(flatUserId) > 0) {
-            try {
-              const resolved = await PersonFieldService.resolveUserById(this._spHttpClient, this._siteUrl, Number(flatUserId));
-              if (resolved) {
-                if (!email && resolved.Email) email = resolved.Email;
-                if (!login && resolved.LoginName) login = resolved.LoginName;
+          if (flatUserId && Number(flatUserId) > 0) {
+            const numId = Number(flatUserId);
+            activeAdmins.push(String(numId));
+            activeAdmins.push(`id:${numId}`);
+            if (!email || !login || !userName) {
+              try {
+                const resolved = await PersonFieldService.resolveUserById(this._spHttpClient, this._siteUrl, numId);
+                if (resolved) {
+                  if (!email && resolved.Email) email = resolved.Email;
+                  if (!login && resolved.LoginName) login = resolved.LoginName;
+                  if (!userName && resolved.Title) userName = resolved.Title;
+                }
+              } catch (resErr) {
+                console.warn("[SharePointCERDataService] Could not resolve flat UserId:", flatUserId, resErr);
               }
-            } catch (resErr) {
-              console.warn("[SharePointCERDataService] Could not resolve flat UserId:", flatUserId, resErr);
             }
           }
 
-          if (email) activeAdmins.push(email.trim().toLowerCase());
-          if (login) activeAdmins.push(login.trim().toLowerCase());
-          if (title && title.indexOf("@") !== -1) activeAdmins.push(title.trim().toLowerCase());
-          if (notes && notes.indexOf("@") !== -1) activeAdmins.push(notes.trim().toLowerCase());
+          if (email) {
+            const cleanEmail = email.trim().toLowerCase();
+            activeAdmins.push(cleanEmail);
+            if (cleanEmail.indexOf("@") !== -1) {
+              activeAdmins.push(cleanEmail.split("@")[0]);
+            }
+          }
+
+          if (login) {
+            const cleanLogin = login.trim().toLowerCase();
+            activeAdmins.push(cleanLogin);
+            const normLogin = cleanLogin.replace(/^i:0#\.f\|membership\|/i, "").replace(/^membership\|/i, "");
+            activeAdmins.push(normLogin);
+            if (normLogin.indexOf("@") !== -1) {
+              activeAdmins.push(normLogin.split("@")[0]);
+            }
+            if (normLogin.indexOf("#ext#") !== -1) {
+              const b2bPrefix = normLogin.split("#ext#")[0];
+              const lastUnderscore = b2bPrefix.lastIndexOf("_");
+              if (lastUnderscore > 0) {
+                const b2bUsername = b2bPrefix.substring(0, lastUnderscore);
+                activeAdmins.push(b2bUsername);
+              }
+            }
+          }
+
+          if (userName) {
+            activeAdmins.push(userName.toLowerCase());
+            // Strip parenthetical vendor or team annotations, e.g. "Shiven Pandit (Microlink)" -> "shiven pandit"
+            const strippedName = userName.replace(/\s*\(.*?\)\s*/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+            if (strippedName) {
+              activeAdmins.push(strippedName);
+            }
+          }
+
+          if (title) {
+            activeAdmins.push(title.toLowerCase());
+            const strippedTitle = title.replace(/\s*\(.*?\)\s*/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+            if (strippedTitle) {
+              activeAdmins.push(strippedTitle);
+            }
+          }
+
+          if (notes) {
+            activeAdmins.push(notes.toLowerCase());
+          }
         }
 
-        const uniqueAdmins = Array.from(new Set(activeAdmins));
+        const uniqueAdmins = Array.from(new Set(activeAdmins.filter(Boolean)));
         this._cachedHierarchyAdmins = uniqueAdmins;
         this._cachedHierarchyAdminsTimestamp = Date.now();
         return uniqueAdmins;

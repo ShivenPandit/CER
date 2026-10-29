@@ -48,9 +48,9 @@ async function testPerformanceOptimizations() {
             value: [
               {
                 ID: 1,
-                Title: "Shiven Pandit",
-                user_email: "Shiven.Pandit@cairnindia.com",
-                login_name: "70007144@cairnindia.com",
+                Title: "Demo Administrator",
+                user_email: "demo.admin@example.com",
+                login_name: "demo.admin@example.com",
                 role: "Admin",
                 is_active: true,
                 assigned_by: "System",

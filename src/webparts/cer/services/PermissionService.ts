@@ -2,7 +2,7 @@ import { IAppUser, UserRole } from "../models/UserModel";
 import { ICERProposal } from "../models/CERModel";
 import { IWorkflowLevel, isProjectOwnerStage } from "../models/WorkflowModel";
 import { NavView } from "../components/Navigation/Sidebar";
-import { isDesignatedAdmin, normalizeUserIdentifier } from "./AuthService";
+import { isDesignatedAdmin, normalizeUserIdentifier, checkUserHierarchyAdminAccess } from "./AuthService";
 
 export interface IActionAuthResult {
   allowed: boolean;
@@ -39,19 +39,15 @@ export class PermissionService {
 
     // Direct check against dynamic list of authorized emails if passed
     if (Array.isArray(authorizedHierarchyEmails) && authorizedHierarchyEmails.length > 0) {
-      const email = normalizeUserIdentifier(user.email);
-      const login = normalizeUserIdentifier(user.loginName);
-
-      return authorizedHierarchyEmails.some((h) => {
-        const normH = normalizeUserIdentifier(h);
-        if (!normH) return false;
-        if (normH === email || normH === login) return true;
-        const hPrefix = normH.split("@")[0];
-        const emailPrefix = email ? email.split("@")[0] : "";
-        const loginPrefix = login ? login.split("@")[0] : "";
-        if (hPrefix && (hPrefix === emailPrefix || hPrefix === loginPrefix)) return true;
-        return false;
-      });
+      return checkUserHierarchyAdminAccess(
+        {
+          id: user.id,
+          email: user.email,
+          loginName: user.loginName,
+          name: user.name,
+        },
+        authorizedHierarchyEmails
+      );
     }
 
     return false;
@@ -72,7 +68,7 @@ export class PermissionService {
    * Comprehensive check if a user is the owner or initiator of a proposal.
    * Handles:
    * 1. Exact email and UPN matches (case-insensitive).
-   * 2. Cairn India / Vedanta dual-identifier alias matching (e.g. 70007144@cairnindia.com vs shiven.pandit@cairnindia.com).
+   * 2. Corporate dual-identifier alias matching across @cairnindia.com and @vedanta.co.in.
    * 3. Normalized display names (strips vendor/partner parentheses e.g. "(Microlink)", "(External)").
    * 4. Created By matches against user name, email, or login.
    */

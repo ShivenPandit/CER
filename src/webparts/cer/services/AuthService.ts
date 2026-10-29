@@ -30,6 +30,74 @@ export function normalizeUserIdentifier(val?: string): string {
 }
 
 /**
+ * Robust multi-attribute evaluator matching a user against CERHierarchyAdmins entries.
+ * Checks User ID, exact email/login, username prefixes, B2B #ext# claims, and cleaned display name.
+ */
+export function checkUserHierarchyAdminAccess(
+  userParams: { id?: number | string; email?: string; loginName?: string; name?: string },
+  hierarchyAdmins: string[]
+): boolean {
+  if (!Array.isArray(hierarchyAdmins) || hierarchyAdmins.length === 0) {
+    return false;
+  }
+
+  const normEmail = normalizeUserIdentifier(userParams.email);
+  const normLogin = normalizeUserIdentifier(userParams.loginName);
+  const rawName = (userParams.name || "").trim().toLowerCase();
+  const cleanName = rawName.replace(/\s*\(.*?\)\s*/g, "").replace(/\s+/g, " ").trim();
+  const userIdStr = userParams.id !== undefined && userParams.id !== null && Number(userParams.id) > 0 ? String(userParams.id) : "";
+
+  const emailPrefix = normEmail ? normEmail.split("@")[0] : "";
+  const loginPrefix = normLogin ? normLogin.split("@")[0] : "";
+  const b2bPrefix = normLogin && normLogin.indexOf("#ext#") !== -1
+    ? normLogin.split("#ext#")[0].split("_")[0]
+    : "";
+
+  return hierarchyAdmins.some((h) => {
+    if (!h) return false;
+    const cleanH = h.trim().toLowerCase();
+    const normH = normalizeUserIdentifier(cleanH);
+
+    // 1. Direct SharePoint User ID match (e.g. "12" or "id:12")
+    if (userIdStr && (cleanH === userIdStr || cleanH === `id:${userIdStr}`)) {
+      return true;
+    }
+
+    // 2. Exact email or login match
+    if (normH && (normH === normEmail || normH === normLogin)) {
+      return true;
+    }
+
+    // 3. Username prefix match before @
+    const hPrefix = normH.split("@")[0];
+    if (hPrefix) {
+      if (emailPrefix && hPrefix === emailPrefix) return true;
+      if (loginPrefix && hPrefix === loginPrefix) return true;
+      if (b2bPrefix && hPrefix === b2bPrefix) return true;
+    }
+
+    // 4. B2B vendor prefix match if h itself has #ext#
+    if (normH.indexOf("#ext#") !== -1) {
+      const hExtPrefix = normH.split("#ext#")[0].split("_")[0];
+      if (hExtPrefix) {
+        if (emailPrefix && hExtPrefix === emailPrefix) return true;
+        if (loginPrefix && hExtPrefix === loginPrefix) return true;
+      }
+    }
+
+    // 5. Clean display name match (e.g. "Shiven Pandit" vs "Shiven Pandit (Microlink)")
+    if (cleanName && cleanName.length >= 3) {
+      const hCleanName = cleanH.replace(/\s*\(.*?\)\s*/g, "").replace(/\s+/g, " ").trim();
+      if (hCleanName === cleanName || cleanH === rawName) {
+        return true;
+      }
+    }
+
+    return false;
+  });
+}
+
+/**
  * Enterprise Designated System Administrators.
  * @deprecated All administrative privileges are now dynamically loaded from CERUserRoles and CERHierarchyAdmins.
  */
@@ -47,7 +115,7 @@ export class AuthService {
    * 1. Uses authenticated SharePoint identity (email, loginName, id, display name).
    * 2. Queries CERUserRoles for real assigned roles.
    * 3. Prevents unregistered users from obtaining elevated privileges (default is unprivileged Initiator).
-   * 4. Recognizes verified corporate System Administrators (including 70007144@cairnindia.com).
+   * 4. Enforces 100% list-driven administrator role assignment via CERUserRoles and CERHierarchyAdmins.
    * 5. Implements controlled first-Admin bootstrapping: If the role registry has no active Admins
    *    and the current user is a verified SharePoint Site Admin, grants initial Admin privileges
    *    and records an audit log entry.
@@ -100,26 +168,21 @@ export class AuthService {
       }
     }
 
-    const normEmail = normalizeUserIdentifier(email);
-    const normLogin = normalizeUserIdentifier(loginName);
-
-    const hasHierarchyAdminAccess = hierarchyAdmins.some((h) => {
-      const normH = normalizeUserIdentifier(h);
-      if (!normH) return false;
-      if (normH === normEmail || normH === normLogin) return true;
-      const hPrefix = normH.split("@")[0];
-      const emailPrefix = normEmail ? normEmail.split("@")[0] : "";
-      const loginPrefix = normLogin ? normLogin.split("@")[0] : "";
-      if (hPrefix && (hPrefix === emailPrefix || hPrefix === loginPrefix)) return true;
-      return false;
-    });
+    const hasHierarchyAdminAccess = checkUserHierarchyAdminAccess(
+      {
+        id: params.id,
+        email: email,
+        loginName: loginName,
+        name: displayName,
+      },
+      hierarchyAdmins
+    );
 
     // Auto-clean any legacy auto-provisioned Admin records
     const invalidAutoAdmins = allRoles.filter((a) => {
       return (
         a.role === "Admin" &&
-        (a.assigned_by === "SYSTEM_DESIGNATED_ADMIN_PROVISION" ||
-          a.department === "Enterprise Administration")
+        a.assigned_by === "SYSTEM_DESIGNATED_ADMIN_PROVISION"
       );
     });
 

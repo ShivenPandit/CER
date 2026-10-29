@@ -32,7 +32,9 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
   onCancel,
   initialTab = "users",
 }) => {
-  const canAccessHierarchy = PermissionService.canAccessApprovalHierarchy(currentUser);
+  const [canAccessHierarchy, setCanAccessHierarchy] = React.useState<boolean>(
+    () => PermissionService.canAccessApprovalHierarchy(currentUser)
+  );
   const safeInitialTab: AdminConsoleTab =
     initialTab === "hierarchy" && !canAccessHierarchy ? "users" : initialTab;
 
@@ -56,9 +58,10 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
       if (forceRefresh && (dataService as any).clearCache) {
         (dataService as any).clearCache();
       }
-      const [roles, levels] = await Promise.all([
+      const [roles, levels, hierarchyAdmins] = await Promise.all([
         dataService.getUserRoles ? dataService.getUserRoles(forceRefresh) : Promise.resolve([]),
         dataService.getWorkflowLevels(undefined, forceRefresh),
+        dataService.getHierarchyAdmins ? dataService.getHierarchyAdmins(forceRefresh) : Promise.resolve([]),
       ]);
       const cleanRoles = roles.filter((a) => {
         const isAutoProvisioned =
@@ -69,6 +72,11 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
       });
       setUserRoles(cleanRoles);
       setWorkflowLevels(levels);
+      const isPermittedForHierarchy = PermissionService.canAccessApprovalHierarchy(
+        currentUser,
+        hierarchyAdmins
+      );
+      setCanAccessHierarchy(isPermittedForHierarchy);
     } catch (err: any) {
       console.error("[AdminConsoleView] Failed to load admin records:", err);
       setErrorMessage(
@@ -77,7 +85,7 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [dataService]);
+  }, [dataService, currentUser]);
 
   React.useEffect(() => {
     loadData().catch((e) => console.error(e));

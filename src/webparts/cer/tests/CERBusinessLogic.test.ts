@@ -315,7 +315,7 @@ describe("CER Management System - Business Logic & Requirements Tests", () => {
 
     const editRes = await service.updateProposal(
       { ...approvedProposal!, amount: 16500000, object: "Revised scope for high-pressure compressors" },
-      { name: "Shiven Pandit", email: "shiven.pandit@vedanta.co.in" }
+      { name: "Demo Initiator", email: "demo.initiator@example.com" }
     );
 
     expect(editRes.success).toBe(true);
@@ -340,13 +340,13 @@ describe("CER Management System - Business Logic & Requirements Tests", () => {
     const newRemarks = "Updated justification: Reservoir pressure dynamics necessitate immediate expansion in Q3.";
     await service.updateProposal(
       { ...proposal, remarks: newRemarks },
-      { name: "Shiven Pandit", email: "shiven.pandit@vedanta.co.in" }
+      { name: "Demo Initiator", email: "demo.initiator@example.com" }
     );
 
     const updatedVersions = await service.getRemarksHistory(cerprno);
     expect(updatedVersions.length).toBe(initialCount + 1);
     expect(updatedVersions[0].remarks_text).toBe(newRemarks);
-    expect(updatedVersions[0].created_by).toBe("Shiven Pandit");
+    expect(updatedVersions[0].created_by).toBe("Demo Initiator");
   });
 
   // BR-04: SBU Updates

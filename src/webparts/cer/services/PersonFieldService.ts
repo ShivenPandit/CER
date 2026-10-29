@@ -183,7 +183,7 @@ export class PersonFieldService {
 
     try {
       const endpoint = `${siteUrl.replace(/\/+$/, "")}/_api/web/getUserById(${userId})?$select=Id,Title,Email,LoginName,IsSiteAdmin`;
-      const response: SPHttpClientResponse = await client.get(
+      let response: SPHttpClientResponse = await client.get(
         endpoint,
         SPHttpClient.configurations.v1,
         {
@@ -193,14 +193,45 @@ export class PersonFieldService {
         }
       );
       if (!response.ok) {
+        // Fallback to odata=verbose which is universally supported by SharePoint User endpoints
+        response = await client.get(
+          endpoint,
+          SPHttpClient.configurations.v1,
+          {
+            headers: {
+              Accept: "application/json;odata=verbose",
+            },
+          }
+        );
+      }
+      if (!response.ok) {
         return null;
       }
-      const data = await response.json();
+      const rawData = await response.json();
+      const data = rawData?.d || rawData;
+      let email = String(data.Email || data.email || data.EMail || "").trim();
+      const loginName = String(data.LoginName || data.loginName || "").trim();
+      const title = String(data.Title || data.title || "").trim();
+
+      // If email is empty (common for federated/vendor guest accounts), extract email from LoginName
+      if (!email && loginName) {
+        const claimsStripped = loginName.replace(/^i:0#\.f\|membership\|/i, "");
+        if (claimsStripped.indexOf("#ext#") !== -1) {
+          const upnPart = claimsStripped.split("#ext#")[0];
+          const lastUnderscore = upnPart.lastIndexOf("_");
+          if (lastUnderscore > 0) {
+            email = `${upnPart.substring(0, lastUnderscore)}@${upnPart.substring(lastUnderscore + 1)}`;
+          }
+        } else if (claimsStripped.indexOf("@") !== -1) {
+          email = claimsStripped;
+        }
+      }
+
       const resolved: ISharePointUser = {
         Id: Number(data.Id || userId),
-        Title: String(data.Title || data.title || ""),
-        Email: String(data.Email || data.email || data.EMail || ""),
-        LoginName: String(data.LoginName || data.loginName || ""),
+        Title: title,
+        Email: email,
+        LoginName: loginName,
         IsSiteAdmin: !!data.IsSiteAdmin,
       };
       this._userCache.set(cacheKey, { user: resolved, timestamp: now });

@@ -80,38 +80,38 @@ async function runPersonFieldServiceTests() {
         status: 200,
         json: async () => ({
           Id: 105,
-          Title: 'Shiven Pandit',
-          Email: 'shiven.pandit@vedanta.co.in',
-          LoginName: 'i:0#.f|membership|shiven.pandit@vedanta.co.in',
+          Title: 'Demo User',
+          Email: 'demo.user@example.com',
+          LoginName: 'i:0#.f|membership|demo.user@example.com',
           IsSiteAdmin: true,
         }),
       };
     },
   };
 
-  const resolved = await PersonFieldService.resolveUser(mockClient, siteUrl, 'shiven.pandit@vedanta.co.in');
+  const resolved = await PersonFieldService.resolveUser(mockClient, siteUrl, 'demo.user@example.com');
   assert(resolved.Id === 105, 'Resolved user ID is 105');
-  assert(resolved.Title === 'Shiven Pandit', 'Resolved Title is Shiven Pandit');
-  assert(resolved.Email === 'shiven.pandit@vedanta.co.in', 'Resolved Email is shiven.pandit@vedanta.co.in');
-  assert(resolved.LoginName === 'i:0#.f|membership|shiven.pandit@vedanta.co.in', 'Resolved LoginName preserved');
+  assert(resolved.Title === 'Demo User', 'Resolved Title is Demo User');
+  assert(resolved.Email === 'demo.user@example.com', 'Resolved Email is demo.user@example.com');
+  assert(resolved.LoginName === 'i:0#.f|membership|demo.user@example.com', 'Resolved LoginName preserved');
   assert(resolved.IsSiteAdmin === true, 'Resolved IsSiteAdmin is true');
   assert(ensureUserCallCount === 1, 'Initial ensureUser call made to SharePoint');
 
   // Test claims stripping normalization
-  const normClaims = PersonFieldService.normalizeLogon('i:0#.f|membership|user@vedanta.co.in');
-  assert(normClaims === 'user@vedanta.co.in', 'Normalized claims prefix stripped');
+  const normClaims = PersonFieldService.normalizeLogon('i:0#.f|membership|user@example.com');
+  assert(normClaims === 'user@example.com', 'Normalized claims prefix stripped');
 
   // ---------------------------------------------------------------------------
   // Suite 2: Reusing Cached User ID (No Redundant Network Calls)
   // ---------------------------------------------------------------------------
   console.log('\nTest Suite 2: Reusing Cached User ID');
-  const cachedUser = await PersonFieldService.resolveUser(mockClient, siteUrl, 'shiven.pandit@vedanta.co.in');
+  const cachedUser = await PersonFieldService.resolveUser(mockClient, siteUrl, 'demo.user@example.com');
   assert(cachedUser.Id === 105, 'Cached user returns correct Id 105');
   assert(ensureUserCallCount === 1, 'Cache hit: No redundant ensureUser network call executed');
 
   // Context-aware caching: query to different site URL MUST NOT use cache of siteUrl
   const otherSiteUrl = 'https://vedanta.sharepoint.com/sites/DifferentSite';
-  await PersonFieldService.resolveUser(mockClient, otherSiteUrl, 'shiven.pandit@vedanta.co.in');
+  await PersonFieldService.resolveUser(mockClient, otherSiteUrl, 'demo.user@example.com');
   assert(ensureUserCallCount === 2, 'Site-context aware: Querying different site URL triggers fresh ensureUser');
 
   // ---------------------------------------------------------------------------
@@ -176,17 +176,17 @@ async function runPersonFieldServiceTests() {
     Title: 'Role Item 1',
     User: {
       Id: 105,
-      Title: 'Shiven Pandit',
-      EMail: 'shiven.pandit@vedanta.co.in',
-      Name: 'i:0#.f|membership|shiven.pandit@vedanta.co.in',
+      Title: 'Demo User',
+      EMail: 'demo.user@example.com',
+      Name: 'i:0#.f|membership|demo.user@example.com',
     },
   };
   const extractedExpanded = PersonFieldService.extractPersonField(expandedItem, 'User');
   assert(extractedExpanded !== null, 'Extracted expanded Person field is non-null');
   assert(extractedExpanded?.id === 105, 'Extracted expanded ID is 105');
-  assert(extractedExpanded?.name === 'Shiven Pandit', 'Extracted expanded name is Shiven Pandit');
-  assert(extractedExpanded?.email === 'shiven.pandit@vedanta.co.in', 'Extracted expanded email is shiven.pandit@vedanta.co.in');
-  assert(extractedExpanded?.loginName === 'i:0#.f|membership|shiven.pandit@vedanta.co.in', 'Extracted expanded loginName is preserved');
+  assert(extractedExpanded?.name === 'Demo User', 'Extracted expanded name is Demo User');
+  assert(extractedExpanded?.email === 'demo.user@example.com', 'Extracted expanded email is demo.user@example.com');
+  assert(extractedExpanded?.loginName === 'i:0#.f|membership|demo.user@example.com', 'Extracted expanded loginName is preserved');
 
   // Case B: Flat Lookup ID
   const flatItem = {
@@ -257,9 +257,9 @@ async function runPersonFieldServiceTests() {
             value: [
               {
                 Id: 888,
-                Title: 'Shiven Pandit',
-                user_email: 'shiven.pandit@vedanta.co.in',
-                login_name: 'shiven.pandit@vedanta.co.in',
+                Title: 'Demo User',
+                user_email: 'demo.user@example.com',
+                login_name: 'demo.user@example.com',
                 role: 'Approver',
                 approval_level: 1,
                 department: 'Information Technology',
@@ -269,9 +269,9 @@ async function runPersonFieldServiceTests() {
                 assigned_date: '2026-10-27T10:00:00Z',
                 User: {
                   Id: 105,
-                  Title: 'Shiven Pandit',
-                  EMail: 'shiven.pandit@vedanta.co.in',
-                  Name: 'i:0#.f|membership|shiven.pandit@vedanta.co.in',
+                  Title: 'Demo User',
+                  EMail: 'demo.user@example.com',
+                  Name: 'i:0#.f|membership|demo.user@example.com',
                 },
               },
             ],
@@ -288,9 +288,9 @@ async function runPersonFieldServiceTests() {
           status: 200,
           json: async () => ({
             Id: 105,
-            Title: 'Shiven Pandit',
-            Email: 'shiven.pandit@vedanta.co.in',
-            LoginName: 'i:0#.f|membership|shiven.pandit@vedanta.co.in',
+            Title: 'Demo User',
+            Email: 'demo.user@example.com',
+            LoginName: 'i:0#.f|membership|demo.user@example.com',
             IsSiteAdmin: true,
           }),
         };
@@ -306,9 +306,9 @@ async function runPersonFieldServiceTests() {
   // Test assignUserRole
   const assigned = await spDataService.assignUserRole(
     {
-      user_name: 'Shiven Pandit',
-      user_email: 'shiven.pandit@vedanta.co.in',
-      login_name: 'shiven.pandit@vedanta.co.in',
+      user_name: 'Demo User',
+      user_email: 'demo.user@example.com',
+      login_name: 'demo.user@example.com',
       role: 'Approver',
       approval_level: 1,
       department: 'Information Technology',
@@ -317,7 +317,7 @@ async function runPersonFieldServiceTests() {
       assigned_by: 'Admin',
       assigned_date: new Date().toISOString(),
     },
-    { name: 'Admin', email: 'admin@vedanta.co.in' }
+    { name: 'Admin', email: 'admin@example.com' }
   );
 
   assert(assigned.id === '888', 'assignUserRole returned created item ID 888');
@@ -330,7 +330,7 @@ async function runPersonFieldServiceTests() {
       ...assigned,
       department: 'Digital Operations',
     },
-    { name: 'Admin', email: 'admin@vedanta.co.in' }
+    { name: 'Admin', email: 'admin@example.com' }
   );
   const mergeCall = requestHistory.find((r) => r.method === 'MERGE');
   assert(!!mergeCall && mergeCall.body.UserId === 105, 'updateUserRole wrote UserId: 105 to update payload');
@@ -340,8 +340,8 @@ async function runPersonFieldServiceTests() {
   const roles = await spDataService.getUserRoles();
   assert(roles.length === 1, 'getUserRoles returned 1 role');
   assert(roles[0].user_id === 105, 'getUserRoles normalized user_id as 105');
-  assert(roles[0].user_name === 'Shiven Pandit', 'getUserRoles resolved user_name');
-  assert(roles[0].user_email === 'shiven.pandit@vedanta.co.in', 'getUserRoles resolved user_email');
+  assert(roles[0].user_name === 'Demo User', 'getUserRoles resolved user_name');
+  assert(roles[0].user_email === 'demo.user@example.com', 'getUserRoles resolved user_email');
 
   // ---------------------------------------------------------------------------
   // Suite 8: Approval Workflow & Segregation of Duties Preservation

@@ -2,7 +2,7 @@
  * Automated Verification Suite for Approval Hierarchy Access Restriction
  *
  * Verifies all 10 core requirements specified for Approval Hierarchy access control:
- *  1. Exact authorized email (Shiven.Pandit@cairnindia.com) can see and access Approval Hierarchy.
+ *  1. Exact authorized email in CERHierarchyAdmins can see and access Approval Hierarchy.
  *  2. Email comparison is case-insensitive, whitespace-safe, and handles SharePoint claims prefixes.
  *  3. Other Admin users (including other Designated Admins) cannot see or access the tab.
  *  4. Ordinary users (Initiator, Approver, Finance, Reviewer) cannot see or access the tab.
@@ -52,17 +52,17 @@ async function runApprovalHierarchyAccessTests(): Promise<void> {
   // ---------------------------------------------------------------------------------------------
   console.log("Test Suite 1: Authorized Identity Resolution");
   const authorizedUser: IAppUser = {
-    id: "user-shiven",
-    email: "Shiven.Pandit@cairnindia.com",
-    loginName: "Shiven.Pandit@cairnindia.com",
-    name: "Shiven Pandit",
+    id: "user-authorized-demo",
+    email: "authorized.admin@example.com",
+    loginName: "authorized.admin@example.com",
+    name: "Authorized Admin",
     role: "Admin",
     roles: ["Admin"],
     is_active: true,
     canManageApprovalHierarchy: true,
   };
 
-  const dynamicHierarchyAdmins = ["shiven.pandit@cairnindia.com"];
+  const dynamicHierarchyAdmins = ["authorized.admin@example.com"];
 
   assert(
     PermissionService.canAccessApprovalHierarchy(authorizedUser) === true,
@@ -84,25 +84,25 @@ async function runApprovalHierarchyAccessTests(): Promise<void> {
 
   const upperCaseUser: IAppUser = {
     ...authorizedUser,
-    email: "SHIVEN.PANDIT@CAIRNINDIA.COM"
+    email: "AUTHORIZED.ADMIN@EXAMPLE.COM"
   };
   assert(
     PermissionService.canAccessApprovalHierarchy(upperCaseUser) === true,
-    "2a. Uppercase email (SHIVEN.PANDIT@CAIRNINDIA.COM) is granted access"
+    "2a. Uppercase email (AUTHORIZED.ADMIN@EXAMPLE.COM) is granted access"
   );
 
   const mixedCaseUser: IAppUser = {
     ...authorizedUser,
-    email: "ShIvEn.PaNdIt@cAiRnInDiA.cOm"
+    email: "AuThOrIzEd.AdMiN@eXaMpLe.CoM"
   };
   assert(
     PermissionService.canAccessApprovalHierarchy(mixedCaseUser) === true,
-    "2b. Mixed case email (ShIvEn.PaNdIt@cAiRnInDiA.cOm) is granted access"
+    "2b. Mixed case email (AuThOrIzEd.AdMiN@eXaMpLe.CoM) is granted access"
   );
 
   const whitespaceUser: IAppUser = {
     ...authorizedUser,
-    email: "   Shiven.Pandit@cairnindia.com   "
+    email: "   authorized.admin@example.com   "
   };
   assert(
     PermissionService.canAccessApprovalHierarchy(whitespaceUser) === true,
@@ -111,9 +111,9 @@ async function runApprovalHierarchyAccessTests(): Promise<void> {
 
   const claimsUser: IAppUser = {
     id: "user-claims",
-    name: "Shiven Pandit",
+    name: "Authorized Admin",
     email: "",
-    loginName: "i:0#.f|membership|shiven.pandit@cairnindia.com",
+    loginName: "i:0#.f|membership|authorized.admin@example.com",
     role: "Admin",
     roles: ["Admin"],
     is_active: true
@@ -125,9 +125,9 @@ async function runApprovalHierarchyAccessTests(): Promise<void> {
 
   const legacyClaimsUser: IAppUser = {
     id: "user-leg-claims",
-    name: "Shiven Pandit",
+    name: "Authorized Admin",
     email: "",
-    loginName: "membership|shiven.pandit@cairnindia.com",
+    loginName: "membership|authorized.admin@example.com",
     role: "Admin",
     roles: ["Admin"],
     is_active: true
@@ -144,44 +144,44 @@ async function runApprovalHierarchyAccessTests(): Promise<void> {
 
   const otherAdmin: IAppUser = {
     id: "user-admin-2",
-    email: "priya.kalekar@cairnindia.com",
-    loginName: "priya.kalekar@cairnindia.com",
-    name: "Priya Kalekar",
+    email: "other.admin@example.com",
+    loginName: "other.admin@example.com",
+    name: "Other Admin",
     role: "Admin",
     roles: ["Admin"],
     is_active: true
   };
   assert(
     PermissionService.canAccessApprovalHierarchy(otherAdmin) === false,
-    "3a. Another Admin user (priya.kalekar@cairnindia.com) is strictly denied access"
+    "3a. Another Admin user (other.admin@example.com) is strictly denied access"
   );
 
   const designatedAdmin7000: IAppUser = {
-    id: "user-admin-70007144",
-    email: "70007144@cairnindia.com",
-    loginName: "70007144@cairnindia.com",
-    name: "Designated Admin User",
+    id: "user-admin-other",
+    email: "unregistered.admin@example.com",
+    loginName: "unregistered.admin@example.com",
+    name: "Unregistered Admin User",
     role: "Admin",
     roles: ["Admin"],
     is_active: true
   };
   assert(
     PermissionService.canAccessApprovalHierarchy(designatedAdmin7000) === false,
-    "3b. Designated Admin identifier (70007144@cairnindia.com) is strictly denied access"
+    "3b. Unregistered Admin identifier (unregistered.admin@example.com) is strictly denied access"
   );
 
   const spoofedNameUser: IAppUser = {
     id: "user-spoof",
-    email: "attacker@cairnindia.com",
-    loginName: "attacker@cairnindia.com",
-    name: "Shiven Pandit", // Name matches, but email does not!
+    email: "attacker@example.com",
+    loginName: "attacker@example.com",
+    name: "Authorized Admin", // Name matches, but email does not!
     role: "Admin",
     roles: ["Admin"],
     is_active: true
   };
   assert(
     PermissionService.canAccessApprovalHierarchy(spoofedNameUser) === false,
-    "3c. Display name spoofing ('Shiven Pandit' with non-matching email) is strictly denied"
+    "3c. Display name spoofing ('Authorized Admin' with non-matching email) is strictly denied"
   );
 
   // ---------------------------------------------------------------------------------------------

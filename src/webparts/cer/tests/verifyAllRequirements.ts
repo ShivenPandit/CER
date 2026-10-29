@@ -52,8 +52,8 @@ async function runAllVerificationTests(): Promise<void> {
     id: "prop-auto-001",
     cerprno: propNo,
     pr_name: "Automated Verification Test Project",
-    owname: "Shiven Pandit",
-    owner_email: "shiven.pandit@vedanta.co.in",
+    owname: "Demo Initiator",
+    owner_email: "demo.initiator@example.com",
     sbu: "RJ North",
     status: "In Approval",
     object: "Pipeline Testing",
@@ -101,9 +101,9 @@ async function runAllVerificationTests(): Promise<void> {
     pending_with_role: "SBU Operations Head",
     pending_with_email: "rajesh.sharma@vedanta.co.in",
     created_date: new Date().toISOString(),
-    created_by: "Shiven Pandit",
+    created_by: "Demo Initiator",
     modified_date: new Date().toISOString(),
-    modified_by: "Shiven Pandit",
+    modified_by: "Demo Initiator",
     revision_count: 0,
   };
 
@@ -249,7 +249,7 @@ async function runAllVerificationTests(): Promise<void> {
   assert(notifs.length >= 3, `Dispatched ${notifs.length} automated workflow notifications`);
   const finalNotif = notifs[0];
   assert(
-    finalNotif.recipients.indexOf("shiven.pandit@vedanta.co.in") !== -1,
+    finalNotif.recipients.indexOf("demo.initiator@example.com") !== -1,
     "Workflow notification marked to Creator"
   );
   assert(
@@ -524,10 +524,10 @@ async function runAllVerificationTests(): Promise<void> {
   console.log("\nTest Suite 8: Microsoft Entra ID Integration & People Picker Verification");
 
   // Scenario 1: Search by full name
-  const fullNameResults = await service.searchDirectoryUsers("Priya Kalekar (STL Digital)");
+  const fullNameResults = await service.searchDirectoryUsers("Demo User One (Digital Team)");
   assert(
-    fullNameResults.length > 0 && fullNameResults[0].displayName.includes("Priya Kalekar"),
-    "Scenario 1: Search by full name successfully returns 'Priya Kalekar (STL Digital)'"
+    fullNameResults.length > 0 && fullNameResults[0].displayName.includes("Demo User One"),
+    "Scenario 1: Search by full name successfully returns 'Demo User One (Digital Team)'"
   );
 
   // Scenario 2: Search by partial name
@@ -538,25 +538,25 @@ async function runAllVerificationTests(): Promise<void> {
   );
 
   // Scenario 3: Search by email
-  const emailResults = await service.searchDirectoryUsers("Ankit.Sharma2@cairnindia.com");
+  const emailResults = await service.searchDirectoryUsers("demo.user2@example.com");
   assert(
-    emailResults.length === 1 && emailResults[0].displayName.includes("Ankit Sharma"),
-    "Scenario 3: Search by email address returns exact user 'Ankit Sharma (STL Digital)'"
+    emailResults.length === 1 && emailResults[0].displayName.includes("Demo User Two"),
+    "Scenario 3: Search by email address returns exact user 'Demo User Two (Digital Team)'"
   );
 
   // Scenario 4: Select a user and verify automatic email population
   const selectedUser = fullNameResults[0];
   const autoEmail = resolveDirectoryUserEmail(selectedUser);
   assert(
-    autoEmail === "Priya.Kalekar@cairnindia.com",
+    autoEmail === "demo.user1@example.com",
     `Scenario 4: Selecting '${selectedUser.displayName}' automatically resolves email: ${autoEmail}`
   );
 
   // Scenario 5: Change the selected user and verify the email updates
-  const newUser = (await service.searchDirectoryUsers("Nitin Doshi"))[0];
+  const newUser = (await service.searchDirectoryUsers("Demo User Four"))[0];
   const updatedEmail = resolveDirectoryUserEmail(newUser);
   assert(
-    updatedEmail === "Nitin.Doshi@cairnindia.com" && updatedEmail !== autoEmail,
+    updatedEmail === "demo.user4@example.com" && updatedEmail !== autoEmail,
     `Scenario 5: Changing owner to '${newUser.displayName}' updates email immediately to ${updatedEmail}`
   );
 
@@ -575,7 +575,7 @@ async function runAllVerificationTests(): Promise<void> {
   const noMailUser = (await service.searchDirectoryUsers("User Without Mail"))[0];
   const resolvedUpnEmail = resolveDirectoryUserEmail(noMailUser);
   assert(
-    resolvedUpnEmail === "user.nomail@cairnindia.com",
+    resolvedUpnEmail === "user.nomail@example.com",
     "Scenario 7a: User with empty mail correctly falls back to userPrincipalName email"
   );
   const invalidUser = (await service.searchDirectoryUsers("Invalid Email User"))[0];
@@ -602,16 +602,16 @@ async function runAllVerificationTests(): Promise<void> {
   const draftProposal: ICERProposal = {
     ...testProp,
     cerprno: draftPropNo,
-    owname: "Deependra Singh (STL Digital)",
-    owner_email: "Deependra.Singh@cairnindia.com",
+    owname: "Demo User Three (Digital Team)",
+    owner_email: "demo.user3@example.com",
     status: "Draft",
   };
   await service.createProposal(draftProposal);
   const loadedDraft = await service.getProposalByNumber(draftPropNo);
   assert(
     loadedDraft !== null &&
-    loadedDraft.owname === "Deependra Singh (STL Digital)" &&
-    loadedDraft.owner_email === "Deependra.Singh@cairnindia.com" &&
+    loadedDraft.owname === "Demo User Three (Digital Team)" &&
+    loadedDraft.owner_email === "demo.user3@example.com" &&
     loadedDraft.status === "Draft",
     "Scenario 9: Draft CER proposal saved and reloaded preserves selected portal owner and email"
   );
@@ -621,8 +621,8 @@ async function runAllVerificationTests(): Promise<void> {
   const submittedProposal: ICERProposal = {
     ...testProp,
     cerprno: submittedPropNo,
-    owname: "Priya Kalekar (STL Digital)",
-    owner_email: "Priya.Kalekar@cairnindia.com",
+    owname: "Demo User One (Digital Team)",
+    owner_email: "demo.user1@example.com",
     status: "In Approval",
   };
   const submitResult = await service.createProposal(submittedProposal);
@@ -630,27 +630,27 @@ async function runAllVerificationTests(): Promise<void> {
   const loadedSubmitted = await service.getProposalByNumber(submittedPropNo);
   assert(
     loadedSubmitted !== null &&
-    loadedSubmitted.owname === "Priya Kalekar (STL Digital)" &&
-    loadedSubmitted.owner_email === "Priya.Kalekar@cairnindia.com",
+    loadedSubmitted.owname === "Demo User One (Digital Team)" &&
+    loadedSubmitted.owner_email === "demo.user1@example.com",
     "Scenario 10b: Submitted CER correctly stores 'owname' and 'owner_email' in SharePoint schema"
   );
 
   // Scenario 11: Edit an existing CER and verify the saved owner is displayed correctly
   const editProposal: ICERProposal = {
     ...loadedSubmitted!,
-    owname: "Ankit Sharma (STL Digital)",
-    owner_email: "Ankit.Sharma2@cairnindia.com",
+    owname: "Demo User Two (Digital Team)",
+    owner_email: "demo.user2@example.com",
   };
   const updateResult = await service.updateProposal(editProposal, {
-    name: "Priya Kalekar (STL Digital)",
-    email: "Priya.Kalekar@cairnindia.com",
+    name: "Demo User One (Digital Team)",
+    email: "demo.user1@example.com",
   });
   assert(updateResult.success, "Scenario 11a: CER updated with new directory owner");
   const reloadedEdited = await service.getProposalByNumber(submittedPropNo);
   assert(
     reloadedEdited !== null &&
-    reloadedEdited.owname === "Ankit Sharma (STL Digital)" &&
-    reloadedEdited.owner_email === "Ankit.Sharma2@cairnindia.com",
+    reloadedEdited.owname === "Demo User Two (Digital Team)" &&
+    reloadedEdited.owner_email === "demo.user2@example.com",
     "Scenario 11b: Reloading edited proposal accurately displays updated directory owner name and email"
   );
 
@@ -681,8 +681,8 @@ async function runAllVerificationTests(): Promise<void> {
 
   const approverL1: IAppUser = {
     id: 102,
-    name: "Ankit Sharma (STL Digital)",
-    email: "Ankit.Sharma2@cairnindia.com",
+    name: "Demo Approver One",
+    email: "demo.approver1@example.com",
     role: "Approver",
     roles: ["Approver"],
     approval_level: 1,
@@ -691,8 +691,8 @@ async function runAllVerificationTests(): Promise<void> {
 
   const approverL2: IAppUser = {
     id: 103,
-    name: "Deependra Singh (STL Digital)",
-    email: "Deependra.Singh@cairnindia.com",
+    name: "Demo Approver Two",
+    email: "demo.approver2@example.com",
     role: "Approver",
     roles: ["Approver"],
     approval_level: 2,
@@ -701,8 +701,8 @@ async function runAllVerificationTests(): Promise<void> {
 
   const approverL3: IAppUser = {
     id: 104,
-    name: "Nitin Doshi (STL Digital)",
-    email: "Nitin.Doshi@cairnindia.com",
+    name: "Demo Approver Three",
+    email: "demo.approver3@example.com",
     role: "Approver",
     roles: ["Approver"],
     approval_level: 3,
@@ -712,7 +712,7 @@ async function runAllVerificationTests(): Promise<void> {
   const financeUser: IAppUser = {
     id: 105,
     name: "Finance & Audit Analyst",
-    email: "finance.audit@cairnindia.com",
+    email: "finance.audit@example.com",
     role: "Finance_Audit",
     roles: ["Finance_Audit"],
     is_active: true,
@@ -720,8 +720,9 @@ async function runAllVerificationTests(): Promise<void> {
 
   const adminUser: IAppUser = {
     id: 106,
-    name: "Shiven Pandit",
-    email: "70007144@cairnindia.com",
+    name: "Demo Administrator",
+    email: "demo.admin@example.com",
+    loginName: "demo.admin@example.com",
     role: "Admin",
     roles: ["Admin", "Initiator"],
     is_active: true,
@@ -924,7 +925,7 @@ async function runAllVerificationTests(): Promise<void> {
   const currentAdmins = existingRoles.filter((r) => r.role === "Admin" && r.is_active);
   assert(currentAdmins.length >= 1, "Scenario 10a: Initial active Administrator exists in registry");
 
-  // Keep adminUser (Priya) as the sole remaining admin to test last-admin protection
+  // Keep adminUser as the sole remaining admin to test last-admin protection
   for (const admin of currentAdmins) {
     if (admin.user_email.toLowerCase() !== adminUser.email.toLowerCase()) {
       await testAdminService.revokeUserRole(admin.id, adminUser);
@@ -979,11 +980,11 @@ async function runAllVerificationTests(): Promise<void> {
   );
 
   // Scenario 13: Directory selection resolves the correct user identity
-  const directoryResults = await service.searchDirectoryUsers("Ankit");
+  const directoryResults = await service.searchDirectoryUsers("Demo User One");
   assert(
     directoryResults.length > 0 &&
-      directoryResults[0].mail === "Ankit.Sharma2@cairnindia.com" &&
-      directoryResults[0].displayName.indexOf("Ankit Sharma") !== -1,
+      directoryResults[0].mail === "demo.user1@example.com" &&
+      directoryResults[0].displayName.indexOf("Demo User One") !== -1,
     "Scenario 13: Directory search resolves accurate display name and corporate email"
   );
 
@@ -1172,23 +1173,23 @@ async function runAllVerificationTests(): Promise<void> {
     "Scenario 16c: Dual-role employee has active Approver capability"
   );
 
-  // Scenario 17: User 70007144@cairnindia.com resolves as full Administrator
-  const admin70007144Resolution = await AuthService.resolveCurrentUser(
+  // Scenario 17: User demo.admin@example.com resolves as full Administrator
+  const adminDemoResolution = await AuthService.resolveCurrentUser(
     {
-      id: 70007144,
-      name: "70007144",
-      email: "70007144@cairnindia.com",
-      loginName: "i:0#.f|membership|70007144@cairnindia.com",
+      id: 1,
+      name: "Demo Administrator",
+      email: "demo.admin@example.com",
+      loginName: "i:0#.f|membership|demo.admin@example.com",
     },
     service
   );
   assert(
-    admin70007144Resolution.user.role === "Admin" &&
-      admin70007144Resolution.user.roles.indexOf("Admin") !== -1 &&
-      PermissionService.canAccessAdmin(admin70007144Resolution.user) === true &&
-      PermissionService.canAccessView("workflow-config", admin70007144Resolution.user) === true &&
-      PermissionService.canManageRoles(admin70007144Resolution.user) === true,
-    "Scenario 17: 70007144@cairnindia.com resolves as verified Administrator with full governance privileges"
+    adminDemoResolution.user.role === "Admin" &&
+      adminDemoResolution.user.roles.indexOf("Admin") !== -1 &&
+      PermissionService.canAccessAdmin(adminDemoResolution.user) === true &&
+      PermissionService.canAccessView("workflow-config", adminDemoResolution.user) === true &&
+      PermissionService.canManageRoles(adminDemoResolution.user) === true,
+    "Scenario 17: Registered Admin resolves as verified Administrator with full governance privileges"
   );
 
   console.log("\nTest Suite 11: Dynamic Expenditure Phasing (Indian Fiscal Year: Apr 1 – Mar 31)");
@@ -1337,13 +1338,13 @@ async function runAllVerificationTests(): Promise<void> {
     ...testProp,
     cerprno: "CER-SBU-TEST-001",
     sbu: "RJ North",
-    owname: "Priya Kalekar (STL Digital)",
-    owner_email: "Priya.Kalekar@cairnindia.com",
+    owname: "Demo Project Owner",
+    owner_email: "demo.owner@example.com",
     current_level: 1,
   });
 
   const createdProp = createdPropRes.proposal;
-  assert(createdProp.pending_with_email === "Priya.Kalekar@cairnindia.com", "12.3a: Project Owner stage pending_with_email auto-fetched from owner_email");
+  assert(createdProp.pending_with_email === "demo.owner@example.com", "12.3a: Project Owner stage pending_with_email auto-fetched from owner_email");
   assert(createdProp.pending_with_role === "Project Owner", "12.3b: pending_with_role set to Project Owner");
   assert(createdProp.current_level === 1, "12.3c: Initial stage is 1");
 
@@ -1352,8 +1353,8 @@ async function runAllVerificationTests(): Promise<void> {
     ...testProp,
     cerprno: "CER-SBU-TEST-002",
     sbu: "RJ South",
-    owname: "Priya Kalekar (STL Digital)",
-    owner_email: "Priya.Kalekar@cairnindia.com",
+    owname: "Demo Project Owner",
+    owner_email: "demo.owner@example.com",
     current_level: 1,
   });
   assert(rjSouthPropRes.proposal.pending_with_email === "rahul.roy@vedanta.co.in", "12.4: RJ South L1 resolves to configured role approver rahul.roy@vedanta.co.in");
@@ -1361,8 +1362,8 @@ async function runAllVerificationTests(): Promise<void> {
   // 12.5 Project Owner Stage Authorization in Service Layer & PermissionService
   const priyaUser: IAppUser = {
     id: 501,
-    email: "priya.kalekar@cairnindia.com",
-    name: "Priya Kalekar",
+    email: "demo.owner@example.com",
+    name: "Demo Project Owner",
     role: "Initiator",
     roles: ["Initiator"],
     is_active: true,
@@ -1476,7 +1477,7 @@ async function runAllVerificationTests(): Promise<void> {
     ...testProp,
     cerprno: "CER-DUAL-ROLE-001",
     sbu: "RJ North",
-    created_by: "shiven.pandit@cairnindia.com",
+    created_by: "demo.initiator@example.com",
     owname: priyaUser.name,
     owner_email: priyaUser.email,
     current_level: 1,
@@ -1590,16 +1591,16 @@ async function runAllVerificationTests(): Promise<void> {
   assert(canCreatorApprove.allowed === false && canCreatorApprove.reason?.includes("Segregation of Duties") === true, "12.10: Proposal initiator strictly blocked by Segregation of Duties");
 
   // 12.11 Pending Approvals Inbox Filtering Logic
-  // Proposal at Project Owner stage (RJ North L1, Owner: Priya)
+  // Proposal at Project Owner stage (RJ North L1, Owner: Demo Project Owner)
   const propAtPOStage: ICERProposal = {
     ...testProp,
     cerprno: "CER-INBOX-001",
     sbu: "RJ North",
-    owname: "Priya Kalekar",
-    owner_email: "priya.kalekar@cairnindia.com",
+    owname: "Demo Project Owner",
+    owner_email: "demo.owner@example.com",
     current_level: 1,
     pending_with_role: "Project Owner",
-    pending_with_email: "priya.kalekar@cairnindia.com",
+    pending_with_email: "demo.owner@example.com",
     status: "In Approval",
   };
   const rjNorthL1Inbox = rjNorthLevels[0];

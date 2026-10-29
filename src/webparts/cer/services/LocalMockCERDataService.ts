@@ -22,11 +22,11 @@ const STORAGE_KEYS = {
 const DEFAULT_USER_ROLES: IUserRoleAssignment[] = [
   {
     id: "1",
-    user_name: "Shiven Pandit",
-    user_email: "70007144@cairnindia.com",
-    login_name: "70007144@cairnindia.com",
+    user_name: "Demo Administrator",
+    user_email: "demo.admin@example.com",
+    login_name: "demo.admin@example.com",
     role: "Admin",
-    department: "Digital",
+    department: "IT Administration",
     sbu: "RJ North",
     is_active: true,
     assigned_by: "System Bootstrap",
@@ -43,8 +43,8 @@ const SEED_PROPOSALS: ICERProposal[] = [
     id: "prop-001",
     cerprno: "CER-2026-0001",
     pr_name: "Mangala Polymer EOR Expansion Phase 4",
-    owname: "Shiven Pandit",
-    owner_email: "shiven.pandit@vedanta.co.in",
+    owname: "Demo Initiator",
+    owner_email: "demo.initiator@example.com",
     sbu: "RJ North",
     status: "In Approval",
     object: "Enhanced Oil Recovery Production Augmentation",
@@ -288,8 +288,8 @@ export class LocalMockCERDataService implements ICERDataService {
             field_desc: AUDIT_FIELD_DESCRIPTIONS["amount"] || "Amount of CER",
             old_value: "13800000",
             new_value: "14500000",
-            user_name: "Shiven Pandit",
-            user_email: "shiven.pandit@vedanta.co.in",
+            user_name: "Demo Initiator",
+            user_email: "demo.initiator@example.com",
             audit_date: "2026-03-12",
             audit_time: "14:30:15",
             timestamp: "2026-03-12T14:30:15Z"
@@ -301,8 +301,8 @@ export class LocalMockCERDataService implements ICERDataService {
             field_desc: AUDIT_FIELD_DESCRIPTIONS["ben_npv"] || "Financial Benefits NPV",
             old_value: "25.0",
             new_value: "28.4",
-            user_name: "Shiven Pandit",
-            user_email: "shiven.pandit@vedanta.co.in",
+            user_name: "Demo Initiator",
+            user_email: "demo.initiator@example.com",
             audit_date: "2026-03-12",
             audit_time: "14:30:15",
             timestamp: "2026-03-12T14:30:15Z"
@@ -314,8 +314,8 @@ export class LocalMockCERDataService implements ICERDataService {
             field_desc: AUDIT_FIELD_DESCRIPTIONS["remarks"],
             old_value: "Initial polymer expansion proposal for Mangala.",
             new_value: SEED_PROPOSALS[0].remarks,
-            user_name: "Shiven Pandit",
-            user_email: "shiven.pandit@vedanta.co.in",
+            user_name: "Demo Initiator",
+            user_email: "demo.initiator@example.com",
             audit_date: "2026-03-12",
             audit_time: "14:30:15",
             timestamp: "2026-03-12T14:30:15Z",
@@ -476,19 +476,18 @@ export class LocalMockCERDataService implements ICERDataService {
               );
             })
           : [];
-        // Ensure 70007144@cairnindia.com is always present as an active Admin
-        const has70007144 = this._userRoles.some(
-          r => (r.user_email && r.user_email.toLowerCase() === "70007144@cairnindia.com") ||
-               (r.login_name && r.login_name.toLowerCase() === "70007144@cairnindia.com")
+        // Ensure a Demo Admin is present
+        const hasAdmin = this._userRoles.some(
+          r => r.role === "Admin" && r.is_active
         );
-        if (!has70007144) {
+        if (!hasAdmin) {
           this._userRoles.unshift({
             id: "1",
-            user_name: "Shiven Pandit",
-            user_email: "70007144@cairnindia.com",
-            login_name: "70007144@cairnindia.com",
+            user_name: "Demo Administrator",
+            user_email: "demo.admin@example.com",
+            login_name: "demo.admin@example.com",
             role: "Admin",
-            department: "Digital",
+            department: "Enterprise Administration",
             sbu: "RJ North",
             is_active: true,
             assigned_by: "System Bootstrap",
@@ -509,11 +508,11 @@ export class LocalMockCERDataService implements ICERDataService {
           {
             id: "admaud-seed-001",
             actor_name: "SYSTEM_INITIAL_BOOTSTRAP",
-            actor_email: "security@vedanta.co.in",
+            actor_email: "system@demo.local",
             action: "ROLE_ASSIGNED",
             target_type: "USER",
             target_id: "role-001",
-            details: "Initial bootstrap: Assigned Administrator role to Shiven Pandit (70007144@cairnindia.com).",
+            details: "Initial bootstrap: Assigned Administrator role to Demo Administrator (demo.admin@example.com).",
             timestamp: "2026-10-23T18:30:00Z",
           },
         ];
@@ -1203,7 +1202,7 @@ export class LocalMockCERDataService implements ICERDataService {
   }
 
   public async getHierarchyAdmins(_forceRefresh?: boolean): Promise<string[]> {
-    return ["70007144@cairnindia.com", "shiven.pandit@cairnindia.com"];
+    return ["demo.admin@example.com", "admin.hierarchy@example.com"];
   }
 
   public async assignUserRole(

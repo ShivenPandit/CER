@@ -104,9 +104,9 @@ async function runTests() {
           json: async () => ({
             d: {
               Id: 42,
-              Title: "Shiven Pandit",
-              Email: "shiven@microlink.com",
-              LoginName: "i:0#.f|membership|shiven@microlink.com",
+              Title: "Demo Admin",
+              Email: "demo.admin@example.com",
+              LoginName: "i:0#.f|membership|demo.admin@example.com",
               IsSiteAdmin: true,
               Groups: {
                 results: [{ Id: 10, Title: "CER Admins" }],
@@ -295,7 +295,7 @@ async function runTests() {
       "CERAttachments",
       "proposal_doc.pdf",
       dummyBuffer,
-      { cerprno: "CER-2026-0001", uploaded_by: "Shiven" }
+      { cerprno: "CER-2026-0001", uploaded_by: "Demo Initiator" }
     );
 
     assert(uploadRes.itemId === 99, "uploadFileToLibrary completes 3-step upload and resolves file list item ID 99");
