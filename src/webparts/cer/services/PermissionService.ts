@@ -54,7 +54,7 @@ export class PermissionService {
       });
     }
 
-    return Boolean(user.isSiteAdmin);
+    return false;
   }
 
   /**

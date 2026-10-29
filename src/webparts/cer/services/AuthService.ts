@@ -112,12 +112,10 @@ export class AuthService {
 
     const normEmail = normalizeUserIdentifier(email);
     const normLogin = normalizeUserIdentifier(loginName);
-    const hasHierarchyAdminAccess =
-      hierarchyAdmins.some((h) => {
-        const normH = normalizeUserIdentifier(h);
-        return Boolean(normH && (normH === normEmail || normH === normLogin));
-      }) ||
-      (hierarchyAdmins.length === 0 && (isSiteAdmin || designatedAdmin));
+    const hasHierarchyAdminAccess = hierarchyAdmins.some((h) => {
+      const normH = normalizeUserIdentifier(h);
+      return Boolean(normH && (normH === normEmail || normH === normLogin));
+    });
 
     // Auto-clean any stale/invalid designated-admin auto-provisioned records for non-designated accounts (e.g. Priya Kalekar)
     const invalidAutoAdmins = allRoles.filter((a) => {
