@@ -101,6 +101,24 @@ export class AuthService {
       console.warn("[AuthService] Failed to load role assignments:", err);
     }
 
+    let hierarchyAdmins: string[] = [];
+    if (typeof dataService.getHierarchyAdmins === "function") {
+      try {
+        hierarchyAdmins = await dataService.getHierarchyAdmins();
+      } catch (hErr) {
+        console.warn("[AuthService] Failed to load hierarchy administrators from CERHierarchyAdmins:", hErr);
+      }
+    }
+
+    const normEmail = normalizeUserIdentifier(email);
+    const normLogin = normalizeUserIdentifier(loginName);
+    const hasHierarchyAdminAccess =
+      hierarchyAdmins.some((h) => {
+        const normH = normalizeUserIdentifier(h);
+        return Boolean(normH && (normH === normEmail || normH === normLogin));
+      }) ||
+      (hierarchyAdmins.length === 0 && (isSiteAdmin || designatedAdmin));
+
     // Auto-clean any stale/invalid designated-admin auto-provisioned records for non-designated accounts (e.g. Priya Kalekar)
     const invalidAutoAdmins = allRoles.filter((a) => {
       const aEmail = normalizeUserIdentifier(a.user_email);
@@ -181,6 +199,7 @@ export class AuthService {
         department: params.department || "Enterprise Administration",
         is_active: true,
         isSiteAdmin: isSiteAdmin || true,
+        canManageApprovalHierarchy: hasHierarchyAdminAccess,
       };
 
       return {
@@ -225,6 +244,7 @@ export class AuthService {
         department: params.department || "Enterprise Administration",
         is_active: true,
         isSiteAdmin: true,
+        canManageApprovalHierarchy: hasHierarchyAdminAccess,
       };
 
       return {
@@ -250,6 +270,7 @@ export class AuthService {
           department: userAssignments[0]?.department || params.department,
           is_active: false,
           isSiteAdmin,
+          canManageApprovalHierarchy: false,
         };
         return {
           user: deactivatedUser,
@@ -295,6 +316,7 @@ export class AuthService {
         approval_level: approverAssignment?.approval_level,
         is_active: true,
         isSiteAdmin: isSiteAdmin || (designatedAdmin ? true : false),
+        canManageApprovalHierarchy: hasHierarchyAdminAccess,
       };
 
       return {
@@ -315,6 +337,7 @@ export class AuthService {
       department: params.department || "CER Management Portal",
       is_active: true,
       isSiteAdmin,
+      canManageApprovalHierarchy: hasHierarchyAdminAccess,
     };
 
     return {

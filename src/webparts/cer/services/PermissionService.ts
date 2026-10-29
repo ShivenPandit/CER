@@ -9,37 +9,52 @@ export interface IActionAuthResult {
 }
 
 /**
- * Designated authority exclusively permitted to view and manage Approval Hierarchy.
- * Comparison must be normalized (trimmed, case-insensitive, claims-stripped).
+ * @deprecated Approval Hierarchy permission is now dynamically loaded from the CERHierarchyAdmins SharePoint list.
+ * This legacy export is preserved only for backwards compatibility with legacy test harnesses.
  */
-export const AUTHORIZED_APPROVAL_HIERARCHY_EMAIL = "shiven.pandit@cairnindia.com";
+export const AUTHORIZED_APPROVAL_HIERARCHY_EMAIL = "";
 
 export class PermissionService {
   public static readonly AUTHORIZED_APPROVAL_HIERARCHY_EMAIL = AUTHORIZED_APPROVAL_HIERARCHY_EMAIL;
   /**
    * Centralized access-control rule:
-   * Restricts the entire Approval Hierarchy feature exclusively to Shiven.Pandit@cairnindia.com.
-   * - Normalizes email/UPN by trimming whitespace and comparing case-insensitively.
-   * - Strips claims prefixes (i:0#.f|membership|).
-   * - Uses authenticated current user identity from SharePoint context.
-   * - Does NOT grant access merely because user has Admin role in application user-role list.
+   * Dynamically permits Approval Hierarchy management based on permissions
+   * loaded from the CERHierarchyAdmins SharePoint list (or Site Administrator).
+   * - Eliminates hardcoded individual email addresses.
+   * - Evaluates `user.canManageApprovalHierarchy` populated dynamically from CERHierarchyAdmins.
    * - Denies by default if identity is unavailable, unresolved, or inactive.
    */
-  public static canAccessApprovalHierarchy(user?: IAppUser | null): boolean {
+  public static canAccessApprovalHierarchy(
+    user?: IAppUser | null,
+    authorizedHierarchyEmails?: string[]
+  ): boolean {
     if (!user || !user.is_active) {
       return false;
     }
 
-    const email = (user.email || "").trim().toLowerCase();
-    const login = (user.loginName || "")
-      .trim()
-      .toLowerCase()
-      .replace(/^i:0#\.f\|membership\|/i, "")
-      .replace(/^membership\|/i, "");
+    if (user.canManageApprovalHierarchy) {
+      return true;
+    }
 
-    const target = AUTHORIZED_APPROVAL_HIERARCHY_EMAIL.toLowerCase();
+    // Direct check against dynamic list of authorized emails if passed
+    if (Array.isArray(authorizedHierarchyEmails) && authorizedHierarchyEmails.length > 0) {
+      const email = (user.email || "").trim().toLowerCase();
+      const login = (user.loginName || "")
+        .trim()
+        .toLowerCase()
+        .replace(/^i:0#\.f\|membership\|/i, "")
+        .replace(/^membership\|/i, "");
+      return authorizedHierarchyEmails.some((h) => {
+        const normH = (h || "")
+          .trim()
+          .toLowerCase()
+          .replace(/^i:0#\.f\|membership\|/i, "")
+          .replace(/^membership\|/i, "");
+        return Boolean(normH && (normH === email || normH === login));
+      });
+    }
 
-    return email === target || login === target;
+    return Boolean(user.isSiteAdmin);
   }
 
   /**

@@ -1187,6 +1187,10 @@ export class LocalMockCERDataService implements ICERDataService {
     return [...this._userRoles];
   }
 
+  public async getHierarchyAdmins(_forceRefresh?: boolean): Promise<string[]> {
+    return ["70007144@cairnindia.com", "shiven.pandit@cairnindia.com"];
+  }
+
   public async assignUserRole(
     assignment: Omit<IUserRoleAssignment, "id">,
     actor: { name: string; email: string }

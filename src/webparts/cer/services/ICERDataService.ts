@@ -14,6 +14,9 @@ export interface ICERDataService {
   updateUserRole(assignment: IUserRoleAssignment, actor: { name: string; email: string }): Promise<void>;
   revokeUserRole(assignmentId: string, actor: { name: string; email: string }): Promise<void>;
 
+  // Approval Hierarchy Granular Administrators (CERHierarchyAdmins)
+  getHierarchyAdmins(forceRefresh?: boolean): Promise<string[]>;
+
   // Administrative Audit Log
   getAdminAuditLog(): Promise<IAdminAuditRecord[]>;
   logAdminAudit(record: Omit<IAdminAuditRecord, "id">): Promise<void>;

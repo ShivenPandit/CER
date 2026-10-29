@@ -58,17 +58,23 @@ async function runApprovalHierarchyAccessTests(): Promise<void> {
     name: "Shiven Pandit",
     role: "Admin",
     roles: ["Admin"],
-    is_active: true
+    is_active: true,
+    canManageApprovalHierarchy: true,
   };
 
-  assert(
-    AUTHORIZED_APPROVAL_HIERARCHY_EMAIL === "shiven.pandit@cairnindia.com",
-    `Authorized constant is configured as 'shiven.pandit@cairnindia.com': ${AUTHORIZED_APPROVAL_HIERARCHY_EMAIL}`
-  );
+  const dynamicHierarchyAdmins = ["shiven.pandit@cairnindia.com"];
 
   assert(
     PermissionService.canAccessApprovalHierarchy(authorizedUser) === true,
-    "1. Exact authorized email (Shiven.Pandit@cairnindia.com) is granted access"
+    "1a. User with dynamic canManageApprovalHierarchy flag is granted access"
+  );
+
+  assert(
+    PermissionService.canAccessApprovalHierarchy(
+      { ...authorizedUser, canManageApprovalHierarchy: false },
+      dynamicHierarchyAdmins
+    ) === true,
+    "1b. Exact authorized email matching CERHierarchyAdmins list is granted access"
   );
 
   // ---------------------------------------------------------------------------------------------
@@ -113,7 +119,7 @@ async function runApprovalHierarchyAccessTests(): Promise<void> {
     is_active: true
   };
   assert(
-    PermissionService.canAccessApprovalHierarchy(claimsUser) === true,
+    PermissionService.canAccessApprovalHierarchy(claimsUser, dynamicHierarchyAdmins) === true,
     "2d. SharePoint claims token prefix 'i:0#.f|membership|' is cleanly stripped from loginName"
   );
 
@@ -127,7 +133,7 @@ async function runApprovalHierarchyAccessTests(): Promise<void> {
     is_active: true
   };
   assert(
-    PermissionService.canAccessApprovalHierarchy(legacyClaimsUser) === true,
+    PermissionService.canAccessApprovalHierarchy(legacyClaimsUser, dynamicHierarchyAdmins) === true,
     "2e. Legacy 'membership|' prefix is cleanly stripped from loginName"
   );
 

@@ -37,6 +37,10 @@ export class SharePointCERDataService implements ICERDataService {
   private _cachedUserRolesTimestamp: number = 0;
   private _inFlightUserRoles: Promise<IUserRoleAssignment[]> | null = null;
 
+  private _cachedHierarchyAdmins: string[] | null = null;
+  private _cachedHierarchyAdminsTimestamp: number = 0;
+  private _inFlightHierarchyAdmins: Promise<string[]> | null = null;
+
   private _cachedWorkflowLevels: Map<string, { data: IWorkflowLevel[]; timestamp: number }> = new Map();
   private _inFlightWorkflowLevels: Map<string, Promise<IWorkflowLevel[]>> = new Map();
 
@@ -60,6 +64,9 @@ export class SharePointCERDataService implements ICERDataService {
     this._cachedUserRoles = null;
     this._cachedUserRolesTimestamp = 0;
     this._inFlightUserRoles = null;
+    this._cachedHierarchyAdmins = null;
+    this._cachedHierarchyAdminsTimestamp = 0;
+    this._inFlightHierarchyAdmins = null;
     this._cachedWorkflowLevels.clear();
     this._inFlightWorkflowLevels.clear();
     this._cachedProposals = null;
@@ -2655,6 +2662,73 @@ export class SharePointCERDataService implements ICERDataService {
 
     const result = await this._inFlightUserRoles;
     return [...result];
+  }
+
+  public async getHierarchyAdmins(forceRefresh = false): Promise<string[]> {
+    const CACHE_TTL_MS = 30000;
+    if (!forceRefresh && this._cachedHierarchyAdmins && (Date.now() - this._cachedHierarchyAdminsTimestamp < CACHE_TTL_MS)) {
+      return [...this._cachedHierarchyAdmins];
+    }
+    if (this._inFlightHierarchyAdmins) {
+      const pending = await this._inFlightHierarchyAdmins;
+      return [...pending];
+    }
+
+    this._inFlightHierarchyAdmins = (async () => {
+      try {
+        let items: Record<string, any>[] = [];
+        const listName = SP_LISTS.CER_HIERARCHY_ADMINS;
+
+        try {
+          // Tier 1: Expand native User Person column
+          items = await this._sp.getListItems<Record<string, any>>(listName, {
+            select: "Id,ID,Title,isActive,is_active,User/Id,User/Title,User/EMail,User/Name",
+            expand: "User",
+            top: 200,
+          });
+        } catch (t1Err: any) {
+          try {
+            // Tier 2: Safe fetch without $select projection
+            items = await this._sp.getListItems<Record<string, any>>(listName, {
+              top: 200,
+            });
+          } catch (t2Err: any) {
+            console.warn(`[SharePointCERDataService] ${listName} list not accessible or empty:`, t2Err?.message || t2Err);
+            items = [];
+          }
+        }
+
+        const activeAdmins: string[] = [];
+        for (const item of items) {
+          const isActive = item.isActive !== undefined ? Boolean(item.isActive) : (item.is_active !== undefined ? Boolean(item.is_active) : true);
+          if (!isActive) continue;
+
+          const userPerson = PersonFieldService.extractPersonField(item, "User");
+          const email = userPerson?.email || item.userEmail || item.user_email || item.email || "";
+          const login = userPerson?.loginName || item.loginName || item.login_name || "";
+          const title = item.Title || "";
+
+          if (email) activeAdmins.push(email.trim().toLowerCase());
+          if (login) activeAdmins.push(login.trim().toLowerCase());
+          if (title && title.indexOf("@") !== -1) activeAdmins.push(title.trim().toLowerCase());
+        }
+
+        const uniqueAdmins = Array.from(new Set(activeAdmins));
+        this._cachedHierarchyAdmins = uniqueAdmins;
+        this._cachedHierarchyAdminsTimestamp = Date.now();
+        return uniqueAdmins;
+      } catch (err) {
+        console.warn("[SharePointCERDataService] getHierarchyAdmins error, defaulting to empty:", err);
+        this._cachedHierarchyAdmins = [];
+        this._cachedHierarchyAdminsTimestamp = Date.now();
+        return [];
+      } finally {
+        this._inFlightHierarchyAdmins = null;
+      }
+    })();
+
+    const res = await this._inFlightHierarchyAdmins;
+    return [...res];
   }
 
   public async assignUserRole(

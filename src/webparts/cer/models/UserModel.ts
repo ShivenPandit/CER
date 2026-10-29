@@ -12,6 +12,7 @@ export interface IAppUser {
   approval_level?: number; // If an Approver, which level they can act upon (1, 2, 3...)
   is_active: boolean;
   isSiteAdmin?: boolean;
+  canManageApprovalHierarchy?: boolean;
 }
 
 export interface IUserRoleAssignment {

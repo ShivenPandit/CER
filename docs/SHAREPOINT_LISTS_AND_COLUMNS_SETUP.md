@@ -21,6 +21,7 @@ When creating lists manually in SharePoint (**Site Contents -> New -> List -> Bl
 | 6   | **`CERAttachments`**       | Document Library | Associated technical and financial PDF/Excel documentation.            |
 | 7   | **`CERNotifications`**     | Custom List      | Email notification dispatch records and recipient logs.                |
 | 8   | **`CERUserRoles`**         | Custom List      | Enterprise Role-Based Access Control (RBAC) registry.                  |
+| 9   | **`CERHierarchyAdmins`**   | Custom List      | Granular registry designating authorized Approval Hierarchy admins.     |
 
 ---
 
@@ -304,5 +305,25 @@ Go to **List Settings -> Indexed Columns -> Create a new index**:
 4. `department`
 5. `assignedBy`
 6. `assignedDate`
+
+---
+
+### 2.9 `CERHierarchyAdmins` (Approval Hierarchy Administrators)
+
+Stores granular permission records designating which specific enterprise accounts are permitted to configure SBU approval levels and workflow hierarchies. Eliminates hardcoded administrator identities in source code.
+
+| Display Name | Internal Column Name | SharePoint Field Type | Required | Unique? | Indexed? | Choices / Format / Constraints | Business Description |
+| ------------ | -------------------- | --------------------- | -------- | ------- | -------- | ------------------------------ | -------------------- |
+| **Title**    | `Title`              | Single line of text   | Yes      | No      | No       | Full Display Name              | Administrator display name. |
+| **User**     | **`User`**           | **Person or Group**   | **Yes**  | **Yes** | **Yes**  | **`SPFieldUser` (Single)**     | **Native SharePoint Person column.** Populated via `UserId: <IntegerId>` obtained from `ensureUser`. Stores full employee identity including corporate email (`User/EMail`), login name (`User/Name`), presence, and M365 profile card. |
+| **Active?**  | **`isActive`**       | **Yes/No**            | **Yes**  | No      | **Yes**  | Default: `Yes` (Boolean)       | Toggle to enable or suspend hierarchy management access without deleting historical record. |
+| Notes        | `notes`              | Single line of text   | No       | No      | No       | Free text (max 255 chars)      | Optional delegation reason or authorization notes. |
+
+#### `CERHierarchyAdmins` — Columns to Index in SharePoint List Settings:
+
+Go to **List Settings -> Indexed Columns -> Create a new index**:
+
+1. `User`
+2. `isActive`
 
 ---
