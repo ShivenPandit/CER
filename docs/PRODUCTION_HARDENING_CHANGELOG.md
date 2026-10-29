@@ -135,3 +135,4 @@ Client-side role checks prevent unauthorized UI actions, but to prevent savvy us
 2. **`CERUserRoles`**: Restrict edit permissions to Site Collection Administrators (Read-only for standard users).
 3. **`CERProposals`**: Standard contributors can create and update items where they are designated owners/initiators.
 4. **`CERApprovalDecisions`**: Grant "Add only" permission to approvers to prevent modifying historical decisions once recorded.
+

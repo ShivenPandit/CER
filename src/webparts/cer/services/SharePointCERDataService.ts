@@ -1140,21 +1140,13 @@ export class SharePointCERDataService implements ICERDataService {
             ? (opts: any) => this._sp.getAllListItems(listName, opts)
             : (opts: any) => this._sp.getListItems(listName, opts);
           try {
-            // Modern CamelCase + legacy aliases
+            // Retrieve all workflow levels without fragile $select projections that fail on schema variances
             items = await fetchItems({
-              select: "Id,ID,Title,levelId,level_id,level_name,roleTitle,role_title,sbu,isActive,is_active,created_by,created_date,Created,assignmentType,assignment_type",
               top: 200,
             });
             break;
           } catch {
-            try {
-              items = await fetchItems({
-                top: 200,
-              });
-              break;
-            } catch {
-              // try next candidate
-            }
+            // try next candidate
           }
         }
 
