@@ -1142,7 +1142,7 @@ export class SharePointCERDataService implements ICERDataService {
           try {
             // Retrieve all workflow levels without fragile $select projections that fail on schema variances
             items = await fetchItems({
-              top: 200,
+              top: 500,
             });
             break;
           } catch {
