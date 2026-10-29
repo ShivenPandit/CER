@@ -15,7 +15,7 @@ import { IWorkflowLevel } from "../../models/WorkflowModel";
 import { UserManagementTab } from "./UserManagementTab";
 import { ApprovalHierarchyTab } from "./ApprovalHierarchyTab";
 import { PermissionService } from "../../services/PermissionService";
-import { isDesignatedAdmin, normalizeUserIdentifier } from "../../services/AuthService";
+import { normalizeUserIdentifier } from "../../services/AuthService";
 
 export type AdminConsoleTab = "users" | "hierarchy";
 
@@ -61,14 +61,11 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
         dataService.getWorkflowLevels(undefined, forceRefresh),
       ]);
       const cleanRoles = roles.filter((a) => {
-        const aEmail = normalizeUserIdentifier(a.user_email);
-        const aLogin = normalizeUserIdentifier(a.login_name);
         const isAutoProvisioned =
           a.role === "Admin" &&
           (a.assigned_by === "SYSTEM_DESIGNATED_ADMIN_PROVISION" ||
             a.department === "Enterprise Administration");
-        const isActuallyDesignated = isDesignatedAdmin(aEmail) || isDesignatedAdmin(aLogin);
-        return !(isAutoProvisioned && !isActuallyDesignated);
+        return !isAutoProvisioned;
       });
       setUserRoles(cleanRoles);
       setWorkflowLevels(levels);

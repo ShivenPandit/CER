@@ -31,21 +31,12 @@ export function normalizeUserIdentifier(val?: string): string {
 
 /**
  * Enterprise Designated System Administrators.
- * These corporate accounts have verified administrative standing across all environments.
+ * @deprecated All administrative privileges are now dynamically loaded from CERUserRoles and CERHierarchyAdmins.
  */
-export const DESIGNATED_ADMIN_IDENTIFIERS: string[] = [
-  "70007144@cairnindia.com",
-  "shiven.pandit@cairnindia.com",
-];
+export const DESIGNATED_ADMIN_IDENTIFIERS: string[] = [];
 
-export function isDesignatedAdmin(identifier?: string): boolean {
-  const norm = normalizeUserIdentifier(identifier);
-  if (!norm) return false;
-  return (
-    DESIGNATED_ADMIN_IDENTIFIERS.indexOf(norm) !== -1 ||
-    norm === "70007144" ||
-    norm.startsWith("70007144@")
-  );
+export function isDesignatedAdmin(_identifier?: string): boolean {
+  return false;
 }
 
 export class AuthService {
@@ -90,8 +81,7 @@ export class AuthService {
 
     const effectiveEmail = email || (loginName.indexOf("@") !== -1 ? loginName : "");
     const effectiveLogin = loginName || email || "";
-    const designatedAdmin = isDesignatedAdmin(email) || isDesignatedAdmin(loginName);
-    const displayName = (params.name || "").trim() || (designatedAdmin ? "Shiven Pandit" : "Authenticated Portal User");
+    const displayName = (params.name || "").trim() || "Authenticated Portal User";
     const isSiteAdmin = !!params.isSiteAdmin;
 
     let allRoles: IUserRoleAssignment[] = [];
@@ -112,13 +102,11 @@ export class AuthService {
 
     const normEmail = normalizeUserIdentifier(email);
     const normLogin = normalizeUserIdentifier(loginName);
-    const isCurrentUserDesignated = isDesignatedAdmin(normEmail) || isDesignatedAdmin(normLogin);
 
     const hasHierarchyAdminAccess = hierarchyAdmins.some((h) => {
       const normH = normalizeUserIdentifier(h);
       if (!normH) return false;
       if (normH === normEmail || normH === normLogin) return true;
-      if (isCurrentUserDesignated && isDesignatedAdmin(normH)) return true;
       const hPrefix = normH.split("@")[0];
       const emailPrefix = normEmail ? normEmail.split("@")[0] : "";
       const loginPrefix = normLogin ? normLogin.split("@")[0] : "";
@@ -126,20 +114,17 @@ export class AuthService {
       return false;
     });
 
-    // Auto-clean any stale/invalid designated-admin auto-provisioned records for non-designated accounts (e.g. Priya Kalekar)
+    // Auto-clean any legacy auto-provisioned Admin records
     const invalidAutoAdmins = allRoles.filter((a) => {
-      const aEmail = normalizeUserIdentifier(a.user_email);
-      const aLogin = normalizeUserIdentifier(a.login_name);
-      const isAutoProvisioned =
+      return (
         a.role === "Admin" &&
         (a.assigned_by === "SYSTEM_DESIGNATED_ADMIN_PROVISION" ||
-          a.department === "Enterprise Administration");
-      const isActuallyDesignated = isDesignatedAdmin(aEmail) || isDesignatedAdmin(aLogin);
-      return isAutoProvisioned && !isActuallyDesignated;
+          a.department === "Enterprise Administration")
+      );
     });
 
     if (invalidAutoAdmins.length > 0) {
-      console.warn("[AuthService] Auto-revoking invalid auto-provisioned Admin records:", invalidAutoAdmins);
+      console.warn("[AuthService] Auto-revoking legacy auto-provisioned Admin records:", invalidAutoAdmins);
       for (const invalid of invalidAutoAdmins) {
         try {
           await dataService.revokeUserRole(invalid.id, {
@@ -166,55 +151,6 @@ export class AuthService {
     const activeAdmins = allRoles.filter(
       (a) => a.role === "Admin" && a.is_active
     );
-
-    // Designated Administrator Auto-Provisioning & Priority Resolution
-    // Guarantees verified enterprise administrator (e.g. 70007144@cairnindia.com) is immediately recognized as Admin
-    const hasActiveAdminAssignment = userAssignments.some(
-      (a) => a.role === "Admin" && a.is_active
-    );
-
-    if (designatedAdmin && !hasActiveAdminAssignment) {
-      console.info("[AuthService] Designated Administrator recognized:", effectiveEmail);
-
-      const bootstrapAssignment: Omit<IUserRoleAssignment, "id"> = {
-        user_name: displayName === "Authenticated Portal User" ? "Admin (70007144)" : displayName,
-        user_email: effectiveEmail,
-        login_name: effectiveLogin,
-        role: "Admin",
-        department: params.department || "Enterprise Administration",
-        is_active: true,
-        assigned_by: "SYSTEM_DESIGNATED_ADMIN_PROVISION",
-        assigned_date: new Date().toISOString(),
-      };
-
-      try {
-        await dataService.assignUserRole(bootstrapAssignment, {
-          name: "System Bootstrapper",
-          email: "security@system.local",
-        });
-      } catch (bootstrapErr) {
-        console.warn("[AuthService] Could not persist designated Admin record:", bootstrapErr);
-      }
-
-      const adminUser: IAppUser = {
-        id: params.id,
-        name: displayName === "Authenticated Portal User" ? "Admin (70007144)" : displayName,
-        email: effectiveEmail,
-        loginName: effectiveLogin,
-        role: "Admin",
-        roles: ["Admin", "Initiator"],
-        department: params.department || "Enterprise Administration",
-        is_active: true,
-        isSiteAdmin: isSiteAdmin || true,
-        canManageApprovalHierarchy: hasHierarchyAdminAccess,
-      };
-
-      return {
-        user: adminUser,
-        isRegistered: true,
-        isFirstAdminBootstrapped: true,
-      };
-    }
 
     // Controlled First-Admin Bootstrapping
     // Only triggered when NO active Admins exist in the entire system, and the current user is a Site Collection Admin
@@ -290,10 +226,6 @@ export class AuthService {
         new Set(activeAssignments.map((a) => a.role))
       );
 
-      if (designatedAdmin && roles.indexOf("Admin") === -1) {
-        roles.unshift("Admin");
-      }
-
       // Resolve primary role in hierarchical priority: Admin > Approver > Finance_Audit > Initiator
       let primaryRole: UserRole = "Initiator";
       if (roles.indexOf("Admin") !== -1) {
@@ -322,7 +254,7 @@ export class AuthService {
         sbu: activeAssignments[0]?.sbu,
         approval_level: approverAssignment?.approval_level,
         is_active: true,
-        isSiteAdmin: isSiteAdmin || (designatedAdmin ? true : false),
+        isSiteAdmin: isSiteAdmin,
         canManageApprovalHierarchy: hasHierarchyAdminAccess,
       };
 

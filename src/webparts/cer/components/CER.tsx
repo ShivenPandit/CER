@@ -5,7 +5,7 @@ import { IAppUser } from "../models/UserModel";
 import { INotificationLog, IWorkflowLevel } from "../models/WorkflowModel";
 import { DataServiceFactory } from "../services/DataServiceFactory";
 import { ICERDataService } from "../services/ICERDataService";
-import { AuthService, isDesignatedAdmin } from "../services/AuthService";
+import { AuthService } from "../services/AuthService";
 import { PermissionService } from "../services/PermissionService";
 
 // Navigation
@@ -84,18 +84,17 @@ const CER: React.FC<ICERProps> = (props) => {
     const rawEmail = (props.newcurrentUserEmail || "").trim();
     const rawLogin = (props.newcurrentUserLoginName || "").trim();
     const hasIdentity = Boolean(rawEmail || rawLogin);
-    const isAdmin = hasIdentity && (isDesignatedAdmin(rawEmail) || isDesignatedAdmin(rawLogin));
     return {
       id: props.newcurrentUserId || 0,
-      name: props.newcurrentUserName || (isAdmin ? "Shiven Pandit" : hasIdentity ? "Authenticated Portal User" : "Unauthenticated User"),
+      name: props.newcurrentUserName || (hasIdentity ? "Authenticated Portal User" : "Unauthenticated User"),
       email: rawEmail,
       loginName: rawLogin,
-      role: isAdmin ? "Admin" : "Initiator",
-      roles: isAdmin ? ["Admin", "Initiator"] : (hasIdentity ? ["Initiator"] : []),
+      role: "Initiator",
+      roles: hasIdentity ? ["Initiator"] : [],
       is_active: hasIdentity,
-      department: isAdmin ? "Digital" : "CER Management Portal",
-      sbu: isAdmin ? "RJ North" : undefined,
-      isSiteAdmin: props.newisSiteAdmin || isAdmin,
+      department: "CER Management Portal",
+      sbu: undefined,
+      isSiteAdmin: !!props.newisSiteAdmin,
     };
   });
 

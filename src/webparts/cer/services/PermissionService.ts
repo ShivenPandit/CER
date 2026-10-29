@@ -41,13 +41,11 @@ export class PermissionService {
     if (Array.isArray(authorizedHierarchyEmails) && authorizedHierarchyEmails.length > 0) {
       const email = normalizeUserIdentifier(user.email);
       const login = normalizeUserIdentifier(user.loginName);
-      const isUserDesignated = isDesignatedAdmin(email) || isDesignatedAdmin(login);
 
       return authorizedHierarchyEmails.some((h) => {
         const normH = normalizeUserIdentifier(h);
         if (!normH) return false;
         if (normH === email || normH === login) return true;
-        if (isUserDesignated && isDesignatedAdmin(normH)) return true;
         const hPrefix = normH.split("@")[0];
         const emailPrefix = email ? email.split("@")[0] : "";
         const loginPrefix = login ? login.split("@")[0] : "";
@@ -120,26 +118,12 @@ export class PermissionService {
       return true;
     }
 
-    // 2. Cairn India / Vedanta Dual-Identifier Account Matching
-    // Recognizes that 70007144@cairnindia.com and shiven.pandit@cairnindia.com are the same corporate identity
-    const isDesignatedUser =
-      normUserEmail === "70007144@cairnindia.com" ||
-      normUserEmail === "shiven.pandit@cairnindia.com" ||
-      normUserLogin === "70007144@cairnindia.com" ||
-      normUserLogin === "shiven.pandit@cairnindia.com" ||
-      cleanUserName === "shiven pandit";
-
-    if (isDesignatedUser) {
-      if (
-        normOwnerEmail === "shiven.pandit@cairnindia.com" ||
-        normOwnerEmail === "70007144@cairnindia.com" ||
-        cleanOwnerName === "shiven pandit" ||
-        cleanCreatedBy === "shiven pandit" ||
-        normCreatedBy === "shiven.pandit@cairnindia.com" ||
-        normCreatedBy === "70007144@cairnindia.com"
-      ) {
-        return true;
-      }
+    // 2. Generic Corporate Account Username Matching (handles @cairnindia.com vs @vedanta.co.in)
+    const userPrefix = normUserEmail ? normUserEmail.split("@")[0] : (normUserLogin ? normUserLogin.split("@")[0] : "");
+    const ownerPrefix = normOwnerEmail ? normOwnerEmail.split("@")[0] : "";
+    const createdByPrefix = normCreatedBy ? normCreatedBy.split("@")[0] : "";
+    if (userPrefix && ((ownerPrefix && userPrefix === ownerPrefix) || (createdByPrefix && userPrefix === createdByPrefix))) {
+      return true;
     }
 
     // 3. Project Owner Display Name Match (normalized display name)
@@ -201,22 +185,11 @@ export class PermissionService {
       return true;
     }
 
-    // 2. Cairn India / Vedanta Dual-Identifier Account Matching
-    const isDesignatedUser =
-      normUserEmail === "70007144@cairnindia.com" ||
-      normUserEmail === "shiven.pandit@cairnindia.com" ||
-      normUserLogin === "70007144@cairnindia.com" ||
-      normUserLogin === "shiven.pandit@cairnindia.com" ||
-      cleanUserName === "shiven pandit";
-
-    if (isDesignatedUser) {
-      if (
-        normOwnerEmail === "shiven.pandit@cairnindia.com" ||
-        normOwnerEmail === "70007144@cairnindia.com" ||
-        cleanOwnerName === "shiven pandit"
-      ) {
-        return true;
-      }
+    // 2. Generic Corporate Account Username Matching (handles @cairnindia.com vs @vedanta.co.in)
+    const userPrefix = normUserEmail ? normUserEmail.split("@")[0] : (normUserLogin ? normUserLogin.split("@")[0] : "");
+    const ownerPrefix = normOwnerEmail ? normOwnerEmail.split("@")[0] : "";
+    if (userPrefix && ownerPrefix && userPrefix === ownerPrefix) {
+      return true;
     }
 
     // 3. Display name match with owner name

@@ -51,13 +51,8 @@ async function runIdentityColumnSchemaTests() {
   );
 
   assert(
-    isDesignatedAdmin("70007144@cairnindia.com"),
-    "Designated Admin identifier '70007144@cairnindia.com' is recognized"
-  );
-
-  assert(
-    isDesignatedAdmin("i:0#.f|membership|70007144@cairnindia.com"),
-    "Claims-prefixed Designated Admin identity is recognized"
+    isDesignatedAdmin("70007144@cairnindia.com") === false,
+    "No hardcoded designated admin exists: all role access is 100% list-driven"
   );
 
   // ---------------------------------------------------------------------------

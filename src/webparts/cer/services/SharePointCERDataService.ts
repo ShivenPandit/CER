@@ -23,7 +23,6 @@ import { validateAttachment } from "../utils/attachmentValidation";
 import { getCurrentFiscalYearPhasingLabels, formatLocalDate, formatLocalTime, getLocalComponents } from "../utils/dateUtils";
 import { SharePointOperations } from "../hooks/useSharePointOperations";
 import { PersonFieldService } from "./PersonFieldService";
-import { isDesignatedAdmin, DESIGNATED_ADMIN_IDENTIFIERS } from "./AuthService";
 import { SP_LISTS } from "../constants";
 
 export class SharePointCERDataService implements ICERDataService {
@@ -2912,13 +2911,6 @@ export class SharePointCERDataService implements ICERDataService {
           if (login) activeAdmins.push(login.trim().toLowerCase());
           if (title && title.indexOf("@") !== -1) activeAdmins.push(title.trim().toLowerCase());
           if (notes && notes.indexOf("@") !== -1) activeAdmins.push(notes.trim().toLowerCase());
-
-          // Alias matching: If the resolved admin is a designated corporate administrator, include aliases
-          if (isDesignatedAdmin(email) || isDesignatedAdmin(login) || isDesignatedAdmin(title)) {
-            for (const desId of DESIGNATED_ADMIN_IDENTIFIERS) {
-              activeAdmins.push(desId.toLowerCase());
-            }
-          }
         }
 
         const uniqueAdmins = Array.from(new Set(activeAdmins));
