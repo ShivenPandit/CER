@@ -65,6 +65,11 @@ export interface ISPGetOptions {
   top?: number;
 }
 
+export interface IPostOperationOptions<T = any> {
+  isIdempotent?: boolean;
+  reconcileFn?: () => Promise<T | null>;
+}
+
 // ---------------------------------------------------------------------------
 // SharePoint Operations Utility Class
 // ---------------------------------------------------------------------------
@@ -87,18 +92,88 @@ export class SharePointOperations {
   /**
    * Execute an HTTP request with retry logic for rate limiting (HTTP 429)
    * and transient server unavailability (HTTP 503).
+   *
+   * Hardened (Phase 4 Issue 2):
+   * - HTTP 429 (rate limiting / throttling): Throttled before execution by reverse proxy;
+   *   safe to back off with Retry-After / exponential jitter and retry.
+   * - HTTP 503 / Network connection drops:
+   *   - For idempotent operations (GET, MERGE with ETag, DELETE): safe to retry.
+   *   - For non-idempotent operations (POST without reconciliation): DO NOT BLINDLY RETRY.
+   *     The server may have already committed the write. Instead, execute reconcileFn (if supplied)
+   *     or fail safely with an explicit uncertain outcome error to prevent duplicate records.
    */
   private async _executeWithRetry(
     requestFn: () => Promise<SPHttpClientResponse>,
     actionName: string = "Request",
     maxRetries: number = 3,
+    isIdempotent: boolean = true,
+    reconcileFn?: () => Promise<any>,
   ): Promise<SPHttpClientResponse> {
     let attempt = 0;
     while (true) {
       attempt++;
-      const response = await requestFn();
+      let response: SPHttpClientResponse;
+      try {
+        response = await requestFn();
+      } catch (networkErr: any) {
+        if (!isIdempotent) {
+          if (reconcileFn) {
+            try {
+              const reconciled = await reconcileFn();
+              if (reconciled) {
+                console.info(`[SPOperations] ${actionName} reconciled successfully after network error.`);
+                return {
+                  ok: true,
+                  status: 200,
+                  json: async () => reconciled,
+                  text: async () => JSON.stringify(reconciled),
+                  headers: new Headers(),
+                } as unknown as SPHttpClientResponse;
+              }
+            } catch (reconErr) {
+              console.warn(`[SPOperations] Reconciliation check failed for ${actionName}:`, reconErr);
+            }
+          }
+          throw new Error(
+            `[SPOperations] Uncertain write outcome: Network error during non-idempotent operation '${actionName}'. The server may have persisted the record. Automatic retry was aborted to prevent duplicate records. (Details: ${networkErr?.message || networkErr})`
+          );
+        }
+
+        if (attempt <= maxRetries) {
+          const delayMs = Math.pow(2, attempt - 1) * 1000 + Math.floor(Math.random() * 500);
+          console.warn(`[SPOperations] ${actionName} network error. Retrying in ${delayMs}ms (attempt ${attempt}/${maxRetries})...`);
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        }
+        throw networkErr;
+      }
 
       if (response.status === 429 || response.status === 503) {
+        // Non-idempotent POST receiving 503 (uncertain outcome)
+        if (response.status === 503 && !isIdempotent) {
+          if (reconcileFn) {
+            try {
+              const reconciled = await reconcileFn();
+              if (reconciled) {
+                console.info(`[SPOperations] ${actionName} reconciled successfully after HTTP 503.`);
+                return {
+                  ok: true,
+                  status: 200,
+                  json: async () => reconciled,
+                  text: async () => JSON.stringify(reconciled),
+                  headers: new Headers(),
+                } as unknown as SPHttpClientResponse;
+              }
+            } catch (reconErr) {
+              console.warn(`[SPOperations] Reconciliation check failed for ${actionName}:`, reconErr);
+            }
+          }
+          const errText = await response.text().catch(() => "");
+          throw new Error(
+            `[SPOperations] Uncertain write outcome (HTTP 503 Service Unavailable): The server may have processed '${actionName}', but confirmation could not be verified. Automatic retry was aborted to prevent duplicate records. Please verify before resubmitting. (Details: ${errText || "Service Unavailable"})`
+          );
+        }
+
         if (attempt <= maxRetries) {
           const retryAfterHeader =
             response.headers?.get("Retry-After") ||
@@ -146,6 +221,8 @@ export class SharePointOperations {
           },
         }),
       `GET ${endpoint.split("?")[0]}`,
+      3,
+      true, // Idempotent
     );
 
     if (!response.ok) {
@@ -161,11 +238,14 @@ export class SharePointOperations {
   /**
    * Perform a POST request (create) against a SharePoint REST endpoint.
    * Returns the parsed JSON response with the created item.
+   * Non-idempotent by default unless configured or supplied with reconciliation hook.
    */
   public async post<T = ISPCreateResult>(
     endpoint: string,
     body: Record<string, unknown>,
+    options?: IPostOperationOptions<T>,
   ): Promise<T> {
+    const isIdempotent = options?.isIdempotent ?? false;
     const response: SPHttpClientResponse = await this._executeWithRetry(
       () =>
         this._client.post(endpoint, SPHttpClient.configurations.v1, {
@@ -176,6 +256,9 @@ export class SharePointOperations {
           body: JSON.stringify(body),
         }),
       `POST ${endpoint.split("?")[0]}`,
+      3,
+      isIdempotent,
+      options?.reconcileFn,
     );
 
     if (!response.ok) {
@@ -392,13 +475,15 @@ export class SharePointOperations {
   /**
    * Create a new item in a SharePoint list.
    * Returns the created item with its SharePoint-assigned Id.
+   * Supports retry safety options (idempotency flag and reconciliation hook).
    */
   public async createListItem<T = ISPCreateResult>(
     listName: string,
     payload: Record<string, unknown>,
+    options?: IPostOperationOptions<T>,
   ): Promise<T> {
     const endpoint = this.buildListEndpoint(listName, "/items");
-    return this.post<T>(endpoint, payload);
+    return this.post<T>(endpoint, payload, options);
   }
 
   /**

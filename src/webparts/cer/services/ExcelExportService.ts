@@ -1,6 +1,17 @@
 import * as XLSX from "xlsx";
 import { ICERProposal } from "../models/CERModel";
 import { calculateExactDays, getCurrentFiscalYearPhasingLabels } from "../utils/dateUtils";
+import { ICERDataService } from "./ICERDataService";
+
+export interface IExcelExportFilterOptions {
+  searchTerm?: string;
+  status?: string;
+  category?: string;
+  sbu?: string;
+  owner?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
 
 export class ExcelExportService {
   /**
@@ -188,5 +199,124 @@ export class ExcelExportService {
     const now = new Date().toISOString().split("T")[0];
     const fileName = `${reportTitle}_${now}.xlsx`;
     XLSX.writeFile(workbook, fileName);
+  }
+
+  /**
+   * Complete, server-backed Excel export for the Reports module (Phase 4 hardening).
+   *
+   * Unlike exportProposalListAsync which only exports proposals currently loaded into React state,
+   * this method fetches the COMPLETE authorized dataset directly from the data service
+   * using pagination / continuation links until all records are retrieved, then applies
+   * active filters, sanitizes spreadsheet formulas against CSV/XLS injection, and writes
+   * the complete Excel spreadsheet.
+   */
+  public static async exportAllMatchingProposalsAsync(
+    dataService: ICERDataService,
+    filters: IExcelExportFilterOptions = {},
+    reportTitle: string = "CERProposals_Report",
+    onProgress?: (statusMessage: string, count: number) => void,
+    chunkSize: number = 500,
+  ): Promise<{ totalExported: number }> {
+    if (onProgress) {
+      onProgress("Fetching complete proposal records from SharePoint...", 0);
+    }
+
+    // Follow continuation links to retrieve full dataset from SharePoint / backend
+    const allProposals = await dataService.getAllProposals(true);
+
+    // Exclude system counter control records
+    const businessProposals = allProposals.filter((p) => {
+      const no = (p.cerprno || "").toUpperCase();
+      const status = (p.status || "").toLowerCase();
+      return !no.startsWith("CER-COUNTER-") && status !== "systemcounter";
+    });
+
+    if (onProgress) {
+      onProgress(
+        `Filtering and processing ${businessProposals.length} proposals...`,
+        businessProposals.length,
+      );
+    }
+
+    // Apply active user filters
+    const search = (filters.searchTerm || "").trim().toLowerCase();
+    const statusFilter = (filters.status || "ALL").toUpperCase();
+    const catFilter = (filters.category || "ALL").toUpperCase();
+    const sbuFilter = (filters.sbu || "ALL").toUpperCase();
+    const ownerFilter = (filters.owner || "").trim().toLowerCase();
+    const fromDate = filters.dateFrom ? new Date(filters.dateFrom) : null;
+    const toDate = filters.dateTo ? new Date(filters.dateTo) : null;
+    if (toDate) {
+      toDate.setHours(23, 59, 59, 999);
+    }
+
+    const filtered = businessProposals.filter((p) => {
+      if (search) {
+        const matchesNo = (p.cerprno || "").toLowerCase().includes(search);
+        const matchesName = (p.pr_name || "").toLowerCase().includes(search);
+        if (!matchesNo && !matchesName) return false;
+      }
+      if (statusFilter !== "ALL" && (p.status || "").toUpperCase() !== statusFilter) {
+        return false;
+      }
+      if (catFilter !== "ALL" && (p.cat || "").toUpperCase() !== catFilter) {
+        return false;
+      }
+      if (sbuFilter !== "ALL" && (p.sbu || "").toUpperCase() !== sbuFilter) {
+        return false;
+      }
+      if (ownerFilter) {
+        const matchesOwner = (p.owname || "").toLowerCase().includes(ownerFilter);
+        const matchesEmail = (p.owner_email || "").toLowerCase().includes(ownerFilter);
+        if (!matchesOwner && !matchesEmail) return false;
+      }
+      if (fromDate || toDate) {
+        const createdDate = p.created_date ? new Date(p.created_date) : null;
+        if (createdDate) {
+          if (fromDate && createdDate < fromDate) return false;
+          if (toDate && createdDate > toDate) return false;
+        }
+      }
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      if (typeof alert === "function") {
+        alert("No matching proposals found for the selected export filters.");
+      }
+      return { totalExported: 0 };
+    }
+
+    if (onProgress) {
+      onProgress(
+        `Generating Excel spreadsheet for ${filtered.length} matching proposals...`,
+        filtered.length,
+      );
+    }
+
+    const data: Record<string, any>[] = [];
+    for (let i = 0; i < filtered.length; i += chunkSize) {
+      const slice = filtered.slice(i, i + chunkSize);
+      for (const p of slice) {
+        data.push(this.mapProposalToExportRow(p));
+      }
+      if (i + chunkSize < filtered.length) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "CERProposals");
+
+    const now = new Date().toISOString().split("T")[0];
+    const fileName = `${reportTitle}_${now}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+
+    if (onProgress) {
+      onProgress(`Successfully exported ${filtered.length} proposals.`, filtered.length);
+    }
+
+    return { totalExported: filtered.length };
   }
 }

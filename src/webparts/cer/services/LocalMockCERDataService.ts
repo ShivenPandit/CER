@@ -551,31 +551,44 @@ export class LocalMockCERDataService implements ICERDataService {
     return found ? { ...found } : null;
   }
 
+  private _nextSequenceMap: Map<number, number> = new Map();
+  private _sequenceLock: Promise<void> = Promise.resolve();
+
   public async generateProposalNumber(): Promise<string> {
-    const year = new Date().getFullYear();
-    const prefix = `CER-${year}-`;
-    let highest = 0;
-    for (const p of this._proposals) {
-      if (p.cerprno && p.cerprno.toUpperCase().startsWith(prefix)) {
-        const numPart = parseInt(p.cerprno.toUpperCase().replace(prefix, ""), 10);
-        if (!isNaN(numPart) && numPart > highest) {
-          highest = numPart;
+    return new Promise((resolve) => {
+      this._sequenceLock = this._sequenceLock.then(async () => {
+        const year = new Date().getFullYear();
+        const prefix = `CER-${year}-`;
+        let highest = this._nextSequenceMap.get(year) || 0;
+        for (const p of this._proposals) {
+          if (p.cerprno && p.cerprno.toUpperCase().startsWith(prefix) && !p.cerprno.toUpperCase().startsWith("CER-COUNTER-")) {
+            const numPart = parseInt(p.cerprno.toUpperCase().replace(prefix, ""), 10);
+            if (!isNaN(numPart) && numPart > highest) {
+              highest = numPart;
+            }
+          }
         }
-      }
-    }
-    let nextNum = highest + 1;
-    let candidate = `${prefix}${("0000" + nextNum).slice(-4)}`;
-    while (this._proposals.some(p => p.cerprno.toUpperCase() === candidate.toUpperCase())) {
-      nextNum++;
-      candidate = `${prefix}${("0000" + nextNum).slice(-4)}`;
-    }
-    return candidate;
+        let nextNum = highest + 1;
+        let candidate = `${prefix}${("0000" + nextNum).slice(-4)}`;
+        while (this._proposals.some(p => p.cerprno.toUpperCase() === candidate.toUpperCase())) {
+          nextNum++;
+          candidate = `${prefix}${("0000" + nextNum).slice(-4)}`;
+        }
+        this._nextSequenceMap.set(year, nextNum);
+        resolve(candidate);
+      });
+    });
   }
 
   public async createProposal(proposal: ICERProposal): Promise<{ success: boolean; message: string; proposal: ICERProposal }> {
     const existingIndex = this._proposals.findIndex(p => p.cerprno.toUpperCase() === proposal.cerprno.toUpperCase());
     if (existingIndex !== -1) {
       const existing = this._proposals[existingIndex];
+      // Concurrency & Ownership Protection:
+      // If caller does not own this item ID, reject duplicate proposal submission
+      if (proposal.id && proposal.id !== existing.id) {
+        throw new Error(`Proposal Number ${proposal.cerprno} already exists. Please enter or generate a unique proposal number.`);
+      }
       if (existing.status === "Draft") {
         return this.updateProposal(proposal, { name: proposal.owname, email: proposal.owner_email });
       }
@@ -735,16 +748,18 @@ export class LocalMockCERDataService implements ICERDataService {
     }
 
     // Check if remarks changed -> create new version (FR-08)
-    if (oldProposal.remarks.trim() !== updatedProposal.remarks.trim()) {
+    const oldRemarks = (oldProposal.remarks || "").trim();
+    const newRemarks = (updatedProposal.remarks || "").trim();
+    if (oldRemarks !== newRemarks && newRemarks) {
       const existingVersions = this._remarksHistory.filter(r => r.cerprno === updatedProposal.cerprno);
       const nextVer = existingVersions.length + 1;
       const remarksRecord: ICERRemarksVersion = {
         id: `rem-${Date.now()}`,
         cerprno: updatedProposal.cerprno,
         version: nextVer,
-        remarks_text: updatedProposal.remarks,
+        remarks_text: updatedProposal.remarks || "",
         remarks_type: "REMARKS",
-        word_count: updatedProposal.remarks.split(/\s+/).filter(Boolean).length,
+        word_count: newRemarks.split(/\s+/).filter(Boolean).length,
         created_by: user.name,
         created_date: now.toISOString()
       };

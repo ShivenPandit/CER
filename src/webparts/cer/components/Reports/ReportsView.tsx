@@ -14,6 +14,7 @@ import { IAppUser } from "../../models/UserModel";
 import { StatusBadge } from '../Shared/StatusBadge';
 import { CategoryBadge } from '../Shared/CategoryBadge';
 import { ExcelExportService } from "../../services/ExcelExportService";
+import { ICERDataService } from "../../services/ICERDataService";
 import { PermissionService } from "../../services/PermissionService";
 import { useDynamicPagination } from "../../hooks/useDynamicPagination";
 import { DataTablePagination } from '../Shared/DataTablePagination';
@@ -23,6 +24,7 @@ interface IReportsViewProps {
   currentUser: IAppUser;
   onNavigateToDisplay: (cerprno: string) => void;
   onNavigateToChange: (cerprno: string) => void;
+  dataService?: ICERDataService;
   fieldChoices?: IFieldChoices;
   onCancel?: () => void;
 }
@@ -32,6 +34,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
   currentUser,
   onNavigateToDisplay,
   onNavigateToChange,
+  dataService,
   fieldChoices,
   onCancel,
 }) => {
@@ -44,6 +47,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [exportStatusText, setExportStatusText] = useState("");
 
   // Sorting
   const [sortField, setSortField] = useState<keyof ICERProposal>("created_date");
@@ -158,11 +162,30 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
   const handleExportExcel = async () => {
     try {
       setIsExporting(true);
-      await ExcelExportService.exportProposalListAsync(sortedProposals, "CERProposals_Report");
+      setExportStatusText("Initializing export...");
+      if (dataService) {
+        await ExcelExportService.exportAllMatchingProposalsAsync(
+          dataService,
+          {
+            searchTerm,
+            status: statusFilter,
+            category: categoryFilter,
+            sbu: sbuFilter,
+            owner: ownerFilter,
+            dateFrom,
+            dateTo,
+          },
+          "CERProposals_Report",
+          (statusMsg) => setExportStatusText(statusMsg),
+        );
+      } else {
+        await ExcelExportService.exportProposalListAsync(sortedProposals, "CERProposals_Report");
+      }
     } catch (err: any) {
       alert("Error exporting Excel: " + (err?.message || String(err)));
     } finally {
       setIsExporting(false);
+      setExportStatusText("");
     }
   };
 
@@ -193,11 +216,11 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
 
         <button
           onClick={handleExportExcel}
-          disabled={sortedProposals.length === 0 || isExporting}
+          disabled={(sortedProposals.length === 0 && !dataService) || isExporting}
           className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-emerald-600/20 transition-all disabled:opacity-50 shrink-0"
         >
           <FileSpreadsheet className="w-4 h-4" />
-          <span>{isExporting ? "Exporting..." : `Export to Excel (${sortedProposals.length})`}</span>
+          <span>{isExporting ? (exportStatusText || "Exporting...") : `Export to Excel (${sortedProposals.length})`}</span>
         </button>
       </div>
 

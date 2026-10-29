@@ -200,9 +200,15 @@ export class SharePointCERDataService implements ICERDataService {
               });
             }
           }
-          const mapped = items.map((item: Record<string, unknown>) =>
-            this._mapSharePointItemToProposal(item),
-          );
+          const mapped = items
+            .filter((item: Record<string, unknown>) => {
+              const no = String(item.cerPrNo || item.cerprno || item.Title || "");
+              const status = String(item.Status || item.cerStatus || item.status || "");
+              return !no.toUpperCase().startsWith("CER-COUNTER-") && status !== "SystemCounter";
+            })
+            .map((item: Record<string, unknown>) =>
+              this._mapSharePointItemToProposal(item),
+            );
           this._cachedProposals = { data: mapped, timestamp: Date.now() };
           // Prime individual proposal lookup cache
           for (const p of mapped) {
@@ -279,9 +285,15 @@ export class SharePointCERDataService implements ICERDataService {
           });
         }
 
-        const mapped = items.map((item: Record<string, unknown>) =>
-          this._mapSharePointItemToProposal(item),
-        );
+        const mapped = items
+          .filter((item: Record<string, unknown>) => {
+            const no = String(item.cerPrNo || item.cerprno || item.Title || "");
+            const status = String(item.Status || item.cerStatus || item.status || "");
+            return !no.toUpperCase().startsWith("CER-COUNTER-") && status !== "SystemCounter";
+          })
+          .map((item: Record<string, unknown>) =>
+            this._mapSharePointItemToProposal(item),
+          );
         return mapped;
       } catch (e) {
         lastErr = e;
@@ -300,6 +312,9 @@ export class SharePointCERDataService implements ICERDataService {
     forceRefresh: boolean = false,
   ): Promise<ICERProposal | null> {
     const key = (cerprno || "").trim().toUpperCase();
+    if (key.startsWith("CER-COUNTER-")) {
+      return null;
+    }
     const now = Date.now();
     const CACHE_TTL_MS = 25000;
 
@@ -395,51 +410,170 @@ export class SharePointCERDataService implements ICERDataService {
     }
   }
 
+  /**
+   * Concurrency-safe atomic proposal number allocation (Phase 4 Issue 1).
+   *
+   * Utilizes an optimistic Compare-and-Swap (CAS) pattern backed by a dedicated
+   * counter record in CERProposals ('CER-COUNTER-{year}').
+   *
+   * Concurrency is enforced by SharePoint's native ETag conditional MERGE (If-Match: etag).
+   * If two requests race to allocate the same number, one succeeds (204) and the other
+   * receives HTTP 412 (Precondition Failed). On HTTP 412, the allocator re-reads the counter
+   * and retries the CAS update with jittered backoff.
+   */
   public async generateProposalNumber(): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `CER-${year}-`;
-    let highest = 0;
-    const candidateLists = [SP_LISTS.CER_PROPOSALS];
-    let lastErr: any = null;
+    const counterIdentifier = `CER-COUNTER-${year}`;
+    const listName = SP_LISTS.CER_PROPOSALS;
+    const maxCasAttempts = 5;
 
-    for (const listName of candidateLists) {
+    for (let attempt = 1; attempt <= maxCasAttempts; attempt++) {
       try {
-        let items: any[] = [];
-        const fetchItems = typeof this._sp.getAllListItems === "function"
-          ? (opts: any) => this._sp.getAllListItems(listName, opts)
-          : (opts: any) => this._sp.getListItems(listName, opts);
+        // 1. Query for existing sequence counter item in SharePoint
+        let counterItems: any[] = [];
         try {
-          items = await fetchItems({
-            select: "Id,Title,cerPrNo",
-            top: 2000,
-            orderby: "Created desc",
+          counterItems = await this._sp.getListItems(listName, {
+            filter: `cerPrNo eq '${counterIdentifier}'`,
+            select: "Id,Title,cerPrNo,amount,revision_count",
+            top: 1,
           });
         } catch {
-          items = await fetchItems({
-            select: "Id,Title",
-            top: 2000,
-            orderby: "Created desc",
-          });
-        }
-
-        for (const item of items) {
-          const no = String(item.cerPrNo || item.cerprno || item.Title || "");
-          if (no.startsWith(prefix)) {
-            const numPart = parseInt(no.replace(prefix, ""), 10);
-            if (!isNaN(numPart) && numPart > highest) {
-              highest = numPart;
-            }
+          try {
+            counterItems = await this._sp.getListItems(listName, {
+              filter: `Title eq '${counterIdentifier}'`,
+              select: "Id,Title,cerPrNo,amount,revision_count",
+              top: 1,
+            });
+          } catch {
+            const allItems = await this._sp.getListItems<any>(listName, {
+              select: "Id,Title,cerPrNo,amount,revision_count",
+              top: 500,
+            });
+            counterItems = allItems.filter(
+              (it) => it.cerPrNo === counterIdentifier || it.Title === counterIdentifier,
+            );
           }
         }
-        const nextNum = highest + 1;
-        return `${prefix}${("0000" + nextNum).slice(-4)}`;
-      } catch (e) {
-        lastErr = e;
+
+        let counterItem = counterItems && counterItems.length > 0 ? counterItems[0] : null;
+
+        // 2. Bootstrap counter item if it does not exist yet
+        if (!counterItem) {
+          let highest = 0;
+          try {
+            const existingItems = await this._sp.getListItems<any>(listName, {
+              select: "Id,Title,cerPrNo",
+              top: 2000,
+              orderby: "Created desc",
+            });
+            for (const item of existingItems) {
+              const no = String(item.cerPrNo || item.cerprno || item.Title || "");
+              if (no.startsWith(prefix) && !no.startsWith("CER-COUNTER-")) {
+                const numPart = parseInt(no.replace(prefix, ""), 10);
+                if (!isNaN(numPart) && numPart > highest) {
+                  highest = numPart;
+                }
+              }
+            }
+          } catch (scanErr) {
+            console.warn("[SharePointCERDataService] Warning scanning baseline sequence:", scanErr);
+          }
+
+          try {
+            const created = await this._sp.createListItem<{ Id: number }>(
+              listName,
+              {
+                Title: counterIdentifier,
+                cerPrNo: counterIdentifier,
+                amount: highest,
+                revision_count: highest,
+                status: "SystemCounter",
+                sbu: "System",
+                object: `Atomic Sequence Counter for ${year}`,
+              },
+              { isIdempotent: false },
+            );
+
+            // Re-fetch counter item to acquire assigned ETag
+            counterItems = await this._sp.getListItems(listName, {
+              filter: `cerPrNo eq '${counterIdentifier}'`,
+              select: "Id,Title,cerPrNo,amount,revision_count",
+              top: 1,
+            });
+            counterItem =
+              counterItems && counterItems.length > 0
+                ? counterItems[0]
+                : { Id: created.Id, amount: highest, revision_count: highest };
+          } catch (createErr) {
+            // Another concurrent request may have bootstrapped the counter record at the same time
+            console.warn(
+              `[SharePointCERDataService] Counter bootstrap collision on attempt ${attempt}:`,
+              createErr,
+            );
+            await new Promise((resolve) => setTimeout(resolve, 50 + Math.random() * 100));
+            continue;
+          }
+        }
+
+        // 3. Extract current sequence and ETag for Compare-and-Swap
+        const spId = counterItem.Id;
+        const currentSeq = Number(counterItem.amount ?? counterItem.revision_count ?? 0);
+        const nextSeq = currentSeq + 1;
+        const etag =
+          counterItem["@odata.etag"] ||
+          counterItem["odata.etag"] ||
+          counterItem.__metadata?.etag ||
+          undefined;
+
+        // 4. Perform atomic CAS update with ETag conditional MERGE
+        try {
+          await this._sp.updateListItem(
+            listName,
+            spId,
+            {
+              amount: nextSeq,
+              revision_count: nextSeq,
+              modified_date: new Date().toISOString(),
+            },
+            etag,
+          );
+
+          // Atomic allocation succeeded!
+          return `${prefix}${("0000" + nextSeq).slice(-4)}`;
+        } catch (updateErr: any) {
+          const isConflict =
+            String(updateErr?.message || "").includes("HTTP 412") ||
+            String(updateErr?.message || "").includes("Concurrency conflict") ||
+            String(updateErr?.message || "").includes("412");
+
+          if (isConflict && attempt < maxCasAttempts) {
+            console.warn(
+              `[SharePointCERDataService] CAS sequence conflict on ${counterIdentifier} (attempt ${attempt}/${maxCasAttempts}). Retrying...`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, 50 + Math.random() * 150));
+            continue;
+          }
+
+          throw updateErr;
+        }
+      } catch (loopErr: any) {
+        if (attempt >= maxCasAttempts) {
+          console.error(
+            `[SharePointCERDataService] Failed to allocate atomic proposal number after ${maxCasAttempts} attempts:`,
+            loopErr,
+          );
+          throw new Error(
+            `Unable to allocate a unique CER Proposal Number due to high concurrent submission traffic. Please retry. (Details: ${loopErr instanceof Error ? loopErr.message : String(loopErr)})`,
+          );
+        }
+        await new Promise((resolve) => setTimeout(resolve, 50 + Math.random() * 150));
       }
     }
 
-    const nextNum = highest + 1;
-    return `${prefix}${("0000" + nextNum).slice(-4)}`;
+    throw new Error(
+      "Unable to allocate unique CER Proposal Number: Max retry attempts exceeded.",
+    );
   }
 
   public async createProposal(
@@ -603,13 +737,29 @@ export class SharePointCERDataService implements ICERDataService {
       const listName = SP_LISTS.CER_PROPOSALS;
       let lastCreateErr: any = null;
 
+      const proposalCreateOptions = {
+        isIdempotent: false,
+        reconcileFn: async () => {
+          try {
+            const query = await this._sp.getListItems<{ Id: number }>(listName, {
+              filter: `cerPrNo eq '${newProposal.cerprno}'`,
+              select: "Id,cerPrNo",
+              top: 1,
+            });
+            return query && query.length > 0 ? { Id: query[0].Id } : null;
+          } catch {
+            return null;
+          }
+        },
+      };
+
       try {
         try {
-          createdItem = await this._sp.createListItem<{ Id: number }>(listName, modernPayload);
+          createdItem = await this._sp.createListItem<{ Id: number }>(listName, modernPayload, proposalCreateOptions);
         } catch (initialErr: any) {
           const errText = String(initialErr?.message || "").toLowerCase();
           if (errText.includes("does not exist") || errText.includes("invalid field") || errText.includes("st_date") || errText.includes("startdate")) {
-            createdItem = await this._sp.createListItem<{ Id: number }>(listName, legacyPayload);
+            createdItem = await this._sp.createListItem<{ Id: number }>(listName, legacyPayload, proposalCreateOptions);
           } else {
             throw initialErr;
           }
@@ -1724,13 +1874,29 @@ export class SharePointCERDataService implements ICERDataService {
     let decisionErr: any = null;
 
     for (const dList of candidateDecisionLists) {
+      const decisionOptions = {
+        isIdempotent: false,
+        reconcileFn: async () => {
+          try {
+            const query = await this._sp.getListItems<any>(dList, {
+              filter: `cerPrNo eq '${params.cerprno}' and level_id eq ${params.level_id}`,
+              select: "Id,cerPrNo,level_id",
+              top: 1,
+            });
+            return query && query.length > 0 ? { Id: query[0].Id } : null;
+          } catch {
+            return null;
+          }
+        },
+      };
+
       try {
         try {
-          await this._sp.createListItem(dList, modernDecisionPayload);
+          await this._sp.createListItem(dList, modernDecisionPayload, decisionOptions);
           decisionRecorded = true;
           break;
         } catch {
-          await this._sp.createListItem(dList, legacyDecisionPayload);
+          await this._sp.createListItem(dList, legacyDecisionPayload, decisionOptions);
           decisionRecorded = true;
           break;
         }

@@ -513,6 +513,7 @@ const CER: React.FC<ICERProps> = (props) => {
         {currentView === "reports" && (
           PermissionService.canAccessView("reports", currentUser) ? (
             <ReportsView
+              dataService={dataService}
               proposals={proposals}
               currentUser={currentUser}
               fieldChoices={fieldChoices}
