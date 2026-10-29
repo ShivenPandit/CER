@@ -81,15 +81,18 @@ const CER: React.FC<ICERProps> = (props) => {
 
   // Initialize current user from authenticated SharePoint context
   const [currentUser, setCurrentUser] = useState<IAppUser>(() => {
-    const isAdmin = isDesignatedAdmin(props.newcurrentUserEmail) || isDesignatedAdmin(props.newcurrentUserLoginName);
+    const rawEmail = (props.newcurrentUserEmail || "").trim();
+    const rawLogin = (props.newcurrentUserLoginName || "").trim();
+    const hasIdentity = Boolean(rawEmail || rawLogin);
+    const isAdmin = hasIdentity && (isDesignatedAdmin(rawEmail) || isDesignatedAdmin(rawLogin));
     return {
-      id: props.newcurrentUserId || 1,
-      name: props.newcurrentUserName || (isAdmin ? "Shiven Pandit" : "Authenticated Portal User"),
-      email: props.newcurrentUserEmail || (isAdmin ? "70007144@cairnindia.com" : ""),
-      loginName: props.newcurrentUserLoginName || (isAdmin ? "70007144@cairnindia.com" : ""),
+      id: props.newcurrentUserId || 0,
+      name: props.newcurrentUserName || (isAdmin ? "Shiven Pandit" : hasIdentity ? "Authenticated Portal User" : "Unauthenticated User"),
+      email: rawEmail,
+      loginName: rawLogin,
       role: isAdmin ? "Admin" : "Initiator",
-      roles: isAdmin ? ["Admin", "Initiator"] : ["Initiator"],
-      is_active: true,
+      roles: isAdmin ? ["Admin", "Initiator"] : (hasIdentity ? ["Initiator"] : []),
+      is_active: hasIdentity,
       department: isAdmin ? "Digital" : "CER Management Portal",
       sbu: isAdmin ? "RJ North" : undefined,
       isSiteAdmin: props.newisSiteAdmin || isAdmin,

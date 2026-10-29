@@ -20,7 +20,8 @@
     "trust-dev-cert": "heft trust-dev-cert",
     "test:identity-schema": "tsx src/webparts/cer/tests/verifyIdentityColumnSchema.ts",
     "test:person-fields": "tsx src/webparts/cer/tests/verifyPersonFieldService.ts",
-    "test:approval-hierarchy": "tsx src/webparts/cer/tests/verifyApprovalHierarchyAccess.ts"
+    "test:approval-hierarchy": "tsx src/webparts/cer/tests/verifyApprovalHierarchyAccess.ts",
+    "test:concurrency": "tsx src/webparts/cer/tests/verifyConcurrencyAndThrottling.ts"
   },
   "dependencies": {
     "@fluentui/react": "^8.106.4",

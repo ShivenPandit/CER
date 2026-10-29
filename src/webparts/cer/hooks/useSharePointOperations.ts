@@ -85,20 +85,67 @@ export class SharePointOperations {
   // -----------------------------------------------------------------------
 
   /**
+   * Execute an HTTP request with retry logic for rate limiting (HTTP 429)
+   * and transient server unavailability (HTTP 503).
+   */
+  private async _executeWithRetry(
+    requestFn: () => Promise<SPHttpClientResponse>,
+    actionName: string = "Request",
+    maxRetries: number = 3,
+  ): Promise<SPHttpClientResponse> {
+    let attempt = 0;
+    while (true) {
+      attempt++;
+      const response = await requestFn();
+
+      if (response.status === 429 || response.status === 503) {
+        if (attempt <= maxRetries) {
+          const retryAfterHeader =
+            response.headers?.get("Retry-After") ||
+            response.headers?.get("retry-after");
+          let delayMs = 0;
+          if (retryAfterHeader) {
+            const parsedSeconds = parseInt(retryAfterHeader, 10);
+            if (!isNaN(parsedSeconds) && parsedSeconds > 0) {
+              delayMs = parsedSeconds * 1000;
+            }
+          }
+          if (delayMs <= 0) {
+            // Exponential backoff with jitter: 1s, 2s, 4s + 0-500ms jitter
+            delayMs = Math.pow(2, attempt - 1) * 1000 + Math.floor(Math.random() * 500);
+          }
+          console.warn(
+            `[SPOperations] ${actionName} received HTTP ${response.status}. Retrying in ${delayMs}ms (attempt ${attempt}/${maxRetries})...`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        } else {
+          const errText = await response.text().catch(() => "");
+          throw new Error(
+            `[SPOperations] ${actionName} throttled (HTTP ${response.status}) after ${maxRetries} retries: ${errText || "Rate limit or service unavailable"}`,
+          );
+        }
+      }
+
+      return response;
+    }
+  }
+
+  /**
    * Perform a GET request against a SharePoint REST endpoint.
    * Returns the parsed JSON response.
    */
   public async get<T = Record<string, unknown>>(
     endpoint: string,
   ): Promise<T> {
-    const response: SPHttpClientResponse = await this._client.get(
-      endpoint,
-      SPHttpClient.configurations.v1,
-      {
-        headers: {
-          Accept: "application/json;odata=nometadata",
-        },
-      },
+    const response: SPHttpClientResponse = await this._executeWithRetry(
+      () =>
+        this._client.get(endpoint, SPHttpClient.configurations.v1, {
+          headers: {
+            Accept: "application/json;odata=nometadata",
+          },
+        }),
+      `GET ${endpoint.split("?")[0]}`,
     );
 
     if (!response.ok) {
@@ -119,16 +166,16 @@ export class SharePointOperations {
     endpoint: string,
     body: Record<string, unknown>,
   ): Promise<T> {
-    const response: SPHttpClientResponse = await this._client.post(
-      endpoint,
-      SPHttpClient.configurations.v1,
-      {
-        headers: {
-          Accept: "application/json;odata=nometadata",
-          "Content-Type": "application/json;odata=nometadata",
-        },
-        body: JSON.stringify(body),
-      },
+    const response: SPHttpClientResponse = await this._executeWithRetry(
+      () =>
+        this._client.post(endpoint, SPHttpClient.configurations.v1, {
+          headers: {
+            Accept: "application/json;odata=nometadata",
+            "Content-Type": "application/json;odata=nometadata",
+          },
+          body: JSON.stringify(body),
+        }),
+      `POST ${endpoint.split("?")[0]}`,
     );
 
     if (!response.ok) {
@@ -148,27 +195,34 @@ export class SharePointOperations {
    * This method correctly handles 204 by returning void instead of attempting
    * to parse a non-existent response body.
    *
-   * This fixes the fetchHooks.tsx bug where `updateItems` returned
-   * `response.json` (the method reference) instead of `response.json()`,
-   * and even `.json()` would crash on 204.
+   * Supports optimistic concurrency via the optional `etag` parameter.
+   * If the item was modified concurrently, SharePoint responds with HTTP 412.
    */
   public async merge(
     endpoint: string,
     body: Record<string, unknown>,
+    etag?: string,
   ): Promise<void> {
-    const response: SPHttpClientResponse = await this._client.post(
-      endpoint,
-      SPHttpClient.configurations.v1,
-      {
-        headers: {
-          Accept: "application/json;odata=nometadata",
-          "Content-Type": "application/json;odata=nometadata",
-          "X-HTTP-Method": "MERGE",
-          "If-Match": "*",
-        },
-        body: JSON.stringify(body),
-      },
+    const ifMatchValue = etag && etag.trim() ? etag.trim() : "*";
+    const response: SPHttpClientResponse = await this._executeWithRetry(
+      () =>
+        this._client.post(endpoint, SPHttpClient.configurations.v1, {
+          headers: {
+            Accept: "application/json;odata=nometadata",
+            "Content-Type": "application/json;odata=nometadata",
+            "X-HTTP-Method": "MERGE",
+            "If-Match": ifMatchValue,
+          },
+          body: JSON.stringify(body),
+        }),
+      `MERGE ${endpoint.split("?")[0]}`,
     );
+
+    if (response.status === 412) {
+      throw new Error(
+        `[SPOperations] Concurrency conflict (HTTP 412): This item has been modified by another user since it was retrieved. Please reload the latest data before saving changes.`,
+      );
+    }
 
     // HTTP 204 = success with no body (expected for MERGE)
     // HTTP 200 = success with body (rare but possible)
@@ -187,20 +241,20 @@ export class SharePointOperations {
    * Handles the expected response codes:
    * - 200/204: Successfully deleted
    * - 404: Item already deleted (treated as success)
-   *
-   * Pattern extracted from fetchHooks.tsx deleteItem.
+   * - 412: Concurrency conflict
    */
-  public async delete(endpoint: string): Promise<void> {
-    const response: SPHttpClientResponse = await this._client.post(
-      endpoint,
-      SPHttpClient.configurations.v1,
-      {
-        headers: {
-          Accept: "application/json;odata=nometadata",
-          "X-HTTP-Method": "DELETE",
-          "If-Match": "*",
-        },
-      },
+  public async delete(endpoint: string, etag?: string): Promise<void> {
+    const ifMatchValue = etag && etag.trim() ? etag.trim() : "*";
+    const response: SPHttpClientResponse = await this._executeWithRetry(
+      () =>
+        this._client.post(endpoint, SPHttpClient.configurations.v1, {
+          headers: {
+            Accept: "application/json;odata=nometadata",
+            "X-HTTP-Method": "DELETE",
+            "If-Match": ifMatchValue,
+          },
+        }),
+      `DELETE ${endpoint.split("?")[0]}`,
     );
 
     if (response.status === 200 || response.status === 204) {
@@ -210,6 +264,12 @@ export class SharePointOperations {
     if (response.status === 404) {
       console.warn("[SPOperations] Item already deleted (404):", endpoint);
       return; // Treat as success
+    }
+
+    if (response.status === 412) {
+      throw new Error(
+        `[SPOperations] Concurrency conflict (HTTP 412): Item was modified by another user before deletion could occur.`,
+      );
     }
 
     const errText = await response.text().catch(() => "");
@@ -296,14 +356,15 @@ export class SharePointOperations {
     );
 
     while (nextUrl) {
-      const response: SPHttpClientResponse = await this._client.get(
-        nextUrl,
-        SPHttpClient.configurations.v1,
-        {
-          headers: {
-            Accept: "application/json;odata=nometadata",
-          },
-        },
+      const currentUrl = nextUrl;
+      const response: SPHttpClientResponse = await this._executeWithRetry(
+        () =>
+          this._client.get(currentUrl, SPHttpClient.configurations.v1, {
+            headers: {
+              Accept: "application/json;odata=nometadata",
+            },
+          }),
+        `getAllListItems(${listName})`,
       );
 
       if (!response.ok) {
@@ -317,7 +378,12 @@ export class SharePointOperations {
       if (data.value) {
         allItems = allItems.concat(data.value);
       }
-      nextUrl = data["odata.nextLink"] || null;
+      const rawData = data as any;
+      nextUrl =
+        data["odata.nextLink"] ||
+        (rawData["@odata.nextLink"] as string) ||
+        (rawData?.d?.__next as string) ||
+        null;
     }
 
     return allItems;
@@ -339,15 +405,17 @@ export class SharePointOperations {
    * Update an existing item in a SharePoint list by its numeric ID.
    * Uses MERGE to perform a partial update (only specified fields).
    *
+   * Supports optimistic concurrency via optional `etag`.
    * Returns void — MERGE responses have no body (HTTP 204).
    */
   public async updateListItem(
     listName: string,
     itemId: number | string,
     payload: Record<string, unknown>,
+    etag?: string,
   ): Promise<void> {
     const endpoint = this.buildListEndpoint(listName, `/items(${itemId})`);
-    return this.merge(endpoint, payload);
+    return this.merge(endpoint, payload, etag);
   }
 
   /**
@@ -357,9 +425,10 @@ export class SharePointOperations {
   public async deleteListItem(
     listName: string,
     itemId: number | string,
+    etag?: string,
   ): Promise<void> {
     const endpoint = this.buildListEndpoint(listName, `/items(${itemId})`);
-    return this.delete(endpoint);
+    return this.delete(endpoint, etag);
   }
 
   // -----------------------------------------------------------------------

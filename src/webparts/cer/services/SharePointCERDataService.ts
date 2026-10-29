@@ -165,9 +165,12 @@ export class SharePointCERDataService implements ICERDataService {
       for (const listName of candidateLists) {
         try {
           let items: any[] = [];
+          const fetchItems = typeof this._sp.getAllListItems === "function"
+            ? (opts: any) => this._sp.getAllListItems(listName, opts)
+            : (opts: any) => this._sp.getListItems(listName, opts);
           // Primary query with full Person & System expansion (cerOwner, Author, Editor)
           try {
-            items = await this._sp.getListItems(listName, {
+            items = await fetchItems({
               top: 500,
               orderby: "Created desc",
               expand: "cerOwner,Author,Editor",
@@ -176,7 +179,7 @@ export class SharePointCERDataService implements ICERDataService {
           } catch (expandErr) {
             // Tier 2: Fallback with cerOwner only
             try {
-              items = await this._sp.getListItems(listName, {
+              items = await fetchItems({
                 top: 500,
                 orderby: "Created desc",
                 expand: "cerOwner",
@@ -184,7 +187,7 @@ export class SharePointCERDataService implements ICERDataService {
               });
             } catch (cerOwnerErr) {
               // Tier 3: Unexpanded query
-              items = await this._sp.getListItems(listName, {
+              items = await fetchItems({
                 top: 500,
                 orderby: "Created desc",
               });
@@ -225,6 +228,64 @@ export class SharePointCERDataService implements ICERDataService {
     } finally {
       this._inFlightProposals = null;
     }
+  }
+
+  /**
+   * Retrieves proposals owned or created by the current user using server-side filtering
+   * to avoid downloading the entire enterprise dataset for personal lists.
+   */
+  public async getMyProposals(
+    userEmail: string,
+    userName?: string,
+    forceRefresh: boolean = false,
+  ): Promise<ICERProposal[]> {
+    if (!userEmail && !userName) {
+      return [];
+    }
+    const cleanEmail = (userEmail || "").trim().toLowerCase();
+    const candidateLists = [SP_LISTS.CER_PROPOSALS];
+    let lastErr: any = null;
+
+    for (const listName of candidateLists) {
+      try {
+        let items: any[] = [];
+        const fetchItems = typeof this._sp.getListItems === "function"
+          ? (opts: any) => this._sp.getListItems(listName, opts)
+          : (opts: any) => this._sp.getAllListItems(listName, opts);
+
+        const safeEmail = cleanEmail.replace(/'/g, "''");
+        try {
+          items = await fetchItems({
+            filter: `cerOwner/EMail eq '${safeEmail}' or Author/EMail eq '${safeEmail}'`,
+            top: 500,
+            orderby: "Created desc",
+            expand: "cerOwner,Author,Editor",
+            select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
+          });
+        } catch {
+          // If server-side compound filter on Person column fails, fallback to client-side filtering over cached proposals
+          const all = await this.getAllProposals(forceRefresh);
+          return all.filter((p) => {
+            const pOwner = (p.owner_email || "").trim().toLowerCase();
+            const pAuthor = (p.created_by || "").trim().toLowerCase();
+            return pOwner === cleanEmail || (userName && (p.owname || "").toLowerCase() === userName.toLowerCase()) || pAuthor === cleanEmail;
+          });
+        }
+
+        const mapped = items.map((item: Record<string, unknown>) =>
+          this._mapSharePointItemToProposal(item),
+        );
+        return mapped;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+
+    const all = await this.getAllProposals(forceRefresh);
+    return all.filter((p) => {
+      const pOwner = (p.owner_email || "").trim().toLowerCase();
+      return pOwner === cleanEmail;
+    });
   }
 
   public async getProposalByNumber(
@@ -337,16 +398,19 @@ export class SharePointCERDataService implements ICERDataService {
     for (const listName of candidateLists) {
       try {
         let items: any[] = [];
+        const fetchItems = typeof this._sp.getAllListItems === "function"
+          ? (opts: any) => this._sp.getAllListItems(listName, opts)
+          : (opts: any) => this._sp.getListItems(listName, opts);
         try {
-          items = await this._sp.getListItems<any>(listName, {
+          items = await fetchItems({
             select: "Id,Title,cerPrNo",
-            top: 500,
+            top: 2000,
             orderby: "Created desc",
           });
         } catch {
-          items = await this._sp.getListItems<any>(listName, {
+          items = await fetchItems({
             select: "Id,Title",
-            top: 500,
+            top: 2000,
             orderby: "Created desc",
           });
         }
@@ -450,6 +514,17 @@ export class SharePointCERDataService implements ICERDataService {
 
     if (existingItems.length > 0) {
       const existing = existingItems[0];
+      const existingIdStr = String(existing.Id);
+
+      // Concurrency & Ownership Protection:
+      // An existing item can ONLY be updated if this caller already owns that specific SharePoint Item ID (existingIdStr === newProposal.id).
+      // If newProposal.id is absent or does not match existing.Id, this is a sequence collision with another proposal/draft!
+      if (!newProposal.id || newProposal.id !== existingIdStr) {
+        throw new Error(
+          `CER Proposal No. '${newProposal.cerprno}' already exists in SharePoint. Proposal numbers must be unique.`
+        );
+      }
+
       const existingStatus = String(existing.Status || existing.cerStatus || "").trim();
       // If the item already exists in SharePoint and is not an unsubmitted draft, reject duplicate submission
       if (existingStatus && existingStatus !== "Draft") {
@@ -748,19 +823,26 @@ export class SharePointCERDataService implements ICERDataService {
       legacyPayload.ownameId = ownerSpUserId;
     }
 
-    // Primary write: Update proposal in CERProposals
+    // Primary write: Update proposal in CERProposals (ETag-aware conditional update)
+    const proposalEtag = proposal.etag || original.etag;
     try {
       try {
-        await this._sp.updateListItem(targetListName, spItemId, modernPayload);
+        await this._sp.updateListItem(targetListName, spItemId, modernPayload, proposalEtag);
       } catch (initialErr: any) {
+        if (String(initialErr?.message || "").includes("Concurrency conflict")) {
+          throw initialErr;
+        }
         const errText = String(initialErr?.message || "").toLowerCase();
         if (errText.includes("does not exist") || errText.includes("invalid field") || errText.includes("st_date") || errText.includes("startdate")) {
-          await this._sp.updateListItem(targetListName, spItemId, legacyPayload);
+          await this._sp.updateListItem(targetListName, spItemId, legacyPayload, proposalEtag);
         } else {
           throw initialErr;
         }
       }
-    } catch (saveErr) {
+    } catch (saveErr: any) {
+      if (String(saveErr?.message || "").includes("Concurrency conflict")) {
+        throw saveErr;
+      }
       console.error("[SharePointCERDataService] Failed to update CER proposal in SharePoint:", saveErr);
       throw new Error(
         `Unable to save the CER to SharePoint. No successful save could be confirmed. Please verify the proposal before retrying. (Details: ${saveErr instanceof Error ? saveErr.message : String(saveErr)})`,
@@ -833,23 +915,27 @@ export class SharePointCERDataService implements ICERDataService {
     for (const listName of candidateLists) {
       try {
         let items: Record<string, any>[] = [];
+        const fetchItems = typeof this._sp.getAllListItems === "function"
+          ? (opts: any) => this._sp.getAllListItems(listName, opts)
+          : (opts: any) => this._sp.getListItems(listName, opts);
+
         if (cerprno) {
           try {
-            items = await this._sp.getListItems<Record<string, any>>(listName, {
+            items = await fetchItems({
               filter: `cerPrNo eq '${cerprno}'`,
               top: 500,
               orderby: "Created desc",
             });
           } catch {
-            const allItems = await this._sp.getListItems<Record<string, any>>(listName, {
+            const allItems = await fetchItems({
               top: 500,
               orderby: "Created desc",
             });
             items = allItems.filter((it: any) => (it.cerPrNo || it.Title) === cerprno);
           }
         } else {
-          items = await this._sp.getListItems<Record<string, any>>(listName, {
-            top: 500,
+          items = await fetchItems({
+            top: 2000,
             orderby: "Created desc",
           });
         }
@@ -1050,17 +1136,20 @@ export class SharePointCERDataService implements ICERDataService {
         const candidateLists = [SP_LISTS.CER_WORKFLOW_LEVELS];
 
         for (const listName of candidateLists) {
+          const fetchItems = typeof this._sp.getAllListItems === "function"
+            ? (opts: any) => this._sp.getAllListItems(listName, opts)
+            : (opts: any) => this._sp.getListItems(listName, opts);
           try {
             // Modern CamelCase + legacy aliases
-            items = await this._sp.getListItems<Record<string, any>>(listName, {
+            items = await fetchItems({
               select: "Id,ID,Title,levelId,level_id,level_name,roleTitle,role_title,sbu,isActive,is_active,created_by,created_date,Created,assignmentType,assignment_type",
-              top: 50,
+              top: 200,
             });
             break;
           } catch {
             try {
-              items = await this._sp.getListItems<Record<string, any>>(listName, {
-                top: 50,
+              items = await fetchItems({
+                top: 200,
               });
               break;
             } catch {
@@ -1443,6 +1532,18 @@ export class SharePointCERDataService implements ICERDataService {
       throw new Error(`Cannot record decision: Proposal '${params.cerprno}' not found in SharePoint CERProposals list.`);
     }
 
+    if (existingProposal.status !== "In Approval") {
+      throw new Error(
+        `Cannot record decision: Proposal '${params.cerprno}' is currently in '${existingProposal.status}' status, not 'In Approval'.`
+      );
+    }
+
+    if (existingProposal.current_level !== params.level_id) {
+      throw new Error(
+        `Cannot record decision: Proposal '${params.cerprno}' is at approval Level ${existingProposal.current_level}, but decision was submitted for Level ${params.level_id}. Please refresh the proposal to review its current status.`
+      );
+    }
+
     const proposalSBU = existingProposal.sbu || "RJ North";
     const workflowLevels = await this.getWorkflowLevels(proposalSBU);
     const activeLevels = workflowLevels
@@ -1555,7 +1656,22 @@ export class SharePointCERDataService implements ICERDataService {
     try {
       const priorDecisions = await this.getApprovalDecisions(params.cerprno);
       priorEmails = priorDecisions.map((d) => (d.approver_email || "").trim()).filter(Boolean);
-    } catch (pErr) {
+
+      // Concurrency / Idempotency check: prevent duplicate submissions at the same level
+      const recentDuplicate = priorDecisions.find((d) => {
+        if (d.level_id !== params.level_id) return false;
+        const decTime = new Date((d as any).decision_date || d.timestamp).getTime();
+        return !isNaN(decTime) && Date.now() - decTime < 180000;
+      });
+      if (recentDuplicate) {
+        throw new Error(
+          `Duplicate submission detected: Approval decision for Level ${params.level_id} was already recorded moments ago by ${recentDuplicate.approver_name || recentDuplicate.approver_email}. Please refresh the proposal.`
+        );
+      }
+    } catch (pErr: any) {
+      if (String(pErr?.message || "").includes("Duplicate submission detected")) {
+        throw pErr;
+      }
       console.warn("[SharePointCERDataService] Failed to load prior approval decisions for notification recipients:", pErr);
     }
 
@@ -1686,14 +1802,14 @@ export class SharePointCERDataService implements ICERDataService {
 
     try {
       try {
-        await this._sp.updateListItem(targetProposalList, spId, modernUpdatePayload);
+        await this._sp.updateListItem(targetProposalList, spId, modernUpdatePayload, existingProposal.etag);
       } catch {
-        await this._sp.updateListItem(targetProposalList, spId, legacyUpdatePayload);
+        await this._sp.updateListItem(targetProposalList, spId, legacyUpdatePayload, existingProposal.etag);
       }
     } catch (updateErr) {
       console.error("[SharePointCERDataService] Primary decision was recorded, but updating CERProposals status failed:", updateErr);
       throw new Error(
-        `Approval decision was recorded, but updating proposal status failed in SharePoint. Please check proposal status before retrying. (Details: ${updateErr instanceof Error ? updateErr.message : String(updateErr)})`
+        `Approval decision was recorded, but updating proposal status failed in SharePoint. The decision has been logged (Level ${params.level_id}). Please do not re-submit your approval; contact your CER Administrator or refresh the proposal to reconcile. (Details: ${updateErr instanceof Error ? updateErr.message : String(updateErr)})`
       );
     }
 
@@ -2190,6 +2306,7 @@ export class SharePointCERDataService implements ICERDataService {
       modified_date: item.Modified || new Date().toISOString(),
       modified_by: item.Editor?.Title || "System",
       revision_count: Number(item.revisionCount ?? item.revision_count ?? 0),
+      etag: item["odata.etag"] || item["@odata.etag"] || item.__metadata?.etag || undefined,
     };
   }
 
@@ -2783,8 +2900,11 @@ export class SharePointCERDataService implements ICERDataService {
 
   public async getAdminAuditLog(): Promise<IAdminAuditRecord[]> {
     try {
-      const items = await this._sp.getListItems<Record<string, any>>(SP_LISTS.CER_AUDIT_TRAIL, {
-        top: 500,
+      const fetchItems = typeof this._sp.getAllListItems === "function"
+        ? (opts: any) => this._sp.getAllListItems(SP_LISTS.CER_AUDIT_TRAIL, opts)
+        : (opts: any) => this._sp.getListItems(SP_LISTS.CER_AUDIT_TRAIL, opts);
+      const items = await fetchItems({
+        top: 2000,
         orderby: "Created desc",
       });
 

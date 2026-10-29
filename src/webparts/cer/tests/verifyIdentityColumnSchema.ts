@@ -6,7 +6,7 @@
  * legacy Person column fallback tolerance, and complete Segregation of Duties preservation.
  */
 
-import { normalizeUserIdentifier, isDesignatedAdmin } from "../services/AuthService";
+import { AuthService, normalizeUserIdentifier, isDesignatedAdmin } from "../services/AuthService";
 import { PermissionService } from "../services/PermissionService";
 import { ICERProposal } from "../models/CERModel";
 import { IAppUser, IUserRoleAssignment, resolveDirectoryUserEmail } from "../models/UserModel";
@@ -263,6 +263,52 @@ async function runIdentityColumnSchemaTests() {
     !sodCheck.allowed && (sodCheck.reason || "").includes("Segregation of Duties"),
     "Segregation of Duties strictly blocks proposal owner on non-Project-Owner stage via text email comparison"
   );
+
+  // ---------------------------------------------------------------------------
+  // Test Suite 6: Fail-Closed Identity Resolution & Unsafe Fallback Prevention
+  // ---------------------------------------------------------------------------
+  console.log("\nTest Suite 6: Fail-Closed Identity Resolution & Unsafe Fallback Prevention");
+
+  const mockDataService: any = {
+    getUserRoles: async () => [
+      {
+        id: "1",
+        user_name: "Designated Administrator",
+        user_email: "70007144@cairnindia.com",
+        login_name: "70007144@cairnindia.com",
+        role: "Admin",
+        is_active: true,
+      },
+    ],
+  };
+
+  // 1. Empty email and empty loginName must fail closed
+  const emptyContext = await AuthService.resolveCurrentUser(
+    { id: 0, name: "", email: "", loginName: "" },
+    mockDataService
+  );
+  assert(emptyContext.user.is_active === false, "Missing email and loginName resolves to is_active === false");
+  assert(emptyContext.user.roles.length === 0, "Missing email and loginName resolves to 0 roles (no Admin privileges)");
+  assert(emptyContext.user.email === "", "Missing email does not substitute 70007144@cairnindia.com");
+  assert(emptyContext.user.role !== "Admin", "Missing email is not granted Admin role");
+
+  // 2. Unregistered ordinary user gets default Initiator without Admin privileges
+  const unregContext = await AuthService.resolveCurrentUser(
+    { id: 2, name: "Ordinary User", email: "ordinary@cairnindia.com", loginName: "ordinary@cairnindia.com" },
+    mockDataService
+  );
+  assert(unregContext.user.is_active === true, "Valid registered identity is active");
+  assert(unregContext.user.role === "Initiator", "Unregistered user receives unprivileged Initiator role");
+  assert(unregContext.user.roles.indexOf("Admin") === -1, "Unregistered user cannot inherit Admin privileges");
+
+  // 3. Genuine designated admin is recognized and active
+  const adminContext = await AuthService.resolveCurrentUser(
+    { id: 99, name: "Designated Admin", email: "70007144@cairnindia.com", loginName: "70007144@cairnindia.com" },
+    mockDataService
+  );
+  assert(adminContext.user.is_active === true, "Designated Admin is active");
+  assert(adminContext.user.role === "Admin", "Designated Admin receives Admin role");
+  assert(adminContext.user.roles.indexOf("Admin") !== -1, "Designated Admin roles array includes Admin");
 
   console.log("\n================================================================================");
   console.log(" ALL IDENTITY COLUMN SCHEMA & NORMALIZATION TESTS PASSED SUCCESSFULLY");

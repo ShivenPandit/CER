@@ -68,11 +68,31 @@ export class AuthService {
   ): Promise<IAuthResolutionResult> {
     const email = normalizeUserIdentifier(params.email);
     const loginName = normalizeUserIdentifier(params.loginName);
-    const effectiveEmail = email || (loginName.indexOf("@") !== -1 ? loginName : "70007144@cairnindia.com");
-    const effectiveLogin = loginName || email || "70007144@cairnindia.com";
-    const displayName = (params.name || "").trim() || (isDesignatedAdmin(effectiveEmail) ? "Shiven Pandit" : "Authenticated Portal User");
-    const isSiteAdmin = !!params.isSiteAdmin;
+
+    // Fail-Closed: If identity resolution produces an empty/invalid identity, fail closed immediately.
+    // Never substitute another user's identity or grant privileged access.
+    if (!email && !loginName) {
+      return {
+        user: {
+          id: params.id || 0,
+          name: (params.name || "").trim() || "Unauthenticated User",
+          email: "",
+          loginName: "",
+          role: "Initiator",
+          roles: [],
+          is_active: false,
+          department: "Unauthenticated",
+          isSiteAdmin: false,
+        },
+        isRegistered: false,
+      };
+    }
+
+    const effectiveEmail = email || (loginName.indexOf("@") !== -1 ? loginName : "");
+    const effectiveLogin = loginName || email || "";
     const designatedAdmin = isDesignatedAdmin(email) || isDesignatedAdmin(loginName);
+    const displayName = (params.name || "").trim() || (designatedAdmin ? "Shiven Pandit" : "Authenticated Portal User");
+    const isSiteAdmin = !!params.isSiteAdmin;
 
     let allRoles: IUserRoleAssignment[] = [];
     try {
@@ -113,10 +133,8 @@ export class AuthService {
     const userAssignments = allRoles.filter((assignment) => {
       const aEmail = normalizeUserIdentifier(assignment.user_email);
       const aLogin = normalizeUserIdentifier(assignment.login_name);
-      const matchEmail = (email && (aEmail === email || aLogin === email)) ||
-                         (effectiveEmail && (aEmail === effectiveEmail || aLogin === effectiveEmail));
-      const matchLogin = (loginName && (aLogin === loginName || aEmail === loginName)) ||
-                         (effectiveLogin && (aLogin === effectiveLogin || aEmail === effectiveLogin));
+      const matchEmail = Boolean(email && (aEmail === email || aLogin === email));
+      const matchLogin = Boolean(loginName && (aLogin === loginName || aEmail === loginName));
       return matchEmail || matchLogin;
     });
 

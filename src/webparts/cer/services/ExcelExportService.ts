@@ -105,16 +105,10 @@ export class ExcelExportService {
   }
 
   /**
-   * Exports an array of CER proposals for the Reports module (FR-04, FR-10)
-   * aligned with SHAREPOINT_LISTS_AND_COLUMNS_SETUP.md
+   * Transforms proposal raw data into clean export row format with formula sanitization.
    */
-  public static exportProposalList(proposals: ICERProposal[], reportTitle: string = "CERProposals_Report"): void {
-    if (!proposals || proposals.length === 0) {
-      alert("No data available to export.");
-      return;
-    }
-
-    const data = proposals.map((raw: any) => ({
+  public static mapProposalToExportRow(raw: any): Record<string, any> {
+    return {
       "CER PR Number": this.sanitizeFormula(raw.cerPrNo || raw.cerprno),
       "Proposal Name": this.sanitizeFormula(raw.prName || raw.pr_name),
       "CER Owner": this.sanitizeFormula(raw.cerOwner || raw.owname),
@@ -139,8 +133,54 @@ export class ExcelExportService {
       "Pending With Role": this.sanitizeFormula(raw.pendingWithRole || raw.pending_with_role),
       "Pending With Email": this.sanitizeFormula(raw.pendingWithEmail || raw.pending_with_email),
       "Created Date": (raw.created_date || raw.Created) ? String(raw.created_date || raw.Created).split("T")[0] : "",
-    }));
+    };
+  }
 
+  /**
+   * Asynchronous chunked Excel export for large datasets (up to 25,000+ items).
+   * Yields execution to the browser event loop periodically to prevent UI thread freezing.
+   */
+  public static async exportProposalListAsync(
+    proposals: ICERProposal[],
+    reportTitle: string = "CERProposals_Report",
+    chunkSize: number = 500,
+  ): Promise<void> {
+    if (!proposals || proposals.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
+
+    const data: Record<string, any>[] = [];
+    for (let i = 0; i < proposals.length; i += chunkSize) {
+      const slice = proposals.slice(i, i + chunkSize);
+      for (const p of slice) {
+        data.push(this.mapProposalToExportRow(p));
+      }
+      if (i + chunkSize < proposals.length) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "CERProposals");
+
+    const now = new Date().toISOString().split("T")[0];
+    const fileName = `${reportTitle}_${now}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  }
+
+  /**
+   * Exports an array of CER proposals for the Reports module (FR-04, FR-10)
+   * aligned with SHAREPOINT_LISTS_AND_COLUMNS_SETUP.md
+   */
+  public static exportProposalList(proposals: ICERProposal[], reportTitle: string = "CERProposals_Report"): void {
+    if (!proposals || proposals.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
+
+    const data = proposals.map((p) => this.mapProposalToExportRow(p));
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "CERProposals");

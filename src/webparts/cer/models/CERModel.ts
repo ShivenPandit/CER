@@ -91,6 +91,7 @@ export interface ICERProposal {
   modified_date: string;
   modified_by: string;
   revision_count: number;
+  etag?: string; // SharePoint item ETag for optimistic concurrency (HTTP 412)
 }
 
 export const CATEGORY_DEFINITIONS: Record<CERCategory, { label: string; description: string; tagClass: string }> = {
