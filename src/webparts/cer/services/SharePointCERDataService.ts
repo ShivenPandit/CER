@@ -440,19 +440,19 @@ export class SharePointCERDataService implements ICERDataService {
         try {
           counterItems = await this._sp.getListItems(listName, {
             filter: `cerPrId eq '${counterIdentifier}' or Title eq '${counterIdentifier}'`,
-            select: "Id,Title,cerPrId,amount,revision_count",
+            select: "Id,Title,cerPrId,amount",
             top: 1,
           });
         } catch {
           try {
             counterItems = await this._sp.getListItems(listName, {
               filter: `Title eq '${counterIdentifier}'`,
-              select: "Id,Title,cerPrId,amount,revision_count",
+              select: "Id,Title,amount",
               top: 1,
             });
           } catch {
             const allItems = await this._sp.getListItems<any>(listName, {
-              select: "Id,Title,cerPrId,amount,revision_count",
+              select: "Id,Title,amount",
               top: 500,
             });
             counterItems = allItems.filter(
@@ -467,11 +467,20 @@ export class SharePointCERDataService implements ICERDataService {
         if (!counterItem) {
           let highest = 0;
           try {
-            const existingItems = await this._sp.getListItems<any>(listName, {
-              select: "Id,Title,cerPrId,proposalNo",
-              top: 2000,
-              orderby: "Created desc",
-            });
+            let existingItems: any[] = [];
+            try {
+              existingItems = await this._sp.getListItems<any>(listName, {
+                select: "Id,Title,cerPrId,proposalNo",
+                top: 2000,
+                orderby: "Created desc",
+              });
+            } catch {
+              existingItems = await this._sp.getListItems<any>(listName, {
+                select: "Id,Title",
+                top: 2000,
+                orderby: "Created desc",
+              });
+            }
             for (const item of existingItems) {
               const no = String(item.cerPrId || item.cerPrNo || item.cerprno || item.Title || "");
               if (no.startsWith(prefix) && !no.startsWith("CER-COUNTER-")) {
@@ -492,7 +501,6 @@ export class SharePointCERDataService implements ICERDataService {
                 Title: counterIdentifier,
                 cerPrId: counterIdentifier,
                 amount: highest,
-                revision_count: highest,
                 status: "SystemCounter",
                 sbu: "System",
                 object: `Atomic Sequence Counter for ${year}`,
@@ -501,15 +509,23 @@ export class SharePointCERDataService implements ICERDataService {
             );
 
             // Re-fetch counter item to acquire assigned ETag
-            counterItems = await this._sp.getListItems(listName, {
-              filter: `cerPrId eq '${counterIdentifier}' or Title eq '${counterIdentifier}'`,
-              select: "Id,Title,cerPrId,amount,revision_count",
-              top: 1,
-            });
+            try {
+              counterItems = await this._sp.getListItems(listName, {
+                filter: `cerPrId eq '${counterIdentifier}' or Title eq '${counterIdentifier}'`,
+                select: "Id,Title,cerPrId,amount",
+                top: 1,
+              });
+            } catch {
+              counterItems = await this._sp.getListItems(listName, {
+                filter: `Title eq '${counterIdentifier}'`,
+                select: "Id,Title,amount",
+                top: 1,
+              });
+            }
             counterItem =
               counterItems && counterItems.length > 0
                 ? counterItems[0]
-                : { Id: created.Id, amount: highest, revision_count: highest };
+                : { Id: created.Id, amount: highest };
           } catch (createErr) {
             // Another concurrent request may have bootstrapped the counter record at the same time
             console.warn(
@@ -523,7 +539,7 @@ export class SharePointCERDataService implements ICERDataService {
 
         // 3. Extract current sequence and ETag for Compare-and-Swap
         const spId = counterItem.Id;
-        const currentSeq = Number(counterItem.amount ?? counterItem.revision_count ?? 0);
+        const currentSeq = Number(counterItem.amount ?? counterItem.revisionCount ?? counterItem.revision_count ?? 0);
         const nextSeq = currentSeq + 1;
         const etag =
           counterItem["@odata.etag"] ||
@@ -538,8 +554,6 @@ export class SharePointCERDataService implements ICERDataService {
             spId,
             {
               amount: nextSeq,
-              revision_count: nextSeq,
-              modified_date: new Date().toISOString(),
             },
             etag,
           );
@@ -682,19 +696,27 @@ export class SharePointCERDataService implements ICERDataService {
     const targetListName: string = SP_LISTS.CER_PROPOSALS;
     try {
       try {
-        existingItems = await this._sp.getListItems<{ Id: number; Status?: string; cerStatus?: string }>(targetListName, {
+        existingItems = await this._sp.getListItems<{ Id: number; status?: string; Status?: string; cerStatus?: string }>(targetListName, {
           filter: `cerPrId eq '${newProposal.cerprno}' or Title eq '${newProposal.cerprno}'`,
-          select: "Id,Status,cerStatus",
+          select: "Id,Title,cerPrId,status",
           top: 1,
         });
       } catch {
-        const allItems = await this._sp.getListItems<any>(targetListName, {
-          select: "Id,cerPrId,Title,Status,cerStatus",
-          top: 500,
-        });
-        existingItems = allItems.filter(
-          (it: any) => (it.cerPrId && it.cerPrId === newProposal.cerprno) || (it.cerPrNo && it.cerPrNo === newProposal.cerprno) || it.Title === newProposal.cerprno
-        );
+        try {
+          existingItems = await this._sp.getListItems<any>(targetListName, {
+            filter: `Title eq '${newProposal.cerprno}'`,
+            select: "Id,Title,status",
+            top: 1,
+          });
+        } catch {
+          const allItems = await this._sp.getListItems<any>(targetListName, {
+            select: "Id,Title",
+            top: 500,
+          });
+          existingItems = allItems.filter(
+            (it: any) => (it.cerPrId && it.cerPrId === newProposal.cerprno) || (it.cerPrNo && it.cerPrNo === newProposal.cerprno) || it.Title === newProposal.cerprno
+          );
+        }
       }
     } catch (queryErr) {
       // ignore
