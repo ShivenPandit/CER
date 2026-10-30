@@ -645,16 +645,10 @@ export class SharePointCERDataService implements ICERDataService {
       revision_count: proposal.revision_count || 0,
     };
 
-    // Enforce uniqueness of user-entered CER Proposal No against existing records
+    // Fast targeted uniqueness check for user-entered CER Proposal No against existing records
     try {
-      const allExisting = await this.getAllProposals(false);
-      const duplicate = allExisting.find(
-        (p) =>
-          p.id !== newProposal.id &&
-          ((p.proposal_no && p.proposal_no.trim().toLowerCase() === effectiveProposalNo.toLowerCase()) ||
-           (p.cerprno && p.cerprno.trim().toLowerCase() === effectiveProposalNo.toLowerCase()))
-      );
-      if (duplicate) {
+      const duplicate = await this.getProposalByNumber(effectiveProposalNo);
+      if (duplicate && duplicate.id && String(duplicate.id) !== String(newProposal.id)) {
         throw new Error(
           `CER Proposal No. '${effectiveProposalNo}' already exists in SharePoint. Proposal numbers must be unique.`
         );
@@ -663,7 +657,6 @@ export class SharePointCERDataService implements ICERDataService {
       if (String(dupCheckErr?.message || "").includes("already exists")) {
         throw dupCheckErr;
       }
-      // If fetching all proposals fails, continue to list item uniqueness check
     }
 
     let ownerSpUserId: number | null = null;
@@ -691,10 +684,27 @@ export class SharePointCERDataService implements ICERDataService {
       legacyPayload.ownameId = ownerSpUserId;
     }
 
-    // Check if an item with this cerprno already exists in CERProposals list (e.g. draft saved earlier)
+    // Check if an item already exists in CERProposals list (e.g. updating an existing draft)
     let existingItems: Array<{ Id: number; Status?: string; cerStatus?: string }> = [];
     const targetListName: string = SP_LISTS.CER_PROPOSALS;
-    try {
+    if (newProposal.id && /^\d+$/.test(newProposal.id)) {
+      try {
+        const items = await this._sp.getListItems<{ Id: number; status?: string; Status?: string; cerStatus?: string }>(
+          targetListName,
+          {
+            filter: `Id eq ${parseInt(newProposal.id, 10)}`,
+            select: "Id,Title,cerPrId,status",
+            top: 1,
+          }
+        );
+        if (items && items.length > 0) {
+          existingItems = items;
+        }
+      } catch {
+        // Direct ID query failed, will proceed to creation
+      }
+    } else if (newProposal.id) {
+      // Query by cerPrId or Title only if ID is a non-numeric legacy key
       try {
         existingItems = await this._sp.getListItems<{ Id: number; status?: string; Status?: string; cerStatus?: string }>(targetListName, {
           filter: `cerPrId eq '${newProposal.cerprno}' or Title eq '${newProposal.cerprno}'`,
@@ -702,24 +712,8 @@ export class SharePointCERDataService implements ICERDataService {
           top: 1,
         });
       } catch {
-        try {
-          existingItems = await this._sp.getListItems<any>(targetListName, {
-            filter: `Title eq '${newProposal.cerprno}'`,
-            select: "Id,Title,status",
-            top: 1,
-          });
-        } catch {
-          const allItems = await this._sp.getListItems<any>(targetListName, {
-            select: "Id,Title",
-            top: 500,
-          });
-          existingItems = allItems.filter(
-            (it: any) => (it.cerPrId && it.cerPrId === newProposal.cerprno) || (it.cerPrNo && it.cerPrNo === newProposal.cerprno) || it.Title === newProposal.cerprno
-          );
-        }
+        // Query failed
       }
-    } catch (queryErr) {
-      // ignore
     }
 
     let assignedProposalId = newProposal.id || "";
@@ -2232,13 +2226,32 @@ export class SharePointCERDataService implements ICERDataService {
   }
 
   public async addAttachment(attachment: ICERAttachment): Promise<void> {
+    const rawName = (attachment.name || "document").trim();
+    // Normalize file name: strip any legacy or previously generated proposal prefixes
+    const cleanOriginalName = rawName.replace(/^CER-\d{4}-\d{4}_(?:\d+_)?/i, "");
+
     const existing = await this.getAttachments(attachment.cerprno);
+
+    // Idempotency check: if this document (by original name) was already saved to this CER, skip re-uploading
+    const alreadySaved = existing.some((a) => {
+      const existingClean = (a.name || "").replace(/^CER-\d{4}-\d{4}_(?:\d+_)?/i, "");
+      return (
+        existingClean.toLowerCase() === cleanOriginalName.toLowerCase() ||
+        (a.name || "").toLowerCase() === rawName.toLowerCase()
+      );
+    });
+
+    if (alreadySaved) {
+      console.log(`[SharePointCERDataService] Document '${cleanOriginalName}' is already saved to SharePoint for '${attachment.cerprno}'. Skipping duplicate upload.`);
+      return;
+    }
+
     const existingSize = existing.reduce((sum, a) => sum + (a.size || 0), 0);
 
     const validation = validateAttachment(
       attachment,
       existingSize,
-      existing.map((a) => a.name)
+      existing.map((a) => (a.name || "").replace(/^CER-\d{4}-\d{4}_(?:\d+_)?/i, ""))
     );
     if (!validation.isValid) {
       throw new Error(`[SharePoint Attachment Policy Violation] ${validation.error}`);
@@ -2267,47 +2280,21 @@ export class SharePointCERDataService implements ICERDataService {
       ...(uploadedById ? PersonFieldService.formatPersonFieldPayload("uploadedBy", uploadedById) : {}),
     };
 
-    const fallbackMetadata: Record<string, any> = {
-      cerPrId: attachment.cerprno,
-      category: attachment.type?.includes("pdf") ? "Technical" : "Other",
-      uploadDate: new Date().toISOString(),
-    };
-
-    const minimalMetadata: Record<string, any> = {
-      cerPrId: attachment.cerprno,
-    };
-
     const candidateLibraries = [SP_LISTS.CER_ATTACHMENTS];
     let uploaded = false;
     let lastErr: any = null;
 
     if (attachment.data_url && attachment.data_url.indexOf("data:") === 0) {
       const buffer = this._base64ToArrayBuffer(attachment.data_url);
-      const fileName = `${attachment.cerprno}_${Date.now()}_${attachment.name}`;
+      // Clean, deterministic filename: CER-YYYY-NNNN_originalFilename.ext
+      // With overwrite=true on files/add, SharePoint updates in place and will NEVER duplicate the row.
+      const fileName = `${attachment.cerprno}_${cleanOriginalName}`;
 
       for (const libName of candidateLibraries) {
         try {
-          try {
-            await this._sp.uploadFileToLibrary(libName, fileName, buffer, modernMetadata);
-            uploaded = true;
-            break;
-          } catch {
-            try {
-              await this._sp.uploadFileToLibrary(libName, fileName, buffer, fallbackMetadata);
-              uploaded = true;
-              break;
-            } catch {
-              try {
-                await this._sp.uploadFileToLibrary(libName, fileName, buffer, minimalMetadata);
-                uploaded = true;
-                break;
-              } catch {
-                await this._sp.uploadFileToLibrary(libName, fileName, buffer, {});
-                uploaded = true;
-                break;
-              }
-            }
-          }
+          await this._sp.uploadFileToLibrary(libName, fileName, buffer, modernMetadata);
+          uploaded = true;
+          break;
         } catch (err: any) {
           lastErr = err;
         }

@@ -1234,6 +1234,20 @@ export class LocalMockCERDataService implements ICERDataService {
     );
     const targetCerId = resolved ? resolved.cerprno : attachment.cerprno;
     const existing = await this.getAttachments(targetCerId);
+
+    const cleanOriginalName = (attachment.name || "document").replace(/^CER-\d{4}-\d{4}_(?:\d+_)?/i, "");
+    const alreadySaved = existing.some((a) => {
+      const existingClean = (a.name || "").replace(/^CER-\d{4}-\d{4}_(?:\d+_)?/i, "");
+      return (
+        existingClean.toLowerCase() === cleanOriginalName.toLowerCase() ||
+        (a.name || "").toLowerCase() === (attachment.name || "").toLowerCase()
+      );
+    });
+
+    if (alreadySaved) {
+      return;
+    }
+
     const existingSize = existing.reduce((sum, a) => sum + (a.size || 0), 0);
 
     const validation = validateAttachment(

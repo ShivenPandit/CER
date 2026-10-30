@@ -543,7 +543,7 @@ export class SharePointOperations {
     const encodedFileName = encodeURIComponent(fileName);
     const uploadUrl = `${this._siteUrl}/_api/web/lists/getByTitle('${encodeURIComponent(libraryName)}')/rootfolder/files/add(url='${encodedFileName}',overwrite=true)`;
 
-    // Step 1: Upload the binary
+    // Step 1: Upload the binary (overwrite=true prevents duplicates on retry)
     const uploadResponse: SPHttpClientResponse = await this._client.post(
       uploadUrl,
       SPHttpClient.configurations.v1,
@@ -579,30 +579,35 @@ export class SharePointOperations {
     );
 
     if (!fileItemResponse.ok) {
-      throw new Error(
-        "[SPOperations] Could not retrieve the file's list item properties",
-      );
+      // File uploaded but can't read item ID — return without metadata tagging
+      console.warn("[SPOperations] File uploaded but could not retrieve list item properties for metadata tagging.");
+      return { itemId: -1, serverRelativeUrl };
     }
 
     const fileItemJson = await fileItemResponse.json();
     const itemId: number = fileItemJson.Id;
 
-    // Step 3: Tag metadata (if provided)
+    // Step 3: Tag metadata (if provided) — failures here do NOT re-upload the file
     if (metadata && Object.keys(metadata).length > 0) {
       const updateUrl = this.buildListEndpoint(
         libraryName,
         `/items(${itemId})`,
       );
 
-      await this._client.post(updateUrl, SPHttpClient.configurations.v1, {
-        headers: {
-          Accept: "application/json;odata=nometadata",
-          "Content-Type": "application/json;odata=nometadata",
-          "X-HTTP-Method": "MERGE",
-          "If-Match": fileItemJson["@odata.etag"] || "*",
-        },
-        body: JSON.stringify(metadata),
-      });
+      try {
+        await this._client.post(updateUrl, SPHttpClient.configurations.v1, {
+          headers: {
+            Accept: "application/json;odata=nometadata",
+            "Content-Type": "application/json;odata=nometadata",
+            "X-HTTP-Method": "MERGE",
+            "If-Match": fileItemJson["@odata.etag"] || "*",
+          },
+          body: JSON.stringify(metadata),
+        });
+      } catch (metaErr) {
+        // Metadata tagging failed but the file is already uploaded — log and continue
+        console.warn("[SPOperations] Metadata tagging failed (file was uploaded successfully):", metaErr);
+      }
     }
 
     return { itemId, serverRelativeUrl };

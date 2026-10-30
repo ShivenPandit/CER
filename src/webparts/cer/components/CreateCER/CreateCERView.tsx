@@ -280,19 +280,23 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
       };
 
       const result = await dataService.createProposal(payload);
+      const finalCerprno = result.proposal?.cer_proposal_id || result.proposal?.cerprno || payload.cerprno;
 
-      // Save attachments linked to proposal
-      for (const att of attachments) {
-        await dataService.addAttachment({ ...att, cerprno: payload.cerprno });
+      // Save attachments linked to proposal in parallel (faster performance)
+      if (attachments.length > 0) {
+        await Promise.all(
+          attachments.map((att) =>
+            dataService.addAttachment({ ...att, cerprno: finalCerprno })
+          )
+        );
       }
 
       setSuccessNotice(result.message);
       setTimeout(() => {
-        onSuccess(payload.cerprno);
-      }, 1500);
+        onSuccess(finalCerprno);
+      }, 1200);
     } catch (err: any) {
       setErrorMessage(err.message || "An error occurred while creating the proposal.");
-    } finally {
       setIsSubmitting(false);
     }
   };

@@ -208,8 +208,14 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
 
   const handleAddAttachment = async (att: ICERAttachment) => {
     if (!formData) return;
-    await dataService.addAttachment(att);
-    setAttachments((prev) => [...prev, att]);
+    try {
+      await dataService.addAttachment({ ...att, cerprno: formData.cerprno });
+      const refreshed = await dataService.getAttachments(formData.cerprno, true);
+      setAttachments(refreshed);
+    } catch (e: any) {
+      console.error("[ChangeCERView] Failed to add attachment:", e);
+      setAttachments((prev) => [...prev, att]);
+    }
   };
 
   const handleDeleteAttachment = async (id: string) => {
@@ -312,11 +318,16 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         email: currentUser.email,
       });
 
-      // Save attachments linked to proposal
-      for (const att of attachments) {
-        if (!att.id || att.id.startsWith("att-")) {
-          await dataService.addAttachment({ ...att, cerprno: formData.cerprno });
-        }
+      // Save any remaining un-uploaded attachments linked to proposal
+      const pendingAttachments = attachments.filter(
+        (att) => att.data_url && att.data_url.startsWith("data:") && (!att.id || att.id.startsWith("att-"))
+      );
+      if (pendingAttachments.length > 0) {
+        await Promise.all(
+          pendingAttachments.map((att) =>
+            dataService.addAttachment({ ...att, cerprno: formData.cerprno })
+          )
+        );
       }
 
       setSuccessNotice(
