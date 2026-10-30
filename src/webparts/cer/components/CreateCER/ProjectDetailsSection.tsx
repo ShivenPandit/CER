@@ -15,6 +15,7 @@ interface IProjectDetailsSectionProps {
   touched?: Record<string, boolean>;
   isReadOnly?: boolean;
   isChangeMode?: boolean;
+  isCreateMode?: boolean;
   onGenerateNewNumber?: () => void;
   dataService?: ICERDataService;
   fieldChoices?: IFieldChoices;
@@ -29,6 +30,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
   touched = {},
   isReadOnly = false,
   isChangeMode = false,
+  isCreateMode = false,
   onGenerateNewNumber,
   dataService,
   fieldChoices,
@@ -169,42 +171,44 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
           )}
         </div>
 
-        {/* CER Proposal ID (Permanent System-Generated Identifier) */}
-        <div id="field-cer_proposal_id">
-          <div className="flex items-center justify-between mb-1">
-            <label htmlFor="cer_proposal_id" className="font-semibold text-slate-700 flex items-center gap-1">
-              <span>CER Proposal ID</span>
-              <span className="text-[10px] text-slate-400 font-normal">(System-Generated)</span>
-            </label>
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-              <Lock className="w-2.5 h-2.5 text-slate-400" />
-              Read-Only
-            </span>
-          </div>
-          <div className="relative">
-            <input
-              id="cer_proposal_id"
-              type="text"
-              readOnly
-              disabled
-              tabIndex={-1}
-              value={
-                formData.cer_proposal_id ||
-                (formData.id && formData.cerprno && formData.cerprno.startsWith("CER-")
-                  ? formData.cerprno
-                  : "Assigned automatically upon creation")
-              }
-              className="w-full px-3 py-2 rounded-lg font-mono text-xs font-semibold bg-slate-100 border border-slate-200 text-slate-600 cursor-not-allowed select-all focus:outline-none"
-              title="System-generated permanent identifier in CER-YYYY-NNNN format. Immutable and read-only."
-            />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-              <Lock className="w-3.5 h-3.5" />
+        {/* CER Proposal ID (Permanent System-Generated Identifier) — hidden during create */}
+        {!isCreateMode && (
+          <div id="field-cer_proposal_id">
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="cer_proposal_id" className="font-semibold text-slate-700 flex items-center gap-1">
+                <span>CER Proposal ID</span>
+                <span className="text-[10px] text-slate-400 font-normal">(System-Generated)</span>
+              </label>
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                <Lock className="w-2.5 h-2.5 text-slate-400" />
+                Read-Only
+              </span>
             </div>
+            <div className="relative">
+              <input
+                id="cer_proposal_id"
+                type="text"
+                readOnly
+                disabled
+                tabIndex={-1}
+                value={
+                  formData.cer_proposal_id ||
+                  (formData.id && formData.cerprno && formData.cerprno.startsWith("CER-")
+                    ? formData.cerprno
+                    : "Assigned automatically upon creation")
+                }
+                className="w-full px-3 py-2 rounded-lg font-mono text-xs font-semibold bg-slate-100 border border-slate-200 text-slate-600 cursor-not-allowed select-all focus:outline-none"
+                title="System-generated permanent identifier in CER-YYYY-NNNN format. Immutable and read-only."
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                <Lock className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-0.5">
+              Permanent CER-YYYY-NNNN identifier allocated via atomic counter. Immutable.
+            </p>
           </div>
-          <p className="text-[10px] text-slate-400 mt-0.5">
-            Permanent CER-YYYY-NNNN identifier allocated via atomic counter. Immutable.
-          </p>
-        </div>
+        )}
 
         {/* CER Owner Name — Directory Search */}
         <div id="field-owname">

@@ -147,7 +147,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
           <table className="w-full text-left text-xs border-collapse table-fixed">
             <thead>
               <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider select-none">
-                <th className="py-2.5 px-3 w-[125px]">Proposal No</th>
+                <th className="py-2.5 px-3 w-[125px]">Proposal ID</th>
                 <th className="py-2.5 px-3">Project Name</th>
                 <th className="py-2.5 px-2.5 w-[120px] 2xl:w-[160px]">Owner</th>
                 <th className="py-2.5 px-2 w-[75px] 2xl:w-[90px]">SBU</th>
@@ -178,11 +178,6 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                         title="Display CER Proposal"
                       >
                         <div>{prop.cer_proposal_id || prop.cerprno}</div>
-                        {prop.proposal_no && prop.proposal_no !== (prop.cer_proposal_id || prop.cerprno) && (
-                          <div className="text-[10px] font-normal text-slate-400">
-                            No: {prop.proposal_no}
-                          </div>
-                        )}
                       </button>
                     </td>
                     <td className="py-2.5 px-3 font-medium text-slate-800">
@@ -303,11 +298,6 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                     <span className="font-mono font-bold text-xs text-slate-900 bg-slate-100 px-2 py-0.5 rounded">
                       {prop.cer_proposal_id || prop.cerprno}
                     </span>
-                    {prop.proposal_no && prop.proposal_no !== (prop.cer_proposal_id || prop.cerprno) && (
-                      <span className="font-mono text-[10px] text-slate-500 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded">
-                        No: {prop.proposal_no}
-                      </span>
-                    )}
                   </div>
                   <div className="flex items-center gap-1.5">
                     <CategoryBadge category={prop.cat} />

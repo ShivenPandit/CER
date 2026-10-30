@@ -347,7 +347,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                   </span>
                   {proposal.proposal_no && proposal.proposal_no !== (proposal.cer_proposal_id || proposal.cerprno) && (
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-slate-100 text-slate-700 border border-slate-200" title="Business Reference Proposal Number">
-                      Ref: {proposal.proposal_no}
+                      No: {proposal.proposal_no}
                     </span>
                   )}
 

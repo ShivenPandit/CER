@@ -399,7 +399,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                   className="py-2.5 px-3 w-[125px] cursor-pointer hover:text-slate-900"
                 >
                   <div className="flex items-center gap-1">
-                    <span>Proposal No</span>
+                    <span>Proposal ID</span>
                     <ArrowUpDown className="w-3 h-3 text-slate-400" />
                   </div>
                 </th>
@@ -448,11 +448,6 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                         className="hover:text-blue-600 transition-colors text-left"
                       >
                         <div>{prop.cer_proposal_id || prop.cerprno}</div>
-                        {prop.proposal_no && prop.proposal_no !== (prop.cer_proposal_id || prop.cerprno) && (
-                          <div className="text-[10px] font-normal text-slate-400">
-                            No: {prop.proposal_no}
-                          </div>
-                        )}
                       </button>
                     </td>
                     <td className="py-2.5 px-3 font-medium text-slate-800">
@@ -553,11 +548,6 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                     <span className="font-mono font-bold text-xs text-slate-900 bg-slate-100 px-2 py-0.5 rounded">
                       {prop.cer_proposal_id || prop.cerprno}
                     </span>
-                    {prop.proposal_no && prop.proposal_no !== (prop.cer_proposal_id || prop.cerprno) && (
-                      <span className="font-mono text-[10px] text-slate-500 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded">
-                        No: {prop.proposal_no}
-                      </span>
-                    )}
                   </div>
                   <div className="flex items-center gap-1.5">
                     <CategoryBadge category={prop.cat} />

@@ -374,8 +374,9 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Proposal No</span>
           <span className="text-xs font-mono font-bold text-[#012964] bg-[#012964]/5 px-2.5 py-1 rounded-md border border-[#012964]/20">
-            {formData.cerprno || "GENERATING..."}
+            {formData.proposal_no || formData.cerprno || "—"}
           </span>
         </div>
       </div>
@@ -405,6 +406,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         dataService={dataService}
         fieldChoices={fieldChoices}
         isCheckingCerNo={isCheckingCerNo}
+        isCreateMode={true}
       />
 
       {/* Section B — Financial benefits and payback */}

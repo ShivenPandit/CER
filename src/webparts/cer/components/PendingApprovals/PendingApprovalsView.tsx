@@ -258,11 +258,6 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
                       <span className="font-mono font-bold text-xs text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200" title="CER Proposal ID">
                         {prop.cer_proposal_id || prop.cerprno}
                       </span>
-                      {prop.proposal_no && prop.proposal_no !== (prop.cer_proposal_id || prop.cerprno) && (
-                        <span className="font-mono text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200" title="Business Proposal Number">
-                          No: {prop.proposal_no}
-                        </span>
-                      )}
                       <CategoryBadge category={prop.cat} />
                       <StatusBadge status={prop.status} size="sm" />
                       <span className="text-[11px] font-semibold text-[#012964] bg-[#012964]/10 px-2 py-0.5 rounded border border-[#012964]/20">
