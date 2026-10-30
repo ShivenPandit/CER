@@ -350,7 +350,7 @@ export class SharePointCERDataService implements ICERDataService {
           // Tier 1: With full Person & System expansion (cerOwner, Author, Editor)
           try {
             items = await this._sp.getListItems(listName, {
-              filter: `cerPrId eq '${cerprno}' or proposalNo eq '${cerprno}' or Title eq '${cerprno}' or cerPrNo eq '${cerprno}'`,
+              filter: `cerPrId eq '${cerprno}' or proposalNo eq '${cerprno}' or Title eq '${cerprno}'`,
               orderby: "Modified desc",
               expand: "cerOwner,Author,Editor",
               select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
@@ -1160,7 +1160,7 @@ export class SharePointCERDataService implements ICERDataService {
         if (cerprno) {
           try {
             items = await fetchItems({
-              filter: `cerPrId eq '${cerprno}' or cerPrNo eq '${cerprno}' or Title eq '${cerprno}'`,
+              filter: `cerPrId eq '${cerprno}' or Title eq '${cerprno}'`,
               top: 500,
               orderby: "Created desc",
             });
@@ -1270,7 +1270,7 @@ export class SharePointCERDataService implements ICERDataService {
         let items: Record<string, any>[] = [];
         try {
           items = await this._sp.getListItems<Record<string, any>>(listName, {
-            filter: `cerPrId eq '${cerprno}' or cerPrNo eq '${cerprno}' or Title eq '${cerprno}'`,
+            filter: `cerPrId eq '${cerprno}' or Title eq '${cerprno}'`,
             top: 100,
             orderby: "Created desc",
           });
@@ -1641,30 +1641,30 @@ export class SharePointCERDataService implements ICERDataService {
       for (const listName of candidateLists) {
         try {
           let items: Record<string, any>[] = [];
-          // Tier 1: Modern schema with linking column cerPrId / cerPrNo, Author & approver Person fields expanded
+          // Tier 1: Modern schema with linking column cerPrId, Author & approver Person fields expanded
           try {
             items = await this._sp.getListItems<Record<string, any>>(listName, {
-              filter: `cerPrId eq '${cerprno}' or cerPrNo eq '${cerprno}' or Title eq '${cerprno}'`,
-              select: "Id,Title,cerPrId,cerPrNo,levelId,decision,remarks,decidedAt,Created,Author/Id,Author/Title,Author/EMail,approver/Id,approver/Title,approver/EMail",
+              filter: `cerPrId eq '${cerprno}' or Title eq '${cerprno}'`,
+              select: "Id,Title,cerPrId,levelId,decision,remarks,decidedAt,Created,Author/Id,Author/Title,Author/EMail,approver/Id,approver/Title,approver/EMail",
               expand: "Author,approver",
               top: 100,
               orderby: "Created desc",
             });
           } catch {
-            // Tier 2: Query by linking column cerPrNo with Author expanded (built-in SharePoint field)
+            // Tier 2: Query by linking column cerPrId with Author expanded (built-in SharePoint field)
             try {
               items = await this._sp.getListItems<Record<string, any>>(listName, {
-                filter: `cerPrId eq '${cerprno}' or cerPrNo eq '${cerprno}' or Title eq '${cerprno}'`,
-                select: "Id,Title,cerPrId,cerPrNo,levelId,decision,remarks,decidedAt,Created,Author/Id,Author/Title,Author/EMail",
+                filter: `cerPrId eq '${cerprno}' or Title eq '${cerprno}'`,
+                select: "Id,Title,cerPrId,levelId,decision,remarks,decidedAt,Created,Author/Id,Author/Title,Author/EMail",
                 expand: "Author",
                 top: 100,
                 orderby: "Created desc",
               });
             } catch {
-              // Tier 3: Fetch recent list items and match by cerPrId/cerPrNo/Title in memory with Author expanded
+              // Tier 3: Fetch recent list items and match by cerPrId/Title in memory with Author expanded
               try {
                 const allItems = await this._sp.getListItems<Record<string, any>>(listName, {
-                  select: "Id,Title,cerPrId,cerPrNo,levelId,decision,remarks,decidedAt,Created,Author/Id,Author/Title,Author/EMail",
+                  select: "Id,Title,cerPrId,levelId,decision,remarks,decidedAt,Created,Author/Id,Author/Title,Author/EMail",
                   expand: "Author",
                   top: 100,
                   orderby: "Created desc",
@@ -1852,12 +1852,13 @@ export class SharePointCERDataService implements ICERDataService {
         let items: Array<{ Id: number; sbu?: string; owner_email?: string }> = [];
         try {
           items = await this._sp.getListItems<{ Id: number; sbu?: string; owner_email?: string }>(listName, {
-            filter: `cerPrId eq '${params.cerprno}' or cerPrNo eq '${params.cerprno}' or Title eq '${params.cerprno}'`,
+            filter: `cerPrId eq '${params.cerprno}' or Title eq '${params.cerprno}'`,
+            select: "Id,cerPrId,Title,sbu,owner_email",
             top: 1,
           });
         } catch {
           const allItems = await this._sp.getListItems<any>(listName, {
-            select: "Id,cerPrId,cerPrNo,Title,sbu,owner_email",
+            select: "Id,cerPrId,Title,sbu,owner_email",
             top: 500,
           });
           items = allItems.filter(
@@ -1960,8 +1961,8 @@ export class SharePointCERDataService implements ICERDataService {
         reconcileFn: async () => {
           try {
             const query = await this._sp.getListItems<any>(dList, {
-              filter: `(cerPrId eq '${params.cerprno}' or cerPrNo eq '${params.cerprno}' or Title eq '${params.cerprno}') and level_id eq ${params.level_id}`,
-              select: "Id,cerPrNo,level_id",
+              filter: `(cerPrId eq '${params.cerprno}' or Title eq '${params.cerprno}') and (levelId eq ${params.level_id} or level_id eq ${params.level_id})`,
+              select: "Id,Title,cerPrId",
               top: 1,
             });
             return query && query.length > 0 ? { Id: query[0].Id } : null;
@@ -2143,20 +2144,20 @@ export class SharePointCERDataService implements ICERDataService {
       for (const libName of candidateLists) {
         try {
           let items: Record<string, any>[] = [];
-          // Tier 1: Query by cerPrId/cerPrNo with File and uploadedBy expanded
+          // Tier 1: Query by cerPrId with File and uploadedBy expanded
           try {
             items = await this._sp.getListItems<Record<string, any>>(libName, {
-              filter: `cerPrId eq '${cerprno}' or cerPrNo eq '${cerprno}'`,
-              select: "Id,FileLeafRef,FileRef,cerPrId,cerPrNo,category,uploadDate,Created,File/ServerRelativeUrl,File/Length,uploadedBy/Id,uploadedBy/Title,uploadedBy/EMail",
+              filter: `cerPrId eq '${cerprno}'`,
+              select: "Id,FileLeafRef,FileRef,cerPrId,category,uploadDate,Created,File/ServerRelativeUrl,File/Length,uploadedBy/Id,uploadedBy/Title,uploadedBy/EMail",
               expand: "File,uploadedBy",
               top: 100,
             });
           } catch (t1Err) {
-            // Tier 2: Query by cerPrId/cerPrNo with only File expanded
+            // Tier 2: Query by cerPrId with only File expanded
             try {
               items = await this._sp.getListItems<Record<string, any>>(libName, {
-                filter: `cerPrId eq '${cerprno}' or cerPrNo eq '${cerprno}'`,
-                select: "Id,FileLeafRef,FileRef,cerPrId,cerPrNo,category,uploadDate,Created,File/ServerRelativeUrl,File/Length",
+                filter: `cerPrId eq '${cerprno}'`,
+                select: "Id,FileLeafRef,FileRef,cerPrId,category,uploadDate,Created,File/ServerRelativeUrl,File/Length",
                 expand: "File",
                 top: 100,
               });
@@ -2374,7 +2375,7 @@ export class SharePointCERDataService implements ICERDataService {
           if (cerprno) {
             try {
               items = await this._sp.getListItems<Record<string, any>>(listName, {
-                filter: `cerPrId eq '${cerprno}' or cerPrNo eq '${cerprno}' or Title eq '${cerprno}'`,
+                filter: `cerPrId eq '${cerprno}' or Title eq '${cerprno}'`,
                 top: 100,
                 orderby: "Created desc",
               });

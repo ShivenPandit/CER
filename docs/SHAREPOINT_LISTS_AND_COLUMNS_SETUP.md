@@ -37,7 +37,7 @@ Stores all proposal header data, financial justifications, partner details, Indi
 | ----------------------- | ----------------------- | ---------------------- | -------- | ------- | ------------------ | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Title**               | `Title`                 | Single line of text    | Yes      | **Yes** | **Yes (Built-in)** | Unique CER Number (e.g., `CER-2026-0001`)      | Standard SharePoint title field, stores permanent system CER Proposal ID (`CER-YYYY-NNNN`).                                                                                                                                                                            |
 | **CER Proposal ID**     | **`cerPrId`**           | **Single line of text**| **Yes**  | **Yes** | **Yes**            | **`CER-YYYY-XXXX` format**                     | **System-generated permanent identifier** allocated via atomic counter. (Replaces legacy `cerPrNo`). Immutable across entire lifecycle. Foreign key anchor for all child lists (`CERAuditTrail`, `CERRemarksHistory`, `CERApprovalDecisions`, `CERAttachments`, `CERNotifications`). |
-| **CER Proposal No**     | **`proposalNo`**        | **Single line of text**| **No\*** | **No\***| **Yes**            | **Alphanumeric business ref (e.g. `PR-RJ-001`)**| **User-entered business proposal number.** Mandatory in client & service logic; unique across active proposals. (Kept unconstrained at SP database level to safeguard legacy data without migration failures).                                                      |
+| **CER Proposal No**     | **`proposalNo`**        | **Single line of text**| **Yes**  | **Yes** | **Yes**            | **Alphanumeric business ref (e.g. `PR-RJ-001`)**| **User-entered business proposal number.** Mandatory field in SharePoint and application logic; must be unique across all proposals. Alphanumeric format, non-empty, whitespace-validated.                                                      |
 | Proposal Name           | `prName`                | Single line of text    | Yes      | No      | No                 | Free text (max 255 chars)                      | Project descriptive title.                                                                                                                                                                                                                                             |
 | **CER Owner**           | **`cerOwner`**          | **Person or Group**    | **Yes**  | No      | **Yes**            | **`SPFieldUser` (Single)**                     | **Native SharePoint Person column.** Populated via `cerOwnerId: <IntegerId>` obtained from `ensureUser`. Provides the owner's Display Name (`cerOwner/Title`), Corporate Email (`cerOwner/EMail`), presence, and M365 profile card (eliminates redundant text fields). |
 | SBU                     | `sbu`                   | Choice                 | Yes      | No      | **Yes**            | `RJ North`, `RJ South`, `CBOS`, `RAVA`         | Strategic Business Unit determining approval hierarchy.                                                                                                                                                                                                                |
@@ -113,7 +113,7 @@ Go to **List Settings -> Indexed Columns -> Create a new index**:
 - **`cerPrId` (CER Proposal ID)**: Permanent system identifier formatted as `CER-YYYY-NNNN` (e.g. `CER-2026-0001`). Generated via atomic CAS (Compare-And-Swap) ETag concurrency allocator. (Replaced legacy column `cerPrNo`). Read-only across all UI views and never editable by any user or administrator. Used as the immutable foreign key joining all child lists (`CERAuditTrail`, `CERRemarksHistory`, `CERApprovalDecisions`, `CERAttachments`, `CERNotifications`).
 - **`proposalNo` (CER Proposal No)**: User-entered business reference (e.g. `PR-RJ-2026-001`). Mandatory on creation; validated for non-empty alphanumeric formatting; checked for uniqueness across active proposals before save; editable in Draft or Revised modes per lifecycle authorization rules.
 - **Legacy Row Compatibility**: For existing SharePoint items created before the introduction of `cerPrId` or `proposalNo`, the service layer seamlessly maps `cer_proposal_id` and `proposal_no` using `cerPrId || cerPrNo || Title`, preventing null pointer exceptions or broken views.
-- **Database Safety**: `proposalNo` in SharePoint has `Required = No` and `Enforce unique values = No` so that bulk schema modifications or legacy records never trigger SharePoint migration lockouts. Uniqueness and mandatory validations are strictly enforced by the application service layer.
+- **Database Safety & Uniqueness**: `proposalNo` in SharePoint has `Required = Yes` and `Enforce unique values = Yes`. Mandatory validation and uniqueness checks are strictly enforced by both the SharePoint database and the application service layer.
 
 ---
 
@@ -123,8 +123,8 @@ Maintains an immutable record of all modifications to proposals for governance c
 
 | Display Name  | Internal Column Name | SharePoint Field Type  | Required | Unique? | Indexed?           | Choices / Format / Constraints                    | Business Description                            |
 | ------------- | -------------------- | ---------------------- | -------- | ------- | ------------------ | ------------------------------------------------- | ----------------------------------------------- |
-| **Title**     | `Title`              | Single line of text    | Yes      | No      | **Yes (Built-in)** | CER PR Number (`cerPrNo`)                         | Links audit record to parent CER.               |
-| CER PR Number | `cerPrNo`            | Single line of text    | Yes      | No      | **Yes**            | Indexed text                                      | Proposal identifier.                            |
+| **Title**           | `Title`              | Single line of text    | Yes      | No      | **Yes (Built-in)** | CER Proposal ID (`cerPrId`)                       | Links audit record to parent CER.               |
+| **CER Proposal ID** | **`cerPrId`**        | **Single line of text**| **Yes**  | No      | **Yes**            | **Indexed text (`CER-YYYY-XXXX`)**                | **System proposal identifier (foreign key).**   |
 | Field Name    | `fieldName`          | Single line of text    | Yes      | No      | **Yes**            | Column identifier                                 | Exact field changed (e.g., `amount`, `status`). |
 | Old Value     | `oldValue`           | Multiple lines of text | No       | No      | No                 | Text representation                               | Value before mutation.                          |
 | New Value     | `newValue`           | Multiple lines of text | No       | No      | No                 | Text representation                               | Value after mutation.                           |
@@ -139,7 +139,7 @@ Maintains an immutable record of all modifications to proposals for governance c
 
 Go to **List Settings -> Indexed Columns -> Create a new index**:
 
-1. `cerPrNo`
+1. `cerPrId`
 2. `fieldName`
 3. `userEmail`
 4. `timestamp`
@@ -153,8 +153,8 @@ Maintains sequential historical commentary recorded by approvers and initiators.
 
 | Display Name  | Internal Column Name | SharePoint Field Type  | Required | Unique? | Indexed?           | Choices / Format / Constraints | Business Description                            |
 | ------------- | -------------------- | ---------------------- | -------- | ------- | ------------------ | ------------------------------ | ----------------------------------------------- |
-| **Title**     | `Title`              | Single line of text    | Yes      | No      | **Yes (Built-in)** | CER PR Number (`cerPrNo`)      | Links remark to proposal.                       |
-| CER PR Number | `cerPrNo`            | Single line of text    | Yes      | No      | **Yes**            | Indexed text                   | Proposal identifier.                            |
+| **Title**           | `Title`              | Single line of text    | Yes      | No      | **Yes (Built-in)** | CER Proposal ID (`cerPrId`)    | Links remark to proposal.                       |
+| **CER Proposal ID** | **`cerPrId`**        | **Single line of text**| **Yes**  | No      | **Yes**            | **Indexed text**               | **Proposal identifier (foreign key).**          |
 | Step Number   | `stepNumber`         | Number                 | Yes      | No      | **Yes**            | Integer (1..N)                 | Workflow stage at which remark was logged.      |
 | Remark Text   | `remarkText`         | Multiple lines of text | Yes      | No      | No                 | Plain text                     | Verbatim commentary from approver or initiator. |
 | Author Name   | `createdByUser`      | Single line of text    | Yes      | No      | No                 | Full Display Name              | Display name of comment author.                 |
@@ -166,7 +166,7 @@ Maintains sequential historical commentary recorded by approvers and initiators.
 
 Go to **List Settings -> Indexed Columns -> Create a new index**:
 
-1. `cerPrNo`
+1. `cerPrId`
 2. `stepNumber`
 3. `timestamp`
 4. `stageRole`
@@ -208,8 +208,8 @@ Captures formal sign-off records by approvers with timestamps and outcomes.
 
 | Display Name  | Internal Column Name | SharePoint Field Type  | Required | Unique? | Indexed?           | Choices / Format / Constraints    | Business Description                                                                                                                                                |
 | ------------- | -------------------- | ---------------------- | -------- | ------- | ------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Title**     | `Title`              | Single line of text    | Yes      | No      | **Yes (Built-in)** | CER PR Number (`cerPrNo`)         | Links decision to proposal.                                                                                                                                         |
-| CER PR Number | `cerPrNo`            | Single line of text    | Yes      | No      | **Yes**            | Indexed text                      | Proposal identifier.                                                                                                                                                |
+| **Title**           | `Title`              | Single line of text    | Yes      | No      | **Yes (Built-in)** | CER Proposal ID (`cerPrId`)       | Links decision to proposal.                                                                                                                                         |
+| **CER Proposal ID** | **`cerPrId`**        | **Single line of text**| **Yes**  | No      | **Yes**            | **Indexed text**                  | **Proposal identifier (foreign key).**                                                                                                                              |
 | Level ID      | `levelId`            | Number                 | Yes      | No      | **Yes**            | Integer (1..N)                    | Workflow stage decided.                                                                                                                                             |
 | Decision      | `decision`           | Choice                 | Yes      | No      | **Yes**            | `Approved`, `Rejected`            | Outcome of approver evaluation.                                                                                                                                     |
 | **Approver**  | **`approver`**       | **Person or Group**    | **Yes**  | No      | **Yes**            | **`SPFieldUser` (Single)**        | **Native SharePoint Person column.** (Or relies on built-in `Author`). Stores approver's full M365 identity, email, and presence. Eliminates redundant text fields. |
@@ -223,7 +223,7 @@ _(Note: Columns `approverName` and `approverEmail` are replaced by the Person fi
 
 Go to **List Settings -> Indexed Columns -> Create a new index**:
 
-1. `cerPrNo`
+1. `cerPrId`
 2. `levelId`
 3. `decision`
 4. `approver` (Person or Group)
@@ -238,7 +238,7 @@ Document library storing all supporting project files.
 | Display Name    | Internal Column Name | SharePoint Field Type | Required | Unique?          | Indexed?           | Choices / Format / Constraints                 | Business Description                                                                                                                                                                                                                                                  |
 | --------------- | -------------------- | --------------------- | -------- | ---------------- | ------------------ | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Name**        | `FileLeafRef`        | File Leaf             | System   | **Yes (Folder)** | **Yes (Built-in)** | Valid filename (.pdf, .xlsx, .docx, .png)      | Uploaded physical document filename.                                                                                                                                                                                                                                  |
-| CER PR Number   | `cerPrNo`            | Single line of text   | Yes      | No               | **Yes**            | Indexed text                                   | Links attachment to specific CER proposal.                                                                                                                                                                                                                            |
+| **CER Proposal ID** | **`cerPrId`**        | **Single line of text** | **Yes**  | No               | **Yes**            | **Indexed text**                               | **Links attachment to specific CER proposal (foreign key).**                                                                                                                                                                          |
 | Category        | `category`           | Choice                | Yes      | No               | **Yes**            | `Technical`, `Financial`, `Quotation`, `Other` | Classification of uploaded document.                                                                                                                                                                                                                                  |
 | **Uploaded By** | **`uploadedBy`**     | **Person or Group**   | **Yes**  | No               | **Yes**            | **`SPFieldUser` (Single)**                     | **Native SharePoint Person column.** Populated via `uploadedById: <IntegerId>` obtained from `ensureUser`. Provides uploader Display Name (`uploadedBy/Title`), Corporate Email (`uploadedBy/EMail`), presence, and M365 profile card (replaces plain text uploader). |
 | Upload Date     | `uploadDate`         | Date and Time         | Yes      | No               | **Yes**            | DateTime (ISO 8601)                            | Timestamp of upload.                                                                                                                                                                                                                                                  |
@@ -248,7 +248,7 @@ Document library storing all supporting project files.
 
 Go to **Library Settings -> Indexed Columns -> Create a new index**:
 
-1. `cerPrNo`
+1. `cerPrId`
 2. `category`
 3. `uploadedBy`
 4. `uploadDate`
@@ -261,8 +261,8 @@ Audit log of all system-generated email notifications dispatched to stakeholders
 
 | Display Name  | Internal Column Name | SharePoint Field Type  | Required | Unique? | Indexed?           | Choices / Format / Constraints          | Business Description                                 |
 | ------------- | -------------------- | ---------------------- | -------- | ------- | ------------------ | --------------------------------------- | ---------------------------------------------------- |
-| **Title**     | `Title`              | Single line of text    | Yes      | No      | **Yes (Built-in)** | CER PR Number (`cerPrNo`)               | Links notification to proposal.                      |
-| CER PR Number | `cerPrNo`            | Single line of text    | Yes      | No      | **Yes**            | Indexed text                            | Proposal identifier.                                 |
+| **Title**           | `Title`              | Single line of text    | Yes      | No      | **Yes (Built-in)** | CER Proposal ID (`cerPrId`)             | Links notification to proposal.                      |
+| **CER Proposal ID** | **`cerPrId`**        | **Single line of text**| **Yes**  | No      | **Yes**            | **Indexed text**                        | **Proposal identifier (foreign key).**               |
 | Recipients    | `recipients`         | Multiple lines of text | Yes      | No      | No                 | Semicolon-delimited emails              | Corporate email addresses of all message recipients. |
 | Subject       | `subject`            | Single line of text    | Yes      | No      | No                 | Email subject line                      | Notification email subject line.                     |
 | Body Preview  | `bodyPreview`        | Multiple lines of text | No       | No      | No                 | Summary text                            | Snippet or full text of notification message.        |
@@ -273,7 +273,7 @@ Audit log of all system-generated email notifications dispatched to stakeholders
 
 Go to **List Settings -> Indexed Columns -> Create a new index**:
 
-1. `cerPrNo`
+1. `cerPrId`
 2. `triggerEvent`
 
 ---
