@@ -94,7 +94,7 @@ const SEED_PROPOSALS: ICERProposal[] = [
     pending_with_role: "Head of Corporate Finance",
     pending_with_email: "sunil.verma@vedanta.co.in",
     created_date: "2026-03-10T10:15:00Z",
-    created_by: "Shiven Pandit",
+    created_by: "Demo Initiator",
     modified_date: "2026-03-12T14:30:00Z",
     modified_by: "Rajesh Sharma",
     revision_count: 1
@@ -398,7 +398,7 @@ export class LocalMockCERDataService implements ICERDataService {
             remarks_text: "Initial polymer expansion proposal for Mangala.",
             remarks_type: "REMARKS",
             word_count: 7,
-            created_by: "Shiven Pandit",
+            created_by: "Demo Initiator",
             created_date: "2026-03-10T10:15:00Z"
           },
           {
@@ -408,7 +408,7 @@ export class LocalMockCERDataService implements ICERDataService {
             remarks_text: SEED_PROPOSALS[0].remarks,
             remarks_type: "REMARKS",
             word_count: SEED_PROPOSALS[0].remarks.split(/\s+/).filter(Boolean).length,
-            created_by: "Shiven Pandit",
+            created_by: "Demo Initiator",
             created_date: "2026-03-12T14:30:15Z"
           }
         ];
@@ -426,7 +426,7 @@ export class LocalMockCERDataService implements ICERDataService {
             name: "Mangala_EOR_Reservoir_Simulation_Report.pdf",
             size: 4280000,
             type: "application/pdf",
-            uploaded_by: "Shiven Pandit",
+            uploaded_by: "Demo Initiator",
             uploaded_date: "2026-03-10T10:18:00Z"
           },
           {
@@ -435,7 +435,7 @@ export class LocalMockCERDataService implements ICERDataService {
             name: "ONGC_Partner_OCM48_Consent_Resolution.pdf",
             size: 1120000,
             type: "application/pdf",
-            uploaded_by: "Shiven Pandit",
+            uploaded_by: "Demo Initiator",
             uploaded_date: "2026-03-11T09:40:00Z"
           },
           {

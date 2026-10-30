@@ -344,8 +344,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                 setOwnerFilter(e.target.value);
                 pagination.setCurrentPage(1);
               }}
-              placeholder="e.g. Shiven..."
-              className="w-full px-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
+              className="w-full px-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
             />
           </div>
 

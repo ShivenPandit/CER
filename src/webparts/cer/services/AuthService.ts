@@ -85,7 +85,7 @@ export function checkUserHierarchyAdminAccess(
       }
     }
 
-    // 5. Clean display name match (e.g. "Shiven Pandit" vs "Shiven Pandit (Microlink)")
+    // 5. Clean display name match (e.g. "Full Name" vs "Full Name (Vendor)")
     if (cleanName && cleanName.length >= 3) {
       const hCleanName = cleanH.replace(/\s*\(.*?\)\s*/g, "").replace(/\s+/g, " ").trim();
       if (hCleanName === cleanName || cleanH === rawName) {

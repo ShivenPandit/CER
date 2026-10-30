@@ -2945,7 +2945,7 @@ export class SharePointCERDataService implements ICERDataService {
 
           if (userName) {
             activeAdmins.push(userName.toLowerCase());
-            // Strip parenthetical vendor or team annotations, e.g. "Shiven Pandit (Microlink)" -> "shiven pandit"
+            // Strip parenthetical vendor or team annotations, e.g. "Full Name (Vendor)" -> "full name"
             const strippedName = userName.replace(/\s*\(.*?\)\s*/g, "").replace(/\s+/g, " ").trim().toLowerCase();
             if (strippedName) {
               activeAdmins.push(strippedName);
