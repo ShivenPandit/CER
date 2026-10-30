@@ -202,7 +202,7 @@ export class SharePointCERDataService implements ICERDataService {
           }
           const mapped = items
             .filter((item: Record<string, unknown>) => {
-              const no = String(item.cerPrNo || item.cerprno || item.Title || "");
+              const no = String(item.cerPrId || item.cerPrNo || item.cerprno || item.Title || "");
               const status = String(item.Status || item.cerStatus || item.status || "");
               return !no.toUpperCase().startsWith("CER-COUNTER-") && status !== "SystemCounter";
             })
@@ -287,7 +287,7 @@ export class SharePointCERDataService implements ICERDataService {
 
         const mapped = items
           .filter((item: Record<string, unknown>) => {
-            const no = String(item.cerPrNo || item.cerprno || item.Title || "");
+            const no = String(item.cerPrId || item.cerPrNo || item.cerprno || item.Title || "");
             const status = String(item.Status || item.cerStatus || item.status || "");
             return !no.toUpperCase().startsWith("CER-COUNTER-") && status !== "SystemCounter";
           })
@@ -350,7 +350,7 @@ export class SharePointCERDataService implements ICERDataService {
           // Tier 1: With full Person & System expansion (cerOwner, Author, Editor)
           try {
             items = await this._sp.getListItems(listName, {
-              filter: `cerPrNo eq '${cerprno}'`,
+              filter: `cerPrId eq '${cerprno}' or proposalNo eq '${cerprno}' or Title eq '${cerprno}' or cerPrNo eq '${cerprno}'`,
               orderby: "Modified desc",
               expand: "cerOwner,Author,Editor",
               select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
@@ -360,7 +360,7 @@ export class SharePointCERDataService implements ICERDataService {
             // Tier 2: With cerOwner only
             try {
               items = await this._sp.getListItems(listName, {
-                filter: `cerPrNo eq '${cerprno}'`,
+                filter: `cerPrId eq '${cerprno}' or Title eq '${cerprno}' or proposalNo eq '${cerprno}'`,
                 orderby: "Modified desc",
                 expand: "cerOwner",
                 select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name",
@@ -376,7 +376,12 @@ export class SharePointCERDataService implements ICERDataService {
                   select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
                 });
                 items = allItems.filter(
-                  (it: any) => (it.cerPrNo || it.Title) === cerprno,
+                  (it: any) =>
+                    (it.cerPrId && it.cerPrId === cerprno) ||
+                    (it.cerPrNo && it.cerPrNo === cerprno) ||
+                    it.Title === cerprno ||
+                    (it.proposalNo && it.proposalNo === cerprno) ||
+                    (it.proposal_no && it.proposal_no === cerprno),
                 );
               } catch (t3Err) {
                 items = [];
@@ -434,24 +439,24 @@ export class SharePointCERDataService implements ICERDataService {
         let counterItems: any[] = [];
         try {
           counterItems = await this._sp.getListItems(listName, {
-            filter: `cerPrNo eq '${counterIdentifier}'`,
-            select: "Id,Title,cerPrNo,amount,revision_count",
+            filter: `cerPrId eq '${counterIdentifier}' or Title eq '${counterIdentifier}'`,
+            select: "Id,Title,cerPrId,amount,revision_count",
             top: 1,
           });
         } catch {
           try {
             counterItems = await this._sp.getListItems(listName, {
               filter: `Title eq '${counterIdentifier}'`,
-              select: "Id,Title,cerPrNo,amount,revision_count",
+              select: "Id,Title,cerPrId,amount,revision_count",
               top: 1,
             });
           } catch {
             const allItems = await this._sp.getListItems<any>(listName, {
-              select: "Id,Title,cerPrNo,amount,revision_count",
+              select: "Id,Title,cerPrId,amount,revision_count",
               top: 500,
             });
             counterItems = allItems.filter(
-              (it) => it.cerPrNo === counterIdentifier || it.Title === counterIdentifier,
+              (it) => it.cerPrId === counterIdentifier || it.cerPrNo === counterIdentifier || it.Title === counterIdentifier,
             );
           }
         }
@@ -463,12 +468,12 @@ export class SharePointCERDataService implements ICERDataService {
           let highest = 0;
           try {
             const existingItems = await this._sp.getListItems<any>(listName, {
-              select: "Id,Title,cerPrNo",
+              select: "Id,Title,cerPrId,proposalNo",
               top: 2000,
               orderby: "Created desc",
             });
             for (const item of existingItems) {
-              const no = String(item.cerPrNo || item.cerprno || item.Title || "");
+              const no = String(item.cerPrId || item.cerPrNo || item.cerprno || item.Title || "");
               if (no.startsWith(prefix) && !no.startsWith("CER-COUNTER-")) {
                 const numPart = parseInt(no.replace(prefix, ""), 10);
                 if (!isNaN(numPart) && numPart > highest) {
@@ -485,7 +490,7 @@ export class SharePointCERDataService implements ICERDataService {
               listName,
               {
                 Title: counterIdentifier,
-                cerPrNo: counterIdentifier,
+                cerPrId: counterIdentifier,
                 amount: highest,
                 revision_count: highest,
                 status: "SystemCounter",
@@ -497,8 +502,8 @@ export class SharePointCERDataService implements ICERDataService {
 
             // Re-fetch counter item to acquire assigned ETag
             counterItems = await this._sp.getListItems(listName, {
-              filter: `cerPrNo eq '${counterIdentifier}'`,
-              select: "Id,Title,cerPrNo,amount,revision_count",
+              filter: `cerPrId eq '${counterIdentifier}' or Title eq '${counterIdentifier}'`,
+              select: "Id,Title,cerPrId,amount,revision_count",
               top: 1,
             });
             counterItem =
@@ -581,6 +586,13 @@ export class SharePointCERDataService implements ICERDataService {
   ): Promise<{ success: boolean; message: string; proposal: ICERProposal }> {
     const now = new Date().toISOString();
     const isDraft = proposal.status === "Draft";
+
+    // Validate mandatory user-entered CER Proposal No
+    const effectiveProposalNo = (proposal.proposal_no || proposal.cerprno || "").trim();
+    if (!effectiveProposalNo) {
+      throw new Error("CER Proposal No is required.");
+    }
+
     const activeLevels = await this.getWorkflowLevels(proposal.sbu);
     if (!isDraft && activeLevels.length === 0) {
       throw new Error(`No approval stages configured for SBU '${proposal.sbu}'. Please configure workflow levels in Admin settings.`);
@@ -592,8 +604,24 @@ export class SharePointCERDataService implements ICERDataService {
       throw new Error(`Cannot route to Project Owner: Proposal Owner Email ('${proposal.owner_email || ""}') is missing or invalid.`);
     }
 
+    // Allocate permanent, immutable CER Proposal ID in CER-YYYY-NNNN format using atomic CAS counter
+    let permanentId = (proposal.cer_proposal_id || proposal.cerprno || "").trim();
+    const isPermanentIdValid =
+      Boolean(proposal.id) &&
+      permanentId.startsWith("CER-") &&
+      !permanentId.startsWith("CER-COUNTER-") &&
+      /^CER-\d{4}-\d{4}$/.test(permanentId);
+
+    if (!isPermanentIdValid) {
+      // Allocate fresh sequence using SharePoint atomic CAS allocator
+      permanentId = await this.generateProposalNumber();
+    }
+
     const newProposal: ICERProposal = {
       ...proposal,
+      proposal_no: effectiveProposalNo,
+      cer_proposal_id: permanentId,
+      cerprno: permanentId,
       status: isDraft ? "Draft" : "In Approval",
       current_level: isDraft ? 0 : 1,
       pending_with_role: isDraft ? "Draft" : (activeL1 ? activeL1.role_title : "L1 - Technical Review"),
@@ -602,6 +630,27 @@ export class SharePointCERDataService implements ICERDataService {
       modified_date: now,
       revision_count: proposal.revision_count || 0,
     };
+
+    // Enforce uniqueness of user-entered CER Proposal No against existing records
+    try {
+      const allExisting = await this.getAllProposals(false);
+      const duplicate = allExisting.find(
+        (p) =>
+          p.id !== newProposal.id &&
+          ((p.proposal_no && p.proposal_no.trim().toLowerCase() === effectiveProposalNo.toLowerCase()) ||
+           (p.cerprno && p.cerprno.trim().toLowerCase() === effectiveProposalNo.toLowerCase()))
+      );
+      if (duplicate) {
+        throw new Error(
+          `CER Proposal No. '${effectiveProposalNo}' already exists in SharePoint. Proposal numbers must be unique.`
+        );
+      }
+    } catch (dupCheckErr: any) {
+      if (String(dupCheckErr?.message || "").includes("already exists")) {
+        throw dupCheckErr;
+      }
+      // If fetching all proposals fails, continue to list item uniqueness check
+    }
 
     let ownerSpUserId: number | null = null;
     if (newProposal.owner_email || newProposal.owname) {
@@ -634,17 +683,17 @@ export class SharePointCERDataService implements ICERDataService {
     try {
       try {
         existingItems = await this._sp.getListItems<{ Id: number; Status?: string; cerStatus?: string }>(targetListName, {
-          filter: `cerPrNo eq '${newProposal.cerprno}'`,
+          filter: `cerPrId eq '${newProposal.cerprno}' or Title eq '${newProposal.cerprno}'`,
           select: "Id,Status,cerStatus",
           top: 1,
         });
       } catch {
         const allItems = await this._sp.getListItems<any>(targetListName, {
-          select: "Id,cerPrNo,Title,Status,cerStatus",
+          select: "Id,cerPrId,Title,Status,cerStatus",
           top: 500,
         });
         existingItems = allItems.filter(
-          (it: any) => (it.cerPrNo || it.Title) === newProposal.cerprno
+          (it: any) => (it.cerPrId && it.cerPrId === newProposal.cerprno) || (it.cerPrNo && it.cerPrNo === newProposal.cerprno) || it.Title === newProposal.cerprno
         );
       }
     } catch (queryErr) {
@@ -742,8 +791,8 @@ export class SharePointCERDataService implements ICERDataService {
         reconcileFn: async () => {
           try {
             const query = await this._sp.getListItems<{ Id: number }>(listName, {
-              filter: `cerPrNo eq '${newProposal.cerprno}'`,
-              select: "Id,cerPrNo",
+              filter: `cerPrId eq '${newProposal.cerprno}' or Title eq '${newProposal.cerprno}'`,
+              select: "Id,Title",
               top: 1,
             });
             return query && query.length > 0 ? { Id: query[0].Id } : null;
@@ -915,8 +964,18 @@ export class SharePointCERDataService implements ICERDataService {
       nextEmail = isL1PO ? (proposal.owner_email || "") : (activeL1 ? (activeL1.approver_email || "") : "");
     }
 
+    // Preserve permanent CER Proposal ID: cannot be altered or overridden by client update
+    const permanentId = original.cer_proposal_id || original.cerprno;
+    const effectiveProposalNo = (proposal.proposal_no || original.proposal_no || original.cerprno || "").trim();
+    if (!effectiveProposalNo) {
+      throw new Error("CER Proposal No is required.");
+    }
+
     const updatedProposal: ICERProposal = {
       ...proposal,
+      proposal_no: effectiveProposalNo,
+      cer_proposal_id: permanentId,
+      cerprno: permanentId,
       status: nextStatus,
       current_level: nextLevel,
       pending_with_role: nextRole,
@@ -932,17 +991,17 @@ export class SharePointCERDataService implements ICERDataService {
     try {
       try {
         existingItems = await this._sp.getListItems<{ Id: number }>(targetListName, {
-          filter: `cerPrNo eq '${proposal.cerprno}'`,
+          filter: `cerPrId eq '${proposal.cerprno}' or Title eq '${proposal.cerprno}'`,
           select: "Id",
           top: 1,
         });
       } catch {
         const allItems = await this._sp.getListItems<any>(targetListName, {
-          select: "Id,cerPrNo,Title",
+          select: "Id,cerPrId,Title",
           top: 500,
         });
         existingItems = allItems.filter(
-          (it: any) => (it.cerPrNo || it.Title) === proposal.cerprno
+          (it: any) => (it.cerPrId && it.cerPrId === proposal.cerprno) || (it.cerPrNo && it.cerPrNo === proposal.cerprno) || it.Title === proposal.cerprno
         );
       }
     } catch {
@@ -1079,7 +1138,7 @@ export class SharePointCERDataService implements ICERDataService {
         if (cerprno) {
           try {
             items = await fetchItems({
-              filter: `cerPrNo eq '${cerprno}'`,
+              filter: `cerPrId eq '${cerprno}' or cerPrNo eq '${cerprno}' or Title eq '${cerprno}'`,
               top: 500,
               orderby: "Created desc",
             });
@@ -1088,7 +1147,7 @@ export class SharePointCERDataService implements ICERDataService {
               top: 500,
               orderby: "Created desc",
             });
-            items = allItems.filter((it: any) => (it.cerPrNo || it.Title) === cerprno);
+            items = allItems.filter((it: any) => (it.cerPrId && it.cerPrId === cerprno) || (it.cerPrNo && it.cerPrNo === cerprno) || it.Title === cerprno);
           }
         } else {
           items = await fetchItems({
@@ -1103,7 +1162,7 @@ export class SharePointCERDataService implements ICERDataService {
           const auditTime = formatLocalTime(rawTimestamp) || item.audit_time || "";
           return {
             id: String(item.Id || item.id),
-            cerprno: item.cerPrNo || item.cerprno || item.Title || "",
+            cerprno: item.cerPrId || item.cerPrNo || item.cerprno || item.Title || "",
             field_name: item.fieldName || item.field_name || "",
             field_desc: item.fieldName || item.field_desc || AUDIT_FIELD_DESCRIPTIONS[item.fieldName || item.field_name] || item.fieldName || item.field_name,
             old_value: item.oldValue || item.old_value || "",
@@ -1135,9 +1194,9 @@ export class SharePointCERDataService implements ICERDataService {
 
   private async _createAuditRecord(record: ICERAuditRecord): Promise<void> {
     const candidateLists = [SP_LISTS.CER_AUDIT_TRAIL];
-    const modernPayload = {
+    const modernPayload: any = {
       Title: record.cerprno,
-      cerPrNo: record.cerprno,
+      cerPrId: record.cerprno,
       fieldName: record.field_name,
       oldValue: record.old_value,
       newValue: record.new_value,
@@ -1189,7 +1248,7 @@ export class SharePointCERDataService implements ICERDataService {
         let items: Record<string, any>[] = [];
         try {
           items = await this._sp.getListItems<Record<string, any>>(listName, {
-            filter: `cerPrNo eq '${cerprno}'`,
+            filter: `cerPrId eq '${cerprno}' or cerPrNo eq '${cerprno}' or Title eq '${cerprno}'`,
             top: 100,
             orderby: "Created desc",
           });
@@ -1198,12 +1257,12 @@ export class SharePointCERDataService implements ICERDataService {
             top: 100,
             orderby: "Created desc",
           });
-          items = allItems.filter((it: any) => (it.cerPrNo || it.Title) === cerprno);
+          items = allItems.filter((it: any) => (it.cerPrId && it.cerPrId === cerprno) || (it.cerPrNo && it.cerPrNo === cerprno) || it.Title === cerprno);
         }
 
         return items.map((item) => ({
           id: String(item.Id || item.id),
-          cerprno: item.cerPrNo || item.cerprno || item.Title,
+          cerprno: item.cerPrId || item.cerPrNo || item.cerprno || item.Title,
           version: Number(item.stepNumber || item.version || 1),
           remarks_text: item.remarkText || item.remarks_text || "",
           remarks_type: item.remarks_type || "REMARKS",
@@ -1232,9 +1291,9 @@ export class SharePointCERDataService implements ICERDataService {
     createdBy: string,
   ): Promise<void> {
     const candidateLists = [SP_LISTS.CER_REMARKS_HISTORY];
-    const modernPayload = {
+    const modernPayload: any = {
       Title: cerprno,
-      cerPrNo: cerprno,
+      cerPrId: cerprno,
       stepNumber: version,
       remarkText: remarksText,
       createdByUser: createdBy,
@@ -1560,11 +1619,11 @@ export class SharePointCERDataService implements ICERDataService {
       for (const listName of candidateLists) {
         try {
           let items: Record<string, any>[] = [];
-          // Tier 1: Modern schema with linking column cerPrNo, Author & approver Person fields expanded
+          // Tier 1: Modern schema with linking column cerPrId / cerPrNo, Author & approver Person fields expanded
           try {
             items = await this._sp.getListItems<Record<string, any>>(listName, {
-              filter: `cerPrNo eq '${cerprno}'`,
-              select: "Id,Title,cerPrNo,levelId,decision,remarks,decidedAt,Created,Author/Id,Author/Title,Author/EMail,approver/Id,approver/Title,approver/EMail",
+              filter: `cerPrId eq '${cerprno}' or cerPrNo eq '${cerprno}' or Title eq '${cerprno}'`,
+              select: "Id,Title,cerPrId,cerPrNo,levelId,decision,remarks,decidedAt,Created,Author/Id,Author/Title,Author/EMail,approver/Id,approver/Title,approver/EMail",
               expand: "Author,approver",
               top: 100,
               orderby: "Created desc",
@@ -1573,23 +1632,23 @@ export class SharePointCERDataService implements ICERDataService {
             // Tier 2: Query by linking column cerPrNo with Author expanded (built-in SharePoint field)
             try {
               items = await this._sp.getListItems<Record<string, any>>(listName, {
-                filter: `cerPrNo eq '${cerprno}'`,
-                select: "Id,Title,cerPrNo,levelId,decision,remarks,decidedAt,Created,Author/Id,Author/Title,Author/EMail",
+                filter: `cerPrId eq '${cerprno}' or cerPrNo eq '${cerprno}' or Title eq '${cerprno}'`,
+                select: "Id,Title,cerPrId,cerPrNo,levelId,decision,remarks,decidedAt,Created,Author/Id,Author/Title,Author/EMail",
                 expand: "Author",
                 top: 100,
                 orderby: "Created desc",
               });
             } catch {
-              // Tier 3: Fetch recent list items and match by cerPrNo in memory with Author expanded
+              // Tier 3: Fetch recent list items and match by cerPrId/cerPrNo/Title in memory with Author expanded
               try {
                 const allItems = await this._sp.getListItems<Record<string, any>>(listName, {
-                  select: "Id,Title,cerPrNo,levelId,decision,remarks,decidedAt,Created,Author/Id,Author/Title,Author/EMail",
+                  select: "Id,Title,cerPrId,cerPrNo,levelId,decision,remarks,decidedAt,Created,Author/Id,Author/Title,Author/EMail",
                   expand: "Author",
                   top: 100,
                   orderby: "Created desc",
                 });
                 items = allItems.filter(
-                  (it: any) => (it.cerPrNo || it.Title) === cerprno
+                  (it: any) => (it.cerPrId && it.cerPrId === cerprno) || (it.cerPrNo && it.cerPrNo === cerprno) || it.Title === cerprno
                 );
               } catch {
                 try {
@@ -1598,7 +1657,7 @@ export class SharePointCERDataService implements ICERDataService {
                     orderby: "Created desc",
                   });
                   items = allItems.filter(
-                    (it: any) => (it.cerPrNo || it.Title) === cerprno
+                    (it: any) => (it.cerPrId && it.cerPrId === cerprno) || (it.cerPrNo && it.cerPrNo === cerprno) || it.Title === cerprno
                   );
                 } catch {
                   items = [];
@@ -1628,7 +1687,7 @@ export class SharePointCERDataService implements ICERDataService {
 
             return {
               id: String(item.Id || item.id),
-              cerprno: item.cerPrNo || item.cerprno || item.Title,
+              cerprno: item.cerPrId || item.cerPrNo || item.cerprno || item.Title,
               level_id: levelId,
               level_name: item.level_name || `Level ${levelId}`,
               approver_name: approverName,
@@ -1771,16 +1830,16 @@ export class SharePointCERDataService implements ICERDataService {
         let items: Array<{ Id: number; sbu?: string; owner_email?: string }> = [];
         try {
           items = await this._sp.getListItems<{ Id: number; sbu?: string; owner_email?: string }>(listName, {
-            filter: `cerPrNo eq '${params.cerprno}'`,
+            filter: `cerPrId eq '${params.cerprno}' or cerPrNo eq '${params.cerprno}' or Title eq '${params.cerprno}'`,
             top: 1,
           });
         } catch {
           const allItems = await this._sp.getListItems<any>(listName, {
-            select: "Id,cerPrNo,Title,sbu,owner_email",
+            select: "Id,cerPrId,cerPrNo,Title,sbu,owner_email",
             top: 500,
           });
           items = allItems.filter(
-            (it: any) => (it.cerPrNo || it.Title) === params.cerprno
+            (it: any) => (it.cerPrId && it.cerPrId === params.cerprno) || (it.cerPrNo && it.cerPrNo === params.cerprno) || it.Title === params.cerprno
           );
         }
         if (items.length > 0) {
@@ -1844,7 +1903,7 @@ export class SharePointCERDataService implements ICERDataService {
     // 4. Primary write 1: Post decision record to CERApprovalDecisions (with fallback)
     const modernDecisionPayload: Record<string, any> = {
       Title: params.cerprno,
-      cerPrNo: params.cerprno,
+      cerPrId: params.cerprno,
       levelId: params.level_id,
       decision: params.decision === "REJECTED" ? "Rejected" : params.decision === "SENT_BACK" ? "Sent Back" : "Approved",
       remarks: params.comments || "",
@@ -1879,7 +1938,7 @@ export class SharePointCERDataService implements ICERDataService {
         reconcileFn: async () => {
           try {
             const query = await this._sp.getListItems<any>(dList, {
-              filter: `cerPrNo eq '${params.cerprno}' and level_id eq ${params.level_id}`,
+              filter: `(cerPrId eq '${params.cerprno}' or cerPrNo eq '${params.cerprno}' or Title eq '${params.cerprno}') and level_id eq ${params.level_id}`,
               select: "Id,cerPrNo,level_id",
               top: 1,
             });
@@ -2062,25 +2121,25 @@ export class SharePointCERDataService implements ICERDataService {
       for (const libName of candidateLists) {
         try {
           let items: Record<string, any>[] = [];
-          // Tier 1: Query by cerPrNo with File and uploadedBy expanded
+          // Tier 1: Query by cerPrId/cerPrNo with File and uploadedBy expanded
           try {
             items = await this._sp.getListItems<Record<string, any>>(libName, {
-              filter: `cerPrNo eq '${cerprno}'`,
-              select: "Id,FileLeafRef,FileRef,cerPrNo,category,uploadDate,Created,File/ServerRelativeUrl,File/Length,uploadedBy/Id,uploadedBy/Title,uploadedBy/EMail",
+              filter: `cerPrId eq '${cerprno}' or cerPrNo eq '${cerprno}'`,
+              select: "Id,FileLeafRef,FileRef,cerPrId,cerPrNo,category,uploadDate,Created,File/ServerRelativeUrl,File/Length,uploadedBy/Id,uploadedBy/Title,uploadedBy/EMail",
               expand: "File,uploadedBy",
               top: 100,
             });
           } catch (t1Err) {
-            // Tier 2: Query by cerPrNo with only File expanded
+            // Tier 2: Query by cerPrId/cerPrNo with only File expanded
             try {
               items = await this._sp.getListItems<Record<string, any>>(libName, {
-                filter: `cerPrNo eq '${cerprno}'`,
-                select: "Id,FileLeafRef,FileRef,cerPrNo,category,uploadDate,Created,File/ServerRelativeUrl,File/Length",
+                filter: `cerPrId eq '${cerprno}' or cerPrNo eq '${cerprno}'`,
+                select: "Id,FileLeafRef,FileRef,cerPrId,cerPrNo,category,uploadDate,Created,File/ServerRelativeUrl,File/Length",
                 expand: "File",
                 top: 100,
               });
             } catch (t2Err) {
-              // Tier 3: Query without filter if cerPrNo column isn't indexed or configured, filter in memory
+              // Tier 3: Query without filter if column isn't indexed or configured, filter in memory
               try {
                 items = await this._sp.getListItems<Record<string, any>>(libName, {
                   select: "Id,FileLeafRef,FileRef,Created,File/ServerRelativeUrl,File/Length",
@@ -2089,7 +2148,7 @@ export class SharePointCERDataService implements ICERDataService {
                 });
                 items = items.filter((it) => {
                   const leaf = String(it.FileLeafRef || "");
-                  const cNo = String(it.cerPrNo || it.cerprno || "");
+                  const cNo = String(it.cerPrId || it.cerPrNo || it.cerprno || "");
                   return cNo === cerprno || leaf.startsWith(cerprno) || leaf.includes(cerprno);
                 });
               } catch (t3Err) {
@@ -2099,7 +2158,7 @@ export class SharePointCERDataService implements ICERDataService {
                 });
                 items = items.filter((it) => {
                   const leaf = String(it.FileLeafRef || "");
-                  const cNo = String(it.cerPrNo || it.cerprno || "");
+                  const cNo = String(it.cerPrId || it.cerPrNo || it.cerprno || "");
                   return cNo === cerprno || leaf.startsWith(cerprno) || leaf.includes(cerprno);
                 });
               }
@@ -2114,7 +2173,7 @@ export class SharePointCERDataService implements ICERDataService {
 
             return {
               id: String(item.Id || item.id),
-              cerprno: item.cerPrNo || item.cerprno || cerprno,
+              cerprno: item.cerPrId || item.cerPrNo || item.cerprno || cerprno,
               name: item.FileLeafRef || item.File?.Name || "document",
               size: fileSize,
               type: item.file_type || (item.FileLeafRef && item.FileLeafRef.endsWith(".pdf") ? "application/pdf" : "application/octet-stream"),
@@ -2179,20 +2238,20 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     const modernMetadata: Record<string, any> = {
-      cerPrNo: attachment.cerprno,
+      cerPrId: attachment.cerprno,
       category: attachment.type?.includes("pdf") ? "Technical" : "Other",
       uploadDate: new Date().toISOString(),
       ...(uploadedById ? PersonFieldService.formatPersonFieldPayload("uploadedBy", uploadedById) : {}),
     };
 
     const fallbackMetadata: Record<string, any> = {
-      cerPrNo: attachment.cerprno,
+      cerPrId: attachment.cerprno,
       category: attachment.type?.includes("pdf") ? "Technical" : "Other",
       uploadDate: new Date().toISOString(),
     };
 
     const minimalMetadata: Record<string, any> = {
-      cerPrNo: attachment.cerprno,
+      cerPrId: attachment.cerprno,
     };
 
     const candidateLibraries = [SP_LISTS.CER_ATTACHMENTS];
@@ -2293,7 +2352,7 @@ export class SharePointCERDataService implements ICERDataService {
           if (cerprno) {
             try {
               items = await this._sp.getListItems<Record<string, any>>(listName, {
-                filter: `cerPrNo eq '${cerprno}'`,
+                filter: `cerPrId eq '${cerprno}' or cerPrNo eq '${cerprno}' or Title eq '${cerprno}'`,
                 top: 100,
                 orderby: "Created desc",
               });
@@ -2302,7 +2361,7 @@ export class SharePointCERDataService implements ICERDataService {
                 top: 100,
                 orderby: "Created desc",
               });
-              items = allItems.filter((it: any) => (it.cerPrNo || it.Title) === cerprno);
+              items = allItems.filter((it: any) => (it.cerPrId && it.cerPrId === cerprno) || (it.cerPrNo && it.cerPrNo === cerprno) || it.Title === cerprno);
             }
           } else {
             items = await this._sp.getListItems<Record<string, any>>(listName, {
@@ -2313,7 +2372,7 @@ export class SharePointCERDataService implements ICERDataService {
 
           const result: INotificationLog[] = items.map((item) => ({
             id: String(item.Id || item.id),
-            cerprno: item.cerPrNo || item.cerprno || item.Title,
+            cerprno: item.cerPrId || item.cerPrNo || item.cerprno || item.Title,
             recipients: item.recipients ? item.recipients.split(";").map((s: string) => s.trim()) : [],
             subject: item.subject || "",
             body: item.bodyPreview || item.body || "",
@@ -2356,9 +2415,9 @@ export class SharePointCERDataService implements ICERDataService {
     body: string,
     attachmentsCount: number,
   ): Promise<void> {
-    const modernPayload = {
+    const modernPayload: any = {
       Title: cerprno,
-      cerPrNo: cerprno,
+      cerPrId: cerprno,
       recipients: recipients.join("; "),
       subject: subject,
       bodyPreview: body,
@@ -2412,9 +2471,14 @@ export class SharePointCERDataService implements ICERDataService {
 
   private _mapSharePointItemToProposal(item: any): ICERProposal {
     const ownerPerson = PersonFieldService.extractPersonField(item, "cerOwner") || PersonFieldService.extractPersonField(item, "owname");
+    const cerId = String(item.cerPrId || item.cerPrNo || item.cerprno || item.Title || "");
+    const propNo = String(item.proposalNo || item.proposal_no || item.cerPrId || item.cerPrNo || item.cerprno || item.Title || "");
     return {
       id: String(item.Id || item.id),
-      cerprno: item.cerPrNo || item.cerprno || item.Title,
+      cer_proposal_id: cerId,
+      cerPrId: cerId,
+      proposal_no: propNo,
+      cerprno: cerId,
       pr_name: item.prName || item.pr_name || "",
       owname: ownerPerson?.name || (typeof item.cerOwner === "string" ? item.cerOwner : "") || (typeof item.owname === "string" ? item.owname : "") || item.ownname || (item.Author?.Title ? item.Author.Title : ""),
       owner_email: ownerPerson?.email || item.owner_email || (item.Author?.EMail ? item.Author.EMail : ""),
@@ -2482,9 +2546,13 @@ export class SharePointCERDataService implements ICERDataService {
       return `${val}T00:00:00Z`;
     };
 
+    const cerId = proposal.cer_proposal_id || proposal.cerprno;
+    const propNo = proposal.proposal_no || proposal.cerprno;
+
     return {
-      Title: proposal.cerprno,
-      cerPrNo: proposal.cerprno,
+      Title: cerId,
+      cerPrId: cerId,
+      proposalNo: propNo,
       prName: proposal.pr_name,
       sbu: proposal.sbu,
       status: proposal.status,
@@ -2545,9 +2613,13 @@ export class SharePointCERDataService implements ICERDataService {
       return `${val}T00:00:00Z`;
     };
 
+    const cerId = proposal.cer_proposal_id || proposal.cerprno;
+    const propNo = proposal.proposal_no || proposal.cerprno;
+
     return {
-      Title: proposal.cerprno,
-      cerprno: proposal.cerprno,
+      Title: cerId,
+      cerprno: cerId,
+      proposal_no: propNo,
       pr_name: proposal.pr_name,
       owname: proposal.owname,
       owner_email: proposal.owner_email,
@@ -3232,7 +3304,7 @@ export class SharePointCERDataService implements ICERDataService {
         actor_email: item.userEmail || item.actor_email || "",
         action: item.actionType || item.action || "UPDATE",
         target_type: item.fieldName || item.target_type || "SETTINGS",
-        target_id: item.cerPrNo || item.target_id || "",
+        target_id: item.cerPrId || item.cerPrNo || item.target_id || "",
         details: item.fieldName ? `Field '${item.fieldName}' changed from '${item.oldValue || ""}' to '${item.newValue || ""}'` : (item.details || ""),
         before_value: item.oldValue || item.before_value || "",
         after_value: item.newValue || item.after_value || "",
@@ -3244,9 +3316,9 @@ export class SharePointCERDataService implements ICERDataService {
   }
 
   public async logAdminAudit(record: Omit<IAdminAuditRecord, "id">): Promise<void> {
-    const payload = {
+    const payload: any = {
       Title: record.target_id || "ADMIN",
-      cerPrNo: record.target_id || "ADMIN",
+      cerPrId: record.target_id || "ADMIN",
       fieldName: record.target_type || "SETTINGS",
       oldValue: record.before_value || "",
       newValue: record.after_value || record.details || "",

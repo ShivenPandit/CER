@@ -5,7 +5,7 @@ export type FormErrors = Partial<Record<keyof ICERProposal | "phasing_mismatch" 
 // Exactly the 14 mandatory fields mandated by client requirements
 export const MANDATORY_CER_FIELDS: (keyof ICERProposal)[] = [
   "pr_name",           // 1. Name of the Project
-  "cerprno",           // 2. CER Proposal Number
+  "proposal_no",       // 2. CER Proposal No (User-entered business reference)
   "owname",            // 3. CER Owner Name (and owner_email)
   "st_date",           // 4. Start Date of the Project
   "sbu",               // 5. Block/SBU (CBOS, RAVA, RJ North, RJ South)
@@ -77,11 +77,23 @@ export function validateField(
     }
 
     // -------------------------------------------------------------------------------------------
-    // 2. CER Proposal Number (Required and editable by the user)
+    // 2. CER Proposal No (Required user-entered business reference)
     // -------------------------------------------------------------------------------------------
+    case "proposal_no": {
+      const trimmed = String(value || "").trim();
+      if (!trimmed) return "CER Proposal No is required.";
+      if (trimmed.length > 50) return "CER Proposal No must not exceed 50 characters.";
+      const validCharsRegex = /^[a-zA-Z0-9\-_/ ]+$/;
+      if (!validCharsRegex.test(trimmed)) {
+        return "CER Proposal No must contain only alphanumeric characters, hyphens, slashes, or underscores.";
+      }
+      return undefined;
+    }
+
     case "cerprno": {
       const trimmed = String(value || "").trim();
-      if (!trimmed) return "CER Proposal Number is required.";
+      // If proposal_no is provided, cerprno will be assigned as the permanent CER Proposal ID
+      if (!trimmed && !formData.proposal_no) return "CER Proposal No is required.";
       return undefined;
     }
 
@@ -344,7 +356,7 @@ export function validateAll(formData: ICERProposal, isDraft: boolean = false): {
   if (isDraft) {
     // In Draft mode, only validate formats of provided values
     const allFields: (keyof ICERProposal)[] = [
-      "pr_name", "cerprno", "owname", "owner_email", "st_date", "com_date",
+      "pr_name", "proposal_no", "cerprno", "owname", "owner_email", "st_date", "com_date",
       "sbu", "object", "cat", "amount", "payable", "payback_quarters",
       "ben_npv", "ben_irr", "cbudget", "cb_amnt", "reason",
       "jv", "jv_recoverable", "jv_budget", "jv_amnt", "jv_reason",
@@ -359,7 +371,7 @@ export function validateAll(formData: ICERProposal, isDraft: boolean = false): {
     // 1. Enforce the exactly 14 mandatory fields
     const mandatoryFields: (keyof ICERProposal)[] = [
       "pr_name",           // 1. Name of the Project
-      "cerprno",           // 2. CER Proposal Number
+      "proposal_no",       // 2. CER Proposal No
       "owname",            // 3. CER Owner Name
       "owner_email",       // 3b. CER Owner Email
       "st_date",           // 4. Start Date of the Project
@@ -376,7 +388,9 @@ export function validateAll(formData: ICERProposal, isDraft: boolean = false): {
     ];
 
     for (const field of mandatoryFields) {
-      const err = validateField(field, formData[field], formData, false);
+      // Compatibility: if field is proposal_no but proposal_no is empty and cerprno is present, accept cerprno
+      const val = field === "proposal_no" ? (formData.proposal_no || formData.cerprno) : formData[field];
+      const err = validateField(field, val, formData, false);
       if (err) {
         errors[field] = err;
       }

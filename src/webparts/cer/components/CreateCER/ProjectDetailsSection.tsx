@@ -1,5 +1,5 @@
 import React from "react";
-import { FolderGit2, RefreshCw, AlertCircle } from "lucide-react";
+import { FolderGit2, RefreshCw, AlertCircle, Lock } from "lucide-react";
 import { ICERProposal, CERCategory, SBUOption, SBU_OPTIONS, IFieldChoices } from "../../models/CERModel";
 import { ICERDataService } from "../../services/ICERDataService";
 import { LocalMockCERDataService } from "../../services/LocalMockCERDataService";
@@ -83,7 +83,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 text-xs">
         {/* Name of Project */}
-        <div className="md:col-span-2" id="field-pr_name">
+        <div className="col-span-1 md:col-span-2 lg:col-span-1" id="field-pr_name">
           <label htmlFor="pr_name" className="block font-semibold text-slate-700 mb-1">
             Name of Project <span className="text-rose-500">*</span>
           </label>
@@ -111,42 +111,44 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
           )}
         </div>
 
-        {/* CER Proposal No. */}
-        <div id="field-cerprno">
-          <div className="flex items-center justify-between mb-1">
-            <label htmlFor="cerprno" className="font-semibold text-slate-700">
-              CER Proposal No. <span className="text-rose-500">*</span>
-            </label>
-            {!isReadOnly && !isChangeMode && onGenerateNewNumber && (
-              <button
-                type="button"
-                onClick={onGenerateNewNumber}
-                className="text-xs font-semibold text-[#012964] hover:underline flex items-center gap-1"
-                title="Generate fresh unique proposal number"
-              >
-                <RefreshCw className="w-3 h-3" /> Auto
-              </button>
-            )}
-          </div>
+        {/* CER Proposal No. (Mandatory User-Entered Business Reference) */}
+        <div id="field-proposal_no">
+          <label htmlFor="proposal_no" className="block font-semibold text-slate-700 mb-1">
+            CER Proposal No. <span className="text-rose-500">*</span>
+          </label>
           <div className="relative">
             <input
-              id="cerprno"
+              id="proposal_no"
               type="text"
               readOnly={isReadOnly}
               disabled={isReadOnly}
-              value={formData.cerprno}
-              onChange={(e) => onChange("cerprno", e.target.value)}
-              onBlur={() => onBlur && onBlur("cerprno")}
+              value={formData.proposal_no !== undefined ? formData.proposal_no : formData.cerprno || ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                onChange("proposal_no", val);
+                if (!formData.cer_proposal_id) {
+                  onChange("cerprno", val);
+                }
+              }}
+              onBlur={() => {
+                if (onBlur) {
+                  onBlur("proposal_no");
+                  onBlur("cerprno");
+                }
+              }}
               className={`w-full px-3 py-2 rounded-lg font-mono font-semibold transition-colors focus:outline-none ${
                 isReadOnly
                   ? "bg-slate-100 border border-slate-200 text-slate-500 cursor-not-allowed shadow-none"
-                  : getFieldError("cerprno")
+                  : (getFieldError("proposal_no") || getFieldError("cerprno"))
                   ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 text-rose-950"
                   : "bg-white border border-slate-300 hover:border-slate-400 text-slate-900 focus:border-[#012964] focus:ring-2 focus:ring-[#012964]/15"
               }`}
+              placeholder="e.g. PR-RJ-2026-001"
               required
-              aria-invalid={!!getFieldError("cerprno")}
-              aria-describedby={getFieldError("cerprno") ? "cerprno-error" : undefined}
+              aria-invalid={!!(getFieldError("proposal_no") || getFieldError("cerprno"))}
+              aria-describedby={
+                getFieldError("proposal_no") || getFieldError("cerprno") ? "proposal_no-error" : undefined
+              }
             />
             {isCheckingCerNo && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-xs text-slate-400">
@@ -155,16 +157,53 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
               </div>
             )}
           </div>
-          {getFieldError("cerprno") ? (
-            <p id="cerprno-error" className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
+          {(getFieldError("proposal_no") || getFieldError("cerprno")) ? (
+            <p id="proposal_no-error" className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              <span>{getFieldError("cerprno")}</span>
+              <span>{getFieldError("proposal_no") || getFieldError("cerprno")}</span>
             </p>
           ) : (
             <p className="text-[10px] text-slate-400 mt-0.5">
-              Required proposal identifier. Must be unique across all proposals.
+              Mandatory alphanumeric business proposal number. Must be unique.
             </p>
           )}
+        </div>
+
+        {/* CER Proposal ID (Permanent System-Generated Identifier) */}
+        <div id="field-cer_proposal_id">
+          <div className="flex items-center justify-between mb-1">
+            <label htmlFor="cer_proposal_id" className="font-semibold text-slate-700 flex items-center gap-1">
+              <span>CER Proposal ID</span>
+              <span className="text-[10px] text-slate-400 font-normal">(System-Generated)</span>
+            </label>
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+              <Lock className="w-2.5 h-2.5 text-slate-400" />
+              Read-Only
+            </span>
+          </div>
+          <div className="relative">
+            <input
+              id="cer_proposal_id"
+              type="text"
+              readOnly
+              disabled
+              tabIndex={-1}
+              value={
+                formData.cer_proposal_id ||
+                (formData.id && formData.cerprno && formData.cerprno.startsWith("CER-")
+                  ? formData.cerprno
+                  : "Assigned automatically upon creation")
+              }
+              className="w-full px-3 py-2 rounded-lg font-mono text-xs font-semibold bg-slate-100 border border-slate-200 text-slate-600 cursor-not-allowed select-all focus:outline-none"
+              title="System-generated permanent identifier in CER-YYYY-NNNN format. Immutable and read-only."
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+              <Lock className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-0.5">
+            Permanent CER-YYYY-NNNN identifier allocated via atomic counter. Immutable.
+          </p>
         </div>
 
         {/* CER Owner Name — Directory Search */}

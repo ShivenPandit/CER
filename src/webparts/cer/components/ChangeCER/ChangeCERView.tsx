@@ -121,15 +121,13 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
     async (cerNo: string) => {
       const trimmed = (cerNo || "").trim();
       if (!trimmed) return;
-      const originalNo = (originalProposal?.cerprno || "").trim().toUpperCase();
-      if (trimmed.toUpperCase() === originalNo) {
+      const originalPropNo = (originalProposal?.proposal_no || originalProposal?.cerprno || "").trim().toUpperCase();
+      if (trimmed.toUpperCase() === originalPropNo) {
         setErrors((prev) => {
-          if (prev.cerprno && prev.cerprno.includes("already exists")) {
-            const copy = { ...prev };
-            delete copy.cerprno;
-            return copy;
-          }
-          return prev;
+          const copy = { ...prev };
+          if (copy.proposal_no && copy.proposal_no.includes("already exists")) delete copy.proposal_no;
+          if (copy.cerprno && copy.cerprno.includes("already exists")) delete copy.cerprno;
+          return copy;
         });
         return;
       }
@@ -137,20 +135,19 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
       setIsCheckingCerNo(true);
       try {
         const existing = await dataService.getProposalByNumber(trimmed);
-        if (existing && (existing.cerprno || "").trim().toUpperCase() !== originalNo) {
+        if (existing && existing.id !== originalProposal?.id) {
           setErrors((prev) => ({
             ...prev,
+            proposal_no: `CER Proposal No. '${trimmed}' already exists on another project. Please enter a unique number.`,
             cerprno: `CER Proposal No. '${trimmed}' already exists on another project. Please enter a unique number.`,
           }));
-          setTouched((prev) => ({ ...prev, cerprno: true }));
+          setTouched((prev) => ({ ...prev, proposal_no: true, cerprno: true }));
         } else {
           setErrors((prev) => {
-            if (prev.cerprno && prev.cerprno.includes("already exists")) {
-              const copy = { ...prev };
-              delete copy.cerprno;
-              return copy;
-            }
-            return prev;
+            const copy = { ...prev };
+            if (copy.proposal_no && copy.proposal_no.includes("already exists")) delete copy.proposal_no;
+            if (copy.cerprno && copy.cerprno.includes("already exists")) delete copy.cerprno;
+            return copy;
           });
         }
       } catch {
@@ -182,7 +179,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
       return updated;
     });
 
-    if (field === "cerprno") {
+    if (field === "cerprno" || field === "proposal_no") {
       if (cerNoDebounceTimer.current) clearTimeout(cerNoDebounceTimer.current);
       cerNoDebounceTimer.current = setTimeout(() => {
         void checkCerNoUniqueness(value);
@@ -204,8 +201,8 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
       return updated;
     });
 
-    if (field === "cerprno") {
-      void checkCerNoUniqueness(formData.cerprno);
+    if (field === "cerprno" || field === "proposal_no") {
+      void checkCerNoUniqueness(formData.proposal_no || formData.cerprno);
     }
   };
 
@@ -271,27 +268,27 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
     }
 
     // Verify CER Proposal No. uniqueness before saving
-    const trimmedNo = (formData.cerprno || "").trim();
+    const trimmedNo = (formData.proposal_no || formData.cerprno || "").trim();
     if (!trimmedNo) {
-      setErrors((prev) => ({ ...prev, cerprno: "CER Proposal Number is required." }));
-      setTouched((prev) => ({ ...prev, cerprno: true }));
+      setErrors((prev) => ({ ...prev, proposal_no: "CER Proposal Number is required." }));
+      setTouched((prev) => ({ ...prev, proposal_no: true }));
       setErrorMessage("Make an entry in mandatory field 'CER Proposal No.'");
-      scrollToFirstError("cerprno");
+      scrollToFirstError("proposal_no");
       return;
     }
 
-    const originalNo = (originalProposal?.cerprno || "").trim().toUpperCase();
-    if (trimmedNo.toUpperCase() !== originalNo) {
+    const originalPropNo = (originalProposal?.proposal_no || originalProposal?.cerprno || "").trim().toUpperCase();
+    if (trimmedNo.toUpperCase() !== originalPropNo) {
       try {
         const existing = await dataService.getProposalByNumber(trimmedNo);
-        if (existing && (existing.cerprno || "").trim().toUpperCase() !== originalNo) {
+        if (existing && existing.id !== originalProposal?.id) {
           setErrors((prev) => ({
             ...prev,
-            cerprno: `CER Proposal No. '${trimmedNo}' already exists on another project. Please enter a unique number.`,
+            proposal_no: `CER Proposal No. '${trimmedNo}' already exists on another project. Please enter a unique number.`,
           }));
-          setTouched((prev) => ({ ...prev, cerprno: true }));
+          setTouched((prev) => ({ ...prev, proposal_no: true }));
           setErrorMessage(`CER Proposal No. '${trimmedNo}' already exists on another project. Please choose a unique proposal number.`);
-          scrollToFirstError("cerprno");
+          scrollToFirstError("proposal_no");
           return;
         }
       } catch {
@@ -303,6 +300,9 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
     try {
       const updatedPayload: ICERProposal = {
         ...formData,
+        proposal_no: trimmedNo,
+        cerprno: originalProposal ? originalProposal.cerprno : formData.cerprno,
+        cer_proposal_id: (originalProposal && (originalProposal.cer_proposal_id || originalProposal.cerprno)) || formData.cer_proposal_id || formData.cerprno,
         status: isDraft ? "Draft" : "In Approval",
         current_level: 1,
       };
@@ -363,7 +363,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
               type="text"
               value={proposalNumberInput}
               onChange={(e) => setProposalNumberInput(e.target.value)}
-              placeholder="Enter CER Proposal No..."
+              placeholder="Enter CER Proposal ID or No..."
               className="w-56 px-3.5 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs font-mono font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
             />
           </div>

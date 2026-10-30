@@ -35,6 +35,8 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
 
   const [formData, setFormData] = useState<ICERProposal>({
     id: "",
+    proposal_no: "",
+    cer_proposal_id: "",
     cerprno: "",
     pr_name: "",
     owname: "",
@@ -111,17 +113,17 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
       setIsCheckingCerNo(true);
       try {
         const existing = await dataService.getProposalByNumber(trimmed);
-        if (existing) {
+        if (existing && existing.id !== formData.id) {
           setErrors((prev) => ({
             ...prev,
-            cerprno: `CER Proposal No. '${trimmed}' already exists in the system. Please enter a unique number or click Auto.`,
+            proposal_no: `CER Proposal No. '${trimmed}' already exists in the system. Please enter a unique number.`,
           }));
-          setTouched((prev) => ({ ...prev, cerprno: true }));
+          setTouched((prev) => ({ ...prev, proposal_no: true }));
         } else {
           setErrors((prev) => {
-            if (prev.cerprno && prev.cerprno.includes("already exists")) {
+            if (prev.proposal_no && prev.proposal_no.includes("already exists")) {
               const copy = { ...prev };
-              delete copy.cerprno;
+              delete copy.proposal_no;
               return copy;
             }
             return prev;
@@ -133,31 +135,16 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         setIsCheckingCerNo(false);
       }
     },
-    [dataService]
+    [dataService, formData.id]
   );
-
-  const generateProposalNumber = async (): Promise<void> => {
-    try {
-      const generatedNo = await dataService.generateProposalNumber();
-      setFormData((prev) => ({ ...prev, cerprno: generatedNo }));
-      setErrors((prev) => {
-        const copy = { ...prev };
-        delete copy.cerprno;
-        return copy;
-      });
-    } catch (e) {
-      console.error("Error generating proposal number:", e);
-    }
-  };
-
-  useEffect(() => {
-    generateProposalNumber().catch((e) => console.error(e));
-  }, []);
 
   // On change: update form data and revalidate the specific field if touched or previously errored
   const handleFieldChange = (field: keyof ICERProposal, value: any) => {
     setFormData((prev) => {
-      const updated = { ...prev, [field]: value };
+      const updated: ICERProposal = { ...prev, [field]: value };
+      if (field === "proposal_no" && !prev.cer_proposal_id) {
+        updated.cerprno = value;
+      }
       if (touched[field] || errors[field]) {
         const error = validateField(field, value, updated, false);
         setErrors((prevErrors) => {
@@ -173,7 +160,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
       return updated;
     });
 
-    if (field === "cerprno") {
+    if (field === "proposal_no" || field === "cerprno") {
       if (cerNoDebounceTimer.current) clearTimeout(cerNoDebounceTimer.current);
       cerNoDebounceTimer.current = setTimeout(() => {
         void checkCerNoUniqueness(value);
@@ -415,7 +402,6 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         onBlur={handleFieldBlur}
         errors={errors}
         touched={touched}
-        onGenerateNewNumber={generateProposalNumber}
         dataService={dataService}
         fieldChoices={fieldChoices}
         isCheckingCerNo={isCheckingCerNo}

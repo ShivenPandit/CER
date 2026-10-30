@@ -343,7 +343,7 @@ export class PersonFieldService {
 
     if (flatId !== undefined && flatId !== null && !isNaN(Number(flatId))) {
       const rawTitle = String(rawItem.Title || "").trim();
-      const isCerPrNo = rawTitle.startsWith("CER-") || (rawItem.cerPrNo && rawTitle === String(rawItem.cerPrNo).trim());
+      const isCerPrNo = rawTitle.startsWith("CER-") || (rawItem.cerPrId && rawTitle === String(rawItem.cerPrId).trim()) || (rawItem.cerPrNo && rawTitle === String(rawItem.cerPrNo).trim());
       const fallbackName = isCerPrNo ? String(rawItem.user_name || "").trim() : String(rawItem.Title || rawItem.user_name || "").trim();
       return {
         id: Number(flatId),

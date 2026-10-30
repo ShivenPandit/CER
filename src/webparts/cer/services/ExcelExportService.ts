@@ -50,7 +50,9 @@ export class ExcelExportService {
     const data = [
       {
         "Proposal Name": this.sanitizeFormula(p.prName || p.pr_name),
-        "CER PR Number": this.sanitizeFormula(p.cerPrNo || p.cerprno),
+        "CER Proposal ID": this.sanitizeFormula(p.cer_proposal_id || p.cerPrNo || p.cerprno),
+        "CER Proposal No": this.sanitizeFormula(p.proposal_no || p.proposalNo || p.cerPrNo || p.cerprno),
+        "CER PR Number": this.sanitizeFormula(p.cer_proposal_id || p.cerPrNo || p.cerprno),
         "CER Owner": this.sanitizeFormula(p.cerOwner || p.owname),
         "Owner Email": this.sanitizeFormula(p.ownerEmail || p.owner_email),
         "SBU": this.sanitizeFormula(p.sbu),
@@ -120,7 +122,9 @@ export class ExcelExportService {
    */
   public static mapProposalToExportRow(raw: any): Record<string, any> {
     return {
-      "CER PR Number": this.sanitizeFormula(raw.cerPrNo || raw.cerprno),
+      "CER Proposal ID": this.sanitizeFormula(raw.cer_proposal_id || raw.cerPrNo || raw.cerprno),
+      "CER Proposal No": this.sanitizeFormula(raw.proposal_no || raw.proposalNo || raw.cerPrNo || raw.cerprno),
+      "CER PR Number": this.sanitizeFormula(raw.cer_proposal_id || raw.cerPrNo || raw.cerprno),
       "Proposal Name": this.sanitizeFormula(raw.prName || raw.pr_name),
       "CER Owner": this.sanitizeFormula(raw.cerOwner || raw.owname),
       "Owner Email": this.sanitizeFormula(raw.ownerEmail || raw.owner_email),
@@ -252,9 +256,11 @@ export class ExcelExportService {
 
     const filtered = businessProposals.filter((p) => {
       if (search) {
-        const matchesNo = (p.cerprno || "").toLowerCase().includes(search);
+        const matchesId = (p.cer_proposal_id || "").toLowerCase().includes(search);
+        const matchesPropNo = (p.proposal_no || "").toLowerCase().includes(search);
+        const matchesCerNo = (p.cerprno || "").toLowerCase().includes(search);
         const matchesName = (p.pr_name || "").toLowerCase().includes(search);
-        if (!matchesNo && !matchesName) return false;
+        if (!matchesId && !matchesPropNo && !matchesCerNo && !matchesName) return false;
       }
       if (statusFilter !== "ALL" && (p.status || "").toUpperCase() !== statusFilter) {
         return false;

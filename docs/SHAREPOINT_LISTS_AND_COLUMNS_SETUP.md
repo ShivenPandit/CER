@@ -3,7 +3,7 @@
 **Target Site Collection:** `https://vedanta.sharepoint.com/sites/CERManagementSystemUAT`  
 **Application:** Capital Expenditure Request (CER) Management System  
 **Naming Standard:** Strict CamelCase across all List Names and Column Internal Names (No Underscores `_`)  
-**Version:** 3.2 (Manual List Creation & Explicit Indexing Guide)
+**Version:** 3.3 (Controlled Field Separation: Permanent CER Proposal ID & User Business Proposal No)
 
 ---
 
@@ -35,8 +35,9 @@ Stores all proposal header data, financial justifications, partner details, Indi
 
 | Display Name            | Internal Column Name    | SharePoint Field Type  | Required | Unique? | Indexed?           | Choices / Format / Constraints                 | Business Description                                                                                                                                                                                                                                                   |
 | ----------------------- | ----------------------- | ---------------------- | -------- | ------- | ------------------ | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Title**               | `Title`                 | Single line of text    | Yes      | **Yes** | **Yes (Built-in)** | Unique CER Number (e.g., `CER-2026-0001`)      | Standard SharePoint title field, stores CER PR Number.                                                                                                                                                                                                                 |
-| CER PR Number           | `cerPrNo`               | Single line of text    | Yes      | **Yes** | **Yes**            | `CER-YYYY-XXXX` format                         | Indexed business identifier for queries and joins.                                                                                                                                                                                                                     |
+| **Title**               | `Title`                 | Single line of text    | Yes      | **Yes** | **Yes (Built-in)** | Unique CER Number (e.g., `CER-2026-0001`)      | Standard SharePoint title field, stores permanent system CER Proposal ID (`CER-YYYY-NNNN`).                                                                                                                                                                            |
+| **CER Proposal ID**     | **`cerPrId`**           | **Single line of text**| **Yes**  | **Yes** | **Yes**            | **`CER-YYYY-XXXX` format**                     | **System-generated permanent identifier** allocated via atomic counter. (Replaces legacy `cerPrNo`). Immutable across entire lifecycle. Foreign key anchor for all child lists (`CERAuditTrail`, `CERRemarksHistory`, `CERApprovalDecisions`, `CERAttachments`, `CERNotifications`). |
+| **CER Proposal No**     | **`proposalNo`**        | **Single line of text**| **No\*** | **No\***| **Yes**            | **Alphanumeric business ref (e.g. `PR-RJ-001`)**| **User-entered business proposal number.** Mandatory in client & service logic; unique across active proposals. (Kept unconstrained at SP database level to safeguard legacy data without migration failures).                                                      |
 | Proposal Name           | `prName`                | Single line of text    | Yes      | No      | No                 | Free text (max 255 chars)                      | Project descriptive title.                                                                                                                                                                                                                                             |
 | **CER Owner**           | **`cerOwner`**          | **Person or Group**    | **Yes**  | No      | **Yes**            | **`SPFieldUser` (Single)**                     | **Native SharePoint Person column.** Populated via `cerOwnerId: <IntegerId>` obtained from `ensureUser`. Provides the owner's Display Name (`cerOwner/Title`), Corporate Email (`cerOwner/EMail`), presence, and M365 profile card (eliminates redundant text fields). |
 | SBU                     | `sbu`                   | Choice                 | Yes      | No      | **Yes**            | `RJ North`, `RJ South`, `CBOS`, `RAVA`         | Strategic Business Unit determining approval hierarchy.                                                                                                                                                                                                                |
@@ -95,17 +96,24 @@ Stores all proposal header data, financial justifications, partner details, Indi
 
 Go to **List Settings -> Indexed Columns -> Create a new index**:
 
-1. `cerPrNo`
-2. `cerOwner`
-3. `sbu`
-4. `status`
-5. `amount`
-6. `startDate`
-7. `completionDate`
-8. `currentLevel`
-9. `pendingWithRole`
-10. `pendingWithEmail`
+1. `cerPrId`
+2. `proposalNo`
+3. `cerOwner`
+4. `sbu`
+5. `status`
+6. `amount`
+7. `startDate`
+8. `completionDate`
+9. `currentLevel`
+10. `pendingWithRole`
+11. `pendingWithEmail`
     _(Note: `Title`, `Author`, and `Editor` are built-in indexes)._
+
+#### Two-Field Identifier Separation Architecture:
+- **`cerPrId` (CER Proposal ID)**: Permanent system identifier formatted as `CER-YYYY-NNNN` (e.g. `CER-2026-0001`). Generated via atomic CAS (Compare-And-Swap) ETag concurrency allocator. (Replaced legacy column `cerPrNo`). Read-only across all UI views and never editable by any user or administrator. Used as the immutable foreign key joining all child lists (`CERAuditTrail`, `CERRemarksHistory`, `CERApprovalDecisions`, `CERAttachments`, `CERNotifications`).
+- **`proposalNo` (CER Proposal No)**: User-entered business reference (e.g. `PR-RJ-2026-001`). Mandatory on creation; validated for non-empty alphanumeric formatting; checked for uniqueness across active proposals before save; editable in Draft or Revised modes per lifecycle authorization rules.
+- **Legacy Row Compatibility**: For existing SharePoint items created before the introduction of `cerPrId` or `proposalNo`, the service layer seamlessly maps `cer_proposal_id` and `proposal_no` using `cerPrId || cerPrNo || Title`, preventing null pointer exceptions or broken views.
+- **Database Safety**: `proposalNo` in SharePoint has `Required = No` and `Enforce unique values = No` so that bulk schema modifications or legacy records never trigger SharePoint migration lockouts. Uniqueness and mandatory validations are strictly enforced by the application service layer.
 
 ---
 

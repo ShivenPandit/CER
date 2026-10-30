@@ -14,7 +14,10 @@ export type SBUOption = "RJ North" | "RJ South" | "CBOS" | "RAVA" | string;
 
 export interface ICERProposal {
   id: string; // Internal unique ID / GUID
-  cerprno: string; // CER Proposal Number (e.g. CER-2026-0001)
+  cer_proposal_id?: string; // System-generated permanent CER Proposal ID: e.g. CER-2026-0001 (Read-only, immutable)
+  cerPrId?: string; // SharePoint column name for permanent CER Proposal ID: e.g. CER-2026-0001
+  proposal_no?: string; // User-entered alphanumeric CER Proposal No: e.g. PR-2026-001 (Mandatory, editable per lifecycle)
+  cerprno: string; // System identifier (mirrors cer_proposal_id for backward compatibility with child lists and APIs)
   pr_name: string; // Name of Project
   owname: string; // CER Owner Name
   owner_email: string;

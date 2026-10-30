@@ -41,6 +41,8 @@ const DEFAULT_PHASING_LABELS = getCurrentFiscalYearPhasingLabels();
 const SEED_PROPOSALS: ICERProposal[] = [
   {
     id: "prop-001",
+    cer_proposal_id: "CER-2026-0001",
+    proposal_no: "CER-2026-0001",
     cerprno: "CER-2026-0001",
     pr_name: "Mangala Polymer EOR Expansion Phase 4",
     owname: "Demo Initiator",
@@ -101,6 +103,8 @@ const SEED_PROPOSALS: ICERProposal[] = [
   },
   {
     id: "prop-002",
+    cer_proposal_id: "CER-2026-0002",
+    proposal_no: "CER-2026-0002",
     cerprno: "CER-2026-0002",
     pr_name: "Raageshwari Deep Gas Terminal Compression Upgrade",
     owname: "Arun Kulkarni",
@@ -545,8 +549,13 @@ export class LocalMockCERDataService implements ICERDataService {
   }
 
   public async getProposalByNumber(cerprno: string): Promise<ICERProposal | null> {
-    const trimmed = cerprno.trim().toUpperCase();
-    const found = this._proposals.find(p => p.cerprno.toUpperCase() === trimmed);
+    const trimmed = (cerprno || "").trim().toUpperCase();
+    const found = this._proposals.find(p =>
+      (p.cerPrId && p.cerPrId.toUpperCase() === trimmed) ||
+      (p.cerprno && p.cerprno.toUpperCase() === trimmed) ||
+      (p.cer_proposal_id && p.cer_proposal_id.toUpperCase() === trimmed) ||
+      (p.proposal_no && p.proposal_no.toUpperCase() === trimmed)
+    );
     return found ? { ...found } : null;
   }
 
@@ -580,18 +589,46 @@ export class LocalMockCERDataService implements ICERDataService {
   }
 
   public async createProposal(proposal: ICERProposal): Promise<{ success: boolean; message: string; proposal: ICERProposal }> {
-    const existingIndex = this._proposals.findIndex(p => p.cerprno.toUpperCase() === proposal.cerprno.toUpperCase());
+    const effectiveProposalNo = (proposal.proposal_no || proposal.cerprno || "").trim();
+    if (!effectiveProposalNo) {
+      throw new Error("CER Proposal No is required.");
+    }
+
+    const isDuplicatePropNo = this._proposals.some(p =>
+      p.id !== proposal.id &&
+      ((p.proposal_no && p.proposal_no.trim().toLowerCase() === effectiveProposalNo.toLowerCase()) ||
+       (p.cerprno && p.cerprno.trim().toLowerCase() === effectiveProposalNo.toLowerCase()))
+    );
+    if (isDuplicatePropNo) {
+      throw new Error(`Proposal Number ${effectiveProposalNo} already exists. Please enter or generate a unique proposal number.`);
+    }
+
+    const existingIndex = proposal.cerprno
+      ? this._proposals.findIndex(p => p.cerprno && p.cerprno.toUpperCase() === proposal.cerprno.toUpperCase())
+      : -1;
     if (existingIndex !== -1) {
       const existing = this._proposals[existingIndex];
       // Concurrency & Ownership Protection:
       // If caller does not own this item ID, reject duplicate proposal submission
       if (proposal.id && proposal.id !== existing.id) {
-        throw new Error(`Proposal Number ${proposal.cerprno} already exists. Please enter or generate a unique proposal number.`);
+        throw new Error(`Proposal Number ${effectiveProposalNo} already exists. Please enter or generate a unique proposal number.`);
       }
       if (existing.status === "Draft") {
         return this.updateProposal(proposal, { name: proposal.owname, email: proposal.owner_email });
       }
-      throw new Error(`Proposal Number ${proposal.cerprno} already exists. Please enter or generate a unique proposal number.`);
+      throw new Error(`Proposal Number ${effectiveProposalNo} already exists. Please enter or generate a unique proposal number.`);
+    }
+
+    // Allocate permanent CER Proposal ID in CER-YYYY-NNNN format using atomic CAS counter
+    let permanentId = (proposal.cer_proposal_id || proposal.cerprno || "").trim();
+    const isAllocatedCerId =
+      Boolean(proposal.id) &&
+      permanentId.startsWith("CER-") &&
+      !permanentId.startsWith("CER-COUNTER-") &&
+      /^CER-\d{4}-\d{4}$/.test(permanentId);
+
+    if (!isAllocatedCerId) {
+      permanentId = await this.generateProposalNumber();
     }
 
     const now = new Date().toISOString();
@@ -616,6 +653,10 @@ export class LocalMockCERDataService implements ICERDataService {
     const newProposal: ICERProposal = {
       ...proposal,
       id: proposal.id || `prop-${Date.now()}`,
+      proposal_no: effectiveProposalNo,
+      cer_proposal_id: permanentId,
+      cerPrId: permanentId,
+      cerprno: permanentId,
       status: proposal.status || "In Approval",
       current_level: isDraft ? 0 : 1,
       pending_with_role: isDraft ? "Draft" : (activeL1 ? activeL1.role_title : "L1 Approver"),
@@ -680,6 +721,21 @@ export class LocalMockCERDataService implements ICERDataService {
     }
 
     const oldProposal = this._proposals[index];
+    const permanentId = oldProposal.cer_proposal_id || oldProposal.cerprno;
+    const effectiveProposalNo = (updatedProposal.proposal_no || oldProposal.proposal_no || oldProposal.cerprno || "").trim();
+    if (!effectiveProposalNo) {
+      throw new Error("CER Proposal No is required.");
+    }
+
+    // Uniqueness check for proposal_no if updated
+    const isDuplicate = this._proposals.some(p =>
+      p.id !== oldProposal.id &&
+      ((p.proposal_no && p.proposal_no.trim().toLowerCase() === effectiveProposalNo.toLowerCase()) ||
+       (p.cerprno && p.cerprno.trim().toLowerCase() === effectiveProposalNo.toLowerCase()))
+    );
+    if (isDuplicate) {
+      throw new Error(`Proposal Number ${effectiveProposalNo} already exists. Please enter or generate a unique proposal number.`);
+    }
 
     // Enterprise RBAC: Only designated CER Owner or Administrator can edit proposals
     const userEmail = (user.email || "").trim().toLowerCase();
@@ -785,6 +841,10 @@ export class LocalMockCERDataService implements ICERDataService {
 
     const savedProposal: ICERProposal = {
       ...updatedProposal,
+      proposal_no: effectiveProposalNo,
+      cer_proposal_id: permanentId,
+      cerPrId: permanentId,
+      cerprno: permanentId,
       status: isDraft ? "Draft" : "In Approval",
       current_level: isDraft ? (oldProposal.current_level || 0) : 1,
       pending_with_role: isDraft ? "Draft" : (activeL1 ? activeL1.role_title : "L1 Approver"),
@@ -834,14 +894,26 @@ export class LocalMockCERDataService implements ICERDataService {
   public async getAuditTrail(cerprno?: string): Promise<ICERAuditRecord[]> {
     if (cerprno) {
       const trimmed = cerprno.trim().toUpperCase();
-      return this._auditTrail.filter(a => a.cerprno.toUpperCase() === trimmed);
+      const resolved = this._proposals.find(p =>
+        p.cerprno.toUpperCase() === trimmed ||
+        (p.proposal_no && p.proposal_no.toUpperCase() === trimmed) ||
+        (p.cer_proposal_id && p.cer_proposal_id.toUpperCase() === trimmed)
+      );
+      const target = resolved ? resolved.cerprno.toUpperCase() : trimmed;
+      return this._auditTrail.filter(a => a.cerprno.toUpperCase() === target || a.cerprno.toUpperCase() === trimmed);
     }
     return [...this._auditTrail];
   }
 
   public async getRemarksHistory(cerprno: string): Promise<ICERRemarksVersion[]> {
     const trimmed = cerprno.trim().toUpperCase();
-    return this._remarksHistory.filter(r => r.cerprno.toUpperCase() === trimmed);
+    const resolved = this._proposals.find(p =>
+      p.cerprno.toUpperCase() === trimmed ||
+      (p.proposal_no && p.proposal_no.toUpperCase() === trimmed) ||
+      (p.cer_proposal_id && p.cer_proposal_id.toUpperCase() === trimmed)
+    );
+    const target = resolved ? resolved.cerprno.toUpperCase() : trimmed;
+    return this._remarksHistory.filter(r => r.cerprno.toUpperCase() === target || r.cerprno.toUpperCase() === trimmed);
   }
 
   public async getWorkflowLevels(sbu?: string, _forceRefresh?: boolean): Promise<IWorkflowLevel[]> {
@@ -898,7 +970,13 @@ export class LocalMockCERDataService implements ICERDataService {
 
   public async getApprovalDecisions(cerprno: string): Promise<IApprovalDecision[]> {
     const trimmed = cerprno.trim().toUpperCase();
-    return this._decisions.filter(d => d.cerprno.toUpperCase() === trimmed);
+    const resolved = this._proposals.find(p =>
+      p.cerprno.toUpperCase() === trimmed ||
+      (p.proposal_no && p.proposal_no.toUpperCase() === trimmed) ||
+      (p.cer_proposal_id && p.cer_proposal_id.toUpperCase() === trimmed)
+    );
+    const target = resolved ? resolved.cerprno.toUpperCase() : trimmed;
+    return this._decisions.filter(d => d.cerprno.toUpperCase() === target || d.cerprno.toUpperCase() === trimmed);
   }
 
   public async recordDecision(params: {
@@ -909,7 +987,11 @@ export class LocalMockCERDataService implements ICERDataService {
     decision: "APPROVED" | "REJECTED" | "SENT_BACK";
     comments: string;
   }): Promise<{ success: boolean; newStatus: string; nextLevel: number }> {
-    const propIndex = this._proposals.findIndex(p => p.cerprno.toUpperCase() === params.cerprno.toUpperCase());
+    const propIndex = this._proposals.findIndex(p =>
+      p.cerprno.toUpperCase() === params.cerprno.toUpperCase() ||
+      (p.proposal_no && p.proposal_no.toUpperCase() === params.cerprno.toUpperCase()) ||
+      (p.cer_proposal_id && p.cer_proposal_id.toUpperCase() === params.cerprno.toUpperCase())
+    );
     if (propIndex === -1) {
       throw new Error(`Proposal ${params.cerprno} not found`);
     }
@@ -1135,11 +1217,23 @@ export class LocalMockCERDataService implements ICERDataService {
 
   public async getAttachments(cerprno: string): Promise<ICERAttachment[]> {
     const trimmed = cerprno.trim().toUpperCase();
-    return this._attachments.filter(a => a.cerprno.toUpperCase() === trimmed);
+    const resolved = this._proposals.find(p =>
+      p.cerprno.toUpperCase() === trimmed ||
+      (p.proposal_no && p.proposal_no.toUpperCase() === trimmed) ||
+      (p.cer_proposal_id && p.cer_proposal_id.toUpperCase() === trimmed)
+    );
+    const target = resolved ? resolved.cerprno.toUpperCase() : trimmed;
+    return this._attachments.filter(a => a.cerprno.toUpperCase() === target || a.cerprno.toUpperCase() === trimmed);
   }
 
   public async addAttachment(attachment: ICERAttachment): Promise<void> {
-    const existing = await this.getAttachments(attachment.cerprno);
+    const resolved = this._proposals.find(p =>
+      p.cerprno.toUpperCase() === attachment.cerprno.toUpperCase() ||
+      (p.proposal_no && p.proposal_no.toUpperCase() === attachment.cerprno.toUpperCase()) ||
+      (p.cer_proposal_id && p.cer_proposal_id.toUpperCase() === attachment.cerprno.toUpperCase())
+    );
+    const targetCerId = resolved ? resolved.cerprno : attachment.cerprno;
+    const existing = await this.getAttachments(targetCerId);
     const existingSize = existing.reduce((sum, a) => sum + (a.size || 0), 0);
 
     const validation = validateAttachment(
@@ -1151,7 +1245,10 @@ export class LocalMockCERDataService implements ICERDataService {
       throw new Error(`[Attachment Policy Violation] ${validation.error}`);
     }
 
-    this._attachments.push(attachment);
+    this._attachments.push({
+      ...attachment,
+      cerprno: targetCerId,
+    });
     this._saveToStorage(STORAGE_KEYS.ATTACHMENTS, this._attachments);
   }
 
@@ -1163,7 +1260,13 @@ export class LocalMockCERDataService implements ICERDataService {
   public async getNotificationLogs(cerprno?: string, forceRefresh?: boolean): Promise<INotificationLog[]> {
     if (cerprno) {
       const trimmed = cerprno.trim().toUpperCase();
-      return this._notifications.filter(n => n.cerprno.toUpperCase() === trimmed);
+      const resolved = this._proposals.find(p =>
+        p.cerprno.toUpperCase() === trimmed ||
+        (p.proposal_no && p.proposal_no.toUpperCase() === trimmed) ||
+        (p.cer_proposal_id && p.cer_proposal_id.toUpperCase() === trimmed)
+      );
+      const target = resolved ? resolved.cerprno.toUpperCase() : trimmed;
+      return this._notifications.filter(n => n.cerprno.toUpperCase() === target || n.cerprno.toUpperCase() === trimmed);
     }
     return [...this._notifications];
   }

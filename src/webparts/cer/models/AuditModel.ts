@@ -32,7 +32,9 @@ export interface ICERRemarksVersion {
 export const AUDIT_FIELD_DESCRIPTIONS: Record<string, string> = {
   // Modern CamelCase column names (SHAREPOINT_LISTS_AND_COLUMNS_SETUP.md)
   prName: "Proposal Name",
-  cerPrNo: "CER PR Number",
+  cerPrId: "CER Proposal ID",
+  cerPrNo: "CER Proposal ID",
+  proposalNo: "CER Proposal No",
   cerOwner: "CER Owner",
   category: "Category",
   paybackQuarters: "Payback Quarters",
@@ -79,7 +81,9 @@ export const AUDIT_FIELD_DESCRIPTIONS: Record<string, string> = {
   remarks: "General Remarks",
   remarks_jv: "JV Remarks",
   pr_name: "Proposal Name",
-  cerprno: "CER PR Number",
+  cerprno: "CER Proposal ID",
+  cer_proposal_id: "CER Proposal ID",
+  proposal_no: "CER Proposal No",
   owname: "CER Owner",
   sbu: "SBU",
   status: "Status",

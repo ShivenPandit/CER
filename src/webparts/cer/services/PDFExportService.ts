@@ -35,10 +35,17 @@ export class PDFExportService {
       doc.text("Vedanta Limited / Cairn Oil & Gas — Official Authorization Document", margin + 6, currentY + 16);
 
       // Proposal Badge in Header
+      const cerId = proposal.cer_proposal_id || (proposal as any).cerPrNo || proposal.cerprno;
+      const propNo = proposal.proposal_no || (proposal as any).proposalNo || proposal.cerprno;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(255, 255, 255);
-      doc.text(proposal.cerprno, pageWidth - margin - 6, currentY + 13, { align: "right" });
+      doc.text(cerId, pageWidth - margin - 6, currentY + 11, { align: "right" });
+      if (propNo && propNo !== cerId) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.text(`Ref: ${propNo}`, pageWidth - margin - 6, currentY + 17, { align: "right" });
+      }
 
       currentY += 28;
 
@@ -82,7 +89,8 @@ export class PDFExportService {
         head: [[{ content: "SECTION A — PROJECT IDENTIFICATION & SCOPE", colSpan: 2, styles: { halign: "left" } }]],
         body: [
           ["Proposal Name", (proposal as any).prName || proposal.pr_name],
-          ["CER PR Number", (proposal as any).cerPrNo || proposal.cerprno],
+          ["CER Proposal ID", proposal.cer_proposal_id || (proposal as any).cerPrNo || proposal.cerprno],
+          ["CER Proposal No", proposal.proposal_no || (proposal as any).proposalNo || proposal.cerprno],
           ["CER Owner", `${(proposal as any).cerOwner || proposal.owname} (${(proposal as any).ownerEmail || proposal.owner_email})`],
           ["SBU", proposal.sbu],
           ["Category", (proposal as any).category || proposal.cat],
