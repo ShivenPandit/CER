@@ -152,7 +152,7 @@ export function validateField(
     case "amount": {
       const num = Number(value);
       if (value === undefined || value === null || value === "" || isNaN(num) || num <= 0) {
-        return "Amount of CER is required and must be a positive numeric amount.";
+        return "Capex ($mm) is mandatory. Please enter Capex phasing in Section E to set the Amount of CER.";
       }
       return undefined;
     }

@@ -164,6 +164,16 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
     setFormData((prev) => {
       if (!prev) return null;
       const updated = { ...prev, [field]: value };
+
+      // Auto-fetch total Capex ($mm) into Amount of CER
+      if (field === "capex_till" || field === "capex_fy" || field === "capex_beyond") {
+        const cTill = Number(field === "capex_till" ? value : prev.capex_till || 0);
+        const cFy = Number(field === "capex_fy" ? value : prev.capex_fy || 0);
+        const cBeyond = Number(field === "capex_beyond" ? value : prev.capex_beyond || 0);
+        const capexTotal = Math.round((cTill + cFy + cBeyond) * 10000) / 10000;
+        updated.amount = capexTotal;
+      }
+
       if (touched[field] || errors[field]) {
         const error = validateField(field, value, updated, false);
         setErrors((prevErrors) => {
@@ -176,6 +186,21 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           return newErrors;
         });
       }
+
+      // Re-validate amount when capex changes
+      if (field === "capex_till" || field === "capex_fy" || field === "capex_beyond") {
+        const amountErr = validateField("amount", updated.amount, updated, false);
+        setErrors((prevErrors) => {
+          const newErrors = { ...prevErrors };
+          if (amountErr) {
+            newErrors.amount = amountErr;
+          } else {
+            delete newErrors.amount;
+          }
+          return newErrors;
+        });
+      }
+
       return updated;
     });
 
@@ -203,6 +228,20 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
 
     if (field === "cerprno" || field === "proposal_no") {
       void checkCerNoUniqueness(formData.proposal_no || formData.cerprno);
+    }
+
+    if (field === "capex_till" || field === "capex_fy" || field === "capex_beyond") {
+      setTouched((prev) => ({ ...prev, amount: true }));
+      const amountError = validateField("amount", formData.amount, formData, false);
+      setErrors((prev) => {
+        const updated = { ...prev };
+        if (amountError) {
+          updated.amount = amountError;
+        } else {
+          delete updated.amount;
+        }
+        return updated;
+      });
     }
   };
 

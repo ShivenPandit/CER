@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { BarChart2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { ICERProposal } from "../../models/CERModel";
 import { FormErrors } from "../../utils/cerValidation";
@@ -35,7 +35,14 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
   const capexTill = Number(formData.capex_till || 0);
   const capexFy = Number(formData.capex_fy || 0);
   const capexBeyond = Number(formData.capex_beyond || 0);
-  const capexTotal = capexTill + capexFy + capexBeyond;
+  const capexTotal = Math.round((capexTill + capexFy + capexBeyond) * 10000) / 10000;
+
+  // Auto-fetch total Capex ($mm) into Amount of CER
+  useEffect(() => {
+    if (!isReadOnly && Math.abs(capexTotal - Number(formData.amount || 0)) > 0.0001) {
+      onChange("amount", capexTotal);
+    }
+  }, [capexTotal, formData.amount, isReadOnly, onChange]);
 
   const opexTill = Number(formData.opex_till || 0);
   const opexFy = Number(formData.opex_fy || 0);
@@ -54,7 +61,7 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
   const currSymbol = formData.currency === "INR" ? "₹" : "$";
 
   const getCellError = (field: keyof ICERProposal): boolean => {
-    return !!errors[field];
+    return !!errors[field] || (field.startsWith("capex_") && !!errors.amount && capexTotal <= 0);
   };
 
   return (
@@ -81,7 +88,18 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
         </div>
       </div>
 
-      {/* Capex Balance Banner */}
+      {/* Capex Balance & Guidance Banner */}
+      {capexTotal === 0 && (
+        <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>Mandatory Capex Phasing:</strong> Enter phased Capex ($mm) values below. The total automatically sets the Amount of CER in Section B.
+            </span>
+          </div>
+        </div>
+      )}
+
       {hasCapexMismatch && (
         <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -96,11 +114,11 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
         </div>
       )}
 
-      {isCapexBalanced && (
+      {isCapexBalanced && capexTotal > 0 && (
         <div className="p-2.5 rounded-lg bg-[#66CC33]/15 border border-[#66CC33]/40 text-[#012964] text-xs flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-[#387a15] shrink-0" />
           <span>
-            <strong>Phasing Balanced:</strong> Total phased Capex ({currSymbol}{capexTotal.toLocaleString()}) reconciles with Amount of CER.
+            <strong>Capex Total ({currSymbol}{capexTotal.toLocaleString()}):</strong> Reconciles and auto-populates the Amount of CER in Section B.
           </span>
         </div>
       )}
@@ -176,10 +194,10 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
               </td>
             </tr>
 
-            {/* Capex ($mm) */}
+            {/* Capex ($mm) - Mandatory */}
             <tr className="hover:bg-slate-50/50">
               <td className="py-2 px-2.5 font-semibold text-slate-800">
-                Capex ($mm)
+                <span>Capex ($mm)</span> <span className="text-rose-500 font-bold">*</span>
               </td>
               <td className="py-1.5 px-2.5 text-right">
                 <input
@@ -233,6 +251,17 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                 {capexTotal.toLocaleString()}
               </td>
             </tr>
+
+            {errors.amount && capexTotal <= 0 && (
+              <tr>
+                <td colSpan={5} className="py-1 px-2.5 bg-rose-50/50">
+                  <p className="text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{errors.amount}</span>
+                  </p>
+                </td>
+              </tr>
+            )}
 
             {/* Opex ($mm) */}
             <tr className="hover:bg-slate-50/50">
