@@ -83,7 +83,6 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 disabled={isReadOnly || formData.cbudget === "No"}
                 min="0"
                 step="any"
-                placeholder="0.00"
                 value={formData.cb_amnt === 0 ? "" : formData.cb_amnt}
                 onChange={(e) => onChange("cb_amnt", e.target.value === "" ? 0 : Number(e.target.value))}
                 onBlur={() => onBlur && onBlur("cb_amnt")}
@@ -116,8 +115,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
               value={formData.reason}
               onChange={(e) => onChange("reason", e.target.value)}
               onBlur={() => onBlur && onBlur("reason")}
-              placeholder="Justification for unbudgeted expenditure..."
-              className={`w-full px-3 py-1.5 rounded-lg text-sm transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none resize-none min-h-[58px] ${
+              className={`w-full px-3 py-1.5 rounded-lg text-sm transition-colors text-slate-900 focus:outline-none resize-none min-h-[58px] ${
                 getFieldError("reason")
                   ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                   : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
@@ -240,7 +238,6 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 disabled={isReadOnly || !isJvBudgeted}
                 min="0"
                 step="any"
-                placeholder="0.00"
                 value={formData.jv_amnt === 0 ? "" : formData.jv_amnt}
                 onChange={(e) => onChange("jv_amnt", e.target.value === "" ? 0 : Number(e.target.value))}
                 onBlur={() => onBlur && onBlur("jv_amnt")}
@@ -273,8 +270,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
               value={formData.jv_reason}
               onChange={(e) => onChange("jv_reason", e.target.value)}
               onBlur={() => onBlur && onBlur("jv_reason")}
-              placeholder="Justification for unbudgeted JV expenditure..."
-              className={`w-full h-9 px-3 py-1.5 rounded-lg text-sm transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none ${
+              className={`w-full h-9 px-3 py-1.5 rounded-lg text-sm transition-colors text-slate-900 focus:outline-none ${
                 getFieldError("jv_reason")
                   ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                   : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"

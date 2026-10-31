@@ -72,7 +72,6 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             disabled={isReadOnly}
             min="0"
             step="any"
-            placeholder="0.00"
             value={formData.engineer === 0 ? "" : formData.engineer}
             onChange={(e) => onChange("engineer", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("engineer")}
@@ -101,7 +100,6 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             disabled={isReadOnly}
             min="0"
             step="any"
-            placeholder="0.00"
             value={formData.s_fac === 0 ? "" : formData.s_fac}
             onChange={(e) => onChange("s_fac", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("s_fac")}
@@ -130,7 +128,6 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             disabled={isReadOnly}
             min="0"
             step="any"
-            placeholder="0.00"
             value={formData.comis === 0 ? "" : formData.comis}
             onChange={(e) => onChange("comis", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("comis")}
@@ -159,7 +156,6 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             disabled={isReadOnly}
             min="0"
             step="any"
-            placeholder="0.00"
             value={formData.preop === 0 ? "" : formData.preop}
             onChange={(e) => onChange("preop", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("preop")}
@@ -188,7 +184,6 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             disabled={isReadOnly}
             min="0"
             step="any"
-            placeholder="0.00"
             value={formData.others === 0 ? "" : formData.others}
             onChange={(e) => onChange("others", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("others")}

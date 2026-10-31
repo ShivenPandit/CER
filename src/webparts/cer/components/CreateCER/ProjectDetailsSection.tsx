@@ -87,8 +87,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.pr_name}
             onChange={(e) => onChange("pr_name", e.target.value)}
             onBlur={() => onBlur && onBlur("pr_name")}
-            placeholder="Enter project name"
-            className={`w-full h-9 px-3 py-1.5 rounded-lg text-sm transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none ${
+            className={`w-full h-9 px-3 py-1.5 rounded-lg text-sm transition-colors text-slate-900 focus:outline-none ${
               getFieldError("pr_name")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                 : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
@@ -137,7 +136,6 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
                   ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500 text-rose-950"
                   : "bg-white border border-slate-200 hover:border-slate-300 text-slate-900 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
               }`}
-              placeholder="e.g. PR-2026/01"
               required
               aria-invalid={!!(getFieldError("proposal_no") || getFieldError("cerprno"))}
               aria-describedby={
@@ -388,8 +386,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.object}
             onChange={(e) => onChange("object", e.target.value)}
             onBlur={() => onBlur && onBlur("object")}
-            placeholder="Describe the primary objectives, operational necessity, and scope of this capital expenditure..."
-            className={`w-full px-3 py-2 rounded-lg text-sm transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none resize-y min-h-[72px] ${
+            className={`w-full px-3 py-2 rounded-lg text-sm transition-colors text-slate-900 focus:outline-none resize-y min-h-[72px] ${
               getFieldError("object")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                 : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"

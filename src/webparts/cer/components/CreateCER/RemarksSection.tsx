@@ -65,7 +65,6 @@ export const RemarksSection: React.FC<IRemarksSectionProps> = ({
               value={formData.remarks}
               onChange={(e) => onChange("remarks", e.target.value)}
               onBlur={() => onBlur && onBlur("remarks")}
-              placeholder="Detailed justification, non-payback rationale, operational impact..."
               className={`w-full px-3 py-2 rounded-lg text-sm transition-colors text-slate-900 leading-relaxed resize-y focus:outline-none min-h-[72px] sm:min-h-[80px] disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                 getFieldError("remarks")
                   ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
@@ -98,7 +97,6 @@ export const RemarksSection: React.FC<IRemarksSectionProps> = ({
               value={formData.remarks_jv}
               onChange={(e) => onChange("remarks_jv", e.target.value)}
               onBlur={() => onBlur && onBlur("remarks_jv")}
-              placeholder="JV risk comments, partner carrying period, risk mitigation..."
               className={`w-full px-3 py-2 rounded-lg text-sm transition-colors text-slate-900 leading-relaxed resize-y focus:outline-none min-h-[72px] sm:min-h-[80px] disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                 getFieldError("remarks_jv")
                   ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"

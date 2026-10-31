@@ -266,8 +266,7 @@ export const DirectoryPeoplePicker: React.FC<IDirectoryPeoplePickerProps> = ({
           onFocus={handleInputFocus}
           onBlur={handleInputBlur}
           onKeyDown={handleKeyDown}
-          placeholder="Search by name or email..."
-          className={`w-full h-9 pl-9 pr-9 py-1.5 rounded-lg font-medium text-sm transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none ${
+          className={`w-full h-9 pl-9 pr-9 py-1.5 rounded-lg font-medium text-sm transition-colors text-slate-900 focus:outline-none ${
             hasError
               ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
               : isSelected

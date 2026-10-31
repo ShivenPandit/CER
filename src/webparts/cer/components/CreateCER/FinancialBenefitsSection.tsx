@@ -123,7 +123,6 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             disabled={isReadOnly}
             min="1"
             step="1"
-            placeholder="e.g. 4"
             value={formData.payback_quarters || ""}
             onChange={(e) => {
               const q = e.target.value === "" ? 0 : parseInt(e.target.value, 10);
@@ -158,7 +157,6 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             type="number"
             disabled={isReadOnly}
             step="any"
-            placeholder="0.00"
             value={formData.ben_npv === 0 ? "" : formData.ben_npv}
             onChange={(e) => onChange("ben_npv", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("ben_npv")}
@@ -188,7 +186,6 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             min="0"
             max="100"
             step="0.1"
-            placeholder="0.0"
             value={formData.ben_irr === 0 ? "" : formData.ben_irr}
             onChange={(e) => onChange("ben_irr", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("ben_irr")}
@@ -218,8 +215,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             value={formData.cost_assumptions}
             onChange={(e) => onChange("cost_assumptions", e.target.value)}
             onBlur={() => onBlur && onBlur("cost_assumptions")}
-            placeholder="Brief cost or benefit assumptions"
-            className={`w-full h-9 px-3 py-1.5 rounded-lg text-sm transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none ${
+            className={`w-full h-9 px-3 py-1.5 rounded-lg text-sm transition-colors text-slate-900 focus:outline-none ${
               getFieldError("cost_assumptions")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                 : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"

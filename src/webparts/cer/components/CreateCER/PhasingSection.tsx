@@ -111,7 +111,6 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   disabled={isReadOnly}
                   min="0"
                   step="any"
-                  placeholder="0.00"
                   value={formData.prod_till === 0 ? "" : formData.prod_till}
                   onChange={(e) => onChange("prod_till", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("prod_till")}
@@ -128,7 +127,6 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   disabled={isReadOnly}
                   min="0"
                   step="any"
-                  placeholder="0.00"
                   value={formData.prod_fy === 0 ? "" : formData.prod_fy}
                   onChange={(e) => onChange("prod_fy", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("prod_fy")}
@@ -145,7 +143,6 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   disabled={isReadOnly}
                   min="0"
                   step="any"
-                  placeholder="0.00"
                   value={formData.prod_beyond === 0 ? "" : formData.prod_beyond}
                   onChange={(e) => onChange("prod_beyond", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("prod_beyond")}
@@ -172,7 +169,6 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   disabled={isReadOnly}
                   min="0"
                   step="any"
-                  placeholder="0.00"
                   value={formData.capex_till === 0 ? "" : formData.capex_till}
                   onChange={(e) => onChange("capex_till", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("capex_till")}
@@ -189,7 +185,6 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   disabled={isReadOnly}
                   min="0"
                   step="any"
-                  placeholder="0.00"
                   value={formData.capex_fy === 0 ? "" : formData.capex_fy}
                   onChange={(e) => onChange("capex_fy", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("capex_fy")}
@@ -206,7 +201,6 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   disabled={isReadOnly}
                   min="0"
                   step="any"
-                  placeholder="0.00"
                   value={formData.capex_beyond === 0 ? "" : formData.capex_beyond}
                   onChange={(e) => onChange("capex_beyond", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("capex_beyond")}
@@ -233,7 +227,6 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   disabled={isReadOnly}
                   min="0"
                   step="any"
-                  placeholder="0.00"
                   value={formData.opex_till === 0 ? "" : formData.opex_till}
                   onChange={(e) => onChange("opex_till", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("opex_till")}
@@ -250,7 +243,6 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   disabled={isReadOnly}
                   min="0"
                   step="any"
-                  placeholder="0.00"
                   value={formData.opex_fy === 0 ? "" : formData.opex_fy}
                   onChange={(e) => onChange("opex_fy", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("opex_fy")}
@@ -267,7 +259,6 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
                   disabled={isReadOnly}
                   min="0"
                   step="any"
-                  placeholder="0.00"
                   value={formData.opex_beyond === 0 ? "" : formData.opex_beyond}
                   onChange={(e) => onChange("opex_beyond", e.target.value === "" ? 0 : Number(e.target.value))}
                   onBlur={() => onBlur && onBlur("opex_beyond")}

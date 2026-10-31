@@ -460,8 +460,8 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
                 type="text"
                 value={proposalNumberInput}
                 onChange={(e) => setProposalNumberInput(e.target.value)}
-                placeholder="Enter CER Proposal ID or No..."
-                className="w-48 sm:w-56 h-9 px-3 bg-white border border-slate-200 hover:border-slate-300 rounded-lg text-sm font-mono font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all"
+                aria-label="CER Proposal ID or No"
+                className="w-48 sm:w-56 h-9 px-3 bg-white border border-slate-200 hover:border-slate-300 rounded-lg text-sm font-mono font-semibold text-slate-900 focus:outline-none transition-all"
               />
             </div>
             <button
