@@ -327,11 +327,11 @@ describe("CER Management System - Business Logic & Requirements Tests", () => {
     expect(postEditDecisions.length).toBe(priorDecisionsCount);
   });
 
-  // TC-10 & TC-11: Remarks Versioning (FR-08)
+  // TC-10 & TC-11: Remarks Versioning & Audit (FR-08)
   test("FR-08: Remarks edits increment version history with author and timestamp", async () => {
     const cerprno = "CER-2026-0001";
     const initialVersions = await service.getRemarksHistory(cerprno);
-    const initialCount = initialVersions.length;
+    expect(initialVersions.length).toBe(0);
 
     const proposal = await service.getProposalByNumber(cerprno);
     expect(proposal).not.toBeNull();
@@ -343,10 +343,16 @@ describe("CER Management System - Business Logic & Requirements Tests", () => {
       { name: "Demo Initiator", email: "demo.initiator@example.com" }
     );
 
+    // CERRemarksHistory list is safely deprecated per schema design
     const updatedVersions = await service.getRemarksHistory(cerprno);
-    expect(updatedVersions.length).toBe(initialCount + 1);
-    expect(updatedVersions[0].remarks_text).toBe(newRemarks);
-    expect(updatedVersions[0].created_by).toBe("Demo Initiator");
+    expect(updatedVersions.length).toBe(0);
+
+    // Remarks updates are captured in the audit trail (FR-06 / FR-08)
+    const auditTrail = await service.getAuditTrail(cerprno);
+    const remarksEntry = auditTrail.find((a) => a.field_name === "remarks" && a.new_value === newRemarks);
+    expect(remarksEntry !== undefined).toBe(true);
+    expect(remarksEntry?.new_value).toBe(newRemarks);
+    expect(remarksEntry?.user_name).toBe("Demo Initiator");
   });
 
   // BR-04: SBU Updates

@@ -268,6 +268,17 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
         position: absolute !important;
         top: -9999px !important;
       }
+      body.cer-dashboard-no-scroll,
+      body.cer-dashboard-no-scroll div[data-automation-id="contentScrollRegion"],
+      body.cer-dashboard-no-scroll #workbenchPageContent,
+      body.cer-dashboard-no-scroll #spPageChromeAppDiv,
+      html.cer-dashboard-no-scroll {
+        overflow-y: hidden !important;
+        overflow-x: hidden !important;
+        height: 100vh !important;
+        min-height: 100vh !important;
+        max-height: 100vh !important;
+      }
       .fixed, [class*="fixed"] {
         margin: 0 !important;
         margin-top: 0 !important;
@@ -387,15 +398,21 @@ export default class CERWebPart extends BaseClientSideWebPart<ICERWebPartProps> 
       if (document.body) {
         document.body.style.setProperty("margin-top", "0px", "important");
         document.body.style.setProperty("padding-top", "0px", "important");
+        document.body.style.setProperty("margin-bottom", "0px", "important");
+        document.body.style.setProperty("padding-bottom", "0px", "important");
       }
       if (document.documentElement) {
         document.documentElement.style.setProperty("margin-top", "0px", "important");
         document.documentElement.style.setProperty("padding-top", "0px", "important");
+        document.documentElement.style.setProperty("margin-bottom", "0px", "important");
+        document.documentElement.style.setProperty("padding-bottom", "0px", "important");
       }
       const scrollRegion = document.querySelector('div[data-automation-id="contentScrollRegion"]') as HTMLElement;
       if (scrollRegion) {
         scrollRegion.style.setProperty("margin-top", "0px", "important");
         scrollRegion.style.setProperty("padding-top", "0px", "important");
+        scrollRegion.style.setProperty("margin-bottom", "0px", "important");
+        scrollRegion.style.setProperty("padding-bottom", "0px", "important");
         scrollRegion.style.setProperty("top", "0px", "important");
         scrollRegion.style.setProperty("position", "static", "important");
       }

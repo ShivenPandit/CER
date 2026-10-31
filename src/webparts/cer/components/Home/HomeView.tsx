@@ -22,12 +22,12 @@ export const HomeView: React.FC<IHomeViewProps> = ({
   hasOwnedProposals,
 }) => {
   return (
-    <div className="w-full max-w-none flex-1 flex flex-col min-h-0 h-full bg-[#F8FAFC] overflow-hidden">
+    <div className="w-full max-w-none flex-1 flex flex-col justify-between min-h-full md:min-h-0 md:h-full bg-[#F8FAFC] overflow-y-auto md:overflow-hidden">
       {/* 1. Full-Width Hero Banner Directly Below Header */}
       <HeroBanner availableHeight={availableHeight} />
 
-      {/* 2. Six Pastel Navigation Cards in a 3-Column Auto-Fit Grid */}
-      <div className="w-full max-w-none min-w-0 flex-1 flex flex-col min-h-0 overflow-hidden">
+      {/* 2. Six Pastel Navigation Cards in a 3-Column Auto-Fit Grid - Uses Available Vertical Space */}
+      <div className="w-full max-w-none min-w-0 flex-1 flex flex-col min-h-0 overflow-visible md:overflow-hidden py-1 sm:py-1.5 lg:py-2">
         <HomeCardGrid
           currentUser={currentUser}
           onNavigate={onNavigate}
@@ -38,10 +38,10 @@ export const HomeView: React.FC<IHomeViewProps> = ({
         />
       </div>
 
-      {/* 3. Subtle Corporate Footer Line */}
+      {/* 3. Subtle Corporate Footer Line Anchored at Bottom */}
       <footer
         style={{ backgroundColor: "#F8FAFC", borderTop: "1px solid #E2E8F0" }}
-        className="py-1 sm:py-1.5 lg:py-2 px-4 text-center select-none shrink-0"
+        className="py-1.5 sm:py-2 px-4 text-center select-none shrink-0 mt-auto"
       >
         <div className="w-full max-w-[2560px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 3xl:px-16 flex items-center justify-center text-[11px] sm:text-xs xl:text-[12.5px] 2xl:text-sm text-slate-500 font-medium">
           <span>Capital Expenditure Request (CER) Management System &bull; Secure Enterprise Portal</span>

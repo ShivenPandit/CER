@@ -14,14 +14,14 @@ export const HeroBanner: React.FC<IHeroBannerProps> = ({ availableHeight }) => {
   const paddingClass = isVeryTall
     ? "py-8 sm:py-10 lg:py-12 2xl:py-14"
     : isTall
-    ? "py-5 sm:py-7 lg:py-8 2xl:py-10"
+    ? "py-4 sm:py-6 lg:py-8 2xl:py-10"
     : isShort
-    ? "py-2 sm:py-2.5 lg:py-3"
-    : "py-3.5 sm:py-5 lg:py-7 xl:py-8 2xl:py-10";
+    ? "py-2.5 sm:py-3 lg:py-4"
+    : "py-3 sm:py-4 lg:py-6 xl:py-7 2xl:py-9";
 
   return (
     <div
-      style={isVeryTall ? { minHeight: "300px" } : isTall ? { minHeight: "240px" } : undefined}
+      style={isVeryTall ? { minHeight: "280px" } : isTall ? { minHeight: "220px" } : undefined}
       className="relative w-full overflow-hidden bg-gradient-to-r from-[#06182E] via-[#092244] to-[#0D2D56] text-white select-none shadow-md touch-pan-y shrink-0 short:py-2.5 tall:py-6 very-tall:py-10"
     >
       {/* Background Oil Rig Image (Right Aligned, Responsive Cropping) */}

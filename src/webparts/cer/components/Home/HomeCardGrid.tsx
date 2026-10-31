@@ -169,20 +169,16 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
   const containerPaddingClass = isVeryTall
     ? "py-4 sm:py-6 lg:py-8 2xl:py-10"
     : isTall
-    ? "py-3 sm:py-4 lg:py-6"
-    : "py-1 sm:py-1.5 lg:py-2 xl:py-2.5 2xl:py-3.5";
-
-  const gridMaxHeightStyle = isVeryTall
-    ? { maxHeight: `${Math.min(760, (availableHeight || 1200) - 340)}px` }
-    : undefined;
+    ? "py-2.5 sm:py-3.5 lg:py-5"
+    : "py-1.5 sm:py-2 lg:py-3 xl:py-3.5 2xl:py-4";
 
   const cardPaddingClass = isVeryTall
     ? "p-4.5 sm:p-5.5 lg:p-6 2xl:p-7"
-    : "p-2.5 sm:p-3 lg:p-3.5 xl:p-4 2xl:p-6 3xl:p-7";
+    : "p-3 sm:p-3.5 lg:p-4 xl:p-5 2xl:p-6 3xl:p-7";
 
   const cardMinHeightClass = isVeryTall
     ? "min-h-[140px] sm:min-h-[160px] lg:min-h-[180px] xl:min-h-[200px]"
-    : "min-h-[90px] sm:min-h-[100px] lg:min-h-[110px] xl:min-h-[115px] 2xl:min-h-[160px] 3xl:min-h-[190px]";
+    : "min-h-[105px] sm:min-h-[115px] lg:min-h-[125px] xl:min-h-[135px] 2xl:min-h-[165px] 3xl:min-h-[195px]";
 
   const illustrationClass = isVeryTall
     ? "w-14 h-14 sm:w-16 sm:h-16 lg:w-18 lg:h-18 xl:w-20 xl:h-20 2xl:w-24 2xl:h-24"
@@ -190,27 +186,24 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
 
   const gridGapClass = isVeryTall
     ? "gap-3 sm:gap-3.5 lg:gap-4 xl:gap-5 2xl:gap-6"
-    : "gap-2 sm:gap-2.5 lg:gap-3 xl:gap-3.5 2xl:gap-5 3xl:gap-6";
+    : "gap-2.5 sm:gap-3 lg:gap-3.5 xl:gap-4 2xl:gap-5 3xl:gap-6";
 
-  const actionMarginClass = isVeryTall
-    ? "mt-auto pt-2.5 sm:pt-3"
-    : "mt-1.5 sm:mt-2 xl:mt-2.5 2xl:mt-auto pt-0.5";
+  const actionMarginClass = "mt-auto pt-2 sm:pt-2.5 2xl:pt-3";
 
   return (
     <div
       ref={containerRef}
-      className={`w-full max-w-[2560px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 3xl:px-16 ${containerPaddingClass} h-full flex-1 flex flex-col justify-center min-h-0 min-w-0 touch-pan-y short:py-1 tall:py-4 very-tall:py-8`}
+      className={`w-full max-w-[2560px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 3xl:px-16 ${containerPaddingClass} h-auto md:h-full flex-1 flex flex-col justify-center min-h-0 min-w-0 touch-pan-y`}
     >
       {/* Container-aware responsive card grid: 1 col (<580px / mobile), 2 cols (tablet), 3 cols (desktop / laptop) */}
       <div
-        style={gridMaxHeightStyle}
         className={`grid ${
           cols === 3
             ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 lg:grid-rows-2"
             : cols === 2
             ? "grid-cols-1 sm:grid-cols-2"
             : "grid-cols-1"
-        } ${gridGapClass} h-full flex-1 max-h-[460px] lg:max-h-[500px] xl:max-h-[540px] 2xl:max-h-[600px] 3xl:max-h-[680px] min-h-0 min-w-0 touch-pan-y short:max-h-[440px] tall:max-h-[640px] very-tall:max-h-[760px]`}
+        } ${gridGapClass} h-auto md:h-full flex-1 min-h-0 min-w-0 touch-pan-y`}
       >
         {visibleCards.map((card) => {
           const Illustration = card.illustration;
@@ -219,7 +212,7 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
             <div
               key={card.id}
               onClick={card.onClick}
-              className={`group relative flex flex-col justify-between ${cardPaddingClass} rounded-xl sm:rounded-2xl bg-gradient-to-br ${card.bgGradient} border ${card.borderClass} shadow-subtle hover:shadow-elevated hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden h-full ${cardMinHeightClass} select-none min-w-0 touch-pan-y`}
+              className={`group relative flex flex-col justify-between ${cardPaddingClass} rounded-xl sm:rounded-2xl bg-gradient-to-br ${card.bgGradient} border ${card.borderClass} shadow-subtle hover:shadow-elevated hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden h-auto md:h-full ${cardMinHeightClass} select-none min-w-0 touch-pan-y`}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {

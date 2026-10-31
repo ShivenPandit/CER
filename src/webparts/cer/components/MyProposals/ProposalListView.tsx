@@ -170,8 +170,8 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
         </div>
       </div>
 
-      {/* KPI Status Filter Strip */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* KPI Status Filter Strip - Horizontally scrollable on mobile */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible">
         <button
           onClick={() => {
             setStatusFilter("ALL");

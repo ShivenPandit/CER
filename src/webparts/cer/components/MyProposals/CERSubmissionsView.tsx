@@ -169,8 +169,81 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
             No proposal records found for ID {cerProposalId}.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <>
+            {/* Mobile Adaptive Cards View (< 640px) */}
+            <div className="block sm:hidden divide-y divide-slate-100">
+              {allSubmissions.map(({ proposal: prop, isCurrent, versionLabel }) => {
+                const effectiveNo = prop.proposal_no || prop.cerprno;
+
+                return (
+                  <div
+                    key={prop.id || effectiveNo}
+                    onClick={() => onNavigateToDisplay(effectiveNo)}
+                    className={`p-4 space-y-2.5 hover:bg-slate-50/80 transition-colors cursor-pointer group ${
+                      isCurrent ? "bg-[#012964]/[0.02]" : ""
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono font-bold text-sm text-[#012964] group-hover:underline">
+                          {effectiveNo}
+                        </span>
+                        <span
+                          className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${
+                            isCurrent
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : "bg-slate-100 text-slate-600 border border-slate-200"
+                          }`}
+                        >
+                          {versionLabel}
+                        </span>
+                      </div>
+                      <StatusBadge status={prop.status} size="sm" />
+                    </div>
+
+                    <div>
+                      <h4 className="font-semibold text-slate-900 text-sm leading-snug group-hover:text-[#012964] transition-colors">
+                        {prop.pr_name}
+                      </h4>
+                      <div className="flex items-center gap-2 text-xs text-slate-600 mt-1">
+                        <div className="w-6 h-6 rounded-full bg-blue-50 text-[#012964] font-bold text-[10px] leading-none flex items-center justify-center shrink-0 border border-blue-200/80 shadow-2xs">
+                          {getInitials(prop.owname)}
+                        </div>
+                        <span className="truncate max-w-[150px]">{prop.owname}</span>
+                        <span>•</span>
+                        <span className="font-medium bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">{prop.sbu}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                      <div>
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+                          Amount
+                        </span>
+                        <span className="font-bold text-sm text-slate-900">
+                          {prop.currency || "USD"} {Number(prop.amount || 0).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+                            Stage
+                          </span>
+                          <span className="text-slate-700 text-xs font-medium">
+                            {prop.status === "Approved" ? "Completed" : `L${prop.current_level || 0}`}
+                          </span>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#012964] group-hover:translate-x-0.5 transition-transform" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table View (>= 640px) */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold uppercase text-xs tracking-wider select-none">
                   <th className="py-3.5 px-4 w-[160px] whitespace-nowrap">Proposal No</th>
@@ -300,7 +373,8 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
               </tbody>
             </table>
           </div>
-        )}
+        </>
+      )}
       </div>
     </div>
   );

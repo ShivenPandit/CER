@@ -309,16 +309,11 @@ const CER: React.FC<ICERProps> = (props) => {
   const [availableHeight, setAvailableHeight] = useState<number | undefined>(undefined);
 
   useEffect(() => {
-    const updateAvailableHeight = () => {
-      if (appRootRef.current) {
-        const rect = appRootRef.current.getBoundingClientRect();
-        // Distance from top of browser viewport to top of CER webpart
-        const topOffset = Math.max(0, rect.top);
-        // Available visible vertical space in current browser viewport
-        const calcHeight = window.innerHeight - topOffset;
-        if (calcHeight > 350) {
-          setAvailableHeight(calcHeight);
-        }
+    const updateAvailableHeight = (): void => {
+      // On dashboard in full-bleed mode, use the full viewport height to eliminate bottom blank space
+      const h = window.innerHeight;
+      if (h > 350) {
+        setAvailableHeight(h);
       }
     };
 
@@ -329,9 +324,9 @@ const CER: React.FC<ICERProps> = (props) => {
       window.removeEventListener("resize", updateAvailableHeight);
       clearTimeout(t);
     };
-  }, []);
+  }, [currentView]);
 
-  // Ensure scroll is reset to top on view changes to prevent header clipping
+  // Ensure scroll is reset to top on view changes and suppress outer scrollbar on dashboard when content fits
   useEffect(() => {
     try {
       window.scrollTo(0, 0);
@@ -345,17 +340,57 @@ const CER: React.FC<ICERProps> = (props) => {
     } catch {
       // ignore
     }
-  }, [currentView]);
+
+    const isMobile = typeof window !== "undefined" ? window.innerWidth < 768 : false;
+    const isDashboard = currentView === "dashboard";
+    const shouldSuppressScroll = isDashboard && !isMobile && window.innerHeight >= 550;
+
+    const scrollContainers: (HTMLElement | null)[] = [
+      document.documentElement,
+      document.body,
+      document.querySelector('div[data-automation-id="contentScrollRegion"]') as HTMLElement,
+      document.querySelector("#spPageChromeAppDiv") as HTMLElement,
+      document.querySelector("#workbenchPageContent") as HTMLElement,
+    ];
+
+    if (shouldSuppressScroll) {
+      document.documentElement.classList.add("cer-dashboard-no-scroll");
+      document.body.classList.add("cer-dashboard-no-scroll");
+      scrollContainers.forEach((el) => {
+        if (el) {
+          el.style.setProperty("overflow-y", "hidden", "important");
+          el.style.setProperty("overflow-x", "hidden", "important");
+          el.scrollTop = 0;
+        }
+      });
+    } else {
+      document.documentElement.classList.remove("cer-dashboard-no-scroll");
+      document.body.classList.remove("cer-dashboard-no-scroll");
+      scrollContainers.forEach((el) => {
+        if (el) {
+          el.style.setProperty("overflow-y", "auto", "important");
+          el.style.setProperty("overflow-x", "hidden", "important");
+        }
+      });
+    }
+
+    return () => {
+      document.documentElement.classList.remove("cer-dashboard-no-scroll");
+      document.body.classList.remove("cer-dashboard-no-scroll");
+    };
+  }, [currentView, availableHeight]);
+
+  const isMobile = typeof window !== "undefined" ? window.innerWidth < 768 : false;
 
   return (
     <div
       ref={appRootRef}
       id="cer-app-root"
       style={{
-        height: currentView === "dashboard" && availableHeight ? `${availableHeight}px` : undefined,
-        minHeight: availableHeight ? `${availableHeight}px` : "100%",
-        maxHeight: currentView === "dashboard" && availableHeight ? `${availableHeight}px` : undefined,
-        overflow: currentView === "dashboard" ? "hidden" : "visible",
+        height: currentView === "dashboard" && !isMobile ? "100vh" : undefined,
+        minHeight: currentView === "dashboard" && !isMobile ? "100vh" : "100%",
+        maxHeight: currentView === "dashboard" && !isMobile ? "100vh" : undefined,
+        overflow: currentView === "dashboard" && !isMobile ? "hidden" : "visible",
         backgroundColor: "#F8FAFC",
       }}
       className="flex flex-col flex-1 w-full max-w-none bg-[#F8FAFC] font-sans text-slate-800 antialiased selection:bg-[#012964] selection:text-white"
