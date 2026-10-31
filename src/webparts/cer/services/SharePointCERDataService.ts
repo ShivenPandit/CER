@@ -640,6 +640,7 @@ export class SharePointCERDataService implements ICERDataService {
       current_level: isDraft ? 0 : 1,
       pending_with_role: isDraft ? "Draft" : (activeL1 ? activeL1.role_title : "L1 - Technical Review"),
       pending_with_email: isDraft ? "" : (isL1PO ? (proposal.owner_email || "") : (activeL1 ? (activeL1.approver_email || "") : "")),
+      request_date: isDraft ? proposal.request_date : (proposal.request_date || now.split("T")[0]),
       created_date: proposal.created_date || now,
       modified_date: now,
       revision_count: proposal.revision_count || 0,
@@ -987,6 +988,22 @@ export class SharePointCERDataService implements ICERDataService {
       throw new Error("CER Proposal No is required.");
     }
 
+    const todayDate = now.split("T")[0];
+    let nextRequestDate = original.request_date || proposal.request_date;
+
+    if (!isDraft) {
+      if (original.status === "Approved") {
+        // Requirement: On Resubmit of 'Approved CER' update the request date with current date.
+        nextRequestDate = todayDate;
+      } else if (original.status === "Revised") {
+        // Requirement: Do not update if editing 'Sendback CER'.
+        nextRequestDate = original.request_date || proposal.request_date;
+      } else if (original.status === "Draft") {
+        // Initial submission of a draft proposal
+        nextRequestDate = todayDate;
+      }
+    }
+
     const updatedProposal: ICERProposal = {
       ...proposal,
       proposal_no: effectiveProposalNo,
@@ -996,6 +1013,7 @@ export class SharePointCERDataService implements ICERDataService {
       current_level: nextLevel,
       pending_with_role: nextRole,
       pending_with_email: nextEmail,
+      request_date: nextRequestDate,
       modified_date: now,
       modified_by: user.name,
       revision_count: (original.revision_count || 0) + 1,
@@ -2540,6 +2558,7 @@ export class SharePointCERDataService implements ICERDataService {
       current_level: Number(item.currentLevel ?? item.current_level ?? 1),
       pending_with_role: item.pendingWithRole || item.pending_with_role || "L1 - Technical Review",
       pending_with_email: item.pendingWithEmail || item.pending_with_email || "",
+      request_date: (item.RequestDate || item.requestDate || item.request_date) ? String(item.RequestDate || item.requestDate || item.request_date).split("T")[0] : undefined,
       created_date: item.Created || new Date().toISOString(),
       created_by: item.Author?.Title || "System",
       modified_date: item.Modified || new Date().toISOString(),
@@ -2612,6 +2631,8 @@ export class SharePointCERDataService implements ICERDataService {
       currentLevel: Number(proposal.current_level || 1),
       pendingWithRole: proposal.pending_with_role,
       pendingWithEmail: proposal.pending_with_email,
+      RequestDate: formatIsoDate(proposal.request_date),
+      requestDate: formatIsoDate(proposal.request_date),
       revisionCount: Number(proposal.revision_count || 0),
     };
   }
@@ -2681,6 +2702,7 @@ export class SharePointCERDataService implements ICERDataService {
       current_level: Number(proposal.current_level || 1),
       pending_with_role: proposal.pending_with_role,
       pending_with_email: proposal.pending_with_email,
+      RequestDate: formatIsoDate(proposal.request_date),
       revision_count: Number(proposal.revision_count || 0),
     };
   }

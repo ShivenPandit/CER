@@ -89,6 +89,7 @@ export interface ICERProposal {
   pending_with_email: string;
 
   // Audit / Technical
+  request_date?: string; // Latest submission date for approval (SharePoint RequestDate)
   created_date: string;
   created_by: string;
   modified_date: string;

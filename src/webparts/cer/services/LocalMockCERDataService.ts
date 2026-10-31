@@ -95,6 +95,7 @@ const SEED_PROPOSALS: ICERProposal[] = [
     current_level: 2,
     pending_with_role: "Head of Corporate Finance",
     pending_with_email: "sunil.verma@vedanta.co.in",
+    request_date: "2026-03-10",
     created_date: "2026-03-10T10:15:00Z",
     created_by: "Demo Initiator",
     modified_date: "2026-03-12T14:30:00Z",
@@ -157,6 +158,7 @@ const SEED_PROPOSALS: ICERProposal[] = [
     current_level: 4,
     pending_with_role: "Completed",
     pending_with_email: "",
+    request_date: "2026-01-15",
     created_date: "2026-01-15T09:00:00Z",
     created_by: "Arun Kulkarni",
     modified_date: "2026-02-18T16:45:00Z",
@@ -217,6 +219,7 @@ const SEED_PROPOSALS: ICERProposal[] = [
     current_level: 1,
     pending_with_role: "SBU Operations Head",
     pending_with_email: "rajesh.sharma@vedanta.co.in",
+    request_date: "2026-03-18",
     created_date: "2026-03-18T11:20:00Z",
     created_by: "Meenakshi Sundaram",
     modified_date: "2026-03-18T11:20:00Z",
@@ -664,6 +667,7 @@ export class LocalMockCERDataService implements ICERDataService {
       ph_till_label: proposal.ph_till_label || defaultPhasing.ph_till_label,
       ph_fy_label: proposal.ph_fy_label || defaultPhasing.ph_fy_label,
       ph_beyond_label: proposal.ph_beyond_label || defaultPhasing.ph_beyond_label,
+      request_date: isDraft ? proposal.request_date : (proposal.request_date || now.split("T")[0]),
       created_date: now,
       modified_date: now,
       revision_count: 0
@@ -839,6 +843,22 @@ export class LocalMockCERDataService implements ICERDataService {
       throw new Error(`Cannot route to Project Owner: Proposal Owner Email ('${updatedProposal.owner_email || ""}') is missing or invalid.`);
     }
 
+    const todayDate = now.toISOString().split("T")[0];
+    let nextRequestDate = oldProposal.request_date || updatedProposal.request_date;
+
+    if (!isDraft) {
+      if (oldProposal.status === "Approved") {
+        // Requirement: On Resubmit of 'Approved CER' update the request date with current date.
+        nextRequestDate = todayDate;
+      } else if (oldProposal.status === "Revised") {
+        // Requirement: Do not update if editing 'Sendback CER'.
+        nextRequestDate = oldProposal.request_date || updatedProposal.request_date;
+      } else if (oldProposal.status === "Draft") {
+        // Initial submission of a draft proposal
+        nextRequestDate = todayDate;
+      }
+    }
+
     const savedProposal: ICERProposal = {
       ...updatedProposal,
       proposal_no: effectiveProposalNo,
@@ -849,6 +869,7 @@ export class LocalMockCERDataService implements ICERDataService {
       current_level: isDraft ? (oldProposal.current_level || 0) : 1,
       pending_with_role: isDraft ? "Draft" : (activeL1 ? activeL1.role_title : "L1 Approver"),
       pending_with_email: isDraft ? "" : (isL1PO ? (updatedProposal.owner_email || "") : (activeL1 ? (activeL1.approver_email || "") : "")),
+      request_date: nextRequestDate,
       modified_date: now.toISOString(),
       modified_by: user.name,
       revision_count: (oldProposal.revision_count || 0) + 1

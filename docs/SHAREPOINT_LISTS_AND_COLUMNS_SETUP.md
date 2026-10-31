@@ -27,6 +27,17 @@ When creating lists manually in SharePoint (**Site Contents -> New -> List -> Bl
 
 ## 2. Complete List Specifications & Column Schemas
 
+> [!IMPORTANT]
+> **SharePoint Built-in System Fields — DO NOT CREATE MANUALLY:**
+> Every SharePoint list automatically provides built-in system fields:
+> - **`Title`**: The default column created automatically with every SharePoint list. You do **not** click "+ Add column" to create `Title`.
+> - **`Created By` (Internal: `Author`)**: System-managed Person field. **Do NOT create manually.**
+> - **`Modified By` (Internal: `Editor`)**: System-managed Person field. **Do NOT create manually.**
+> - **`Created`** & **`Modified`**: System-managed timestamps. **Do NOT create manually.**
+> - **`ID`**: System-managed unique integer ID. **Do NOT create manually.**
+>
+> **Rule:** Only create the **custom columns** listed in the tables below via **`+ Add column`**. Never create columns named `Author`, `Editor`, `Created By`, or `Modified By`.
+
 ---
 
 ### 2.1 `CERProposals` (Master Proposals Registry)
@@ -35,7 +46,7 @@ Stores all proposal header data, financial justifications, partner details, Indi
 
 | Display Name            | Internal Column Name    | SharePoint Field Type  | Required | Unique? | Indexed?           | Choices / Format / Constraints                 | Business Description                                                                                                                                                                                                                                                   |
 | ----------------------- | ----------------------- | ---------------------- | -------- | ------- | ------------------ | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Title**               | `Title`                 | Single line of text    | Yes      | **Yes** | **Yes (Built-in)** | Unique CER Number (e.g., `CER-2026-0001`)      | Standard SharePoint title field, stores permanent system CER Proposal ID (`CER-YYYY-NNNN`).                                                                                                                                                                            |
+| **Title**               | `Title`                 | Single line of text    | Yes      | **Yes** | **Yes (Built-in)** | Unique CER Number (e.g., `CER-2026-0001`)      | Standard SharePoint title field (built-in), stores permanent system CER Proposal ID (`CER-YYYY-NNNN`).                                                                                                                                                                 |
 | **CER Proposal ID**     | **`cerPrId`**           | **Single line of text**| **Yes**  | **Yes** | **Yes**            | **`CER-YYYY-XXXX` format**                     | **System-generated permanent identifier** allocated via atomic counter. (Replaces legacy `cerPrNo`). Immutable across entire lifecycle. Foreign key anchor for all child lists (`CERAuditTrail`, `CERRemarksHistory`, `CERApprovalDecisions`, `CERAttachments`, `CERNotifications`). |
 | **CER Proposal No**     | **`proposalNo`**        | **Single line of text**| **Yes**  | **Yes** | **Yes**            | **Alphanumeric business ref (e.g. `PR-RJ-001`)**| **User-entered business proposal number.** Mandatory field in SharePoint and application logic; must be unique across all proposals. Alphanumeric format, non-empty, whitespace-validated.                                                      |
 | Proposal Name           | `prName`                | Single line of text    | Yes      | No      | No                 | Free text (max 255 chars)                      | Project descriptive title.                                                                                                                                                                                                                                             |
@@ -89,8 +100,7 @@ Stores all proposal header data, financial justifications, partner details, Indi
 | Pending With Role       | `pendingWithRole`       | Single line of text    | Yes      | No      | **Yes**            | Role descriptor (e.g., `Project Owner`)        | Descriptive role of active approver stage.                                                                                                                                                                                                                             |
 | Pending With Email      | `pendingWithEmail`      | Single line of text    | No       | No      | **Yes**            | Valid corporate email address                  | Specific corporate email of current pending approver.                                                                                                                                                                                                                  |
 | Revision Count          | `revisionCount`         | Number                 | Yes      | No      | No                 | Integer (Default: 0)                           | Number of times proposal has been revised after rejection.                                                                                                                                                                                                             |
-| Created By              | `Author`                | Person or Group        | System   | No      | **Yes (Built-in)** | Read-only SharePoint system field              | Proposal creator user card.                                                                                                                                                                                                                                            |
-| Modified By             | `Editor`                | Person or Group        | System   | No      | **Yes (Built-in)** | Read-only SharePoint system field              | Last modification user card.                                                                                                                                                                                                                                           |
+| **Request Date**        | **`RequestDate`**       | **Date and Time**      | No       | No      | **Yes**            | DateOnly (ISO 8601 `YYYY-MM-DD`)               | **Latest submission date for approval.** Updated on resubmission of Approved CER; preserved when editing Sendback CER.                                                                                                                                                 |
 
 #### `CERProposals` — Columns to Index in SharePoint List Settings:
 
@@ -107,7 +117,8 @@ Go to **List Settings -> Indexed Columns -> Create a new index**:
 9. `currentLevel`
 10. `pendingWithRole`
 11. `pendingWithEmail`
-    _(Note: `Title`, `Author`, and `Editor` are built-in indexes)._
+12. `RequestDate`
+    _(Note: `Title` is indexed automatically by SharePoint)._
 
 #### Two-Field Identifier Separation Architecture:
 - **`cerPrId` (CER Proposal ID)**: Permanent system identifier formatted as `CER-YYYY-NNNN` (e.g. `CER-2026-0001`). Generated via atomic CAS (Compare-And-Swap) ETag concurrency allocator. (Replaced legacy column `cerPrNo`). Read-only across all UI views and never editable by any user or administrator. Used as the immutable foreign key joining all child lists (`CERAuditTrail`, `CERRemarksHistory`, `CERApprovalDecisions`, `CERAttachments`, `CERNotifications`).
@@ -132,8 +143,6 @@ Maintains an immutable record of all modifications to proposals for governance c
 | User Email    | `userEmail`          | Single line of text    | Yes      | No      | **Yes**            | Corporate email                                   | Corporate email of actor.                       |
 | Timestamp     | `timestamp`          | Date and Time          | Yes      | No      | **Yes**            | DateTime (ISO 8601)                               | Precise timestamp of modification.              |
 | Action Type   | `actionType`         | Choice                 | Yes      | No      | **Yes**            | `CREATE`, `UPDATE`, `APPROVE`, `REJECT`, `REVISE` | Nature of business event.                       |
-| Created By    | `Author`             | Person or Group        | System   | No      | **Yes (Built-in)** | Read-only system metadata                         | SharePoint user who wrote the audit item.       |
-| Modified By   | `Editor`             | Person or Group        | System   | No      | **Yes (Built-in)** | Read-only system metadata                         | SharePoint modifier metadata.                   |
 
 #### `CERAuditTrail` — Columns to Index in SharePoint List Settings:
 
@@ -160,7 +169,6 @@ Maintains sequential historical commentary recorded by approvers and initiators.
 | Author Name   | `createdByUser`      | Single line of text    | Yes      | No      | No                 | Full Display Name              | Display name of comment author.                 |
 | Timestamp     | `timestamp`          | Date and Time          | Yes      | No      | **Yes**            | DateTime (ISO 8601)            | Timestamp comment was submitted.                |
 | Stage Role    | `stageRole`          | Single line of text    | Yes      | No      | **Yes**            | Role descriptor                | Role held by commenter (e.g. `Project Owner`).  |
-| Created By    | `Author`             | Person or Group        | System   | No      | **Yes (Built-in)** | Read-only system metadata      | SharePoint user card of comment author.         |
 
 #### `CERRemarksHistory` — Columns to Index in SharePoint List Settings:
 
@@ -185,8 +193,6 @@ Defines the multi-stage approval sequence independently configured for each SBU.
 | Role Title      | `roleTitle`          | Single line of text   | Yes      | No      | **Yes**            | e.g. `Project Owner`, `Discipline Lead`  | Descriptive governance stage title.                                           |
 | Assignment Type | `assignmentType`     | Choice                | Yes      | No      | **Yes**            | `SpecificUser`, `ProjectOwnerAuto`       | When `ProjectOwnerAuto`, dynamically auto-fetches from proposal's `cerOwner`. |
 | Is Active       | `isActive`           | Yes/No (Boolean)      | Yes      | No      | **Yes**            | `true` / `false` (Default: `Yes`)        | Whether stage participates in active approval routing.                        |
-| Created By      | `Author`             | Person or Group       | System   | No      | **Yes (Built-in)** | Read-only SharePoint system field        | Administrator who created the stage record.                                   |
-| Modified By     | `Editor`             | Person or Group       | System   | No      | **Yes (Built-in)** | Read-only SharePoint system field        | Administrator who last updated the stage.                                     |
 
 _(Note: Columns `approverName` and `approverEmail` are removed/not needed because approvers are dynamically resolved via Person fields)._
 
@@ -215,7 +221,6 @@ Captures formal sign-off records by approvers with timestamps and outcomes.
 | **Approver**  | **`approver`**       | **Person or Group**    | **Yes**  | No      | **Yes**            | **`SPFieldUser` (Single)**        | **Native SharePoint Person column.** (Or relies on built-in `Author`). Stores approver's full M365 identity, email, and presence. Eliminates redundant text fields. |
 | Remarks       | `remarks`            | Multiple lines of text | No       | No      | No                 | Plain text                        | Mandatory on rejection; optional on approval.                                                                                                                       |
 | Decided At    | `decidedAt`          | Date and Time          | Yes      | No      | **Yes**            | DateTime (ISO 8601)               | Timestamp decision was finalized.                                                                                                                                   |
-| Created By    | `Author`             | Person or Group        | System   | No      | **Yes (Built-in)** | Read-only SharePoint system field | Native Person column recording who submitted the decision.                                                                                                          |
 
 _(Note: Columns `approverName` and `approverEmail` are replaced by the Person field `approver` / `Author` and do not need to be created as text)._
 
@@ -242,7 +247,6 @@ Document library storing all supporting project files.
 | Category        | `category`           | Choice                | Yes      | No               | **Yes**            | `Technical`, `Financial`, `Quotation`, `Other` | Classification of uploaded document.                                                                                                                                                                                                                                  |
 | **Uploaded By** | **`uploadedBy`**     | **Person or Group**   | **Yes**  | No               | **Yes**            | **`SPFieldUser` (Single)**                     | **Native SharePoint Person column.** Populated via `uploadedById: <IntegerId>` obtained from `ensureUser`. Provides uploader Display Name (`uploadedBy/Title`), Corporate Email (`uploadedBy/EMail`), presence, and M365 profile card (replaces plain text uploader). |
 | Upload Date     | `uploadDate`         | Date and Time         | Yes      | No               | **Yes**            | DateTime (ISO 8601)                            | Timestamp of upload.                                                                                                                                                                                                                                                  |
-| Checked Out To  | `CheckoutUser`       | Person or Group       | System   | No               | **Yes (Built-in)** | Optional (Single)                              | Standard SharePoint document checkout lock.                                                                                                                                                                                                                           |
 
 #### `CERAttachments` — Columns to Index in SharePoint Library Settings:
 
@@ -267,7 +271,6 @@ Audit log of all system-generated email notifications dispatched to stakeholders
 | Subject       | `subject`            | Single line of text    | Yes      | No      | No                 | Email subject line                      | Notification email subject line.                     |
 | Body Preview  | `bodyPreview`        | Multiple lines of text | No       | No      | No                 | Summary text                            | Snippet or full text of notification message.        |
 | Trigger Event | `triggerEvent`       | Choice                 | Yes      | No      | **Yes**            | `SUBMIT`, `APPROVE`, `REJECT`, `REVISE` | Business action that triggered dispatch.             |
-| Created       | `Created`            | Date and Time          | System   | No      | **Yes (Built-in)** | DateTime (ISO 8601)                     | Timestamp notification was logged.                   |
 
 #### `CERNotifications` — Columns to Index in SharePoint List Settings:
 

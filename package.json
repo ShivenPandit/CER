@@ -23,7 +23,8 @@
     "test:approval-hierarchy": "tsx src/webparts/cer/tests/verifyApprovalHierarchyAccess.ts",
     "test:concurrency": "tsx src/webparts/cer/tests/verifyConcurrencyAndThrottling.ts",
     "test:phase4": "tsx src/webparts/cer/tests/verifyPhase4Hardening.ts",
-    "test:two-fields": "tsx src/webparts/cer/tests/verifyTwoFieldSeparation.ts"
+    "test:two-fields": "tsx src/webparts/cer/tests/verifyTwoFieldSeparation.ts",
+    "test:request-date": "tsx src/webparts/cer/tests/verifyRequestDate.ts"
   },
   "dependencies": {
     "@fluentui/react": "^8.106.4",

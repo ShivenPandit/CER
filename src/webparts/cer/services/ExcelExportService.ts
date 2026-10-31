@@ -101,6 +101,7 @@ export class ExcelExportService {
         "Pending With Role": this.sanitizeFormula(p.pendingWithRole || p.pending_with_role),
         "Pending With Email": this.sanitizeFormula(p.pendingWithEmail || p.pending_with_email),
         "Revision Count": p.revisionCount !== undefined && p.revisionCount !== null ? p.revisionCount : (p.revision_count || 0),
+        "Request Date": p.request_date || p.RequestDate || "",
         "Created Date": p.created_date || p.Created,
         "Created By": this.sanitizeFormula(p.created_by || p.Author?.Title),
         "Last Modified Date": p.modified_date || p.Modified,
@@ -147,6 +148,7 @@ export class ExcelExportService {
       "Current Approval Level": raw.currentLevel !== undefined && raw.currentLevel !== null ? raw.currentLevel : raw.current_level,
       "Pending With Role": this.sanitizeFormula(raw.pendingWithRole || raw.pending_with_role),
       "Pending With Email": this.sanitizeFormula(raw.pendingWithEmail || raw.pending_with_email),
+      "Request Date": (raw.request_date || raw.RequestDate) ? String(raw.request_date || raw.RequestDate).split("T")[0] : "",
       "Created Date": (raw.created_date || raw.Created) ? String(raw.created_date || raw.Created).split("T")[0] : "",
     };
   }

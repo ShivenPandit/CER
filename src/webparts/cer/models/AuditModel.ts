@@ -132,6 +132,7 @@ export const AUDIT_FIELD_DESCRIPTIONS: Record<string, string> = {
  */
 export const EXCLUDED_AUDIT_FIELDS = new Set([
   "id",
+  "request_date",
   "created_date",
   "created_by",
   "modified_date",
