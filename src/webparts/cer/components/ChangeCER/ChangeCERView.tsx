@@ -385,7 +385,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
   };
 
   return (
-    <div className="cer-change-scope space-y-4 pb-28">
+    <div className="cer-change-scope space-y-2.5 sm:space-y-3 pb-28">
       {/* Page-Scoped Brand Colour Tokens & Compact Enterprise Style */}
       <style>{`
         .cer-change-scope {
@@ -425,7 +425,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
       `}</style>
 
       {/* Compact Sticky Header with Title and Proposal Lookup */}
-      <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 bg-white/95 backdrop-blur-md px-4 py-2.5 sm:px-5 rounded-xl border border-slate-200/90 shadow-xs">
+      <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 bg-white/95 backdrop-blur-md px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl border border-slate-200/90 shadow-xs">
         <div className="flex items-center gap-2.5 min-w-0">
           <button
             type="button"
@@ -435,7 +435,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <h2 className="text-base font-bold text-slate-900 tracking-tight whitespace-nowrap">
+          <h2 className="text-lg sm:text-[19px] font-bold text-slate-900 tracking-tight whitespace-nowrap">
             Change Capital Expenditure Request (CER)
           </h2>
         </div>
@@ -443,11 +443,11 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         <div className="flex items-center gap-2.5 ml-auto flex-wrap">
           {formData && (formData.cer_proposal_id || formData.cerprno) ? (
             <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 text-xs shrink-0">
-              <Lock className="w-3 h-3 text-slate-400" />
-              <span className="font-mono font-bold text-[#012964]">
+              <Lock className="w-3.5 h-3.5 text-slate-400" />
+              <span className="font-mono font-bold text-[#012964] text-xs sm:text-[13px]">
                 {formData.cer_proposal_id || formData.cerprno}
               </span>
-              <span className="text-[10px] text-slate-400 font-medium hidden md:inline">
+              <span className="text-xs text-slate-400 font-medium hidden md:inline">
                 (System generated)
               </span>
             </div>
@@ -461,13 +461,13 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
                 value={proposalNumberInput}
                 onChange={(e) => setProposalNumberInput(e.target.value)}
                 placeholder="Enter CER Proposal ID or No..."
-                className="w-48 sm:w-56 h-9 px-3 bg-white border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-mono font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all"
+                className="w-48 sm:w-56 h-9 px-3 bg-white border border-slate-200 hover:border-slate-300 rounded-lg text-sm font-mono font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all"
               />
             </div>
             <button
               type="submit"
               disabled={isLoading}
-              className="cer-btn-primary flex items-center gap-1.5 h-9 px-3.5 text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+              className="cer-btn-primary flex items-center gap-1.5 h-9 px-3.5 text-[13px] sm:text-sm font-semibold rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-50"
             >
               <Search className="w-3.5 h-3.5" />
               <span>{isLoading ? "Searching..." : "Retrieve"}</span>
@@ -597,9 +597,9 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           <CategoryDefinitionSection />
 
           {/* Sticky Bottom Actions Bar */}
-          <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-4 sm:px-6 py-2.5 z-30 shadow-xs">
+          <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-3.5 sm:px-6 py-2 sm:py-2.5 z-30 shadow-xs">
             <div className="w-full flex items-center justify-between gap-3 max-w-7xl mx-auto">
-              <div className="text-[11px] text-slate-500 hidden sm:flex items-center gap-1.5 font-medium">
+              <div className="text-xs text-slate-500 hidden sm:flex items-center gap-1.5 font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
                 <span>
                   {formData.status === "Draft"
@@ -613,7 +613,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
                   type="button"
                   onClick={onCancel}
                   disabled={isSubmitting || isUploadingAttachments}
-                  className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-2 text-[13px] sm:text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -624,9 +624,9 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
                     type="button"
                     onClick={() => handleSaveChange(true)}
                     disabled={isSubmitting || isUploadingAttachments}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
+                    className="flex items-center gap-1.5 px-4 py-2 text-[13px] sm:text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
                   >
-                    <Save className="w-3.5 h-3.5" />
+                    <Save className="w-4 h-4" />
                     <span>{isSubmitting ? "Saving Draft..." : "Save Draft"}</span>
                   </button>
                 )}
@@ -636,12 +636,12 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
                   type="button"
                   onClick={() => handleSaveChange(false)}
                   disabled={isSubmitting || isUploadingAttachments}
-                  className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white rounded-lg shadow-xs transition-all hover:opacity-95 disabled:opacity-50 cer-btn-primary cursor-pointer"
+                  className="flex items-center gap-2 px-5 py-2 text-[13px] sm:text-sm font-semibold text-white rounded-lg shadow-xs transition-all hover:opacity-95 disabled:opacity-50 cer-btn-primary cursor-pointer"
                   style={{ backgroundColor: '#012964' }}
                 >
                   {formData.status === "Draft" ? (
                     <>
-                      <Send className="w-3.5 h-3.5" />
+                      <Send className="w-4 h-4" />
                       <span>
                         {isSubmitting
                           ? "Submitting..."
@@ -652,7 +652,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
                     </>
                   ) : (
                     <>
-                      <Save className="w-3.5 h-3.5" />
+                      <Save className="w-4 h-4" />
                       <span>
                         {isSubmitting
                           ? "Saving..."

@@ -240,25 +240,25 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
 
   return (
     <div
-      className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-xs space-y-3.5"
+      className="bg-white rounded-xl border border-slate-200/80 p-3.5 sm:p-4 shadow-xs space-y-2.5 sm:space-y-3"
       id="section-supporting-documents"
     >
       {/* Section Header */}
-      <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 flex-wrap gap-2">
+      <div className="flex items-center justify-between pb-2 border-b border-slate-100 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Paperclip className="w-4 h-4 text-[#012964]" />
-          <h3 className="font-bold text-slate-800 text-xs tracking-wide uppercase">
+          <h3 className="font-bold text-slate-800 text-sm sm:text-[15px] tracking-tight">
             Section H — Supporting Documents
           </h3>
         </div>
 
         {/* Limits & Capacity Badge */}
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-slate-500 font-medium">
+          <span className="text-xs text-slate-500 font-medium">
             Max 10 MB/file · 20 MB total
           </span>
           <span
-            className={`text-[10px] font-semibold px-2 py-0.5 rounded border whitespace-nowrap ${statusColor.bg} ${statusColor.text}`}
+            className={`text-xs font-semibold px-2 py-0.5 rounded border whitespace-nowrap ${statusColor.bg} ${statusColor.text}`}
           >
             {formatBytes(currentTotalBytes)} / 20 MB
           </span>
@@ -275,7 +275,7 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
 
       {/* Inline Validation Errors */}
       {validationErrors.length > 0 && (
-        <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-xs space-y-1 relative">
+        <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-xs sm:text-[13px] space-y-1 relative">
           <div className="flex items-center justify-between font-bold text-rose-800">
             <div className="flex items-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
@@ -284,7 +284,7 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
             <button
               type="button"
               onClick={dismissErrors}
-              className="text-rose-500 hover:text-rose-800 p-0.5 rounded transition-colors text-xs font-semibold"
+              className="text-rose-500 hover:text-rose-800 p-0.5 rounded transition-colors text-xs font-semibold cursor-pointer"
             >
               Dismiss
             </button>
@@ -329,10 +329,10 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
               )}
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-800">
+              <p className="text-[13px] sm:text-sm font-semibold text-slate-800">
                 {isProcessing ? "Processing attachments..." : "Drag & drop files or browse"}
               </p>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-xs text-slate-500">
                 Supports PDF, Word, Excel, and Images up to 10 MB per file
               </p>
             </div>
@@ -342,7 +342,7 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isProcessing || isReadOnly}
-            className="px-3 py-1.5 text-xs font-semibold text-[#012964] bg-white border border-slate-300 hover:border-[#012964] hover:bg-slate-50 rounded-lg transition-colors shrink-0 shadow-2xs cursor-pointer disabled:opacity-50"
+            className="px-3.5 py-1.5 text-[13px] sm:text-sm font-semibold text-[#012964] bg-white border border-slate-300 hover:border-[#012964] hover:bg-slate-50 rounded-lg transition-colors shrink-0 shadow-2xs cursor-pointer disabled:opacity-50"
           >
             Browse Files
           </button>
@@ -350,16 +350,16 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
       )}
 
       {/* Attached Files List */}
-      <div className="space-y-2 text-xs">
-        <div className="flex items-center justify-between text-slate-500 font-semibold px-1">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-slate-600 font-semibold text-[13px] px-1">
           <span>Attached Documents ({attachments.length})</span>
           {attachments.length > 0 && (
-            <span>Total: {formatBytes(currentTotalBytes)}</span>
+            <span className="text-xs text-slate-500 font-medium">Total: {formatBytes(currentTotalBytes)}</span>
           )}
         </div>
 
         {attachments.length === 0 ? (
-          <div className="text-center py-4 px-3 rounded-lg border border-dashed border-slate-200 bg-slate-50/30 text-slate-400">
+          <div className="text-center py-3 px-3 rounded-lg border border-dashed border-slate-200 bg-slate-50/30 text-slate-400">
             <p className="italic text-xs">No documents attached yet.</p>
           </div>
         ) : (
@@ -372,15 +372,15 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
                 {renderFileIcon(att.name)}
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold text-slate-900 truncate max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg">
+                    <p className="font-semibold text-slate-900 text-sm truncate max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg">
                       {att.name}
                     </p>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                      <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
                       Ready
                     </span>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     <span className="font-medium text-slate-600">{formatBytes(att.size)}</span> • Uploaded by{" "}
                     {att.uploaded_by} on {new Date(att.uploaded_date).toLocaleDateString("en-GB")}
                   </p>

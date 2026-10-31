@@ -65,19 +65,19 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
 
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-xs space-y-4">
+    <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 sm:p-4 shadow-xs space-y-2.5 sm:space-y-3">
       {/* Section Header */}
-      <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
+      <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
         <FolderGit2 className="w-4 h-4 text-[#012964]" />
-        <h3 className="font-bold text-slate-800 text-xs tracking-wide uppercase">
+        <h3 className="font-bold text-slate-800 text-sm sm:text-[15px] tracking-tight">
           Section A — Project Details
         </h3>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 text-xs">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
         {/* Name of Project */}
         <div id="field-pr_name">
-          <label htmlFor="pr_name" className="block font-semibold text-slate-700 mb-1">
+          <label htmlFor="pr_name" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
             Name of Project <span className="text-rose-500">*</span>
           </label>
           <input
@@ -88,7 +88,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             onChange={(e) => onChange("pr_name", e.target.value)}
             onBlur={() => onBlur && onBlur("pr_name")}
             placeholder="Enter project name"
-            className={`w-full h-9 px-3 py-1.5 rounded-lg font-medium transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none ${
+            className={`w-full h-9 px-3 py-1.5 rounded-lg text-sm transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none ${
               getFieldError("pr_name")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                 : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
@@ -107,7 +107,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
 
         {/* CER Proposal No. (Mandatory User-Entered Business Reference) */}
         <div id="field-proposal_no">
-          <label htmlFor="proposal_no" className="block font-semibold text-slate-700 mb-1">
+          <label htmlFor="proposal_no" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
             CER Proposal No. <span className="text-rose-500">*</span>
           </label>
           <div className="relative">
@@ -130,7 +130,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
                   onBlur("cerprno");
                 }
               }}
-              className={`w-full h-9 px-3 py-1.5 rounded-lg font-mono font-semibold transition-colors focus:outline-none ${
+              className={`w-full h-9 px-3 py-1.5 rounded-lg font-mono text-sm font-semibold transition-colors focus:outline-none ${
                 isReadOnly
                   ? "bg-slate-100 border border-slate-200 text-slate-500 cursor-not-allowed shadow-none"
                   : (getFieldError("proposal_no") || getFieldError("cerprno"))
@@ -145,7 +145,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
               }
             />
             {isCheckingCerNo && (
-              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[11px] text-slate-400">
+              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-slate-400">
                 <RefreshCw className="w-3 h-3 animate-spin text-[#012964]" />
                 <span>Checking</span>
               </div>
@@ -163,11 +163,11 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
         {!isCreateMode && (
           <div id="field-cer_proposal_id">
             <div className="flex items-center justify-between mb-1">
-              <label htmlFor="cer_proposal_id" className="font-semibold text-slate-700 flex items-center gap-1">
+              <label htmlFor="cer_proposal_id" className="font-semibold text-slate-700 text-[13px] sm:text-sm flex items-center gap-1">
                 <span>CER Proposal ID</span>
               </label>
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                <Lock className="w-2.5 h-2.5 text-slate-400" />
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                <Lock className="w-3 h-3 text-slate-400" />
                 System-Generated
               </span>
             </div>
@@ -184,7 +184,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
                     ? formData.cerprno
                     : "Assigned upon creation")
                 }
-                className="w-full h-9 px-3 py-1.5 pr-8 rounded-lg font-mono text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-600 cursor-not-allowed select-all focus:outline-none"
+                className="w-full h-9 px-3 py-1.5 pr-8 rounded-lg font-mono text-sm font-semibold bg-slate-50 border border-slate-200 text-slate-600 cursor-not-allowed select-all focus:outline-none"
                 title="System-generated permanent identifier in CER-YYYY-NNNN format. Immutable and read-only."
               />
               <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
@@ -196,7 +196,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
 
         {/* Block/SBU/Field */}
         <div id="field-sbu">
-          <label htmlFor="sbu" className="block font-semibold text-slate-700 mb-1">
+          <label htmlFor="sbu" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
             Block/SBU/Field <span className="text-rose-500">*</span>
           </label>
           <select
@@ -205,7 +205,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.sbu}
             onChange={(e) => onChange("sbu", e.target.value as SBUOption)}
             onBlur={() => onBlur && onBlur("sbu")}
-            className="w-full h-9 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20 focus:outline-none transition-colors font-medium text-slate-900 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+            className="w-full h-9 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20 focus:outline-none transition-colors text-sm font-medium text-slate-900 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
           >
             {(fieldChoices?.sbu && fieldChoices.sbu.length > 0 ? fieldChoices.sbu : SBU_OPTIONS).map((opt) => (
               <option key={opt} value={opt}>
@@ -223,7 +223,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
 
         {/* Category */}
         <div id="field-cat">
-          <label htmlFor="cat" className="block font-semibold text-slate-700 mb-1">
+          <label htmlFor="cat" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
             Category <span className="text-rose-500">*</span>
           </label>
           <select
@@ -232,7 +232,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.cat}
             onChange={(e) => onChange("cat", e.target.value as CERCategory)}
             onBlur={() => onBlur && onBlur("cat")}
-            className="w-full h-9 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20 focus:outline-none transition-colors font-medium text-slate-900 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+            className="w-full h-9 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20 focus:outline-none transition-colors text-sm font-medium text-slate-900 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
           >
             {(fieldChoices?.cat && fieldChoices.cat.length > 0 ? fieldChoices.cat : ["Essential", "Vital", "Desirable"]).map((cat) => (
               <option key={cat} value={cat}>
@@ -250,7 +250,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
 
         {/* CER Owner Name — Directory Search */}
         <div id="field-owname">
-          <label htmlFor="owname-people-picker" className="block font-semibold text-slate-700 mb-1">
+          <label htmlFor="owname-people-picker" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
             CER Owner <span className="text-rose-500">*</span>
           </label>
           <DirectoryPeoplePicker
@@ -276,7 +276,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
 
         {/* Start Date of Project */}
         <div id="field-st_date">
-          <label htmlFor="st_date" className="block font-semibold text-slate-700 mb-1">
+          <label htmlFor="st_date" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
             Start Date of the Project <span className="text-rose-500">*</span>
           </label>
           <input
@@ -286,7 +286,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.st_date}
             onChange={(e) => handleDateChange(true, e.target.value)}
             onBlur={() => onBlur && onBlur("st_date")}
-            className={`w-full h-9 px-3 py-1.5 rounded-lg transition-colors text-slate-900 focus:outline-none ${
+            className={`w-full h-9 px-3 py-1.5 rounded-lg text-sm transition-colors text-slate-900 focus:outline-none ${
               getFieldError("st_date")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                 : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
@@ -303,8 +303,8 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
 
         {/* Completion Date of Project (Optional) */}
         <div id="field-com_date">
-          <label htmlFor="com_date" className="block font-semibold text-slate-700 mb-1">
-            Completion Date of Project <span className="text-[10px] font-normal text-slate-400">(Optional)</span>
+          <label htmlFor="com_date" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+            Completion Date of Project <span className="text-xs font-normal text-slate-400">(Optional)</span>
           </label>
           <input
             id="com_date"
@@ -314,7 +314,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             min={formData.st_date}
             onChange={(e) => handleDateChange(false, e.target.value)}
             onBlur={() => onBlur && onBlur("com_date")}
-            className={`w-full h-9 px-3 py-1.5 rounded-lg transition-colors text-slate-900 focus:outline-none ${
+            className={`w-full h-9 px-3 py-1.5 rounded-lg text-sm transition-colors text-slate-900 focus:outline-none ${
               getFieldError("com_date")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                 : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
@@ -331,7 +331,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
         {/* Total Duration */}
         <div id="field-duration_months">
           <div className="flex items-center justify-between mb-1">
-            <label htmlFor="duration_months" className="block font-semibold text-slate-700">
+            <label htmlFor="duration_months" className="block font-semibold text-slate-700 text-[13px] sm:text-sm">
               Total Duration
             </label>
             <div className="flex items-center bg-slate-100 p-0.5 rounded border border-slate-200 text-xs">
@@ -339,9 +339,9 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
                 type="button"
                 onClick={() => setDurationUnit("days")}
                 title="Display duration in exact days (Default)"
-                className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
                   durationUnit === "days"
-                    ? "bg-white text-slate-800 shadow-2xs"
+                    ? "bg-white text-slate-800 shadow-2xs font-semibold"
                     : "text-slate-500 hover:text-slate-700"
                 }`}
               >
@@ -351,9 +351,9 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
                 type="button"
                 onClick={() => setDurationUnit("months")}
                 title="Display duration in months"
-                className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
                   durationUnit === "months"
-                    ? "bg-white text-slate-800 shadow-2xs"
+                    ? "bg-white text-slate-800 shadow-2xs font-semibold"
                     : "text-slate-500 hover:text-slate-700"
                 }`}
               >
@@ -367,17 +367,17 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             readOnly
             disabled
             value={exactDays > 0 ? formatDuration(exactDays, durationUnit) : "—"}
-            className="w-full h-9 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-semibold text-slate-700 cursor-not-allowed"
+            className="w-full h-9 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 cursor-not-allowed"
           />
         </div>
 
         {/* Objectives of CER */}
         <div className="col-span-1 md:col-span-2 lg:col-span-3" id="field-object">
           <div className="flex items-center justify-between mb-1">
-            <label htmlFor="object" className="font-semibold text-slate-700">
+            <label htmlFor="object" className="font-semibold text-slate-700 text-[13px] sm:text-sm">
               Objectives of CER <span className="text-rose-500">*</span>
             </label>
-            <span className="text-[10px] text-slate-400 font-medium">
+            <span className="text-xs text-slate-400 font-medium">
               {formData.object ? formData.object.trim().length : 0} / 2,000
             </span>
           </div>
@@ -389,7 +389,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             onChange={(e) => onChange("object", e.target.value)}
             onBlur={() => onBlur && onBlur("object")}
             placeholder="Describe the primary objectives, operational necessity, and scope of this capital expenditure..."
-            className={`w-full px-3 py-2 rounded-lg transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none resize-y ${
+            className={`w-full px-3 py-2 rounded-lg text-sm transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none resize-y min-h-[72px] ${
               getFieldError("object")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                 : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"

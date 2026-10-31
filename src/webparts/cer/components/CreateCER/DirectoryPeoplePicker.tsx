@@ -266,13 +266,13 @@ export const DirectoryPeoplePicker: React.FC<IDirectoryPeoplePickerProps> = ({
           onFocus={handleInputFocus}
           onBlur={handleInputBlur}
           onKeyDown={handleKeyDown}
-          placeholder="Search authorized portal users by name or email..."
-          className={`w-full pl-9 pr-9 py-2 rounded-lg font-medium text-xs transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none ${
+          placeholder="Search by name or email..."
+          className={`w-full h-9 pl-9 pr-9 py-1.5 rounded-lg font-medium text-sm transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none ${
             hasError
               ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
               : isSelected
               ? "bg-[#012964]/5 border-[#012964]/30 hover:border-[#012964]/50 focus:border-[#012964] focus:ring-2 focus:ring-[#012964]/15"
-              : "bg-white border border-slate-300 hover:border-slate-400 focus:border-[#012964] focus:ring-2 focus:ring-[#012964]/15"
+              : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-2 focus:ring-[#012964]/15"
           } ${disabled ? "bg-slate-100 text-slate-500 cursor-not-allowed" : ""}`}
         />
 
