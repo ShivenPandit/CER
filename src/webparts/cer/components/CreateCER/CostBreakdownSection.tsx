@@ -46,49 +46,21 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-sm space-y-3.5" id="section-capex-estimates">
+    <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-xs space-y-4" id="section-capex-estimates">
       {/* Section Header */}
       <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
-        <div className="flex items-center gap-2.5">
-          <div className="p-1.5 rounded-lg bg-[#012964]/10 text-[#012964]">
-            <Calculator className="w-4 h-4" />
-          </div>
-          <div>
-            <h3 className="font-bold text-slate-900 text-sm">
-              Section D — CAPEX cost estimates basis
-            </h3>
-            <p className="text-xs text-slate-500">
-              Activity components in {isINR ? "INR (₹)" : "USD millions ($mm)"}. Total is auto-calculated and compared with Amount of CER
-            </p>
-          </div>
+        <div className="flex items-center gap-2">
+          <Calculator className="w-4 h-4 text-[#012964]" />
+          <h3 className="font-bold text-slate-800 text-xs tracking-wide uppercase">
+            Section D — CAPEX Breakdown
+          </h3>
         </div>
+        <span className="text-[10px] font-medium text-slate-500">
+          Values in {isINR ? "INR (₹)" : "USD ($mm)"}
+        </span>
       </div>
 
-      {/* Reconciliation status banner */}
-      {hasMismatch && (
-        <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>
-              <strong>Cost Estimates Advisory:</strong> Calculated Total ({currSymbol}{computedTotal.toLocaleString()}{currUnit}) differs from CER Amount ({currSymbol}{cerAmount.toLocaleString()}{currUnit}).
-            </span>
-          </div>
-          <span className="font-mono text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
-            Variance: {currSymbol}{Math.abs(computedTotal - cerAmount).toLocaleString()}{currUnit}
-          </span>
-        </div>
-      )}
-
-      {isBalanced && (
-        <div className="p-2.5 rounded-lg bg-[#66CC33]/15 border border-[#66CC33]/40 text-[#012964] text-xs flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-[#387a15] shrink-0" />
-          <span>
-            <strong>Estimates Balanced:</strong> Total CAPEX Cost Estimates reconciles with Amount of CER ({currSymbol}{computedTotal.toLocaleString()}{currUnit}).
-          </span>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-3.5 text-xs">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4 text-xs">
         {/* Engineering */}
         <div id="field-engineer">
           <label htmlFor="engineer" className="block font-semibold text-slate-700 mb-1">
@@ -100,13 +72,14 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             disabled={isReadOnly}
             min="0"
             step="any"
+            placeholder="0.00"
             value={formData.engineer === 0 ? "" : formData.engineer}
             onChange={(e) => onChange("engineer", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("engineer")}
-            className={`w-full px-3 py-2 rounded-lg transition-colors font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+            className={`w-full h-9 px-3 py-1.5 rounded-lg transition-colors font-mono font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("engineer")
-                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-[#012964]/15 focus:border-[#012964]"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
+                : "bg-white border border-slate-200 hover:border-slate-300 focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964]"
             }`}
           />
           {getFieldError("engineer") && (
@@ -128,13 +101,14 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             disabled={isReadOnly}
             min="0"
             step="any"
+            placeholder="0.00"
             value={formData.s_fac === 0 ? "" : formData.s_fac}
             onChange={(e) => onChange("s_fac", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("s_fac")}
-            className={`w-full px-3 py-2 rounded-lg transition-colors font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+            className={`w-full h-9 px-3 py-1.5 rounded-lg transition-colors font-mono font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("s_fac")
-                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-[#012964]/15 focus:border-[#012964]"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
+                : "bg-white border border-slate-200 hover:border-slate-300 focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964]"
             }`}
           />
           {getFieldError("s_fac") && (
@@ -156,13 +130,14 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             disabled={isReadOnly}
             min="0"
             step="any"
+            placeholder="0.00"
             value={formData.comis === 0 ? "" : formData.comis}
             onChange={(e) => onChange("comis", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("comis")}
-            className={`w-full px-3 py-2 rounded-lg transition-colors font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+            className={`w-full h-9 px-3 py-1.5 rounded-lg transition-colors font-mono font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("comis")
-                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-[#012964]/15 focus:border-[#012964]"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
+                : "bg-white border border-slate-200 hover:border-slate-300 focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964]"
             }`}
           />
           {getFieldError("comis") && (
@@ -184,13 +159,14 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             disabled={isReadOnly}
             min="0"
             step="any"
+            placeholder="0.00"
             value={formData.preop === 0 ? "" : formData.preop}
             onChange={(e) => onChange("preop", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("preop")}
-            className={`w-full px-3 py-2 rounded-lg transition-colors font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+            className={`w-full h-9 px-3 py-1.5 rounded-lg transition-colors font-mono font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("preop")
-                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-[#012964]/15 focus:border-[#012964]"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
+                : "bg-white border border-slate-200 hover:border-slate-300 focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964]"
             }`}
           />
           {getFieldError("preop") && (
@@ -212,13 +188,14 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             disabled={isReadOnly}
             min="0"
             step="any"
+            placeholder="0.00"
             value={formData.others === 0 ? "" : formData.others}
             onChange={(e) => onChange("others", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("others")}
-            className={`w-full px-3 py-2 rounded-lg transition-colors font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+            className={`w-full h-9 px-3 py-1.5 rounded-lg transition-colors font-mono font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("others")
-                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-white border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-[#012964]/15 focus:border-[#012964]"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
+                : "bg-white border border-slate-200 hover:border-slate-300 focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964]"
             }`}
           />
           {getFieldError("others") && (
@@ -229,35 +206,30 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
           )}
         </div>
 
-        {/* Total — Read-Only Auto-Calculated */}
-        <div id="field-total" className="flex flex-col justify-start">
-          <div className="flex items-center justify-between mb-1 min-h-[16px]">
+        {/* Total Capex — Read-Only Calculated Summary Value */}
+        <div id="field-total">
+          <div className="flex items-center justify-between mb-1">
             <label className="block font-semibold text-slate-700 text-xs">
-              Total (auto-calculated)
+              Total Capex
             </label>
-            {cerAmount > 0 && (
-              isBalanced ? (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#012964] bg-[#66CC33]/15 px-1.5 py-0.5 rounded border border-[#66CC33]/40">
-                  <CheckCircle2 className="w-3 h-3 text-[#387a15]" /> Reconciled
-                </span>
-              ) : hasMismatch ? (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60">
-                  <AlertCircle className="w-3 h-3 text-amber-600" /> Variance
-                </span>
-              ) : null
-            )}
+            {cerAmount > 0 && isBalanced ? (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#012964] bg-[#66CC33]/15 px-1.5 py-0.5 rounded border border-[#66CC33]/30">
+                <CheckCircle2 className="w-2.5 h-2.5 text-[#387a15]" /> Reconciled
+              </span>
+            ) : cerAmount > 0 && hasMismatch ? (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                <AlertCircle className="w-2.5 h-2.5 text-amber-600" /> Diff: {currSymbol}{Math.abs(computedTotal - cerAmount).toLocaleString()}{currUnit}
+              </span>
+            ) : null}
           </div>
-          <div className="w-full px-3 py-2 rounded-lg bg-slate-50/90 border border-slate-300/80 flex items-center justify-between min-h-[38px] transition-all">
+          <div className="w-full h-9 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between">
             <span className="font-mono font-bold text-slate-900 text-xs">
               {currSymbol}{computedTotal.toLocaleString()}{currUnit}
             </span>
-            <span className="text-[10px] font-medium text-slate-400">
-              Sum of components
+            <span className="text-[10px] text-slate-400 font-medium">
+              Calculated sum
             </span>
           </div>
-          <p className="mt-0.5 text-[10px] text-slate-400">
-            Read-only summary synced with CAPEX breakdown
-          </p>
         </div>
       </div>
     </div>

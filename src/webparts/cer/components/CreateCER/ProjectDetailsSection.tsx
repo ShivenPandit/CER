@@ -65,27 +65,18 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
 
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-sm space-y-3.5">
+    <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-xs space-y-4">
       {/* Section Header */}
-      <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
-        <div className="flex items-center gap-2.5">
-          <div className="p-1.5 rounded-lg bg-[#012964]/10 text-[#012964]">
-            <FolderGit2 className="w-4 h-4" />
-          </div>
-          <div>
-            <h3 className="font-bold text-slate-900 text-sm">
-              Section A — Project identification and scope
-            </h3>
-            <p className="text-xs text-slate-500">
-              Basic project metadata, Block/SBU/Field alignment, schedule, and category
-            </p>
-          </div>
-        </div>
+      <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
+        <FolderGit2 className="w-4 h-4 text-[#012964]" />
+        <h3 className="font-bold text-slate-800 text-xs tracking-wide uppercase">
+          Section A — Project Details
+        </h3>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 text-xs">
         {/* Name of Project */}
-        <div className="col-span-1 md:col-span-2 lg:col-span-1" id="field-pr_name">
+        <div id="field-pr_name">
           <label htmlFor="pr_name" className="block font-semibold text-slate-700 mb-1">
             Name of Project <span className="text-rose-500">*</span>
           </label>
@@ -96,10 +87,11 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.pr_name}
             onChange={(e) => onChange("pr_name", e.target.value)}
             onBlur={() => onBlur && onBlur("pr_name")}
-            className={`w-full px-3 py-2 rounded-lg font-medium transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none ${
+            placeholder="Enter project name"
+            className={`w-full h-9 px-3 py-1.5 rounded-lg font-medium transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none ${
               getFieldError("pr_name")
-                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-[#012964] focus:ring-2 focus:ring-[#012964]/15"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
+                : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
             }`}
             required
             aria-invalid={!!getFieldError("pr_name")}
@@ -138,14 +130,14 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
                   onBlur("cerprno");
                 }
               }}
-              className={`w-full px-3 py-2 rounded-lg font-mono font-semibold transition-colors focus:outline-none ${
+              className={`w-full h-9 px-3 py-1.5 rounded-lg font-mono font-semibold transition-colors focus:outline-none ${
                 isReadOnly
                   ? "bg-slate-100 border border-slate-200 text-slate-500 cursor-not-allowed shadow-none"
                   : (getFieldError("proposal_no") || getFieldError("cerprno"))
-                  ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 text-rose-950"
-                  : "bg-white border border-slate-300 hover:border-slate-400 text-slate-900 focus:border-[#012964] focus:ring-2 focus:ring-[#012964]/15"
+                  ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500 text-rose-950"
+                  : "bg-white border border-slate-200 hover:border-slate-300 text-slate-900 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
               }`}
-              placeholder="e.g. PR-RJ-2026-001"
+              placeholder="e.g. PR-2026/01"
               required
               aria-invalid={!!(getFieldError("proposal_no") || getFieldError("cerprno"))}
               aria-describedby={
@@ -153,88 +145,51 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
               }
             />
             {isCheckingCerNo && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-xs text-slate-400">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#012964]" />
-                <span className="text-[11px]">Checking...</span>
+              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[11px] text-slate-400">
+                <RefreshCw className="w-3 h-3 animate-spin text-[#012964]" />
+                <span>Checking</span>
               </div>
             )}
           </div>
-          {(getFieldError("proposal_no") || getFieldError("cerprno")) ? (
+          {(getFieldError("proposal_no") || getFieldError("cerprno")) && (
             <p id="proposal_no-error" className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{getFieldError("proposal_no") || getFieldError("cerprno")}</span>
             </p>
-          ) : (
-            <p className="text-[10px] text-slate-400 mt-0.5">
-              Mandatory alphanumeric business proposal number. Must be unique.
-            </p>
           )}
         </div>
 
-        {/* CER Proposal ID (Permanent System-Generated Identifier) — hidden during create */}
-        {!isCreateMode && (
-          <div id="field-cer_proposal_id">
-            <div className="flex items-center justify-between mb-1">
-              <label htmlFor="cer_proposal_id" className="font-semibold text-slate-700 flex items-center gap-1">
-                <span>CER Proposal ID</span>
-                <span className="text-[10px] text-slate-400 font-normal">(System-Generated)</span>
-              </label>
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                <Lock className="w-2.5 h-2.5 text-slate-400" />
-                Read-Only
-              </span>
-            </div>
-            <div className="relative">
-              <input
-                id="cer_proposal_id"
-                type="text"
-                readOnly
-                disabled
-                tabIndex={-1}
-                value={
-                  formData.cer_proposal_id ||
-                  (formData.id && formData.cerprno && formData.cerprno.startsWith("CER-")
-                    ? formData.cerprno
-                    : "Assigned automatically upon creation")
-                }
-                className="w-full px-3 py-2 rounded-lg font-mono text-xs font-semibold bg-slate-100 border border-slate-200 text-slate-600 cursor-not-allowed select-all focus:outline-none"
-                title="System-generated permanent identifier in CER-YYYY-NNNN format. Immutable and read-only."
-              />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                <Lock className="w-3.5 h-3.5" />
-              </div>
-            </div>
-            <p className="text-[10px] text-slate-400 mt-0.5">
-              Permanent CER-YYYY-NNNN identifier allocated via atomic counter. Immutable.
-            </p>
+        {/* CER Proposal ID (Permanent System-Generated Identifier) */}
+        <div id="field-cer_proposal_id">
+          <div className="flex items-center justify-between mb-1">
+            <label htmlFor="cer_proposal_id" className="font-semibold text-slate-700 flex items-center gap-1">
+              <span>CER Proposal ID</span>
+            </label>
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+              <Lock className="w-2.5 h-2.5 text-slate-400" />
+              System-Generated
+            </span>
           </div>
-        )}
-
-        {/* CER Owner Name — Directory Search */}
-        <div id="field-owname">
-          <label htmlFor="owname-people-picker" className="block font-semibold text-slate-700 mb-1">
-            CER Owner Name <span className="text-rose-500">*</span>
-            <span className="text-[10px] font-normal text-slate-400 ml-1.5">(Authorized Portal Members)</span>
-          </label>
-          <DirectoryPeoplePicker
-            id="owname-people-picker"
-            dataService={effectiveDataService}
-            selectedName={formData.owname || ""}
-            selectedEmail={formData.owner_email || ""}
-            disabled={isReadOnly}
-            required={true}
-            hasError={!!getFieldError("owname") || !!getFieldError("owner_email")}
-            errorMessage={getFieldError("owname") || getFieldError("owner_email")}
-            onBlur={() => onBlur && onBlur("owname")}
-            onSelect={(user, resolvedEmail) => {
-              onChange("owname", user.displayName);
-              onChange("owner_email", resolvedEmail);
-            }}
-            onClear={() => {
-              onChange("owname", "");
-              onChange("owner_email", "");
-            }}
-          />
+          <div className="relative">
+            <input
+              id="cer_proposal_id"
+              type="text"
+              readOnly
+              disabled
+              tabIndex={-1}
+              value={
+                formData.cer_proposal_id ||
+                (formData.id && formData.cerprno && formData.cerprno.startsWith("CER-")
+                  ? formData.cerprno
+                  : "Assigned upon creation")
+              }
+              className="w-full h-9 px-3 py-1.5 pr-8 rounded-lg font-mono text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-600 cursor-not-allowed select-all focus:outline-none"
+              title="System-generated permanent identifier in CER-YYYY-NNNN format. Immutable and read-only."
+            />
+            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+              <Lock className="w-3.5 h-3.5" />
+            </div>
+          </div>
         </div>
 
         {/* Block/SBU/Field */}
@@ -248,7 +203,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.sbu}
             onChange={(e) => onChange("sbu", e.target.value as SBUOption)}
             onBlur={() => onBlur && onBlur("sbu")}
-            className="w-full px-3 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-lg focus:border-[#012964] focus:ring-2 focus:ring-[#012964]/15 focus:outline-none transition-colors font-medium text-slate-900 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+            className="w-full h-9 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20 focus:outline-none transition-colors font-medium text-slate-900 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
           >
             {(fieldChoices?.sbu && fieldChoices.sbu.length > 0 ? fieldChoices.sbu : SBU_OPTIONS).map((opt) => (
               <option key={opt} value={opt}>
@@ -275,7 +230,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.cat}
             onChange={(e) => onChange("cat", e.target.value as CERCategory)}
             onBlur={() => onBlur && onBlur("cat")}
-            className="w-full px-3 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-lg focus:border-[#012964] focus:ring-2 focus:ring-[#012964]/15 focus:outline-none transition-colors font-medium text-slate-900 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+            className="w-full h-9 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20 focus:outline-none transition-colors font-medium text-slate-900 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
           >
             {(fieldChoices?.cat && fieldChoices.cat.length > 0 ? fieldChoices.cat : ["Essential", "Vital", "Desirable"]).map((cat) => (
               <option key={cat} value={cat}>
@@ -291,6 +246,32 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
           )}
         </div>
 
+        {/* CER Owner Name — Directory Search */}
+        <div id="field-owname">
+          <label htmlFor="owname-people-picker" className="block font-semibold text-slate-700 mb-1">
+            CER Owner <span className="text-rose-500">*</span>
+          </label>
+          <DirectoryPeoplePicker
+            id="owname-people-picker"
+            dataService={effectiveDataService}
+            selectedName={formData.owname || ""}
+            selectedEmail={formData.owner_email || ""}
+            disabled={isReadOnly}
+            required={true}
+            hasError={!!getFieldError("owname") || !!getFieldError("owner_email")}
+            errorMessage={getFieldError("owname") || getFieldError("owner_email")}
+            onBlur={() => onBlur && onBlur("owname")}
+            onSelect={(user, resolvedEmail) => {
+              onChange("owname", user.displayName);
+              onChange("owner_email", resolvedEmail);
+            }}
+            onClear={() => {
+              onChange("owname", "");
+              onChange("owner_email", "");
+            }}
+          />
+        </div>
+
         {/* Start Date of Project */}
         <div id="field-st_date">
           <label htmlFor="st_date" className="block font-semibold text-slate-700 mb-1">
@@ -303,10 +284,10 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.st_date}
             onChange={(e) => handleDateChange(true, e.target.value)}
             onBlur={() => onBlur && onBlur("st_date")}
-            className={`w-full px-3 py-2 rounded-lg transition-colors text-slate-900 focus:outline-none ${
+            className={`w-full h-9 px-3 py-1.5 rounded-lg transition-colors text-slate-900 focus:outline-none ${
               getFieldError("st_date")
-                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-[#012964] focus:ring-2 focus:ring-[#012964]/15"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
+                : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
             }`}
             required
           />
@@ -331,10 +312,10 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             min={formData.st_date}
             onChange={(e) => handleDateChange(false, e.target.value)}
             onBlur={() => onBlur && onBlur("com_date")}
-            className={`w-full px-3 py-2 rounded-lg transition-colors text-slate-900 focus:outline-none ${
+            className={`w-full h-9 px-3 py-1.5 rounded-lg transition-colors text-slate-900 focus:outline-none ${
               getFieldError("com_date")
-                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-[#012964] focus:ring-2 focus:ring-[#012964]/15"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
+                : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
             }`}
           />
           {getFieldError("com_date") && (
@@ -351,14 +332,14 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             <label htmlFor="duration_months" className="block font-semibold text-slate-700">
               Total Duration
             </label>
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-md border border-slate-200 text-xs">
+            <div className="flex items-center bg-slate-100 p-0.5 rounded border border-slate-200 text-xs">
               <button
                 type="button"
                 onClick={() => setDurationUnit("days")}
                 title="Display duration in exact days (Default)"
-                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${
                   durationUnit === "days"
-                    ? "bg-white text-slate-800 shadow-sm"
+                    ? "bg-white text-slate-800 shadow-2xs"
                     : "text-slate-500 hover:text-slate-700"
                 }`}
               >
@@ -368,9 +349,9 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
                 type="button"
                 onClick={() => setDurationUnit("months")}
                 title="Display duration in months"
-                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${
                   durationUnit === "months"
-                    ? "bg-white text-slate-800 shadow-sm"
+                    ? "bg-white text-slate-800 shadow-2xs"
                     : "text-slate-500 hover:text-slate-700"
                 }`}
               >
@@ -378,26 +359,24 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
               </button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              id="duration_months"
-              type="text"
-              readOnly
-              disabled
-              value={exactDays > 0 ? formatDuration(exactDays, durationUnit) : "-"}
-              className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg font-semibold text-slate-700 cursor-not-allowed shadow-none"
-            />
-          </div>
+          <input
+            id="duration_months"
+            type="text"
+            readOnly
+            disabled
+            value={exactDays > 0 ? formatDuration(exactDays, durationUnit) : "—"}
+            className="w-full h-9 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-semibold text-slate-700 cursor-not-allowed"
+          />
         </div>
 
         {/* Objectives of CER */}
-        <div className="md:col-span-2 lg:col-span-3" id="field-object">
+        <div className="col-span-1 md:col-span-2 lg:col-span-3" id="field-object">
           <div className="flex items-center justify-between mb-1">
             <label htmlFor="object" className="font-semibold text-slate-700">
               Objectives of CER <span className="text-rose-500">*</span>
             </label>
-            <span className="text-[11px] text-slate-400 font-medium">
-              {formData.object ? formData.object.trim().length : 0} / 2,000 characters
+            <span className="text-[10px] text-slate-400 font-medium">
+              {formData.object ? formData.object.trim().length : 0} / 2,000
             </span>
           </div>
           <textarea
@@ -407,10 +386,11 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             value={formData.object}
             onChange={(e) => onChange("object", e.target.value)}
             onBlur={() => onBlur && onBlur("object")}
+            placeholder="Describe the primary objectives, operational necessity, and scope of this capital expenditure..."
             className={`w-full px-3 py-2 rounded-lg transition-colors text-slate-900 placeholder:text-slate-400 focus:outline-none resize-y ${
               getFieldError("object")
-                ? "bg-rose-50/20 border border-rose-300 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                : "bg-white border border-slate-300 hover:border-slate-400 focus:border-[#012964] focus:ring-2 focus:ring-[#012964]/15"
+                ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
+                : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
             }`}
             required
           />

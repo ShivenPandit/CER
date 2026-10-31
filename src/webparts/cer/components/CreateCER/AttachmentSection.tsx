@@ -240,68 +240,46 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
 
   return (
     <div
-      className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-sm space-y-3.5"
+      className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-xs space-y-3.5"
       id="section-supporting-documents"
     >
       {/* Section Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2.5 border-b border-slate-100 gap-2.5">
-        <div className="flex items-center gap-2.5">
-          <div className="p-1.5 rounded-lg bg-[#012964]/10 text-[#012964] shrink-0">
-            <Paperclip className="w-4 h-4" />
-          </div>
-          <div>
-            <h3 className="font-bold text-slate-900 text-sm">
-              Section H — Supporting documents and attachments
-            </h3>
-            <p className="text-xs text-slate-500">
-              Technical datasheets, vendor quotes, reservoir models, and partner approvals
-            </p>
-          </div>
+      <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <Paperclip className="w-4 h-4 text-[#012964]" />
+          <h3 className="font-bold text-slate-800 text-xs tracking-wide uppercase">
+            Section H — Supporting Documents
+          </h3>
         </div>
 
-        {/* Limits & Capacity Pill */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] font-semibold text-slate-600 bg-slate-100/90 border border-slate-200 px-2 py-0.5 rounded-full whitespace-nowrap">
-            Max 10 MB/file · Max 20 MB total
+        {/* Limits & Capacity Badge */}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-slate-500 font-medium">
+            Max 10 MB/file · 20 MB total
           </span>
           <span
-            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${statusColor.bg} ${statusColor.text}`}
+            className={`text-[10px] font-semibold px-2 py-0.5 rounded border whitespace-nowrap ${statusColor.bg} ${statusColor.text}`}
           >
-            {formatBytes(currentTotalBytes)} / 20 MB used
+            {formatBytes(currentTotalBytes)} / 20 MB
           </span>
         </div>
       </div>
 
-      {/* Usage Indicator & Progress Bar */}
-      <div className="bg-slate-50/70 border border-slate-200/70 rounded-lg p-2.5 space-y-1.5">
-        <div className="flex items-center justify-between text-xs text-slate-600">
-          <div className="flex items-center gap-1.5 font-medium">
-            <HardDrive className="w-3.5 h-3.5 text-slate-500" />
-            <span>Attachment Storage Capacity</span>
-          </div>
-          <div className="font-medium text-slate-700 text-[11px]">
-            <span className="font-bold text-slate-900">{formatBytes(currentTotalBytes)}</span> of{" "}
-            <span className="font-bold text-slate-900">20 MB</span> used ({usagePercent}%) •{" "}
-            <span className="text-slate-500 font-normal">{formatBytes(remainingBytes)} remaining</span>
-          </div>
-        </div>
-
-        {/* Visual Progress Bar */}
-        <div className="w-full bg-slate-200/80 rounded-full h-1.5 overflow-hidden">
-          <div
-            className={`h-full transition-all duration-300 rounded-full ${statusColor.bar}`}
-            style={{ width: `${usagePercent}%` }}
-          />
-        </div>
+      {/* Visual Capacity Progress Line */}
+      <div className="w-full bg-slate-100 rounded-full h-1 overflow-hidden">
+        <div
+          className={`h-full transition-all duration-300 rounded-full ${statusColor.bar}`}
+          style={{ width: `${usagePercent}%` }}
+        />
       </div>
 
       {/* Inline Validation Errors */}
       {validationErrors.length > 0 && (
-        <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-xs space-y-1 relative">
+        <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-xs space-y-1 relative">
           <div className="flex items-center justify-between font-bold text-rose-800">
             <div className="flex items-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-              <span>Attachment Validation Notice</span>
+              <span>Attachment Notice</span>
             </div>
             <button
               type="button"
@@ -321,17 +299,16 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
         </div>
       )}
 
-      {/* Dropzone Area */}
+      {/* Compact Dropzone Area */}
       {!isReadOnly && (
         <div
-          onClick={() => fileInputRef.current?.click()}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`border-2 border-dashed rounded-xl p-4 sm:p-5 text-center cursor-pointer transition-all group ${
+          className={`flex flex-col sm:flex-row items-center justify-between gap-3 p-3 sm:p-3.5 rounded-lg border border-dashed transition-colors ${
             isDragOver
-              ? "border-[#012964] bg-[#012964]/5 scale-[1.005]"
-              : "border-slate-300 hover:border-[#012964]/50 bg-slate-50/50 hover:bg-[#012964]/5"
+              ? "border-[#012964] bg-[#012964]/5"
+              : "border-slate-300 hover:border-[#012964]/50 bg-slate-50/40"
           }`}
         >
           <input
@@ -343,31 +320,37 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
             className="hidden"
           />
 
-          <div className="w-8 h-8 rounded-lg bg-white shadow-xs border border-slate-200 flex items-center justify-center text-[#012964] mx-auto group-hover:scale-105 transition-transform">
-            {isProcessing ? (
-              <Loader2 className="w-4 h-4 animate-spin text-[#012964]" />
-            ) : (
-              <Upload className="w-4 h-4" />
-            )}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-2 rounded-lg bg-white border border-slate-200 text-[#012964] shrink-0">
+              {isProcessing ? (
+                <Loader2 className="w-4 h-4 animate-spin text-[#012964]" />
+              ) : (
+                <Upload className="w-4 h-4" />
+              )}
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-800">
+                {isProcessing ? "Processing attachments..." : "Drag & drop files or browse"}
+              </p>
+              <p className="text-[11px] text-slate-500">
+                Supports PDF, Word, Excel, and Images up to 10 MB per file
+              </p>
+            </div>
           </div>
 
-          <p className="text-xs font-semibold text-slate-800 mt-2">
-            {isProcessing ? "Processing attachments..." : "Click to browse or drag and drop supporting files"}
-          </p>
-
-          <p className="text-[11px] text-slate-500 mt-0.5">
-            Supports <strong className="text-slate-700">PDF, Word (.doc, .docx), Excel (.xls, .xlsx), Images (.png, .jpg, .webp)</strong>
-          </p>
-
-          <div className="flex items-center justify-center gap-3 text-[10px] text-slate-400 mt-1 font-medium">
-            <span>• Max 10 MB per individual file</span>
-            <span>• Max 20 MB total combined capacity</span>
-          </div>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isProcessing || isReadOnly}
+            className="px-3 py-1.5 text-xs font-semibold text-[#012964] bg-white border border-slate-300 hover:border-[#012964] hover:bg-slate-50 rounded-lg transition-colors shrink-0 shadow-2xs cursor-pointer disabled:opacity-50"
+          >
+            Browse Files
+          </button>
         </div>
       )}
 
       {/* Attached Files List */}
-      <div className="space-y-2.5 text-xs">
+      <div className="space-y-2 text-xs">
         <div className="flex items-center justify-between text-slate-500 font-semibold px-1">
           <span>Attached Documents ({attachments.length})</span>
           {attachments.length > 0 && (
@@ -376,32 +359,29 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
         </div>
 
         {attachments.length === 0 ? (
-          <div className="text-center py-6 px-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/40 text-slate-400">
-            <p className="italic">No documents attached yet.</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Attach technical specifications, partner approval letters, or vendor quotes if applicable.
-            </p>
+          <div className="text-center py-4 px-3 rounded-lg border border-dashed border-slate-200 bg-slate-50/30 text-slate-400">
+            <p className="italic text-xs">No documents attached yet.</p>
           </div>
         ) : (
           attachments.map((att) => (
             <div
               key={att.id}
-              className="p-3 sm:p-3.5 rounded-xl border border-slate-200/90 bg-white hover:bg-slate-50/60 shadow-2xs flex items-center justify-between gap-3 transition-colors"
+              className="p-2.5 sm:p-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50/50 flex items-center justify-between gap-3 transition-colors"
             >
-              <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center gap-2.5 min-w-0">
                 {renderFileIcon(att.name)}
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-slate-900 truncate max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg">
                       {att.name}
                     </p>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                      <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
                       Ready
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    <span className="font-medium text-slate-700">{formatBytes(att.size)}</span> • Uploaded by{" "}
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    <span className="font-medium text-slate-600">{formatBytes(att.size)}</span> • Uploaded by{" "}
                     {att.uploaded_by} on {new Date(att.uploaded_date).toLocaleDateString("en-GB")}
                   </p>
                 </div>
@@ -411,21 +391,21 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => handleDownload(att)}
-                  className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                  className="p-1.5 text-slate-500 hover:text-[#012964] hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
                   title="Download / View Attachment"
                   aria-label="Download Attachment"
                 >
-                  <Download className="w-4 h-4" />
+                  <Download className="w-3.5 h-3.5" />
                 </button>
                 {!isReadOnly && (
                   <button
                     type="button"
                     onClick={() => handleDelete(att.id)}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
                     title="Remove Attachment"
                     aria-label="Remove Attachment"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
