@@ -60,7 +60,10 @@ export class SharePointCERDataService implements ICERDataService {
   private _cachedNotificationLogs: Map<string, { data: INotificationLog[]; timestamp: number }> = new Map();
   private _inFlightNotificationLogs: Map<string, Promise<INotificationLog[]>> = new Map();
 
+  private _cachedSubmissionsByCerId: Map<string, { data: { active: ICERProposal | null; history: ICERProposal[] }; timestamp: number }> = new Map();
+
   public clearCache(): void {
+    this._cachedSubmissionsByCerId.clear();
     this._cachedUserRoles = null;
     this._cachedUserRolesTimestamp = 0;
     this._inFlightUserRoles = null;
@@ -325,10 +328,19 @@ export class SharePointCERDataService implements ICERDataService {
       }
       if (this._cachedProposals && now - this._cachedProposals.timestamp < CACHE_TTL_MS) {
         const found = this._cachedProposals.data.find(
-          (p) => (p.cerprno || "").trim().toUpperCase() === key,
+          (p) =>
+            (p.cer_proposal_id || "").trim().toUpperCase() === key ||
+            (p.cerprno || "").trim().toUpperCase() === key ||
+            (p.proposal_no || "").trim().toUpperCase() === key,
         );
         if (found) {
           this._cachedProposalByNumber.set(key, { data: found, timestamp: now });
+          if (found.cer_proposal_id) {
+            this._cachedProposalByNumber.set(found.cer_proposal_id.trim().toUpperCase(), { data: found, timestamp: now });
+          }
+          if (found.proposal_no) {
+            this._cachedProposalByNumber.set(found.proposal_no.trim().toUpperCase(), { data: found, timestamp: now });
+          }
           return { ...found };
         }
       }
@@ -1191,12 +1203,38 @@ export class SharePointCERDataService implements ICERDataService {
 
   public async getAllSubmissionsForCER(cerProposalId: string): Promise<{ active: ICERProposal | null; history: ICERProposal[] }> {
     const cleanId = (cerProposalId || "").trim();
+    if (!cleanId) return { active: null, history: [] };
+
+    const cacheKey = cleanId.toUpperCase();
+    const now = Date.now();
+    const CACHE_TTL_MS = 25000;
+
+    const cached = this._cachedSubmissionsByCerId.get(cacheKey);
+    if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+      return {
+        active: cached.data.active ? { ...cached.data.active } : null,
+        history: cached.data.history.map((h) => ({ ...h })),
+      };
+    }
+
     const [active, history] = await Promise.all([
       this.getProposalByNumber(cleanId),
       this.getProposalHistory(cleanId),
     ]);
 
-    return { active, history };
+    const result = { active, history };
+    this._cachedSubmissionsByCerId.set(cacheKey, { data: result, timestamp: now });
+    if (active?.cer_proposal_id) {
+      this._cachedSubmissionsByCerId.set(active.cer_proposal_id.trim().toUpperCase(), { data: result, timestamp: now });
+    }
+    if (active?.cerprno) {
+      this._cachedSubmissionsByCerId.set(active.cerprno.trim().toUpperCase(), { data: result, timestamp: now });
+    }
+    if (active?.proposal_no) {
+      this._cachedSubmissionsByCerId.set(active.proposal_no.trim().toUpperCase(), { data: result, timestamp: now });
+    }
+
+    return result;
   }
 
   // ---------------------------------------------------------------------------

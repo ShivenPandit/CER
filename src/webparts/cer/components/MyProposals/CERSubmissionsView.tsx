@@ -243,17 +243,27 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
 
             {/* Desktop Table View (>= 640px) */}
             <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse table-fixed">
+              <colgroup>
+                <col style={{ width: "180px" }} />
+                <col />
+                <col style={{ width: "220px" }} />
+                <col style={{ width: "120px" }} />
+                <col style={{ width: "90px" }} />
+                <col style={{ width: "160px" }} />
+                <col style={{ width: "80px" }} />
+                <col style={{ width: "40px" }} />
+              </colgroup>
               <thead>
                 <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold uppercase text-xs tracking-wider select-none">
-                  <th className="py-3.5 px-4 w-[160px] whitespace-nowrap">Proposal No</th>
-                  <th className="py-3.5 px-4 min-w-[220px]">Name of Project</th>
-                  <th className="py-3.5 px-4 min-w-[200px] whitespace-nowrap">Project Owner</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap">Proposal No</th>
+                  <th className="py-3.5 px-4">Name of Project</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap">Project Owner</th>
                   <th className="py-3.5 px-4 text-right whitespace-nowrap">Amount</th>
                   <th className="py-3.5 px-3 text-center whitespace-nowrap">Status</th>
                   <th className="py-3.5 px-4 whitespace-nowrap">Pending</th>
                   <th className="py-3.5 px-3 text-center whitespace-nowrap">Level</th>
-                  <th className="py-3.5 px-3 text-right w-12 whitespace-nowrap" />
+                  <th className="py-3.5 px-3 text-right whitespace-nowrap" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -300,16 +310,16 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
                       </td>
 
                       {/* 3. Project Owner */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2.5">
+                      <td className="py-3.5 px-4 overflow-hidden">
+                        <div className="flex items-center gap-2.5 min-w-0">
                           <div className="w-7 h-7 rounded-full bg-blue-50 text-[#012964] font-bold text-[11px] leading-none flex items-center justify-center shrink-0 border border-blue-200/80 shadow-2xs group-hover:border-[#012964]/40">
                             {getInitials(prop.owname)}
                           </div>
-                          <div>
-                            <span className="font-medium text-sm text-slate-800 block" title={prop.owname}>
+                          <div className="min-w-0">
+                            <span className="font-medium text-sm text-slate-800 block truncate" title={prop.owname}>
                               {prop.owname}
                             </span>
-                            <span className="text-xs text-slate-400 font-medium block">
+                            <span className="text-xs text-slate-400 font-medium block truncate">
                               {prop.sbu}
                             </span>
                           </div>
