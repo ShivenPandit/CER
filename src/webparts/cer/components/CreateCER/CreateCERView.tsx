@@ -410,9 +410,6 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
             <h2 className="text-base font-bold text-slate-900 tracking-tight whitespace-nowrap">
               Create Capital Expenditure Request (CER)
             </h2>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-              Draft
-            </span>
           </div>
         </div>
 
