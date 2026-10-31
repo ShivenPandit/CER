@@ -1,5 +1,5 @@
 import React from "react";
-import { FolderGit2, RefreshCw, AlertCircle, Lock } from "lucide-react";
+import { FolderGit2, RefreshCw, AlertCircle } from "lucide-react";
 import { ICERProposal, CERCategory, SBUOption, SBU_OPTIONS, IFieldChoices } from "../../models/CERModel";
 import { ICERDataService } from "../../services/ICERDataService";
 import { LocalMockCERDataService } from "../../services/LocalMockCERDataService";
@@ -74,9 +74,9 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
         </h3>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 sm:gap-3">
         {/* Name of Project */}
-        <div id="field-pr_name">
+        <div id="field-pr_name" className="col-span-1 md:col-span-2">
           <label htmlFor="pr_name" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
             Name of Project <span className="text-rose-500">*</span>
           </label>
@@ -156,41 +156,6 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             </p>
           )}
         </div>
-
-        {/* CER Proposal ID (Permanent System-Generated Identifier) - Only shown in Change/Edit Mode */}
-        {!isCreateMode && (
-          <div id="field-cer_proposal_id">
-            <div className="flex items-center justify-between mb-1">
-              <label htmlFor="cer_proposal_id" className="font-semibold text-slate-700 text-[13px] sm:text-sm flex items-center gap-1">
-                <span>CER Proposal ID</span>
-              </label>
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                <Lock className="w-3 h-3 text-slate-400" />
-                System-Generated
-              </span>
-            </div>
-            <div className="relative">
-              <input
-                id="cer_proposal_id"
-                type="text"
-                readOnly
-                disabled
-                tabIndex={-1}
-                value={
-                  formData.cer_proposal_id ||
-                  (formData.id && formData.cerprno && formData.cerprno.startsWith("CER-")
-                    ? formData.cerprno
-                    : "Assigned upon creation")
-                }
-                className="w-full h-9 px-3 py-1.5 pr-8 rounded-lg font-mono text-sm font-semibold bg-slate-50 border border-slate-200 text-slate-600 cursor-not-allowed select-all focus:outline-none"
-                title="System-generated permanent identifier in CER-YYYY-NNNN format. Immutable and read-only."
-              />
-              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                <Lock className="w-3.5 h-3.5" />
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Block/SBU/Field */}
         <div id="field-sbu">
@@ -370,7 +335,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
         </div>
 
         {/* Objectives of CER */}
-        <div className="col-span-1 md:col-span-2 lg:col-span-3" id="field-object">
+        <div className="col-span-1 md:col-span-3" id="field-object">
           <div className="flex items-center justify-between mb-1">
             <label htmlFor="object" className="font-semibold text-slate-700 text-[13px] sm:text-sm">
               Objectives of CER <span className="text-rose-500">*</span>
