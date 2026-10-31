@@ -597,26 +597,16 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           <CategoryDefinitionSection />
 
           {/* Sticky Bottom Actions Bar */}
-          <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-3.5 sm:px-6 py-2 sm:py-2.5 z-30 shadow-xs">
-            <div className="w-full flex items-center justify-between gap-3 max-w-7xl mx-auto">
-              <div className="text-xs text-slate-500 hidden sm:flex items-center gap-1.5 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                <span>
-                  {formData.status === "Draft"
-                    ? "Draft proposal changes can be saved or submitted for approval."
-                    : "Saving will record field-level audit trail deltas and route to approver."}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2 sm:gap-2.5 ml-auto flex-wrap justify-end">
-                <button
-                  type="button"
-                  onClick={onCancel}
-                  disabled={isSubmitting || isUploadingAttachments}
-                  className="px-4 py-2 text-[13px] sm:text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  Cancel
-                </button>
+          <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-3 sm:px-5 lg:px-6 2xl:px-8 py-2 sm:py-2.5 z-30 shadow-xs">
+            <div className="w-full flex items-center justify-end gap-2 sm:gap-2.5 flex-wrap">
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={isSubmitting || isUploadingAttachments}
+                className="px-4 py-2 text-[13px] sm:text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                Cancel
+              </button>
 
                 {/* If currently Draft, offer Save Draft button */}
                 {formData.status === "Draft" && (
@@ -665,7 +655,6 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
                 </button>
               </div>
             </div>
-          </div>
         </>
       )}
     </div>

@@ -516,50 +516,43 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
       <CategoryDefinitionSection />
 
       {/* Compact Sticky Bottom Actions Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-elevated z-30 py-2 sm:py-2.5 px-3.5 sm:px-6 lg:px-8">
-        <div className="w-full flex items-center justify-between gap-3 max-w-7xl mx-auto">
-          <div className="text-xs text-slate-500 hidden sm:flex items-center gap-1.5 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-            <span>All changes are tracked in the field-level audit trail upon submission.</span>
-          </div>
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-elevated z-30 py-2 sm:py-2.5 px-3 sm:px-5 lg:px-6 2xl:px-8">
+        <div className="w-full flex items-center justify-end gap-2 sm:gap-2.5 flex-wrap">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isSubmitting || isUploadingAttachments}
+            className="px-4 py-2 text-[13px] sm:text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            Cancel
+          </button>
 
-          <div className="flex items-center gap-2 sm:gap-2.5 ml-auto flex-wrap justify-end">
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={isSubmitting || isUploadingAttachments}
-              className="px-4 py-2 text-[13px] sm:text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
-            >
-              Cancel
-            </button>
+          <button
+            type="button"
+            onClick={() => handleSubmit(true)}
+            disabled={isSubmitting || isUploadingAttachments}
+            className="flex items-center gap-1.5 px-4 py-2 text-[13px] sm:text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            <Save className="w-4 h-4" />
+            <span>Save Draft</span>
+          </button>
 
-            <button
-              type="button"
-              onClick={() => handleSubmit(true)}
-              disabled={isSubmitting || isUploadingAttachments}
-              className="flex items-center gap-1.5 px-4 py-2 text-[13px] sm:text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
-            >
-              <Save className="w-4 h-4" />
-              <span>Save Draft</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleSubmit(false)}
-              disabled={isSubmitting || isUploadingAttachments}
-              className="flex items-center gap-2 px-5 py-2 text-[13px] sm:text-sm font-semibold text-white rounded-lg shadow-xs transition-all hover:opacity-95 disabled:opacity-50 cer-btn-primary cursor-pointer"
-              style={{ backgroundColor: '#012964' }}
-            >
-              <Send className="w-4 h-4" />
-              <span>
-                {isSubmitting
-                  ? "Submitting..."
-                  : isUploadingAttachments
-                  ? "Processing..."
-                  : "Submit for Approval"}
-              </span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => handleSubmit(false)}
+            disabled={isSubmitting || isUploadingAttachments}
+            className="flex items-center gap-2 px-5 py-2 text-[13px] sm:text-sm font-semibold text-white rounded-lg shadow-xs transition-all hover:opacity-95 disabled:opacity-50 cer-btn-primary cursor-pointer"
+            style={{ backgroundColor: '#012964' }}
+          >
+            <Send className="w-4 h-4" />
+            <span>
+              {isSubmitting
+                ? "Submitting..."
+                : isUploadingAttachments
+                ? "Processing..."
+                : "Submit for Approval"}
+            </span>
+          </button>
         </div>
       </div>
     </div>
