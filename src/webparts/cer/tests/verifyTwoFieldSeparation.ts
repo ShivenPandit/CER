@@ -451,7 +451,12 @@ async function runTwoFieldSeparationVerification(): Promise<void> {
   assert(/^CER-\d{4}-\d{4}$/.test(createdWithCerPrId.proposal.cerPrId || ""), `cerPrId adheres to 'CER-YYYY-XXXX' format (${createdWithCerPrId.proposal.cerPrId})`);
 
   // B. Verify SharePoint Modern Item Mapping produces cerPrId and NOT cerPrNo
-  const modernPayload = (spDataService as any)._mapProposalToModernSharePointItem(createdWithCerPrId.proposal);
+  interface ISharePointInternalMapper {
+    _mapProposalToModernSharePointItem: (proposal: ICERProposal) => Record<string, unknown>;
+    _mapSharePointItemToProposal: (item: Record<string, unknown>) => ICERProposal;
+  }
+  const spMapper = spDataService as unknown as ISharePointInternalMapper;
+  const modernPayload = spMapper._mapProposalToModernSharePointItem(createdWithCerPrId.proposal);
   assert(modernPayload.cerPrId === createdWithCerPrId.proposal.cerPrId, "Modern SP payload contains cerPrId with system identifier");
   assert(modernPayload.Title === createdWithCerPrId.proposal.cerPrId, "Modern SP payload Title matches system identifier");
   assert(modernPayload.proposalNo === "PR-TEST-CERPRID-01", "Modern SP payload contains user proposalNo");
@@ -469,7 +474,7 @@ async function runTwoFieldSeparationVerification(): Promise<void> {
     sbu: "RJ North",
     status: "In Approval",
   };
-  const parsedProposal = (spDataService as any)._mapSharePointItemToProposal(rawSpModernItem);
+  const parsedProposal = spMapper._mapSharePointItemToProposal(rawSpModernItem);
   assert(parsedProposal.cerPrId === "CER-2026-0042", "_mapSharePointItemToProposal reads cerPrId from SharePoint item");
   assert(parsedProposal.cer_proposal_id === "CER-2026-0042", "cer_proposal_id maps from cerPrId");
   assert(parsedProposal.cerprno === "CER-2026-0042", "cerprno maps from cerPrId");
@@ -481,7 +486,7 @@ async function runTwoFieldSeparationVerification(): Promise<void> {
     Title: "CER-2025-0010",
     prName: "Legacy Item Without cerPrId",
   };
-  const fallbackProposal = (spDataService as any)._mapSharePointItemToProposal(legacyFallbackItem);
+  const fallbackProposal = spMapper._mapSharePointItemToProposal(legacyFallbackItem);
   assert(fallbackProposal.cerPrId === "CER-2025-0010", "Fallback extracts identifier from Title when cerPrId is absent");
   assert(fallbackProposal.proposal_no === "CER-2025-0010", "Fallback sets proposal_no to identifier when proposalNo is absent");
 

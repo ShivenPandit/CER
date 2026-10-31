@@ -36,7 +36,7 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
 
   useEffect(() => {
     let isMounted = true;
-    const fetchSubmissions = async () => {
+    const fetchSubmissions = async (): Promise<void> => {
       setIsLoading(true);
       setError(null);
       try {
@@ -45,7 +45,7 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
           setActiveProposal(active);
           setHistoryProposals(history || []);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (isMounted) {
           console.error("Failed to fetch submissions for CER Proposal ID:", err);
           setError("Failed to load submission history for this proposal.");
@@ -57,7 +57,7 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
       }
     };
 
-    fetchSubmissions();
+    fetchSubmissions().catch((e) => console.error(e));
     return () => {
       isMounted = false;
     };
@@ -180,7 +180,7 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
                   <th className="py-3.5 px-3 text-center whitespace-nowrap">Status</th>
                   <th className="py-3.5 px-4 whitespace-nowrap">Pending</th>
                   <th className="py-3.5 px-3 text-center whitespace-nowrap">Level</th>
-                  <th className="py-3.5 px-3 text-right w-12 whitespace-nowrap"></th>
+                  <th className="py-3.5 px-3 text-right w-12 whitespace-nowrap" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
