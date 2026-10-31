@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, Save, Send, ArrowLeft, CheckCircle2, AlertCircle, ShieldAlert, RotateCcw } from "lucide-react";
+import { Search, Save, Send, ArrowLeft, CheckCircle2, AlertCircle, ShieldAlert, RotateCcw, Lock } from "lucide-react";
 import { ICERProposal, IFieldChoices } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
 import { ICERAttachment } from "../../models/AttachmentModel";
@@ -385,59 +385,107 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
   };
 
   return (
-    <div className="space-y-6 pb-28 sm:pb-32">
-      {/* Search & Lookup Header */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+    <div className="cer-change-scope space-y-4 pb-28">
+      {/* Page-Scoped Brand Colour Tokens & Compact Enterprise Style */}
+      <style>{`
+        .cer-change-scope {
+          --cer-brand-blue: #012964;
+          --cer-brand-green: #66CC33;
+        }
+
+        .cer-change-scope .cer-btn-primary {
+          background-color: var(--cer-brand-blue) !important;
+          color: #ffffff !important;
+        }
+        .cer-change-scope .cer-btn-primary:hover:not(:disabled) {
+          opacity: 0.92 !important;
+        }
+
+        .cer-change-scope .cer-text-blue {
+          color: var(--cer-brand-blue) !important;
+        }
+
+        .cer-change-scope input:focus,
+        .cer-change-scope select:focus,
+        .cer-change-scope textarea:focus {
+          outline: none !important;
+          border-color: var(--cer-brand-blue) !important;
+          box-shadow: 0 0 0 2px rgba(1, 41, 100, 0.15) !important;
+        }
+
+        .sp-skipToContent:not(:focus):not(:focus-within),
+        #sp-skipToContent:not(:focus):not(:focus-within) {
+          position: absolute !important;
+          top: -9999px !important;
+          left: -9999px !important;
+          display: none !important;
+          visibility: hidden !important;
+          opacity: 0 !important;
+        }
+      `}</style>
+
+      {/* Compact Sticky Header with Title and Proposal Lookup */}
+      <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 bg-white/95 backdrop-blur-md px-4 py-2.5 sm:px-5 rounded-xl border border-slate-200/90 shadow-xs">
+        <div className="flex items-center gap-2.5 min-w-0">
           <button
+            type="button"
             onClick={onCancel}
-            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0"
             title="Go back"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 tracking-tight">
-              Change Capital Expenditure Request (CER)
-            </h2>
-            <p className="text-xs text-slate-500">
-              Form FR-02: Modify an existing proposal, capture field-level audit deltas, and re-trigger approval workflow
-            </p>
-          </div>
+          <h2 className="text-base font-bold text-slate-900 tracking-tight whitespace-nowrap">
+            Change Capital Expenditure Request (CER)
+          </h2>
         </div>
 
-        {/* Proposal Number Search Box */}
-        <form onSubmit={handleLookupSubmit} className="flex items-center gap-2">
-          <div className="relative">
-            <input
-              type="text"
-              value={proposalNumberInput}
-              onChange={(e) => setProposalNumberInput(e.target.value)}
-              placeholder="Enter CER Proposal ID or No..."
-              className="w-56 px-3.5 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs font-mono font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium rounded-xl shadow-sm transition-colors"
-          >
-            <Search className="w-3.5 h-3.5" />
-            <span>{isLoading ? "Searching..." : "Retrieve"}</span>
-          </button>
-        </form>
+        <div className="flex items-center gap-2.5 ml-auto flex-wrap">
+          {formData && (formData.cer_proposal_id || formData.cerprno) ? (
+            <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 text-xs shrink-0">
+              <Lock className="w-3 h-3 text-slate-400" />
+              <span className="font-mono font-bold text-[#012964]">
+                {formData.cer_proposal_id || formData.cerprno}
+              </span>
+              <span className="text-[10px] text-slate-400 font-medium hidden md:inline">
+                (System generated)
+              </span>
+            </div>
+          ) : null}
+
+          {/* Proposal Number Search Box */}
+          <form onSubmit={handleLookupSubmit} className="flex items-center gap-2">
+            <div className="relative">
+              <input
+                type="text"
+                value={proposalNumberInput}
+                onChange={(e) => setProposalNumberInput(e.target.value)}
+                placeholder="Enter CER Proposal ID or No..."
+                className="w-48 sm:w-56 h-9 px-3 bg-white border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-mono font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="cer-btn-primary flex items-center gap-1.5 h-9 px-3.5 text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>{isLoading ? "Searching..." : "Retrieve"}</span>
+            </button>
+          </form>
+        </div>
       </div>
 
       {/* Mandatory Validation Error / Notice as required by FR-02 */}
       {errorMessage && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2.5 animate-shake">
+        <div className="p-3 sm:p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2.5 animate-shake">
           <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
           <span className="font-semibold">{errorMessage}</span>
         </div>
       )}
 
       {successNotice && (
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5">
+        <div className="p-3 sm:p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5">
           <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
           <span className="font-semibold">{successNotice}</span>
         </div>
@@ -448,26 +496,26 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         <>
           {/* Post-Approval Revision Banner if applicable (Doc §8 #7) */}
           {originalProposal?.status === "Approved" && (
-            <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2.5">
-              <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
+            <div className="p-3 sm:p-3.5 rounded-lg bg-amber-50 border border-amber-200/80 text-amber-900 text-xs flex items-center gap-2.5">
+              <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
               <div>
-                <p className="font-bold">Post-Approval Revision Mode</p>
-                <p className="text-amber-800 text-[11px] mt-0.5">
+                <span className="font-bold">Post-Approval Revision Mode: </span>
+                <span className="text-amber-800 text-xs">
                   This proposal was previously approved. You may edit project parameters and justification; however, the proposal number is locked to preserve referential and audit integrity.
-                </p>
+                </span>
               </div>
             </div>
           )}
 
           {/* Sent Back for Revision Banner */}
           {originalProposal?.status === "Revised" && (
-            <div className="p-4 rounded-xl bg-purple-50 border border-purple-200 text-purple-950 text-xs flex items-center gap-2.5">
-              <RotateCcw className="w-5 h-5 text-purple-600 shrink-0" />
+            <div className="p-3 sm:p-3.5 rounded-lg bg-purple-50 border border-purple-200/80 text-purple-950 text-xs flex items-center gap-2.5">
+              <RotateCcw className="w-4 h-4 text-purple-600 shrink-0" />
               <div>
-                <p className="font-bold text-purple-900">Proposal Sent Back for Revision</p>
-                <p className="text-purple-800 text-[11px] mt-0.5">
+                <span className="font-bold text-purple-900">Proposal Sent Back for Revision: </span>
+                <span className="text-purple-800 text-xs">
                   This proposal was sent back by an approver for rework. Make any necessary updates, add or replace attachments, and click &ldquo;Save Changes &amp; Re-trigger Workflow&rdquo; below to restart the approval sequence from Level 1.
-                </p>
+                </span>
               </div>
             </div>
           )}
@@ -549,65 +597,73 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           <CategoryDefinitionSection />
 
           {/* Sticky Bottom Actions Bar */}
-          <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 sm:px-5 lg:px-6 2xl:px-8 py-2.5 flex items-center justify-between shadow-elevated z-30">
-            <div className="text-xs text-slate-500 hidden md:block">
-              Saving will create field-level audit rows and route to Level 1 approver.
-            </div>
+          <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-4 sm:px-6 py-2.5 z-30 shadow-xs">
+            <div className="w-full flex items-center justify-between gap-3 max-w-7xl mx-auto">
+              <div className="text-[11px] text-slate-500 hidden sm:flex items-center gap-1.5 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                <span>
+                  {formData.status === "Draft"
+                    ? "Draft proposal changes can be saved or submitted for approval."
+                    : "Saving will record field-level audit trail deltas and route to approver."}
+                </span>
+              </div>
 
-            <div className="flex items-center gap-2 sm:gap-3 ml-auto flex-wrap justify-end w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={onCancel}
-                disabled={isSubmitting || isUploadingAttachments}
-                className="px-3 sm:px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
-              >
-                Cancel
-              </button>
-
-              {/* If currently Draft, offer Save Draft button */}
-              {formData.status === "Draft" && (
+              <div className="flex items-center gap-2 sm:gap-2.5 ml-auto flex-wrap justify-end">
                 <button
                   type="button"
-                  onClick={() => handleSaveChange(true)}
+                  onClick={onCancel}
                   disabled={isSubmitting || isUploadingAttachments}
-                  className="flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
+                  className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
                 >
-                  <Save className="w-4 h-4" />
-                  <span>{isSubmitting ? "Saving Draft..." : "Save Draft"}</span>
+                  Cancel
                 </button>
-              )}
 
-              {/* Submit for Approval (for Draft) OR Save Changes & Re-trigger Workflow (for other statuses) */}
-              <button
-                type="button"
-                onClick={() => handleSaveChange(false)}
-                disabled={isSubmitting || isUploadingAttachments}
-                className="flex items-center gap-2 px-4 sm:px-5 py-2 text-xs font-semibold text-white bg-[#012964] hover:bg-[#001f4d] rounded-xl shadow-md shadow-[#012964]/25 transition-all hover:scale-[1.02] disabled:opacity-50 cursor-pointer"
-              >
-                {formData.status === "Draft" ? (
-                  <>
-                    <Send className="w-4 h-4" />
-                    <span>
-                      {isSubmitting
-                        ? "Submitting..."
-                        : isUploadingAttachments
-                        ? "Processing Attachments..."
-                        : "Submit for Approval"}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    <span>
-                      {isSubmitting
-                        ? "Saving & Re-triggering..."
-                        : isUploadingAttachments
-                        ? "Processing Attachments..."
-                        : "Save Changes & Re-trigger Workflow"}
-                    </span>
-                  </>
+                {/* If currently Draft, offer Save Draft button */}
+                {formData.status === "Draft" && (
+                  <button
+                    type="button"
+                    onClick={() => handleSaveChange(true)}
+                    disabled={isSubmitting || isUploadingAttachments}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{isSubmitting ? "Saving Draft..." : "Save Draft"}</span>
+                  </button>
                 )}
-              </button>
+
+                {/* Submit for Approval (for Draft) OR Save Changes & Re-trigger Workflow (for other statuses) */}
+                <button
+                  type="button"
+                  onClick={() => handleSaveChange(false)}
+                  disabled={isSubmitting || isUploadingAttachments}
+                  className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white rounded-lg shadow-xs transition-all hover:opacity-95 disabled:opacity-50 cer-btn-primary cursor-pointer"
+                  style={{ backgroundColor: '#012964' }}
+                >
+                  {formData.status === "Draft" ? (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      <span>
+                        {isSubmitting
+                          ? "Submitting..."
+                          : isUploadingAttachments
+                          ? "Processing..."
+                          : "Submit for Approval"}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3.5 h-3.5" />
+                      <span>
+                        {isSubmitting
+                          ? "Saving..."
+                          : isUploadingAttachments
+                          ? "Processing..."
+                          : "Save Changes & Re-trigger"}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </>

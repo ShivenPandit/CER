@@ -159,38 +159,40 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
           )}
         </div>
 
-        {/* CER Proposal ID (Permanent System-Generated Identifier) */}
-        <div id="field-cer_proposal_id">
-          <div className="flex items-center justify-between mb-1">
-            <label htmlFor="cer_proposal_id" className="font-semibold text-slate-700 flex items-center gap-1">
-              <span>CER Proposal ID</span>
-            </label>
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-              <Lock className="w-2.5 h-2.5 text-slate-400" />
-              System-Generated
-            </span>
-          </div>
-          <div className="relative">
-            <input
-              id="cer_proposal_id"
-              type="text"
-              readOnly
-              disabled
-              tabIndex={-1}
-              value={
-                formData.cer_proposal_id ||
-                (formData.id && formData.cerprno && formData.cerprno.startsWith("CER-")
-                  ? formData.cerprno
-                  : "Assigned upon creation")
-              }
-              className="w-full h-9 px-3 py-1.5 pr-8 rounded-lg font-mono text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-600 cursor-not-allowed select-all focus:outline-none"
-              title="System-generated permanent identifier in CER-YYYY-NNNN format. Immutable and read-only."
-            />
-            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-              <Lock className="w-3.5 h-3.5" />
+        {/* CER Proposal ID (Permanent System-Generated Identifier) - Only shown in Change/Edit Mode */}
+        {!isCreateMode && (
+          <div id="field-cer_proposal_id">
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="cer_proposal_id" className="font-semibold text-slate-700 flex items-center gap-1">
+                <span>CER Proposal ID</span>
+              </label>
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                <Lock className="w-2.5 h-2.5 text-slate-400" />
+                System-Generated
+              </span>
+            </div>
+            <div className="relative">
+              <input
+                id="cer_proposal_id"
+                type="text"
+                readOnly
+                disabled
+                tabIndex={-1}
+                value={
+                  formData.cer_proposal_id ||
+                  (formData.id && formData.cerprno && formData.cerprno.startsWith("CER-")
+                    ? formData.cerprno
+                    : "Assigned upon creation")
+                }
+                className="w-full h-9 px-3 py-1.5 pr-8 rounded-lg font-mono text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-600 cursor-not-allowed select-all focus:outline-none"
+                title="System-generated permanent identifier in CER-YYYY-NNNN format. Immutable and read-only."
+              />
+              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                <Lock className="w-3.5 h-3.5" />
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Block/SBU/Field */}
         <div id="field-sbu">
