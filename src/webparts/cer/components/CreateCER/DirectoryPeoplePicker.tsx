@@ -226,8 +226,16 @@ export const DirectoryPeoplePicker: React.FC<IDirectoryPeoplePickerProps> = ({
 
   const getInitials = (name: string): string => {
     if (!name) return "U";
-    const parts = name.trim().split(/\s+/);
-    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    // Strip parenthesized or bracketed text like "(Microlink)" or "[Contractor]"
+    const clean = name.replace(/\(.*?\)/g, "").replace(/\[.*?\]/g, "").replace(/[^a-zA-Z\s]/g, " ").trim();
+    const parts = clean.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) {
+      const alphaOnly = name.replace(/[^a-zA-Z]/g, "");
+      return (alphaOnly.substring(0, 2) || "U").toUpperCase();
+    }
+    if (parts.length === 1) {
+      return parts[0].substring(0, Math.min(2, parts[0].length)).toUpperCase();
+    }
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 

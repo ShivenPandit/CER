@@ -11,7 +11,6 @@ interface IRemarksSectionProps {
   errors?: FormErrors;
   touched?: Record<string, boolean>;
   isReadOnly?: boolean;
-  onViewRemarksHistory?: () => void;
 }
 
 export const RemarksSection: React.FC<IRemarksSectionProps> = ({
@@ -21,7 +20,6 @@ export const RemarksSection: React.FC<IRemarksSectionProps> = ({
   errors = {},
   touched = {},
   isReadOnly = false,
-  onViewRemarksHistory,
 }) => {
   const getFieldError = (field: keyof ICERProposal): string | undefined => {
     return touched[field] || errors[field] ? errors[field] : undefined;
@@ -31,24 +29,11 @@ export const RemarksSection: React.FC<IRemarksSectionProps> = ({
 
   return (
     <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 sm:p-4 shadow-xs space-y-2.5 sm:space-y-3" id="section-remarks">
-      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 text-[#012964]" />
-          <h3 className="font-bold text-slate-800 text-sm sm:text-[15px] tracking-tight">
-            Section G — Remarks & Justification
-          </h3>
-        </div>
-
-        {onViewRemarksHistory && (
-          <button
-            type="button"
-            onClick={onViewRemarksHistory}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
-          >
-            <History className="w-3.5 h-3.5 text-slate-500" />
-            <span>Remarks History</span>
-          </button>
-        )}
+      <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+        <MessageSquare className="w-4 h-4 text-[#012964]" />
+        <h3 className="font-bold text-slate-800 text-sm sm:text-[15px] tracking-tight">
+          Section G — Remarks & Justification
+        </h3>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">

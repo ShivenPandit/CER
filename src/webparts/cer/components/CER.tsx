@@ -18,6 +18,7 @@ import { CreateCERView } from "./CreateCER/CreateCERView";
 import { ChangeCERView } from "./ChangeCER/ChangeCERView";
 import { DisplayCERView } from "./DisplayCER/DisplayCERView";
 import { ProposalListView } from "./MyProposals/ProposalListView";
+import { CERSubmissionsView } from "./MyProposals/CERSubmissionsView";
 import { PendingApprovalsView } from "./PendingApprovals/PendingApprovalsView";
 import { ApprovalHistoryView } from "./ApprovalWorkflow/ApprovalHistoryView";
 import { AdminConsoleView } from "./Admin/AdminConsoleView";
@@ -26,7 +27,6 @@ import { AuditTrailView } from "./Audit/AuditTrailView";
 
 // Common Modals
 import { AccessDeniedView } from "./Shared/AccessDeniedView";
-import { RemarksHistoryModal } from "./Audit/RemarksHistoryModal";
 import { UserManualModal } from "./UserManual/UserManualModal";
 
 const CER: React.FC<ICERProps> = (props) => {
@@ -50,6 +50,7 @@ const CER: React.FC<ICERProps> = (props) => {
       "pending-approvals",
       "approval-history",
       "display",
+      "cer-submissions",
       "reports",
       "audit-trail",
       "workflow-config",
@@ -136,9 +137,6 @@ const CER: React.FC<ICERProps> = (props) => {
 
   // Notifications
   const [notifications, setNotifications] = useState<INotificationLog[]>([]);
-
-  // Remarks History Modal
-  const [remarksHistoryCerprno, setRemarksHistoryCerprno] = useState<string | null>(null);
 
   // User Manual Modal
   const [isUserManualOpen, setIsUserManualOpen] = useState(false);
@@ -430,7 +428,6 @@ const CER: React.FC<ICERProps> = (props) => {
               setActiveParentView("dashboard");
               handleNavigate("display", cerprno, false, true);
             }}
-            onViewRemarksHistory={(cerprno) => setRemarksHistoryCerprno(cerprno)}
           />
         )}
 
@@ -442,7 +439,6 @@ const CER: React.FC<ICERProps> = (props) => {
             onCancel={handleGoBack}
             onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
             onNavigateToAudit={(cerprno) => handleNavigate("audit-trail", cerprno)}
-            onViewRemarksHistory={(cerprno) => setRemarksHistoryCerprno(cerprno)}
           />
         )}
 
@@ -455,6 +451,7 @@ const CER: React.FC<ICERProps> = (props) => {
               onNavigateToCreate={() => handleNavigate("create")}
               onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
               onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
+              onNavigateToSubmissions={(cerId) => handleNavigate("cer-submissions", cerId)}
               onCancel={handleGoBack}
             />
           ) : (
@@ -475,7 +472,19 @@ const CER: React.FC<ICERProps> = (props) => {
             onNavigateToCreate={() => handleNavigate("create")}
             onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
             onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
+            onNavigateToSubmissions={(cerId) => handleNavigate("cer-submissions", cerId)}
             onCancel={handleGoBack}
+          />
+        )}
+
+        {currentView === "cer-submissions" && (
+          <CERSubmissionsView
+            cerProposalId={activeProposalId || ""}
+            dataService={dataService}
+            currentUser={currentUser}
+            onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
+            onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
+            onBack={handleGoBack}
           />
         )}
 
@@ -518,6 +527,7 @@ const CER: React.FC<ICERProps> = (props) => {
               fieldChoices={fieldChoices}
               onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
               onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
+              onNavigateToSubmissions={(cerId) => handleNavigate("cer-submissions", cerId)}
               onCancel={handleGoBack}
             />
           ) : (
@@ -563,15 +573,6 @@ const CER: React.FC<ICERProps> = (props) => {
       </main>
 
       {/* Global Modals */}
-
-      {remarksHistoryCerprno && (
-        <RemarksHistoryModal
-          isOpen={!!remarksHistoryCerprno}
-          onClose={() => setRemarksHistoryCerprno(null)}
-          cerprno={remarksHistoryCerprno}
-          dataService={dataService}
-        />
-      )}
 
       <UserManualModal
         isOpen={isUserManualOpen}

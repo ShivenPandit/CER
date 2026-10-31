@@ -12,6 +12,7 @@
 // SharePoint List & Library Internal Names
 export const SP_LISTS = {
   CER_PROPOSALS: "CERProposals",
+  CER_PROPOSALS_HISTORY: "CERProposalsHistory",
   CER_AUDIT_TRAIL: "CERAuditTrail",
   CER_REMARKS_HISTORY: "CERRemarksHistory",
   CER_WORKFLOW_LEVELS: "CERWorkflowLevels",

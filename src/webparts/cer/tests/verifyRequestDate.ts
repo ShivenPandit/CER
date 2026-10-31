@@ -128,7 +128,7 @@ async function runRequestDateVerification() {
     status: "Draft" as const,
   };
 
-  const draftResult = await service.createProposal(draftProposal as any, true);
+  const draftResult = await service.createProposal(draftProposal as any);
   const createdDraft = await service.getProposalByNumber(draftResult.proposal.cerprno);
   assert(createdDraft !== null, "Created draft found in storage");
   assert(!createdDraft?.request_date, "Draft request_date is not set prior to submission");
@@ -210,11 +210,11 @@ async function runRequestDateVerification() {
   console.log("================================================================================");
 
   if (failed > 0) {
-    process.exit(1);
+    (process as any).exit?.(1);
   }
 }
 
 runRequestDateVerification().catch((err) => {
   console.error("Test execution failed:", err);
-  process.exit(1);
+  (process as any).exit?.(1);
 });

@@ -67,41 +67,41 @@ export const DataTablePagination: React.FC<IDataTablePaginationProps> = ({
   return (
     <div
       data-role="pagination-footer"
-      className="px-4 py-2.5 border-t border-slate-200/80 bg-slate-50/90 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs select-none"
+      className="px-4 py-2 border-t border-slate-200/80 bg-slate-50/90 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs sm:text-sm select-none"
     >
       {/* Left: Record Range Summary (e.g. Showing 1–9 of 364 records) */}
-      <div className="text-slate-500 font-medium text-center sm:text-left text-xs">
+      <div className="text-slate-600 font-medium text-center sm:text-left text-xs sm:text-sm">
         Showing{" "}
-        <strong className="text-slate-800 font-semibold">
+        <strong className="text-slate-900 font-bold">
           {totalItems > 0 ? startIndex + 1 : 0}
         </strong>
         –
-        <strong className="text-slate-800 font-semibold">{endIndex}</strong> of{" "}
+        <strong className="text-slate-900 font-bold">{endIndex}</strong> of{" "}
         <strong className="text-slate-900 font-bold">{totalItems}</strong> {itemName}
       </div>
 
       {/* Right: Numbered Page Navigation */}
-      <div className="flex items-center gap-1 flex-wrap justify-center">
+      <div className="flex items-center gap-1.5 flex-wrap justify-center">
         {/* First Page */}
         <button
           onClick={onFirstPage}
           disabled={currentPage <= 1}
-          className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shadow-2xs"
+          className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shadow-2xs cursor-pointer"
           title="First page"
           aria-label="First page"
         >
-          <ChevronsLeft className="w-3.5 h-3.5" />
+          <ChevronsLeft className="w-4 h-4" />
         </button>
 
         {/* Previous Page */}
         <button
           onClick={onPrevPage}
           disabled={currentPage <= 1}
-          className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shadow-2xs"
+          className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shadow-2xs cursor-pointer"
           title="Previous page"
           aria-label="Previous page"
         >
-          <ChevronLeft className="w-3.5 h-3.5" />
+          <ChevronLeft className="w-4 h-4" />
         </button>
 
         {/* Numbered Page Buttons with Ellipsis */}
@@ -111,7 +111,7 @@ export const DataTablePagination: React.FC<IDataTablePaginationProps> = ({
               return (
                 <span
                   key={`ellipsis-${idx}`}
-                  className="px-1 text-slate-400 font-bold text-xs select-none"
+                  className="px-1 text-slate-400 font-bold text-sm select-none"
                 >
                   …
                 </span>
@@ -123,7 +123,7 @@ export const DataTablePagination: React.FC<IDataTablePaginationProps> = ({
               <button
                 key={`page-${p}`}
                 onClick={() => onPageChange(p as number)}
-                className={`min-w-[28px] h-7 px-2 rounded-lg font-semibold text-xs transition-colors flex items-center justify-center cursor-pointer ${
+                className={`min-w-[32px] h-8 px-2.5 rounded-lg font-semibold text-xs sm:text-sm transition-colors flex items-center justify-center cursor-pointer ${
                   isCurrent
                     ? "bg-[#012964] text-white shadow-2xs"
                     : "bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200 shadow-2xs"
@@ -141,22 +141,22 @@ export const DataTablePagination: React.FC<IDataTablePaginationProps> = ({
         <button
           onClick={onNextPage}
           disabled={currentPage >= totalPages}
-          className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shadow-2xs"
+          className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shadow-2xs cursor-pointer"
           title="Next page"
           aria-label="Next page"
         >
-          <ChevronRight className="w-3.5 h-3.5" />
+          <ChevronRight className="w-4 h-4" />
         </button>
 
         {/* Last Page */}
         <button
           onClick={onLastPage}
           disabled={currentPage >= totalPages}
-          className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shadow-2xs"
+          className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shadow-2xs cursor-pointer"
           title="Last page"
           aria-label="Last page"
         >
-          <ChevronsRight className="w-3.5 h-3.5" />
+          <ChevronsRight className="w-4 h-4" />
         </button>
       </div>
     </div>

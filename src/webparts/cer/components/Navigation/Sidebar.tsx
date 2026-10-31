@@ -24,6 +24,7 @@ export type NavView =
   | "pending-approvals"
   | "approval-history"
   | "display"
+  | "cer-submissions"
   | "reports" | "audit-trail"
   | "workflow-config";
 

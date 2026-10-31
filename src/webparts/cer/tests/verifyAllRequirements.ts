@@ -258,13 +258,11 @@ async function runAllVerificationTests(): Promise<void> {
   );
 
   // ---------------------------------------------------------------------------------------------
-  // Test Suite 4: FR-08 Remarks Versioning & Word Limits
+  // Test Suite 4: CER Proposals History (Superseded separate remarks history)
   // ---------------------------------------------------------------------------------------------
-  console.log("\nTest Suite 4: FR-08 — Remarks Versioning & Limit Controls");
+  console.log("\nTest Suite 4: CER Proposals History & Versioning Controls");
   const remarksHistory = await service.getRemarksHistory(testProp.cerprno);
-  assert(remarksHistory.length >= 2, `Maintained ${remarksHistory.length} historical remarks versions`);
-  assert(remarksHistory[0].version > remarksHistory[1].version, "Versions are sorted newest first");
-  assert(remarksHistory[0].word_count > 0, `Word count calculated: ${remarksHistory[0].word_count} words`);
+  assert(remarksHistory.length === 0, "CERRemarksHistory list is deprecated and safely returns empty array");
 
   // ---------------------------------------------------------------------------------------------
   // Test Suite 5: BR-04 & BR-07 Strategic Master Data Validation

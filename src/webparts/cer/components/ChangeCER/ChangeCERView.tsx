@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, Save, Send, ArrowLeft, CheckCircle2, AlertCircle, ShieldAlert, RotateCcw, Lock } from "lucide-react";
+import { Search, Save, Send, ArrowLeft, CheckCircle2, AlertCircle, ShieldAlert, RotateCcw, Lock, History } from "lucide-react";
 import { ICERProposal, IFieldChoices } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
 import { ICERAttachment } from "../../models/AttachmentModel";
@@ -23,7 +23,6 @@ interface IChangeCERViewProps {
   initialProposalId?: string;
   onCancel: () => void;
   onSuccess: (cerprno: string) => void;
-  onViewRemarksHistory?: (cerprno: string) => void;
   fieldChoices?: IFieldChoices;
 }
 
@@ -33,7 +32,6 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
   initialProposalId,
   onCancel,
   onSuccess,
-  onViewRemarksHistory,
   fieldChoices,
 }) => {
   const [proposalNumberInput, setProposalNumberInput] = useState(initialProposalId || "");
@@ -323,6 +321,19 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
     }
 
     const originalPropNo = (originalProposal?.proposal_no || originalProposal?.cerprno || "").trim().toUpperCase();
+    const isApprovedOriginal = originalProposal?.status === "Approved";
+
+    if (isApprovedOriginal && trimmedNo.toUpperCase() === originalPropNo) {
+      setErrors((prev) => ({
+        ...prev,
+        proposal_no: "Every post-approval submission must have a new, distinct CER Proposal No. Please enter a new Proposal No.",
+      }));
+      setTouched((prev) => ({ ...prev, proposal_no: true }));
+      setErrorMessage("Every post-approval submission must have a new, distinct CER Proposal No. Please enter a new Proposal No.");
+      scrollToFirstError("proposal_no");
+      return;
+    }
+
     if (trimmedNo.toUpperCase() !== originalPropNo) {
       try {
         const existing = await dataService.getProposalByNumber(trimmedNo);
@@ -372,6 +383,8 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
       setSuccessNotice(
         isDraft
           ? "CER Proposal draft saved successfully."
+          : isApprovedOriginal
+          ? "Post-approval amendment submitted successfully. The previous approved version has been safely archived to CER History."
           : `CER Proposal No. has been changed and sent for approval (${result.auditRowsCount} field changes recorded in audit trail).`
       );
       setTimeout(() => {
@@ -520,6 +533,19 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
             </div>
           )}
 
+          {/* Post-Approval Changes Banner */}
+          {originalProposal?.status === "Approved" && (
+            <div className="p-3 sm:p-3.5 rounded-lg bg-blue-50 border border-blue-200/80 text-blue-950 text-xs flex items-center gap-2.5">
+              <History className="w-4 h-4 text-[#012964] shrink-0" />
+              <div>
+                <span className="font-bold text-[#012964]">Post-Approval Amendment Mode: </span>
+                <span className="text-blue-900 text-xs">
+                  This proposal is currently Approved. Enter a new, distinct <strong>CER Proposal No.</strong> for this post-approval version. Upon submission, the previous approved record will be safely preserved in CER History, and this updated proposal will begin approval at Level 1.
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Section A — Project identification and scope */}
           <ProjectDetailsSection
             formData={formData}
@@ -578,9 +604,6 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
             onBlur={handleFieldBlur}
             errors={errors}
             touched={touched}
-            onViewRemarksHistory={
-              onViewRemarksHistory ? () => onViewRemarksHistory(formData.cerprno) : undefined
-            }
           />
 
           {/* Section H — Supporting documents */}

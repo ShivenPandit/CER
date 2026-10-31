@@ -45,7 +45,7 @@ interface IDisplayCERViewProps {
   onCancel: () => void;
   onNavigateToChange: (cerprno: string) => void;
   onNavigateToAudit: (cerprno: string) => void;
-  onViewRemarksHistory: (cerprno: string) => void;
+  onViewRemarksHistory?: (cerprno: string) => void;
 }
 
 export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
@@ -55,13 +55,13 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
   onCancel,
   onNavigateToChange,
   onNavigateToAudit,
-  onViewRemarksHistory,
 }) => {
   const [proposalNumberInput, setProposalNumberInput] = useState(initialProposalId || "");
   const [proposal, setProposal] = useState<ICERProposal | null>(null);
   const [attachments, setAttachments] = useState<ICERAttachment[]>([]);
   const [workflowLevels, setWorkflowLevels] = useState<IWorkflowLevel[]>([]);
   const [decisions, setDecisions] = useState<IApprovalDecision[]>([]);
+  const [historyProposals, setHistoryProposals] = useState<ICERProposal[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
@@ -85,12 +85,14 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
         setProposal(null);
       } else {
         setProposal(found);
-        const [atts, lvls, decs, roles] = await Promise.all([
+        const [atts, lvls, decs, roles, hist] = await Promise.all([
           dataService.getAttachments(found.cerprno),
           dataService.getWorkflowLevels(found.sbu),
           dataService.getApprovalDecisions(found.cerprno),
           dataService.getUserRoles().catch(() => []),
+          dataService.getProposalHistory(found.cer_proposal_id || found.cerprno).catch(() => []),
         ]);
+        setHistoryProposals(hist || []);
         const resolvedLvls = lvls.map((lvl) => {
           if (isProjectOwnerStage(lvl)) {
             return {
@@ -442,32 +444,6 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                   <History className="w-3.5 h-3.5 text-slate-500" />
                   <span>Status History</span>
                 </button>
-
-                {(() => {
-                  const editAuth = proposal
-                    ? PermissionService.canEditCER(proposal, currentUser)
-                    : { allowed: false, reason: "Proposal not found" };
-                  const canEdit = editAuth.allowed;
-                  const editTooltip = canEdit
-                    ? "Modify Proposal Details (FR-02)"
-                    : editAuth.reason || "Proposal cannot be modified";
-                  return (
-                    <button
-                      disabled={!canEdit}
-                      onClick={canEdit ? () => onNavigateToChange(proposal.cerprno) : undefined}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-medium rounded-lg transition-colors ${
-                        canEdit
-                          ? "bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 shadow-2xs cursor-pointer"
-                          : "bg-slate-50 text-slate-400 border border-slate-200/80 cursor-not-allowed opacity-60"
-                      }`}
-                      title={editTooltip}
-                      aria-disabled={!canEdit}
-                    >
-                      <Edit className="w-3.5 h-3.5 text-slate-500" />
-                      <span>Change CER</span>
-                    </button>
-                  );
-                })()}
 
                 <button
                   onClick={() => setIsAuditTrailOpen(true)}
@@ -848,18 +824,9 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
 
           {/* Section G: Remarks & Justification */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
-            <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <MessageSquare className="w-5 h-5 cer-text-blue" />
-                <h3 className="font-bold text-slate-900 text-sm">Section G — Remarks and justification</h3>
-              </div>
-              <button
-                onClick={() => onViewRemarksHistory(proposal.cerprno)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold cer-text-blue bg-white hover:bg-slate-50 border cer-border-blue rounded-lg transition-colors"
-              >
-                <History className="w-3.5 h-3.5" />
-                <span>View Historical Versions</span>
-              </button>
+            <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
+              <MessageSquare className="w-5 h-5 cer-text-blue" />
+              <h3 className="font-bold text-slate-900 text-sm">Section G — Remarks and justification</h3>
             </div>
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/60 text-xs text-slate-800 leading-relaxed">
               <p className="font-semibold text-slate-900 mb-1">Remarks (including Justification for Non Payback expenditure, etc.):</p>

@@ -166,7 +166,7 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     const fetchPromise = (async () => {
-      const candidateLists = [SP_LISTS.CER_PROPOSALS];
+      const candidateLists = [SP_LISTS.CER_PROPOSALS, SP_LISTS.CER_PROPOSALS_HISTORY];
       let lastErr: any = null;
 
       for (const listName of candidateLists) {
@@ -341,7 +341,7 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     const fetchPromise = (async () => {
-      const candidateLists = [SP_LISTS.CER_PROPOSALS];
+      const candidateLists = [SP_LISTS.CER_PROPOSALS, SP_LISTS.CER_PROPOSALS_HISTORY];
       let lastErr: any = null;
 
       for (const listName of candidateLists) {
@@ -846,15 +846,6 @@ export class SharePointCERDataService implements ICERDataService {
       );
     }
 
-    // Secondary write: Initial narrative remarks into CERRemarksHistory
-    if (newProposal.remarks && newProposal.remarks.trim()) {
-      try {
-        await this._createRemarksRecord(newProposal.cerprno, 1, newProposal.remarks, newProposal.created_by);
-      } catch (remarksErr) {
-        console.warn("[SharePointCERDataService] Secondary remarks write warning:", remarksErr);
-      }
-    }
-
     // Secondary write: Workflow dispatch notification into CERNotifications
     if (!isDraft) {
       try {
@@ -1073,6 +1064,21 @@ export class SharePointCERDataService implements ICERDataService {
       legacyPayload.ownameId = ownerSpUserId;
     }
 
+    // Post-Approval Archival: If previous status was Approved, archive snapshot into CERProposalsHistory
+    if (original.status === "Approved") {
+      try {
+        const historyPayload: any = this._mapProposalToModernSharePointItem(original);
+        historyPayload.Title = original.proposal_no || original.cerprno;
+        if (ownerSpUserId) {
+          const historyOwnerPayload = PersonFieldService.formatPersonFieldPayload("cerOwner", ownerSpUserId);
+          Object.assign(historyPayload, historyOwnerPayload);
+        }
+        await this._sp.createListItem(SP_LISTS.CER_PROPOSALS_HISTORY, historyPayload);
+      } catch (archiveErr) {
+        console.warn("[SharePointCERDataService] Warning: Could not archive approved proposal snapshot to CERProposalsHistory:", archiveErr);
+      }
+    }
+
     // Primary write: Update proposal in CERProposals (ETag-aware conditional update)
     const proposalEtag = proposal.etag || original.etag;
     try {
@@ -1105,16 +1111,6 @@ export class SharePointCERDataService implements ICERDataService {
         await this._createAuditRecord(record);
       } catch (auditErr) {
         console.warn(`[SharePointCERDataService] Secondary audit write warning for ${record.field_name}:`, auditErr);
-      }
-    }
-
-    // Secondary write: If remarks changed, write new version to CERRemarksHistory
-    if (proposal.remarks !== original.remarks && proposal.remarks.trim()) {
-      try {
-        const nextVersion = (original.revision_count || 1) + 1;
-        await this._createRemarksRecord(proposal.cerprno, nextVersion, proposal.remarks, user.name);
-      } catch (remarksErr) {
-        console.warn("[SharePointCERDataService] Secondary remarks write warning:", remarksErr);
       }
     }
 
@@ -1152,6 +1148,55 @@ export class SharePointCERDataService implements ICERDataService {
       proposal: updatedProposal,
       auditRowsCount: auditRecords.length,
     };
+  }
+
+  public async getProposalHistory(cerProposalId: string): Promise<ICERProposal[]> {
+    const cleanId = (cerProposalId || "").trim();
+    if (!cleanId) return [];
+
+    try {
+      let items: any[] = [];
+      try {
+        items = await this._sp.getListItems(SP_LISTS.CER_PROPOSALS_HISTORY, {
+          filter: `cerPrId eq '${cleanId}' or Title eq '${cleanId}'`,
+          orderby: "Modified desc",
+          expand: "cerOwner,Author,Editor",
+          select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
+          top: 100,
+        });
+      } catch {
+        try {
+          items = await this._sp.getListItems(SP_LISTS.CER_PROPOSALS_HISTORY, {
+            filter: `cerPrId eq '${cleanId}' or Title eq '${cleanId}'`,
+            orderby: "Modified desc",
+            expand: "cerOwner",
+            select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name",
+            top: 100,
+          });
+        } catch {
+          items = await this._sp.getListItems(SP_LISTS.CER_PROPOSALS_HISTORY, {
+            filter: `cerPrId eq '${cleanId}' or Title eq '${cleanId}'`,
+            orderby: "Id desc",
+            top: 100,
+          });
+        }
+      }
+
+      return items.map((it) => this._mapSharePointItemToProposal(it));
+    } catch (err) {
+      console.warn(`[SharePointCERDataService] Failed to fetch proposal history for ${cerProposalId}:`, err);
+      return [];
+    }
+  }
+
+  public async getAllSubmissionsForCER(cerProposalId: string): Promise<{ active: ICERProposal | null; history: ICERProposal[] }> {
+    const cleanId = (cerProposalId || "").trim();
+    const [active, history] = await Promise.all([
+      this.getProposalByNumber(cleanId),
+      this.getProposalHistory(cleanId),
+    ]);
+
+    return { active, history };
   }
 
   // ---------------------------------------------------------------------------
@@ -1273,49 +1318,9 @@ export class SharePointCERDataService implements ICERDataService {
   // 3. CERRemarksHistory Operations
   // ---------------------------------------------------------------------------
 
-  public async getRemarksHistory(cerprno: string): Promise<ICERRemarksVersion[]> {
-    const candidateLists = [SP_LISTS.CER_REMARKS_HISTORY];
-    let lastErr: any = null;
-
-    for (const listName of candidateLists) {
-      try {
-        let items: Record<string, any>[] = [];
-        try {
-          items = await this._sp.getListItems<Record<string, any>>(listName, {
-            filter: `cerPrId eq '${cerprno}' or Title eq '${cerprno}'`,
-            top: 100,
-            orderby: "Created desc",
-          });
-        } catch {
-          const allItems = await this._sp.getListItems<Record<string, any>>(listName, {
-            top: 100,
-            orderby: "Created desc",
-          });
-          items = allItems.filter((it: any) => (it.cerPrId && it.cerPrId === cerprno) || (it.cerPrNo && it.cerPrNo === cerprno) || it.Title === cerprno);
-        }
-
-        return items.map((item) => ({
-          id: String(item.Id || item.id),
-          cerprno: item.cerPrId || item.cerPrNo || item.cerprno || item.Title,
-          version: Number(item.stepNumber || item.version || 1),
-          remarks_text: item.remarkText || item.remarks_text || "",
-          remarks_type: item.remarks_type || "REMARKS",
-          word_count: Number(item.word_count || (item.remarkText ? item.remarkText.split(/\s+/).filter(Boolean).length : (item.remarks_text ? item.remarks_text.split(/\s+/).filter(Boolean).length : 0))),
-          created_by: item.createdByUser || item.created_by_user || item.Author?.Title || "System User",
-          created_date: item.timestamp || item.revision_date || item.Created || new Date().toISOString(),
-        }));
-      } catch (err) {
-        lastErr = err;
-      }
-    }
-
-    if (lastErr && (String(lastErr?.message || lastErr).includes("404") || String(lastErr?.message || lastErr).includes("does not exist"))) {
-      console.warn("[SharePointCERDataService] CERRemarksHistory list not found on site, defaulting to empty remarks:", lastErr);
-      return [];
-    }
-
-    console.error("[SharePointCERDataService] Error querying CERRemarksHistory from SharePoint:", lastErr);
-    throw new Error(`Unable to load remarks history from SharePoint: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`);
+  public async getRemarksHistory(_cerprno: string): Promise<ICERRemarksVersion[]> {
+    // Feature removed per user request: CERRemarksHistory list removed from SharePoint schema
+    return [];
   }
 
   private async _createRemarksRecord(

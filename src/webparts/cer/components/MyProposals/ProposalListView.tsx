@@ -1,19 +1,14 @@
 import React, { useState } from "react";
 import {
   Search,
-  Eye,
-  Edit,
-  FileDown,
-  FileSpreadsheet,
   PlusCircle,
   ArrowLeft,
+  ChevronRight,
 } from "lucide-react";
 import { ICERProposal } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
 import { StatusBadge } from '../Shared/StatusBadge';
 import { CategoryBadge } from '../Shared/CategoryBadge';
-import { PDFExportService } from "../../services/PDFExportService";
-import { ExcelExportService } from "../../services/ExcelExportService";
 import { PermissionService } from "../../services/PermissionService";
 import { useDynamicPagination } from "../../hooks/useDynamicPagination";
 import { DataTablePagination } from '../Shared/DataTablePagination';
@@ -23,8 +18,9 @@ interface IProposalListViewProps {
   currentUser: IAppUser;
   mode: "my" | "all";
   onNavigateToCreate: () => void;
-  onNavigateToDisplay: (cerprno: string) => void;
-  onNavigateToChange: (cerprno: string) => void;
+  onNavigateToDisplay?: (cerprno: string) => void;
+  onNavigateToChange?: (cerprno: string) => void;
+  onNavigateToSubmissions?: (cerProposalId: string) => void;
   onCancel?: () => void;
 }
 
@@ -35,15 +31,42 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
   onNavigateToCreate,
   onNavigateToDisplay,
   onNavigateToChange,
+  onNavigateToSubmissions,
   onCancel,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
-  const filteredProposals = proposals.filter((p) => {
-    // Mode filter
+  // Filter based on ownership mode first
+  const baseProposals = proposals.filter((p) => {
     if (mode === "my") {
-      const isOwner = PermissionService.isProposalOwner(p, currentUser);
-      if (!isOwner) return false;
+      return PermissionService.isProposalOwner(p, currentUser);
+    }
+    return true;
+  });
+
+  // Calculate status KPI counts for quick filters
+  const counts = {
+    all: baseProposals.length,
+    inApproval: baseProposals.filter((p) =>
+      ["Pending Approval", "In Approval", "Submitted"].indexOf(p.status) !== -1
+    ).length,
+    approved: baseProposals.filter((p) => p.status === "Approved").length,
+    draft: baseProposals.filter((p) => p.status === "Draft").length,
+    revised: baseProposals.filter((p) => p.status === "Revised").length,
+  };
+
+  // Filter by status filter and search query
+  const filteredProposals = baseProposals.filter((p) => {
+    // Status Filter
+    if (statusFilter === "IN_APPROVAL") {
+      if (["Pending Approval", "In Approval", "Submitted"].indexOf(p.status) === -1) return false;
+    } else if (statusFilter === "APPROVED") {
+      if (p.status !== "Approved") return false;
+    } else if (statusFilter === "DRAFT") {
+      if (p.status !== "Draft") return false;
+    } else if (statusFilter === "REVISED") {
+      if (p.status !== "Revised") return false;
     }
 
     // Search query
@@ -53,45 +76,55 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
       const noMatch = (p.proposal_no || "").toLowerCase().includes(q);
       const cerMatch = (p.cerprno || "").toLowerCase().includes(q);
       const nameMatch = (p.pr_name || "").toLowerCase().includes(q);
-      return idMatch || noMatch || cerMatch || nameMatch;
+      const ownerMatch = (p.owname || "").toLowerCase().includes(q);
+      const sbuMatch = (p.sbu || "").toLowerCase().includes(q);
+      return idMatch || noMatch || cerMatch || nameMatch || ownerMatch || sbuMatch;
     }
     return true;
   });
 
-  // Fully Automatic Dynamic Table Pagination
+  // Dynamic Table Pagination
   const pagination = useDynamicPagination({
     totalItems: filteredProposals.length,
-    defaultRowHeight: 46,
+    defaultRowHeight: 52,
     bufferBottom: 52,
   });
 
   const visibleProposals = pagination.paginateItems(filteredProposals);
 
-  const handleDownloadPDF = async (prop: ICERProposal) => {
-    try {
-      await PDFExportService.generateCERPdf(prop, []);
-    } catch (e: any) {
-      alert("Error generating PDF: " + e.message);
+  const handleRowClick = (prop: ICERProposal) => {
+    const targetId = prop.cer_proposal_id || prop.cerprno;
+    if (onNavigateToSubmissions) {
+      onNavigateToSubmissions(targetId);
+    } else if (onNavigateToDisplay) {
+      onNavigateToDisplay(prop.cerprno);
     }
   };
 
-  const handleDownloadExcel = (prop: ICERProposal) => {
-    try {
-      ExcelExportService.exportSingleProposal(prop);
-    } catch (e: any) {
-      alert("Error generating Excel: " + e.message);
+  const getInitials = (name?: string): string => {
+    if (!name) return "U";
+    // Strip parenthesized or bracketed text like "(Microlink)" or "[Contractor]"
+    const clean = name.replace(/\(.*?\)/g, "").replace(/\[.*?\]/g, "").replace(/[^a-zA-Z\s]/g, " ").trim();
+    const parts = clean.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) {
+      const alphaOnly = name.replace(/[^a-zA-Z]/g, "");
+      return (alphaOnly.substring(0, 2) || "U").toUpperCase();
     }
+    if (parts.length === 1) {
+      return parts[0].substring(0, Math.min(2, parts[0].length)).toUpperCase();
+    }
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-4">
       {/* Header & Controls Bar */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           {onCancel && (
             <button
               onClick={onCancel}
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0"
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0 cursor-pointer"
               title="Go back"
               aria-label="Go back"
             >
@@ -99,10 +132,10 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
             </button>
           )}
           <div>
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
               {mode === "my" ? "My CER Proposals" : "All Capital Expenditure Requests"}
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
               {mode === "my"
                 ? "Proposals initiated by you or where you are designated as the Project Owner"
                 : "Enterprise-wide capital expenditure proposals across all Strategic Business Units"}
@@ -110,9 +143,9 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 sm:flex-initial">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchTerm}
@@ -121,14 +154,14 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                 pagination.setCurrentPage(1);
               }}
               placeholder="Filter proposals..."
-              className="w-full sm:w-56 pl-8 pr-3 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
+              className="w-full sm:w-64 pl-9 pr-3.5 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
             />
           </div>
 
           {PermissionService.canCreateCER(currentUser) && (
             <button
               onClick={onNavigateToCreate}
-              className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-[#012964] hover:bg-[#001f4d] text-white text-xs font-semibold rounded-xl shadow-md shadow-[#012964]/20 transition-all hover:scale-[1.02] shrink-0 cursor-pointer"
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-[#012964] hover:bg-[#001f4d] text-white text-sm font-semibold rounded-xl shadow-md shadow-[#012964]/20 transition-all hover:scale-[1.02] shrink-0 cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" />
               <span>Create CER</span>
@@ -137,31 +170,141 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
         </div>
       </div>
 
-      {/* Main Container with ResizeObserver ref */}
+      {/* KPI Status Filter Strip */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => {
+            setStatusFilter("ALL");
+            pagination.setCurrentPage(1);
+          }}
+          className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
+            statusFilter === "ALL"
+              ? "bg-[#012964] text-white shadow-sm"
+              : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
+          }`}
+        >
+          <span>All</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              statusFilter === "ALL" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700"
+            }`}
+          >
+            {counts.all}
+          </span>
+        </button>
+
+        <button
+          onClick={() => {
+            setStatusFilter("IN_APPROVAL");
+            pagination.setCurrentPage(1);
+          }}
+          className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
+            statusFilter === "IN_APPROVAL"
+              ? "bg-amber-600 text-white shadow-sm"
+              : "bg-white text-slate-700 hover:bg-amber-50 hover:text-amber-700 border border-slate-200"
+          }`}
+        >
+          <span>In Approval</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              statusFilter === "IN_APPROVAL" ? "bg-white/20 text-white" : "bg-amber-100 text-amber-800"
+            }`}
+          >
+            {counts.inApproval}
+          </span>
+        </button>
+
+        <button
+          onClick={() => {
+            setStatusFilter("APPROVED");
+            pagination.setCurrentPage(1);
+          }}
+          className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
+            statusFilter === "APPROVED"
+              ? "bg-emerald-600 text-white shadow-sm"
+              : "bg-white text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 border border-slate-200"
+          }`}
+        >
+          <span>Approved</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              statusFilter === "APPROVED" ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800"
+            }`}
+          >
+            {counts.approved}
+          </span>
+        </button>
+
+        <button
+          onClick={() => {
+            setStatusFilter("DRAFT");
+            pagination.setCurrentPage(1);
+          }}
+          className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
+            statusFilter === "DRAFT"
+              ? "bg-slate-800 text-white shadow-sm"
+              : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
+          }`}
+        >
+          <span>Draft</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              statusFilter === "DRAFT" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700"
+            }`}
+          >
+            {counts.draft}
+          </span>
+        </button>
+
+        {counts.revised > 0 && (
+          <button
+            onClick={() => {
+              setStatusFilter("REVISED");
+              pagination.setCurrentPage(1);
+            }}
+            className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
+              statusFilter === "REVISED"
+                ? "bg-purple-600 text-white shadow-sm"
+                : "bg-white text-slate-700 hover:bg-purple-50 hover:text-purple-700 border border-slate-200"
+            }`}
+          >
+            <span>Revised (Rework)</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                statusFilter === "REVISED" ? "bg-white/20 text-white" : "bg-purple-100 text-purple-800"
+              }`}
+            >
+              {counts.revised}
+            </span>
+          </button>
+        )}
+      </div>
+
+      {/* Main Table Container */}
       <div
         ref={pagination.tableContainerRef}
         className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden flex flex-col"
       >
-        {/* Desktop & Tablet Table View (hidden on small mobile screens < 640px) */}
+        {/* Desktop & Tablet Table View */}
         <div className="hidden sm:block overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse table-fixed">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider select-none">
-                <th className="py-2.5 px-3 w-[125px]">Proposal ID</th>
-                <th className="py-2.5 px-3">Project Name</th>
-                <th className="py-2.5 px-2.5 w-[120px] 2xl:w-[160px]">Owner</th>
-                <th className="py-2.5 px-2 w-[75px] 2xl:w-[90px]">SBU</th>
-                <th className="py-2.5 px-2 w-[85px] 2xl:w-[100px]">Category</th>
-                <th className="py-2.5 px-3 text-right w-[125px] 2xl:w-[150px]">Amount</th>
-                <th className="py-2.5 px-2 text-center w-[95px] 2xl:w-[110px]">Status</th>
-                <th className="py-2.5 px-2.5 w-[165px] xl:w-[210px] 2xl:w-[240px]">Pending Level</th>
-                <th className="py-2.5 px-3 text-right w-[135px]">Actions</th>
+              <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold uppercase text-xs tracking-wider select-none">
+                <th className="py-3.5 px-4 w-[160px] whitespace-nowrap">Proposal ID</th>
+                <th className="py-3.5 px-4 min-w-[220px]">Project Name</th>
+                <th className="py-3.5 px-4 min-w-[200px] whitespace-nowrap">Owner</th>
+                <th className="py-3.5 px-3 whitespace-nowrap">SBU</th>
+                <th className="py-3.5 px-3 whitespace-nowrap">Category</th>
+                <th className="py-3.5 px-4 text-right whitespace-nowrap">Amount</th>
+                <th className="py-3.5 px-3 text-center whitespace-nowrap">Status</th>
+                <th className="py-3.5 px-4 whitespace-nowrap">Pending Level</th>
+                <th className="py-3.5 px-3 text-right w-12 whitespace-nowrap"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {visibleProposals.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400 text-xs">
+                  <td colSpan={9} className="py-12 text-center text-slate-400 text-sm">
                     No proposals found matching your filter criteria.
                   </td>
                 </tr>
@@ -169,113 +312,60 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                 visibleProposals.map((prop) => (
                   <tr
                     key={prop.id}
-                    className="hover:bg-slate-50/80 transition-colors group"
+                    onClick={() => handleRowClick(prop)}
+                    className="hover:bg-blue-50/40 cursor-pointer transition-colors group select-none"
+                    title="Click to view CER submissions and history"
                   >
-                    <td className="py-2.5 px-3 font-mono font-bold text-slate-900 whitespace-nowrap">
-                      <button
-                        onClick={() => onNavigateToDisplay(prop.cerprno)}
-                        className="hover:text-[#012964] transition-colors text-left"
-                        title="Display CER Proposal"
-                      >
-                        <div>{prop.cer_proposal_id || prop.cerprno}</div>
-                      </button>
+                    <td className="py-3.5 px-4 font-mono font-bold text-sm text-[#012964] group-hover:underline whitespace-nowrap">
+                      {prop.cer_proposal_id || prop.cerprno}
                     </td>
-                    <td className="py-2.5 px-3 font-medium text-slate-800">
-                      <span className="truncate block" title={prop.pr_name}>
+                    <td className="py-3.5 px-4 font-semibold text-sm text-slate-900">
+                      <span
+                        className="group-hover:text-[#012964] transition-colors"
+                        title={prop.pr_name}
+                      >
                         {prop.pr_name}
                       </span>
                     </td>
-                    <td className="py-2.5 px-2.5 text-slate-600">
-                      <span className="truncate block max-w-[120px] 2xl:max-w-none" title={prop.owname}>
-                        {prop.owname}
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-blue-50 text-[#012964] font-bold text-[11px] leading-none flex items-center justify-center shrink-0 border border-blue-200/80 shadow-2xs group-hover:border-[#012964]/40">
+                          {getInitials(prop.owname)}
+                        </div>
+                        <span className="font-medium text-sm text-slate-800" title={prop.owname}>
+                          {prop.owname}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-3 whitespace-nowrap">
+                      <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md">
+                        {prop.sbu}
                       </span>
                     </td>
-                    <td className="py-2.5 px-2 text-slate-600 whitespace-nowrap">
-                      {prop.sbu}
-                    </td>
-                    <td className="py-2.5 px-2 whitespace-nowrap">
+                    <td className="py-3.5 px-3 whitespace-nowrap">
                       <CategoryBadge category={prop.cat} />
                     </td>
-                    <td className="py-2.5 px-3 text-right font-bold text-slate-900 whitespace-nowrap">
+                    <td className="py-3.5 px-4 text-right font-bold text-sm text-slate-900 whitespace-nowrap">
                       {prop.currency} {prop.amount.toLocaleString()}
                     </td>
-                    <td className="py-2.5 px-2 text-center whitespace-nowrap">
+                    <td className="py-3.5 px-3 text-center whitespace-nowrap">
                       <StatusBadge status={prop.status} size="sm" />
                     </td>
-                    <td className="py-2.5 px-2.5 text-slate-500">
-                      <span
-                        className="truncate block max-w-[165px] xl:max-w-none"
-                        title={
-                          prop.status === "Approved"
-                            ? "Approved"
-                            : prop.status === "Rejected"
-                            ? "Rejected"
-                            : prop.status === "Revised"
-                            ? "Initiator (Rework)"
-                            : `L${prop.current_level} - ${prop.pending_with_role}`
-                        }
-                      >
-                        {prop.status === "Approved" ? (
-                          <span className="text-emerald-700 font-semibold">Approved</span>
-                        ) : prop.status === "Rejected" ? (
-                          <span className="text-rose-700 font-semibold">Rejected</span>
-                        ) : prop.status === "Revised" ? (
-                          <span className="text-purple-700 font-semibold">Initiator (Rework)</span>
-                        ) : (
-                          `L${prop.current_level} - ${prop.pending_with_role}`
-                        )}
-                      </span>
+                    <td className="py-3.5 px-4 whitespace-nowrap text-sm font-medium">
+                      {prop.status === "Approved" ? (
+                        <span className="text-emerald-700 font-semibold">Approved</span>
+                      ) : prop.status === "Rejected" ? (
+                        <span className="text-rose-700 font-semibold">Rejected</span>
+                      ) : prop.status === "Revised" ? (
+                        <span className="text-purple-700 font-semibold">Initiator (Rework)</span>
+                      ) : (
+                        <span className="text-slate-700">
+                          L{prop.current_level} - {prop.pending_with_role}
+                        </span>
+                      )}
                     </td>
-                    <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => onNavigateToDisplay(prop.cerprno)}
-                          className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-                          title="Display CER (FR-03)"
-                          aria-label={`Display CER ${prop.cerprno}`}
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                        {(() => {
-                          const editAuth = PermissionService.canEditCER(prop, currentUser);
-                          const canEdit = editAuth.allowed;
-                          const editTooltip = canEdit
-                            ? "Change CER (FR-02)"
-                            : editAuth.reason || "Proposal cannot be modified";
-                          return (
-                            <button
-                              disabled={!canEdit}
-                              onClick={canEdit ? () => onNavigateToChange(prop.cerprno) : undefined}
-                              className={`p-1.5 rounded-lg transition-colors ${
-                                canEdit
-                                  ? "text-[#012964] hover:bg-[#012964]/10 cursor-pointer"
-                                  : "text-slate-300 hover:text-slate-300 bg-transparent cursor-not-allowed opacity-50"
-                              }`}
-                              title={editTooltip}
-                              aria-label={`Change CER ${prop.cerprno}`}
-                              aria-disabled={!canEdit}
-                            >
-                              <Edit className="w-3.5 h-3.5" />
-                            </button>
-                          );
-                        })()}
-                        <button
-                          onClick={() => handleDownloadPDF(prop)}
-                          className="p-1.5 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-lg transition-colors"
-                          title="Download PDF"
-                          aria-label={`Download PDF ${prop.cerprno}`}
-                        >
-                          <FileDown className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDownloadExcel(prop)}
-                          className="p-1.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg transition-colors"
-                          title="Download Excel"
-                          aria-label={`Download Excel ${prop.cerprno}`}
-                        >
-                          <FileSpreadsheet className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                    <td className="py-3.5 px-3 text-right whitespace-nowrap w-12">
+                      <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-[#012964] group-hover:translate-x-0.5 transition-all inline-block" />
                     </td>
                   </tr>
                 ))
@@ -287,18 +377,20 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
         {/* Mobile Adaptive Cards View (active on < 640px) */}
         <div className="sm:hidden divide-y divide-slate-100">
           {visibleProposals.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 text-xs px-4">
+            <div className="py-12 text-center text-slate-400 text-sm px-4">
               No proposals found matching your filter criteria.
             </div>
           ) : (
             visibleProposals.map((prop) => (
-              <div key={prop.id} className="p-4 space-y-2.5 hover:bg-slate-50/60 transition-colors">
+              <div
+                key={prop.id}
+                onClick={() => handleRowClick(prop)}
+                className="p-4 space-y-3 hover:bg-slate-50/80 transition-colors cursor-pointer group"
+              >
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-mono font-bold text-xs text-slate-900 bg-slate-100 px-2 py-0.5 rounded">
-                      {prop.cer_proposal_id || prop.cerprno}
-                    </span>
-                  </div>
+                  <span className="font-mono font-bold text-sm text-[#012964] bg-blue-50/80 px-2.5 py-1 rounded-lg border border-blue-200/60 group-hover:underline">
+                    {prop.cer_proposal_id || prop.cerprno}
+                  </span>
                   <div className="flex items-center gap-1.5">
                     <CategoryBadge category={prop.cat} />
                     <StatusBadge status={prop.status} size="sm" />
@@ -306,28 +398,33 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                 </div>
 
                 <div>
-                  <h4 className="font-semibold text-slate-900 text-xs leading-snug">
+                  <h4 className="font-semibold text-slate-900 text-sm leading-snug group-hover:text-[#012964] transition-colors">
                     {prop.pr_name}
                   </h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    {prop.owname} • SBU: {prop.sbu}
-                  </p>
+                  <div className="flex items-center gap-2 text-xs text-slate-600 mt-1.5">
+                    <div className="w-6 h-6 rounded-full bg-blue-50 text-[#012964] font-bold text-[10px] leading-none flex items-center justify-center shrink-0 border border-blue-200/80 shadow-2xs">
+                      {getInitials(prop.owname)}
+                    </div>
+                    <span>{prop.owname}</span>
+                    <span>•</span>
+                    <span className="font-medium bg-slate-100 px-1.5 py-0.5 rounded">{prop.sbu}</span>
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
                   <div>
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+                    <span className="text-[11px] text-slate-400 uppercase font-semibold block">
                       Amount
                     </span>
-                    <span className="font-bold text-slate-900">
+                    <span className="font-bold text-sm text-slate-900">
                       {prop.currency} {prop.amount.toLocaleString()}
                     </span>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+                    <span className="text-[11px] text-slate-400 uppercase font-semibold block">
                       Pending
                     </span>
-                    <span className="text-slate-600 text-[11px]">
+                    <span className="text-slate-700 text-xs font-medium">
                       {prop.status === "Approved"
                         ? "Approved"
                         : prop.status === "Rejected"
@@ -339,52 +436,9 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                   </div>
                 </div>
 
-                {/* Mobile Actions Bar */}
-                <div className="flex items-center justify-end gap-1.5 pt-1">
-                  <button
-                    onClick={() => onNavigateToDisplay(prop.cerprno)}
-                    className="flex-1 py-1.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-center flex items-center justify-center gap-1 text-[11px] transition-colors"
-                  >
-                    <Eye className="w-3 h-3" />
-                    <span>View</span>
-                  </button>
-                  {(() => {
-                    const editAuth = PermissionService.canEditCER(prop, currentUser);
-                    const canEdit = editAuth.allowed;
-                    const editTooltip = canEdit
-                      ? "Change CER"
-                      : editAuth.reason || "Proposal cannot be modified";
-                    return (
-                      <button
-                        disabled={!canEdit}
-                        onClick={canEdit ? () => onNavigateToChange(prop.cerprno) : undefined}
-                        className={`flex-1 py-1.5 px-2 font-semibold rounded-lg text-center flex items-center justify-center gap-1 text-[11px] transition-colors ${
-                          canEdit
-                            ? "bg-[#012964]/10 hover:bg-[#012964]/20 text-[#012964] cursor-pointer"
-                            : "bg-slate-100 text-slate-400 cursor-not-allowed opacity-60"
-                        }`}
-                        title={editTooltip}
-                        aria-disabled={!canEdit}
-                      >
-                        <Edit className="w-3 h-3" />
-                        <span>Edit</span>
-                      </button>
-                    );
-                  })()}
-                  <button
-                    onClick={() => handleDownloadPDF(prop)}
-                    className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-center transition-colors"
-                    title="PDF"
-                  >
-                    <FileDown className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => handleDownloadExcel(prop)}
-                    className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-center transition-colors"
-                    title="Excel"
-                  >
-                    <FileSpreadsheet className="w-3.5 h-3.5" />
-                  </button>
+                <div className="pt-1 flex items-center justify-end text-xs font-semibold text-[#012964] group-hover:underline gap-1">
+                  <span>View Submissions</span>
+                  <ChevronRight className="w-4 h-4" />
                 </div>
               </div>
             ))

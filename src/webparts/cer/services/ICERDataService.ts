@@ -32,6 +32,10 @@ export interface ICERDataService {
   updateProposal(proposal: ICERProposal, user: { name: string; email: string }): Promise<{ success: boolean; message: string; proposal: ICERProposal; auditRowsCount: number }>;
   generateProposalNumber(): Promise<string>;
 
+  // Proposal History & Submissions (CERProposalsHistory)
+  getProposalHistory(cerProposalId: string): Promise<ICERProposal[]>;
+  getAllSubmissionsForCER(cerProposalId: string): Promise<{ active: ICERProposal | null; history: ICERProposal[] }>;
+
   // Audit Trail & Remarks
   getAuditTrail(cerprno?: string): Promise<ICERAuditRecord[]>;
   getRemarksHistory(cerprno: string): Promise<ICERRemarksVersion[]>;

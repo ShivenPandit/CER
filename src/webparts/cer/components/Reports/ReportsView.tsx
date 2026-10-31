@@ -5,9 +5,8 @@ import {
   FileSpreadsheet,
   ArrowUpDown,
   RotateCcw,
-  Eye,
-  Edit,
   ArrowLeft,
+  ChevronRight,
 } from "lucide-react";
 import { ICERProposal, SBU_OPTIONS, IFieldChoices } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
@@ -15,7 +14,6 @@ import { StatusBadge } from '../Shared/StatusBadge';
 import { CategoryBadge } from '../Shared/CategoryBadge';
 import { ExcelExportService } from "../../services/ExcelExportService";
 import { ICERDataService } from "../../services/ICERDataService";
-import { PermissionService } from "../../services/PermissionService";
 import { useDynamicPagination } from "../../hooks/useDynamicPagination";
 import { DataTablePagination } from '../Shared/DataTablePagination';
 
@@ -24,6 +22,7 @@ interface IReportsViewProps {
   currentUser: IAppUser;
   onNavigateToDisplay: (cerprno: string) => void;
   onNavigateToChange: (cerprno: string) => void;
+  onNavigateToSubmissions?: (cerProposalId: string) => void;
   dataService?: ICERDataService;
   fieldChoices?: IFieldChoices;
   onCancel?: () => void;
@@ -34,6 +33,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
   currentUser,
   onNavigateToDisplay,
   onNavigateToChange,
+  onNavigateToSubmissions,
   dataService,
   fieldChoices,
   onCancel,
@@ -159,6 +159,30 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
     setDateFrom("");
     setDateTo("");
     pagination.setCurrentPage(1);
+  };
+
+  const handleRowClick = (prop: ICERProposal) => {
+    const targetId = prop.cer_proposal_id || prop.cerprno;
+    if (onNavigateToSubmissions) {
+      onNavigateToSubmissions(targetId);
+    } else {
+      onNavigateToDisplay(prop.cerprno);
+    }
+  };
+
+  const getInitials = (name?: string): string => {
+    if (!name) return "U";
+    // Strip parenthesized or bracketed text like "(Microlink)" or "[Contractor]"
+    const clean = name.replace(/\(.*?\)/g, "").replace(/\[.*?\]/g, "").replace(/[^a-zA-Z\s]/g, " ").trim();
+    const parts = clean.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) {
+      const alphaOnly = name.replace(/[^a-zA-Z]/g, "");
+      return (alphaOnly.substring(0, 2) || "U").toUpperCase();
+    }
+    if (parts.length === 1) {
+      return parts[0].substring(0, Math.min(2, parts[0].length)).toUpperCase();
+    }
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
   const handleExportExcel = async () => {
@@ -391,48 +415,48 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
       >
         {/* Desktop / Tablet Table */}
         <div className="hidden sm:block overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse table-fixed">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider select-none">
+              <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold uppercase text-xs tracking-wider select-none">
                 <th
                   onClick={() => handleSort("cerprno")}
-                  className="py-2.5 px-3 w-[125px] cursor-pointer hover:text-slate-900"
+                  className="py-3.5 px-4 w-[160px] cursor-pointer hover:text-slate-900 whitespace-nowrap"
                 >
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     <span>Proposal ID</span>
-                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                    <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
                   </div>
                 </th>
                 <th
                   onClick={() => handleSort("pr_name")}
-                  className="py-2.5 px-3 cursor-pointer hover:text-slate-900"
+                  className="py-3.5 px-4 min-w-[220px] cursor-pointer hover:text-slate-900"
                 >
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     <span>Project Name</span>
-                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                    <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
                   </div>
                 </th>
-                <th className="py-2.5 px-2.5 w-[120px]">Owner</th>
-                <th className="py-2.5 px-2 w-[75px]">SBU</th>
-                <th className="py-2.5 px-2 w-[85px]">Category</th>
+                <th className="py-3.5 px-4 min-w-[200px] whitespace-nowrap">Owner</th>
+                <th className="py-3.5 px-3 whitespace-nowrap">SBU</th>
+                <th className="py-3.5 px-3 whitespace-nowrap">Category</th>
                 <th
                   onClick={() => handleSort("amount")}
-                  className="py-2.5 px-3 text-right w-[125px] cursor-pointer hover:text-slate-900"
+                  className="py-3.5 px-4 text-right cursor-pointer hover:text-slate-900 whitespace-nowrap"
                 >
-                  <div className="flex items-center justify-end gap-1">
+                  <div className="flex items-center justify-end gap-1.5">
                     <span>Amount</span>
-                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                    <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
                   </div>
                 </th>
-                <th className="py-2.5 px-2 text-center w-[95px]">Status</th>
-                <th className="py-2.5 px-2.5 w-[165px]">Stage / Approver</th>
-                <th className="py-2.5 px-3 text-right w-[80px]">Actions</th>
+                <th className="py-3.5 px-3 text-center whitespace-nowrap">Status</th>
+                <th className="py-3.5 px-4 whitespace-nowrap">Stage / Approver</th>
+                <th className="py-3.5 px-3 text-right w-12 whitespace-nowrap"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {visibleProposals.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400 text-xs">
+                  <td colSpan={9} className="py-12 text-center text-slate-400 text-sm">
                     No proposals found matching the selected criteria.
                   </td>
                 </tr>
@@ -440,92 +464,57 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                 visibleProposals.map((prop) => (
                   <tr
                     key={prop.id}
-                    className="hover:bg-slate-50/70 transition-colors"
+                    onClick={() => handleRowClick(prop)}
+                    className="hover:bg-blue-50/40 cursor-pointer transition-colors group select-none"
+                    title="Click to view CER submissions and history"
                   >
-                    <td className="py-2.5 px-3 font-mono font-bold text-slate-900 whitespace-nowrap">
-                      <button
-                        onClick={() => onNavigateToDisplay(prop.cerprno)}
-                        className="hover:text-blue-600 transition-colors text-left"
-                      >
-                        <div>{prop.cer_proposal_id || prop.cerprno}</div>
-                      </button>
+                    <td className="py-3.5 px-4 font-mono font-bold text-sm text-[#012964] group-hover:underline whitespace-nowrap">
+                      {prop.cer_proposal_id || prop.cerprno}
                     </td>
-                    <td className="py-2.5 px-3 font-medium text-slate-800">
-                      <span className="truncate block" title={prop.pr_name}>
+                    <td className="py-3.5 px-4 font-semibold text-sm text-slate-900">
+                      <span className="group-hover:text-[#012964] transition-colors" title={prop.pr_name}>
                         {prop.pr_name}
                       </span>
                     </td>
-                    <td className="py-2.5 px-2.5 text-slate-600">
-                      <span className="truncate block" title={prop.owname}>
-                        {prop.owname}
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-blue-50 text-[#012964] font-bold text-[11px] leading-none flex items-center justify-center shrink-0 border border-blue-200/80 shadow-2xs group-hover:border-[#012964]/40">
+                          {getInitials(prop.owname)}
+                        </div>
+                        <span className="font-medium text-sm text-slate-800" title={prop.owname}>
+                          {prop.owname}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-3 whitespace-nowrap">
+                      <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md">
+                        {prop.sbu}
                       </span>
                     </td>
-                    <td className="py-2.5 px-2 text-slate-600 whitespace-nowrap">{prop.sbu}</td>
-                    <td className="py-2.5 px-2 whitespace-nowrap">
+                    <td className="py-3.5 px-3 whitespace-nowrap">
                       <CategoryBadge category={prop.cat} />
                     </td>
-                    <td className="py-2.5 px-3 text-right font-bold text-slate-900 whitespace-nowrap">
+                    <td className="py-3.5 px-4 text-right font-bold text-sm text-slate-900 whitespace-nowrap">
                       {prop.currency} {prop.amount.toLocaleString()}
                     </td>
-                    <td className="py-2.5 px-2 text-center whitespace-nowrap">
+                    <td className="py-3.5 px-3 text-center whitespace-nowrap">
                       <StatusBadge status={prop.status} size="sm" />
                     </td>
-                    <td className="py-2.5 px-2.5 text-slate-500">
-                      <span
-                        className="truncate block"
-                        title={
-                          prop.status === "Approved"
-                            ? "Fully Approved"
-                            : prop.status === "Rejected"
-                            ? "Rejected"
-                            : prop.status === "Revised"
-                            ? "Initiator (Rework)"
-                            : `L${prop.current_level} - ${prop.pending_with_role}`
-                        }
-                      >
-                        {prop.status === "Approved" ? (
-                          <span className="text-emerald-700 font-semibold">Fully Approved</span>
-                        ) : prop.status === "Rejected" ? (
-                          <span className="text-rose-700 font-semibold">Rejected</span>
-                        ) : prop.status === "Revised" ? (
-                          <span className="text-purple-700 font-semibold">Initiator (Rework)</span>
-                        ) : (
-                          `L${prop.current_level} - ${prop.pending_with_role}`
-                        )}
-                      </span>
+                    <td className="py-3.5 px-4 whitespace-nowrap text-sm font-medium">
+                      {prop.status === "Approved" ? (
+                        <span className="text-emerald-700 font-semibold">Fully Approved</span>
+                      ) : prop.status === "Rejected" ? (
+                        <span className="text-rose-700 font-semibold">Rejected</span>
+                      ) : prop.status === "Revised" ? (
+                        <span className="text-purple-700 font-semibold">Initiator (Rework)</span>
+                      ) : (
+                        <span className="text-slate-700">
+                          L{prop.current_level} - {prop.pending_with_role}
+                        </span>
+                      )}
                     </td>
-                    <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => onNavigateToDisplay(prop.cerprno)}
-                          className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-                          title="Display Proposal (FR-03)"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                        {(() => {
-                          const editAuth = PermissionService.canEditCER(prop, currentUser);
-                          const canEdit = editAuth.allowed;
-                          const editTooltip = canEdit
-                            ? "Change Proposal (FR-02)"
-                            : editAuth.reason || "Proposal cannot be modified";
-                          return (
-                            <button
-                              disabled={!canEdit}
-                              onClick={canEdit ? () => onNavigateToChange(prop.cerprno) : undefined}
-                              className={`p-1.5 rounded-lg transition-colors ${
-                                canEdit
-                                  ? "text-blue-600 hover:text-blue-800 hover:bg-blue-50 cursor-pointer"
-                                  : "text-slate-300 hover:text-slate-300 bg-transparent cursor-not-allowed opacity-50"
-                              }`}
-                              title={editTooltip}
-                              aria-disabled={!canEdit}
-                            >
-                              <Edit className="w-3.5 h-3.5" />
-                            </button>
-                          );
-                        })()}
-                      </div>
+                    <td className="py-3.5 px-3 text-right whitespace-nowrap w-12">
+                      <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-[#012964] group-hover:translate-x-0.5 transition-all inline-block" />
                     </td>
                   </tr>
                 ))
@@ -537,18 +526,20 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
         {/* Mobile View (< 640px) */}
         <div className="sm:hidden divide-y divide-slate-100">
           {visibleProposals.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 text-xs px-4">
+            <div className="py-12 text-center text-slate-400 text-sm px-4">
               No proposals found matching the selected criteria.
             </div>
           ) : (
             visibleProposals.map((prop) => (
-              <div key={prop.id} className="p-4 space-y-2.5 hover:bg-slate-50/60 transition-colors">
+              <div
+                key={prop.id}
+                onClick={() => handleRowClick(prop)}
+                className="p-4 space-y-3 hover:bg-slate-50/80 transition-colors cursor-pointer group"
+              >
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-mono font-bold text-xs text-slate-900 bg-slate-100 px-2 py-0.5 rounded">
-                      {prop.cer_proposal_id || prop.cerprno}
-                    </span>
-                  </div>
+                  <span className="font-mono font-bold text-sm text-[#012964] bg-blue-50/80 px-2.5 py-1 rounded-lg border border-blue-200/60 group-hover:underline">
+                    {prop.cer_proposal_id || prop.cerprno}
+                  </span>
                   <div className="flex items-center gap-1.5">
                     <CategoryBadge category={prop.cat} />
                     <StatusBadge status={prop.status} size="sm" />
@@ -556,64 +547,41 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                 </div>
 
                 <div>
-                  <h4 className="font-semibold text-slate-900 text-xs leading-snug">
+                  <h4 className="font-semibold text-slate-900 text-sm leading-snug group-hover:text-[#012964] transition-colors">
                     {prop.pr_name}
                   </h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    {prop.owname} • SBU: {prop.sbu}
-                  </p>
+                  <div className="flex items-center gap-2 text-xs text-slate-600 mt-1.5">
+                    <div className="w-6 h-6 rounded-full bg-blue-50 text-[#012964] font-bold text-[10px] leading-none flex items-center justify-center shrink-0 border border-blue-200/80 shadow-2xs">
+                      {getInitials(prop.owname)}
+                    </div>
+                    <span>{prop.owname}</span>
+                    <span>•</span>
+                    <span className="font-medium bg-slate-100 px-1.5 py-0.5 rounded">{prop.sbu}</span>
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
                   <div>
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+                    <span className="text-[11px] text-slate-400 uppercase font-semibold block">
                       Amount
                     </span>
-                    <span className="font-bold text-slate-900">
+                    <span className="font-bold text-sm text-slate-900">
                       {prop.currency} {prop.amount.toLocaleString()}
                     </span>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+                    <span className="text-[11px] text-slate-400 uppercase font-semibold block">
                       Pending
                     </span>
-                    <span className="text-slate-600 text-[11px]">
+                    <span className="text-slate-700 text-xs font-medium">
                       {prop.status === "Approved" ? "Approved" : `L${prop.current_level} Review`}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-1.5 pt-1">
-                  <button
-                    onClick={() => onNavigateToDisplay(prop.cerprno)}
-                    className="flex-1 py-1.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-center flex items-center justify-center gap-1 text-[11px] transition-colors"
-                  >
-                    <Eye className="w-3 h-3" />
-                    <span>Display CER</span>
-                  </button>
-                  {(() => {
-                    const editAuth = PermissionService.canEditCER(prop, currentUser);
-                    const canEdit = editAuth.allowed;
-                    const editTooltip = canEdit
-                      ? "Change CER"
-                      : editAuth.reason || "Proposal cannot be modified";
-                    return (
-                      <button
-                        disabled={!canEdit}
-                        onClick={canEdit ? () => onNavigateToChange(prop.cerprno) : undefined}
-                        className={`flex-1 py-1.5 px-2 font-semibold rounded-lg text-center flex items-center justify-center gap-1 text-[11px] transition-colors ${
-                          canEdit
-                            ? "bg-blue-50 hover:bg-blue-100 text-blue-700 cursor-pointer"
-                            : "bg-slate-100 text-slate-400 cursor-not-allowed opacity-60"
-                        }`}
-                        title={editTooltip}
-                        aria-disabled={!canEdit}
-                      >
-                        <Edit className="w-3 h-3" />
-                        <span>Change CER</span>
-                      </button>
-                    );
-                  })()}
+                <div className="pt-1 flex items-center justify-end text-xs font-semibold text-[#012964] group-hover:underline gap-1">
+                  <span>View Submissions</span>
+                  <ChevronRight className="w-4 h-4" />
                 </div>
               </div>
             ))

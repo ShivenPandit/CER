@@ -13,9 +13,9 @@ When creating lists manually in SharePoint (**Site Contents -> New -> List -> Bl
 
 | #   | List / Library Name        | SharePoint Type  | Primary Purpose                                                        |
 | --- | -------------------------- | ---------------- | ---------------------------------------------------------------------- |
-| 1   | **`CERProposals`**         | Custom List      | Master repository for all CER proposal records (Sections A through G). |
-| 2   | **`CERAuditTrail`**        | Custom List      | Granular field-level delta change history for compliance and auditing. |
-| 3   | **`CERRemarksHistory`**    | Custom List      | Threaded approval remarks and workflow discussion history.             |
+| 1   | **`CERProposals`**         | Custom List      | Master repository for all active CER proposal records (Sections A through G). |
+| 2   | **`CERProposalsHistory`**  | Custom List      | Archive repository for approved proposal snapshots prior to post-approval changes (identical schema to `CERProposals`). In View CER, displayed under the "CER History" section. |
+| 3   | **`CERAuditTrail`**        | Custom List      | Granular field-level delta change history for compliance and auditing. |
 | 4   | **`CERWorkflowLevels`**    | Custom List      | SBU-specific approval hierarchies, role stages, and routing logic.     |
 | 5   | **`CERApprovalDecisions`** | Custom List      | Formal sign-off records (Approved / Rejected) with timestamps.         |
 | 6   | **`CERAttachments`**       | Document Library | Associated technical and financial PDF/Excel documentation.            |
@@ -47,7 +47,7 @@ Stores all proposal header data, financial justifications, partner details, Indi
 | Display Name            | Internal Column Name    | SharePoint Field Type  | Required | Unique? | Indexed?           | Choices / Format / Constraints                 | Business Description                                                                                                                                                                                                                                                   |
 | ----------------------- | ----------------------- | ---------------------- | -------- | ------- | ------------------ | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Title**               | `Title`                 | Single line of text    | Yes      | **Yes** | **Yes (Built-in)** | Unique CER Number (e.g., `CER-2026-0001`)      | Standard SharePoint title field (built-in), stores permanent system CER Proposal ID (`CER-YYYY-NNNN`).                                                                                                                                                                 |
-| **CER Proposal ID**     | **`cerPrId`**           | **Single line of text**| **Yes**  | **Yes** | **Yes**            | **`CER-YYYY-XXXX` format**                     | **System-generated permanent identifier** allocated via atomic counter. (Replaces legacy `cerPrNo`). Immutable across entire lifecycle. Foreign key anchor for all child lists (`CERAuditTrail`, `CERRemarksHistory`, `CERApprovalDecisions`, `CERAttachments`, `CERNotifications`). |
+| **CER Proposal ID**     | **`cerPrId`**           | **Single line of text**| **Yes**  | **Yes** | **Yes**            | **`CER-YYYY-XXXX` format**                     | **System-generated permanent identifier** allocated via atomic counter. (Replaces legacy `cerPrNo`). Immutable across entire lifecycle. Foreign key anchor for all child lists (`CERAuditTrail`, `CERApprovalDecisions`, `CERAttachments`, `CERNotifications`). |
 | **CER Proposal No**     | **`proposalNo`**        | **Single line of text**| **Yes**  | **Yes** | **Yes**            | **Alphanumeric business ref (e.g. `PR-RJ-001`)**| **User-entered business proposal number.** Mandatory field in SharePoint and application logic; must be unique across all proposals. Alphanumeric format, non-empty, whitespace-validated.                                                      |
 | Proposal Name           | `prName`                | Single line of text    | Yes      | No      | No                 | Free text (max 255 chars)                      | Project descriptive title.                                                                                                                                                                                                                                             |
 | **CER Owner**           | **`cerOwner`**          | **Person or Group**    | **Yes**  | No      | **Yes**            | **`SPFieldUser` (Single)**                     | **Native SharePoint Person column.** Populated via `cerOwnerId: <IntegerId>` obtained from `ensureUser`. Provides the owner's Display Name (`cerOwner/Title`), Corporate Email (`cerOwner/EMail`), presence, and M365 profile card (eliminates redundant text fields). |
@@ -121,14 +121,24 @@ Go to **List Settings -> Indexed Columns -> Create a new index**:
     _(Note: `Title` is indexed automatically by SharePoint)._
 
 #### Two-Field Identifier Separation Architecture:
-- **`cerPrId` (CER Proposal ID)**: Permanent system identifier formatted as `CER-YYYY-NNNN` (e.g. `CER-2026-0001`). Generated via atomic CAS (Compare-And-Swap) ETag concurrency allocator. (Replaced legacy column `cerPrNo`). Read-only across all UI views and never editable by any user or administrator. Used as the immutable foreign key joining all child lists (`CERAuditTrail`, `CERRemarksHistory`, `CERApprovalDecisions`, `CERAttachments`, `CERNotifications`).
+- **`cerPrId` (CER Proposal ID)**: Permanent system identifier formatted as `CER-YYYY-NNNN` (e.g. `CER-2026-0001`). Generated via atomic CAS (Compare-And-Swap) ETag concurrency allocator. (Replaced legacy column `cerPrNo`). Read-only across all UI views and never editable by any user or administrator. Used as the immutable foreign key joining all child lists (`CERAuditTrail`, `CERApprovalDecisions`, `CERAttachments`, `CERNotifications`).
 - **`proposalNo` (CER Proposal No)**: User-entered business reference (e.g. `PR-RJ-2026-001`). Mandatory on creation; validated for non-empty alphanumeric formatting; checked for uniqueness across active proposals before save; editable in Draft or Revised modes per lifecycle authorization rules.
 - **Legacy Row Compatibility**: For existing SharePoint items created before the introduction of `cerPrId` or `proposalNo`, the service layer seamlessly maps `cer_proposal_id` and `proposal_no` using `cerPrId || cerPrNo || Title`, preventing null pointer exceptions or broken views.
 - **Database Safety & Uniqueness**: `proposalNo` in SharePoint has `Required = Yes` and `Enforce unique values = Yes`. Mandatory validation and uniqueness checks are strictly enforced by both the SharePoint database and the application service layer.
 
 ---
 
-### 2.2 `CERAuditTrail` (Field-Level Audit Log)
+### 2.2 `CERProposalsHistory` (Historical Approved Proposals Archive)
+
+Stores complete historical snapshots of approved proposals prior to post-approval changes.
+- **SharePoint List Type:** Custom List
+- **Column Schema:** Exact duplicate of `CERProposals` (Sections A through G fields).
+- **Uniqueness Rule:** In `CERProposalsHistory`, `cerPrId` must have **`Enforce unique values = No`** because multiple historical approved versions belong to the same project `CER Proposal ID`.
+- **Purpose:** When an approved CER is edited and resubmitted, the existing approved proposal record is copied into `CERProposalsHistory`, and the active record in `CERProposals` is updated in-place with the new Proposal No and new amounts. In View CER (`DisplayCERView`), these snapshots are retrieved and displayed under the dedicated "CER History" section.
+
+---
+
+### 2.3 `CERAuditTrail` (Field-Level Audit Log)
 
 Maintains an immutable record of all modifications to proposals for governance compliance.
 
@@ -153,31 +163,6 @@ Go to **List Settings -> Indexed Columns -> Create a new index**:
 3. `userEmail`
 4. `timestamp`
 5. `actionType`
-
----
-
-### 2.3 `CERRemarksHistory` (Approval Comments & Discussions)
-
-Maintains sequential historical commentary recorded by approvers and initiators.
-
-| Display Name  | Internal Column Name | SharePoint Field Type  | Required | Unique? | Indexed?           | Choices / Format / Constraints | Business Description                            |
-| ------------- | -------------------- | ---------------------- | -------- | ------- | ------------------ | ------------------------------ | ----------------------------------------------- |
-| **Title**           | `Title`              | Single line of text    | Yes      | No      | **Yes (Built-in)** | CER Proposal ID (`cerPrId`)    | Links remark to proposal.                       |
-| **CER Proposal ID** | **`cerPrId`**        | **Single line of text**| **Yes**  | No      | **Yes**            | **Indexed text**               | **Proposal identifier (foreign key).**          |
-| Step Number   | `stepNumber`         | Number                 | Yes      | No      | **Yes**            | Integer (1..N)                 | Workflow stage at which remark was logged.      |
-| Remark Text   | `remarkText`         | Multiple lines of text | Yes      | No      | No                 | Plain text                     | Verbatim commentary from approver or initiator. |
-| Author Name   | `createdByUser`      | Single line of text    | Yes      | No      | No                 | Full Display Name              | Display name of comment author.                 |
-| Timestamp     | `timestamp`          | Date and Time          | Yes      | No      | **Yes**            | DateTime (ISO 8601)            | Timestamp comment was submitted.                |
-| Stage Role    | `stageRole`          | Single line of text    | Yes      | No      | **Yes**            | Role descriptor                | Role held by commenter (e.g. `Project Owner`).  |
-
-#### `CERRemarksHistory` — Columns to Index in SharePoint List Settings:
-
-Go to **List Settings -> Indexed Columns -> Create a new index**:
-
-1. `cerPrId`
-2. `stepNumber`
-3. `timestamp`
-4. `stageRole`
 
 ---
 

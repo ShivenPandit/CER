@@ -9,6 +9,7 @@ import { getCurrentFiscalYearPhasingLabels, getLocalComponents } from "../utils/
 
 const STORAGE_KEYS = {
   PROPOSALS: "CER_APP_PROPOSALS",
+  PROPOSALS_HISTORY: "CER_APP_PROPOSALS_HISTORY",
   AUDIT: "CER_APP_AUDIT",
   REMARKS_HISTORY: "CER_APP_REMARKS_HISTORY",
   WORKFLOW_LEVELS: "CER_APP_WORKFLOW_LEVELS",
@@ -238,6 +239,7 @@ export class LocalMockCERDataService implements ICERDataService {
   private _notifications: INotificationLog[] = [];
   private _userRoles: IUserRoleAssignment[] = [];
   private _adminAudit: IAdminAuditRecord[] = [];
+  private _proposalsHistory: ICERProposal[] = [];
 
   constructor() {
     this._initializeData();
@@ -247,6 +249,7 @@ export class LocalMockCERDataService implements ICERDataService {
     const hasStorage = typeof window !== "undefined" && typeof localStorage !== "undefined";
     if (!hasStorage) {
       this._proposals = [...SEED_PROPOSALS];
+      this._proposalsHistory = [];
       this._workflowLevels = [...DEFAULT_WORKFLOW_LEVELS];
       this._userRoles = [...DEFAULT_USER_ROLES];
       return;
@@ -280,6 +283,13 @@ export class LocalMockCERDataService implements ICERDataService {
       } else {
         this._proposals = [...SEED_PROPOSALS];
         this._saveToStorage(STORAGE_KEYS.PROPOSALS, this._proposals);
+      }
+
+      const storedHistory = getStoredItem(STORAGE_KEYS.PROPOSALS_HISTORY);
+      if (storedHistory) {
+        this._proposalsHistory = JSON.parse(storedHistory);
+      } else {
+        this._proposalsHistory = [];
       }
 
       const storedAudit = getStoredItem(STORAGE_KEYS.AUDIT);
@@ -528,6 +538,7 @@ export class LocalMockCERDataService implements ICERDataService {
     } catch (e) {
       console.warn("[LocalMockCERDataService] Storage error, using in-memory data:", e);
       this._proposals = [...SEED_PROPOSALS];
+      this._proposalsHistory = [];
       this._workflowLevels = [...DEFAULT_WORKFLOW_LEVELS];
       this._userRoles = [...DEFAULT_USER_ROLES];
     }
@@ -559,7 +570,40 @@ export class LocalMockCERDataService implements ICERDataService {
       (p.cer_proposal_id && p.cer_proposal_id.toUpperCase() === trimmed) ||
       (p.proposal_no && p.proposal_no.toUpperCase() === trimmed)
     );
-    return found ? { ...found } : null;
+    if (found) return { ...found };
+
+    const historyFound = this._proposalsHistory.find(p =>
+      (p.proposal_no && p.proposal_no.toUpperCase() === trimmed) ||
+      (p.cerprno && p.cerprno.toUpperCase() === trimmed)
+    );
+    return historyFound ? { ...historyFound } : null;
+  }
+
+  public async getProposalHistory(cerProposalId: string): Promise<ICERProposal[]> {
+    const cleanId = (cerProposalId || "").trim().toUpperCase();
+    if (!cleanId) return [];
+    return this._proposalsHistory
+      .filter(p => {
+        const pCerId = (p.cer_proposal_id || p.cerPrId || p.cerprno || "").trim().toUpperCase();
+        const pCerNo = (p.cerprno || "").trim().toUpperCase();
+        return pCerId === cleanId || pCerNo === cleanId;
+      })
+      .map(p => ({ ...p }));
+  }
+
+  public async getAllSubmissionsForCER(cerProposalId: string): Promise<{ active: ICERProposal | null; history: ICERProposal[] }> {
+    const cleanId = (cerProposalId || "").trim().toUpperCase();
+    const active = this._proposals.find(p => {
+      const pCerId = (p.cer_proposal_id || p.cerPrId || p.cerprno || "").trim().toUpperCase();
+      const pCerNo = (p.cerprno || "").trim().toUpperCase();
+      return pCerId === cleanId || pCerNo === cleanId;
+    }) || null;
+
+    const history = await this.getProposalHistory(cleanId);
+    return {
+      active: active ? { ...active } : null,
+      history,
+    };
   }
 
   private _nextSequenceMap: Map<number, number> = new Map();
@@ -676,22 +720,6 @@ export class LocalMockCERDataService implements ICERDataService {
     this._proposals.unshift(newProposal);
     this._saveToStorage(STORAGE_KEYS.PROPOSALS, this._proposals);
 
-    // Initial Remarks History
-    if (newProposal.remarks && newProposal.remarks.trim()) {
-      const remarksVersion: ICERRemarksVersion = {
-        id: `rem-${Date.now()}`,
-        cerprno: newProposal.cerprno,
-        version: 1,
-        remarks_text: newProposal.remarks,
-        remarks_type: "REMARKS",
-        word_count: newProposal.remarks.split(/\s+/).filter(Boolean).length,
-        created_by: newProposal.created_by,
-        created_date: now
-      };
-      this._remarksHistory.unshift(remarksVersion);
-      this._saveToStorage(STORAGE_KEYS.REMARKS_HISTORY, this._remarksHistory);
-    }
-
     // Trigger Notification to Creator & L1 Approver (only when submitted for approval)
     if (!isDraft) {
       const recipients = [newProposal.owner_email];
@@ -806,26 +834,6 @@ export class LocalMockCERDataService implements ICERDataService {
       this._saveToStorage(STORAGE_KEYS.AUDIT, this._auditTrail);
     }
 
-    // Check if remarks changed -> create new version (FR-08)
-    const oldRemarks = (oldProposal.remarks || "").trim();
-    const newRemarks = (updatedProposal.remarks || "").trim();
-    if (oldRemarks !== newRemarks && newRemarks) {
-      const existingVersions = this._remarksHistory.filter(r => r.cerprno === updatedProposal.cerprno);
-      const nextVer = existingVersions.length + 1;
-      const remarksRecord: ICERRemarksVersion = {
-        id: `rem-${Date.now()}`,
-        cerprno: updatedProposal.cerprno,
-        version: nextVer,
-        remarks_text: updatedProposal.remarks || "",
-        remarks_type: "REMARKS",
-        word_count: newRemarks.split(/\s+/).filter(Boolean).length,
-        created_by: user.name,
-        created_date: now.toISOString()
-      };
-      this._remarksHistory.unshift(remarksRecord);
-      this._saveToStorage(STORAGE_KEYS.REMARKS_HISTORY, this._remarksHistory);
-    }
-
     const sbuLower = (updatedProposal.sbu || "").trim().toLowerCase();
     const isDraft = updatedProposal.status === "Draft";
     const activeLevels = this._workflowLevels
@@ -874,6 +882,13 @@ export class LocalMockCERDataService implements ICERDataService {
       modified_by: user.name,
       revision_count: (oldProposal.revision_count || 0) + 1
     };
+
+    if (oldProposal.status === "Approved") {
+      // Archive the previously approved proposal snapshot into CERProposalsHistory
+      const historySnapshot: ICERProposal = JSON.parse(JSON.stringify(oldProposal));
+      this._proposalsHistory.unshift(historySnapshot);
+      this._saveToStorage(STORAGE_KEYS.PROPOSALS_HISTORY, this._proposalsHistory);
+    }
 
     this._proposals[index] = savedProposal;
     this._saveToStorage(STORAGE_KEYS.PROPOSALS, this._proposals);
@@ -926,15 +941,9 @@ export class LocalMockCERDataService implements ICERDataService {
     return [...this._auditTrail];
   }
 
-  public async getRemarksHistory(cerprno: string): Promise<ICERRemarksVersion[]> {
-    const trimmed = cerprno.trim().toUpperCase();
-    const resolved = this._proposals.find(p =>
-      p.cerprno.toUpperCase() === trimmed ||
-      (p.proposal_no && p.proposal_no.toUpperCase() === trimmed) ||
-      (p.cer_proposal_id && p.cer_proposal_id.toUpperCase() === trimmed)
-    );
-    const target = resolved ? resolved.cerprno.toUpperCase() : trimmed;
-    return this._remarksHistory.filter(r => r.cerprno.toUpperCase() === target || r.cerprno.toUpperCase() === trimmed);
+  public async getRemarksHistory(_cerprno: string): Promise<ICERRemarksVersion[]> {
+    // Feature removed per user request: CERRemarksHistory list removed from SharePoint schema
+    return [];
   }
 
   public async getWorkflowLevels(sbu?: string, _forceRefresh?: boolean): Promise<IWorkflowLevel[]> {
