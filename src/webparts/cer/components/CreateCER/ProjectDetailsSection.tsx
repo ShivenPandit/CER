@@ -335,7 +335,7 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
         </div>
 
         {/* Objectives of CER */}
-        <div className="col-span-1 md:col-span-3" id="field-object">
+        <div className="col-span-1 md:col-span-2 lg:col-span-3" id="field-object">
           <div className="flex items-center justify-between mb-1">
             <label htmlFor="object" className="font-semibold text-slate-700 text-[13px] sm:text-sm">
               Objectives of CER <span className="text-rose-500">*</span>
