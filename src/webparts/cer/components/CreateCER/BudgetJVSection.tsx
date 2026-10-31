@@ -33,7 +33,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-4">
       {/* ========================================================================================= */}
-      {/* Section C — Corporate budget */}
+      {/* Section E — Corporate budget */}
       {/* ========================================================================================= */}
       <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-sm space-y-3.5">
         <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
@@ -43,7 +43,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-slate-900 text-sm">
-                Section C — Corporate budget
+                Section E — Corporate budget
               </h3>
               <p className="text-xs text-slate-500">
                 Corporate budget provisions and variance justification
@@ -141,7 +141,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
       </div>
 
       {/* ========================================================================================= */}
-      {/* Section D — Joint venture details */}
+      {/* Section F — Joint venture details */}
       {/* ========================================================================================= */}
       <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-sm space-y-3.5">
         <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
@@ -151,7 +151,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-slate-900 text-sm">
-                Section D — Joint venture details
+                Section F — Joint venture details
               </h3>
               <p className="text-xs text-slate-500">
                 JV alignment, cost recoverability, partner budget, and risk remarks

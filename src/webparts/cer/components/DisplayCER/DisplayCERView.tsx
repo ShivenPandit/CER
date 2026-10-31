@@ -676,73 +676,12 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
             </div>
           </div>
 
-          {/* Section C & D: Corporate Budget and Joint Venture Details */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
-              <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
-                <Landmark className="w-5 h-5 text-slate-700" />
-                <h3 className="font-bold text-slate-900 text-sm">Section C — Corporate budget</h3>
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <p className="text-slate-400 font-medium">Corporate Budget (Yes/No)</p>
-                  <p className="font-semibold text-slate-800 mt-0.5">{proposal.cbudget}</p>
-                </div>
-                <div>
-                  <p className="text-slate-400 font-medium">Corporate Budget Amount ($mm)</p>
-                  <p className="font-semibold text-slate-800 mt-0.5">
-                    ${proposal.cb_amnt.toLocaleString()} mm
-                  </p>
-                </div>
-                <div className="col-span-2">
-                  <p className="text-slate-400 font-medium">Reason if not/partially budgeted</p>
-                  <p className="font-medium text-slate-700 mt-0.5 text-xs bg-slate-50 p-2 rounded-lg">
-                    {proposal.reason || "Within standard budgetary envelope."}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
-              <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
-                <DollarSign className="w-5 h-5 text-slate-700" />
-                <h3 className="font-bold text-slate-900 text-sm">Section D — Joint venture details</h3>
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <p className="text-slate-400 font-medium">Aligned with JV (Yes/No/Under Discussion)</p>
-                  <p className="font-semibold text-slate-800 mt-0.5">{proposal.jv}</p>
-                </div>
-                <div>
-                  <p className="text-slate-400 font-medium">JV Cost Recoverable (Yes/No)</p>
-                  <p className="font-semibold text-slate-800 mt-0.5">{proposal.jv_recoverable || "No"}</p>
-                </div>
-                <div>
-                  <p className="text-slate-400 font-medium">JV Budget (Yes/No)</p>
-                  <p className="font-semibold text-slate-800 mt-0.5">{proposal.jv_budget}</p>
-                </div>
-                <div>
-                  <p className="text-slate-400 font-medium">JV Budget Amount ($mm)</p>
-                  <p className="font-semibold text-slate-800 mt-0.5">
-                    ${proposal.jv_amnt.toLocaleString()} mm
-                  </p>
-                </div>
-                <div className="col-span-2">
-                  <p className="text-slate-400 font-medium">Reason if not/partially budgeted</p>
-                  <p className="font-medium text-slate-700 mt-0.5 text-xs bg-slate-50 p-2 rounded-lg">
-                    {proposal.jv_reason || "Approved by Operating Committee / TCM."}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Section E: Expenditure Phasing Matrix */}
+          {/* Section C: Expenditure Phasing Matrix */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
             <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <BarChart2 className="w-5 h-5 cer-text-blue" />
-                <h3 className="font-bold text-slate-900 text-sm">Section E — Expenditure phasing</h3>
+                <h3 className="font-bold text-slate-900 text-sm">Section C — Expenditure phasing</h3>
               </div>
               <span className="text-[11px] font-medium cer-text-blue bg-white px-2.5 py-0.5 rounded-full border cer-border-blue">
                 Indian FY ({period2Display})
@@ -792,11 +731,11 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
             </div>
           </div>
 
-          {/* Section F: CAPEX Cost Estimates Basis */}
+          {/* Section D: CAPEX Cost Estimates Basis */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
             <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
               <Calculator className="w-5 h-5 text-slate-900" />
-              <h3 className="font-bold text-slate-900 text-sm">Section F — CAPEX cost estimates basis</h3>
+              <h3 className="font-bold text-slate-900 text-sm">Section D — CAPEX cost estimates basis</h3>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">
               {(() => {
@@ -843,6 +782,67 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                   </>
                 );
               })()}
+            </div>
+          </div>
+
+          {/* Section E & F: Corporate Budget and Joint Venture Details */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
+              <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
+                <Landmark className="w-5 h-5 text-slate-700" />
+                <h3 className="font-bold text-slate-900 text-sm">Section E — Corporate budget</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <p className="text-slate-400 font-medium">Corporate Budget (Yes/No)</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">{proposal.cbudget}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">Corporate Budget Amount ($mm)</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">
+                    ${proposal.cb_amnt.toLocaleString()} mm
+                  </p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-slate-400 font-medium">Reason if not/partially budgeted</p>
+                  <p className="font-medium text-slate-700 mt-0.5 text-xs bg-slate-50 p-2 rounded-lg">
+                    {proposal.reason || "Within standard budgetary envelope."}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
+              <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
+                <DollarSign className="w-5 h-5 text-slate-700" />
+                <h3 className="font-bold text-slate-900 text-sm">Section F — Joint venture details</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <p className="text-slate-400 font-medium">Aligned with JV (Yes/No/Under Discussion)</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">{proposal.jv}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">JV Cost Recoverable (Yes/No)</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">{proposal.jv_recoverable || "No"}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">JV Budget (Yes/No)</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">{proposal.jv_budget}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">JV Budget Amount ($mm)</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">
+                    ${proposal.jv_amnt.toLocaleString()} mm
+                  </p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-slate-400 font-medium">Reason if not/partially budgeted</p>
+                  <p className="font-medium text-slate-700 mt-0.5 text-xs bg-slate-50 p-2 rounded-lg">
+                    {proposal.jv_reason || "Approved by Operating Committee / TCM."}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 

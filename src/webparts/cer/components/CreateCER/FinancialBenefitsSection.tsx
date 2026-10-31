@@ -48,14 +48,14 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 text-xs">
-        {/* Amount of CER (Auto-fetched from Section E Capex ($mm) & Grayed out) */}
+        {/* Amount of CER (Auto-fetched from Section C Capex ($mm) & Grayed out) */}
         <div className="md:col-span-2 lg:col-span-1" id="field-amount">
           <div className="flex items-center justify-between mb-1">
             <label htmlFor="amount" className="font-semibold text-slate-700 flex items-center gap-1">
               <span>Amount of CER</span>
               <span className="text-rose-500">*</span>
             </label>
-            <span className="inline-flex items-center text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200" title="Calculated automatically as the sum of Capex ($mm) phasing in Section E">
+            <span className="inline-flex items-center text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200" title="Calculated automatically as the sum of Capex ($mm) phasing in Section C">
               Auto-fetched from Capex
             </span>
           </div>
@@ -82,7 +82,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
               className={`flex-1 px-3 py-2 rounded-lg font-mono font-bold text-xs bg-slate-100 border border-slate-200 text-slate-600 cursor-not-allowed select-all focus:outline-none ${
                 getFieldError("amount") ? "border-rose-300 bg-rose-50/20 text-rose-900" : ""
               }`}
-              title="Auto-fetched total from Section E Capex ($mm). Grayed out and read-only."
+              title="Auto-fetched total from Section C Capex ($mm). Grayed out and read-only."
               aria-readonly="true"
             />
           </div>

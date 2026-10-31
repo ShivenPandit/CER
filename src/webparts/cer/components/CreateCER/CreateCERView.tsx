@@ -461,17 +461,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         fieldChoices={fieldChoices}
       />
 
-      {/* Section C — Corporate budget & Section D — Joint venture details */}
-      <BudgetJVSection
-        formData={formData}
-        onChange={handleFieldChange}
-        onBlur={handleFieldBlur}
-        errors={errors}
-        touched={touched}
-        fieldChoices={fieldChoices}
-      />
-
-      {/* Section E — Expenditure phasing */}
+      {/* Section C — Expenditure phasing */}
       <PhasingSection
         formData={formData}
         onChange={handleFieldChange}
@@ -480,13 +470,23 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         touched={touched}
       />
 
-      {/* Section F — CAPEX cost estimates basis */}
+      {/* Section D — CAPEX cost estimates basis */}
       <CostBreakdownSection
         formData={formData}
         onChange={handleFieldChange}
         onBlur={handleFieldBlur}
         errors={errors}
         touched={touched}
+      />
+
+      {/* Section E — Corporate budget & Section F — Joint venture details */}
+      <BudgetJVSection
+        formData={formData}
+        onChange={handleFieldChange}
+        onBlur={handleFieldBlur}
+        errors={errors}
+        touched={touched}
+        fieldChoices={fieldChoices}
       />
 
       {/* Section G — Remarks and justification */}

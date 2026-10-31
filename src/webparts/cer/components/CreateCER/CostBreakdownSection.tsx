@@ -55,7 +55,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
           </div>
           <div>
             <h3 className="font-bold text-slate-900 text-sm">
-              Section F — CAPEX cost estimates basis
+              Section D — CAPEX cost estimates basis
             </h3>
             <p className="text-xs text-slate-500">
               Activity components in {isINR ? "INR (₹)" : "USD millions ($mm)"}. Total is auto-calculated and compared with Amount of CER

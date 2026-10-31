@@ -75,14 +75,14 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-bold text-slate-900 text-sm">
-                Section E — Expenditure phasing
+                Section C — Expenditure phasing
               </h3>
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#012964]/5 text-[#012964] border border-[#012964]/20">
                 Indian FY (Apr 1 – Mar 31)
               </span>
             </div>
             <p className="text-xs text-slate-500">
-              Distribution of Production (in mmbbls), Capex, and Opex across project timeline • Phasing periods auto-calculated for {period2Label}
+              Distribution of Production (in mmbbls), Capex, and Opex across project timeline • Capex ($mm) is mandatory and auto-populates Amount of CER in Section B
             </p>
           </div>
         </div>

@@ -107,21 +107,17 @@ export class PDFExportService {
 
       currentY = (doc as any).lastAutoTable.finalY + 6;
 
-      // Section B & C & D: Financial Benefits & Budget
+      // Section B: Financial Evaluation & Benefits
       autoTable(doc, {
         startY: currentY,
         margin: { left: margin, right: margin },
-        head: [[{ content: "SECTION B, C & D — FINANCIAL EVALUATION & BUDGET", colSpan: 2, styles: { halign: "left" } }]],
+        head: [[{ content: "SECTION B — FINANCIAL EVALUATION & BENEFITS", colSpan: 2, styles: { halign: "left" } }]],
         body: [
           ["Total Amount", `${proposal.currency} ${Number(proposal.amount || 0).toLocaleString()}`],
           ["Payable By", proposal.payable],
           ["Payback Quarters", ((proposal as any).paybackQuarters !== undefined ? (proposal as any).paybackQuarters : proposal.payback_quarters) ? `${(proposal as any).paybackQuarters || proposal.payback_quarters} Quarters` : "N/A"],
           ["Benefit NPV", ((proposal as any).benefitNpv !== undefined ? (proposal as any).benefitNpv : proposal.ben_npv) ? `$${(proposal as any).benefitNpv || proposal.ben_npv} mm` : "N/A"],
           ["Benefit IRR", ((proposal as any).benefitIrr !== undefined ? (proposal as any).benefitIrr : proposal.ben_irr) ? `${(proposal as any).benefitIrr || proposal.ben_irr}%` : "N/A"],
-          ["Current Budgeted?", `${(proposal as any).currentBudgeted || proposal.cbudget} (Amount: $${Number((proposal as any).currentBudgetAmount ?? proposal.cb_amnt ?? 0).toLocaleString()} mm)`],
-          ["Unbudgeted Reason", (proposal as any).unbudgetedReason || proposal.reason || "Within approved budget"],
-          ["Joint Venture?", `${(proposal as any).jointVenture || proposal.jv} (JV Budget: ${(proposal as any).jvBudgeted || proposal.jv_budget} | Amount: $${Number((proposal as any).jvAmount ?? proposal.jv_amnt ?? 0).toLocaleString()} mm)`],
-          ["JV Recoverable?", (proposal as any).jvRecoverable || proposal.jv_recoverable || "No"],
           ["Cost Assumptions", (proposal as any).costAssumptions || proposal.cost_assumptions || "None recorded"],
         ],
         theme: "grid",
@@ -134,7 +130,7 @@ export class PDFExportService {
 
       currentY = (doc as any).lastAutoTable.finalY + 6;
 
-      // Section E: Phasing Matrix
+      // Section C: Phasing Matrix
       const defaultPhasing = getCurrentFiscalYearPhasingLabels(
         proposal.created_date ? new Date(proposal.created_date) : new Date()
       );
@@ -142,7 +138,7 @@ export class PDFExportService {
         startY: currentY,
         margin: { left: margin, right: margin },
         head: [[
-          "EXPENDITURE PHASING",
+          "SECTION C — EXPENDITURE PHASING",
           proposal.ph_till_label || defaultPhasing.ph_till_label,
           proposal.ph_fy_label || defaultPhasing.ph_fy_label,
           proposal.ph_beyond_label || defaultPhasing.ph_beyond_label,
@@ -181,18 +177,17 @@ export class PDFExportService {
 
       currentY = (doc as any).lastAutoTable.finalY + 6;
 
-      // Clean page break before Section F if insufficient room for the full table (~50mm)
-      // This prevents the table from being awkwardly split across page 1 and page 2
-      if (currentY > 165) {
+      // Clean page break before Section D if insufficient room for the full table (~50mm)
+      if (currentY > 175) {
         doc.addPage();
         currentY = 16;
       }
 
-      // Section F: CAPEX Cost Estimates Basis
+      // Section D: CAPEX Cost Estimates Basis
       autoTable(doc, {
         startY: currentY,
         margin: { left: margin, right: margin },
-        head: [["CAPEX COST ESTIMATES BASIS", `AMOUNT ($mm)`, "% OF TOTAL"]],
+        head: [["SECTION D — CAPEX COST ESTIMATES BASIS", `AMOUNT ($mm)`, "% OF TOTAL"]],
         body: [
           ["Engineering Cost", Number((proposal as any).engineeringCost ?? proposal.engineer ?? 0).toLocaleString(), `${((Number((proposal as any).engineeringCost ?? proposal.engineer ?? 0) / (proposal.total || 1)) * 100).toFixed(1)}%`],
           ["Surface Facilities Cost", Number((proposal as any).surfaceFacilitiesCost ?? proposal.s_fac ?? 0).toLocaleString(), `${((Number((proposal as any).surfaceFacilitiesCost ?? proposal.s_fac ?? 0) / (proposal.total || 1)) * 100).toFixed(1)}%`],
@@ -208,6 +203,33 @@ export class PDFExportService {
           0: { cellWidth: 80, halign: "left", fontStyle: "bold", textColor: [51, 65, 85] },
           1: { cellWidth: 50, fontStyle: "bold" },
           2: { cellWidth: 40 },
+        },
+      });
+
+      currentY = (doc as any).lastAutoTable.finalY + 6;
+
+      // Clean page break before Section E & F if insufficient room (~45mm)
+      if (currentY > 190) {
+        doc.addPage();
+        currentY = 16;
+      }
+
+      // Section E & F: Corporate Budget and Joint Venture Details
+      autoTable(doc, {
+        startY: currentY,
+        margin: { left: margin, right: margin },
+        head: [[{ content: "SECTION E & F — CORPORATE BUDGET & JOINT VENTURE", colSpan: 2, styles: { halign: "left" } }]],
+        body: [
+          ["Current Budgeted?", `${(proposal as any).currentBudgeted || proposal.cbudget} (Amount: $${Number((proposal as any).currentBudgetAmount ?? proposal.cb_amnt ?? 0).toLocaleString()} mm)`],
+          ["Unbudgeted Reason", (proposal as any).unbudgetedReason || proposal.reason || "Within approved budget"],
+          ["Joint Venture?", `${(proposal as any).jointVenture || proposal.jv} (JV Budget: ${(proposal as any).jvBudgeted || proposal.jv_budget} | Amount: $${Number((proposal as any).jvAmount ?? proposal.jv_amnt ?? 0).toLocaleString()} mm)`],
+          ["JV Recoverable?", (proposal as any).jvRecoverable || proposal.jv_recoverable || "No"],
+        ],
+        theme: "grid",
+        headStyles: { fillColor: CORPORATE_NAVY, textColor: HEADER_TEXT_COLOR, fontStyle: "bold", fontSize: 9 },
+        columnStyles: {
+          0: { cellWidth: 50, fontStyle: "bold", textColor: [51, 65, 85], fontSize: 8.5 },
+          1: { fontSize: 8.5, textColor: [15, 23, 42] },
         },
       });
 
