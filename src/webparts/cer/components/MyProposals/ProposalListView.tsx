@@ -95,7 +95,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
   const visibleProposals = pagination.paginateItems(filteredProposals);
 
   const handleRowClick = (prop: ICERProposal) => {
-    const targetId = prop.cerprno || prop.proposal_no || prop.cer_proposal_id;
+    const targetId = prop.cer_proposal_id || prop.cerprno || prop.proposal_no;
     if (onNavigateToDisplay && targetId) {
       onNavigateToDisplay(targetId);
     }
@@ -485,6 +485,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                     type="button"
                     onClick={() => handleRowClick(prop)}
                     className="font-mono font-bold text-sm text-[#012964] bg-blue-50/80 px-2.5 py-1 rounded-lg border border-blue-200/60 hover:underline cursor-pointer"
+                    title={`View ${prop.cer_proposal_id || prop.cerprno}`}
                   >
                     {prop.cer_proposal_id || prop.cerprno}
                   </button>

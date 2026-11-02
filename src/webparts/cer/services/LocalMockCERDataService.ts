@@ -671,10 +671,38 @@ export class LocalMockCERDataService implements ICERDataService {
     const active = this._proposals.find(p => {
       const pCerId = (p.cer_proposal_id || p.cerPrId || p.cerprno || "").trim().toUpperCase();
       const pCerNo = (p.cerprno || "").trim().toUpperCase();
-      return pCerId === cleanId || pCerNo === cleanId;
+      const pPropNo = (p.proposal_no || "").trim().toUpperCase();
+      return pCerId === cleanId || pCerNo === cleanId || pPropNo === cleanId;
     }) || null;
 
-    const history = await this.getProposalHistory(cleanId);
+    const targetId = active?.cer_proposal_id || active?.cerPrId || active?.cerprno || cleanId;
+    let history = await this.getProposalHistory(targetId);
+
+    // Self-healing: If history is empty but active proposal is a post-approval revision (-R1, -R2, etc.)
+    if (history.length === 0 && active) {
+      const activePropNo = (active.proposal_no || active.cerprno || "").trim();
+      const isPostApprovalRevision =
+        Boolean(activePropNo && /-R\d+$/i.test(activePropNo)) ||
+        Number(active.revision_count || 0) > 0;
+
+      if (isPostApprovalRevision) {
+        const prevNo = activePropNo.replace(/-R\d+$/i, "");
+        if (prevNo !== activePropNo) {
+          const reconstructedApproved: ICERProposal = {
+            ...active,
+            proposal_no: prevNo,
+            cerprno: targetId,
+            cer_proposal_id: targetId,
+            status: "Approved",
+            current_level: 6,
+          };
+          this._proposalsHistory.unshift(reconstructedApproved);
+          this._saveToStorage(STORAGE_KEYS.PROPOSALS_HISTORY, this._proposalsHistory);
+          history = [reconstructedApproved];
+        }
+      }
+    }
+
     return {
       active: active ? { ...active } : null,
       history,
@@ -817,7 +845,8 @@ export class LocalMockCERDataService implements ICERDataService {
 
   public async updateProposal(
     updatedProposal: ICERProposal,
-    user: { name: string; email: string }
+    user: { name: string; email: string },
+    originalProposal?: ICERProposal
   ): Promise<{ success: boolean; message: string; proposal: ICERProposal; auditRowsCount: number }> {
     const index = this._proposals.findIndex(p => p.cerprno.toUpperCase() === updatedProposal.cerprno.toUpperCase());
     if (index === -1) {
@@ -908,9 +937,7 @@ export class LocalMockCERDataService implements ICERDataService {
 
     const sbuLower = (updatedProposal.sbu || "").trim().toLowerCase();
     const isDraft = updatedProposal.status === "Draft";
-    const activeLevels = this._workflowLevels
-      .filter(l => l.is_active && (l.sbu || "").trim().toLowerCase() === sbuLower)
-      .sort((a, b) => a.level_id - b.level_id);
+    const activeLevels = await this.getWorkflowLevels(updatedProposal.sbu);
 
     if (!isDraft && activeLevels.length === 0) {
       throw new Error(`No approval stages configured for SBU '${updatedProposal.sbu}'. Please configure workflow levels in Admin settings.`);
@@ -955,9 +982,14 @@ export class LocalMockCERDataService implements ICERDataService {
       revision_count: (oldProposal.revision_count || 0) + 1
     };
 
-    if (oldProposal.status === "Approved") {
+    const isApprovedOriginal = Boolean(
+      (originalProposal && originalProposal.status === "Approved") ||
+      (oldProposal && oldProposal.status === "Approved")
+    );
+    if (isApprovedOriginal) {
+      const snapshot = (originalProposal && originalProposal.status === "Approved") ? originalProposal : oldProposal;
       // Archive the previously approved proposal snapshot into CERProposalsHistory
-      const historySnapshot: ICERProposal = JSON.parse(JSON.stringify(oldProposal));
+      const historySnapshot: ICERProposal = JSON.parse(JSON.stringify(snapshot));
       this._proposalsHistory.unshift(historySnapshot);
       this._saveToStorage(STORAGE_KEYS.PROPOSALS_HISTORY, this._proposalsHistory);
     }

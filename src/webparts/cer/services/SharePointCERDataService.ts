@@ -621,7 +621,7 @@ export class SharePointCERDataService implements ICERDataService {
   private async _executeWithFieldFallback<T = void>(
     action: (payload: Record<string, any>) => Promise<T>,
     initialPayload: Record<string, any>,
-    maxRetries: number = 8
+    maxRetries: number = 50
   ): Promise<T> {
     const payload: Record<string, any> = { ...initialPayload };
     // Safety check: always strip legacy internal properties that do not exist on modern lists
@@ -647,10 +647,12 @@ export class SharePointCERDataService implements ICERDataService {
 
         // Match SharePoint REST error: "The property 'fieldName' does not exist on type '...'"
         const propMatch =
-          /The property '([^']+)' does not exist on type/i.exec(errMsg) ||
+          /The property '([^']+)' does not exist/i.exec(errMsg) ||
           /property '([^']+)' does not exist/i.exec(errMsg) ||
+          /field or property '([^']+)' does not exist/i.exec(errMsg) ||
           /column named '([^']+)' was not found/i.exec(errMsg) ||
-          /field '([^']+)' does not exist/i.exec(errMsg);
+          /field '([^']+)' does not exist/i.exec(errMsg) ||
+          /A parameter named '([^']+)' was not found/i.exec(errMsg);
 
         if (propMatch && propMatch[1]) {
           const missingProp = propMatch[1];
@@ -665,6 +667,22 @@ export class SharePointCERDataService implements ICERDataService {
             payload.RequestDate = initialPayload.requestDate || initialPayload.RequestDate;
           }
 
+          if (attempts <= maxRetries) {
+            continue;
+          }
+        }
+
+        // If error is about invalid DateTime conversion, strip date fields and retry
+        if (
+          errMsg.indexOf("DateTime") !== -1 ||
+          errMsg.indexOf("Edm.DateTime") !== -1 ||
+          errMsg.indexOf("was not recognized as a valid") !== -1
+        ) {
+          console.warn("[SharePointCERDataService] DateTime parsing failure reported by SharePoint. Removing date fields and retrying...");
+          delete payload.startDate;
+          delete payload.completionDate;
+          delete payload.RequestDate;
+          delete payload.requestDate;
           if (attempts <= maxRetries) {
             continue;
           }
@@ -955,6 +973,7 @@ export class SharePointCERDataService implements ICERDataService {
   public async updateProposal(
     proposal: ICERProposal,
     user: { name: string; email: string },
+    originalProposal?: ICERProposal,
   ): Promise<{
     success: boolean;
     message: string;
@@ -964,8 +983,8 @@ export class SharePointCERDataService implements ICERDataService {
     // Defense-in-depth: Deeply sanitize all fields on update
     const cleanProposal = sanitizeProposalPayload(proposal);
     const now = new Date().toISOString();
-    const existing = await this.getProposalByNumber(cleanProposal.cerprno);
-    const original = existing || cleanProposal;
+    const existing = await this.getProposalByNumber(cleanProposal.cerprno, true);
+    const original = originalProposal || existing || cleanProposal;
 
     // Enterprise RBAC: Only designated CER Owner or Administrator can edit proposals
     const userEmail = (user.email || "").trim().toLowerCase();
@@ -1157,20 +1176,26 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     // Post-Approval Archival: If previous status was Approved, archive snapshot into CERProposalsHistory
-    if (original.status === "Approved") {
+    const isApprovedOriginal = Boolean(
+      (originalProposal && originalProposal.status === "Approved") ||
+      (original && original.status === "Approved") ||
+      (existing && existing.status === "Approved")
+    );
+
+    if (isApprovedOriginal) {
+      const snapshotToArchive =
+        (originalProposal && originalProposal.status === "Approved")
+          ? originalProposal
+          : (existing && existing.status === "Approved")
+          ? existing
+          : original;
       try {
-        const historyPayload: any = this._mapProposalToModernSharePointItem(original);
-        historyPayload.Title = original.proposal_no || original.cerprno;
-        if (ownerSpUserId) {
-          const historyOwnerPayload = PersonFieldService.formatPersonFieldPayload("cerOwner", ownerSpUserId);
-          Object.assign(historyPayload, historyOwnerPayload);
-        }
-        await this._executeWithFieldFallback(
-          (payload) => this._sp.createListItem(SP_LISTS.CER_PROPOSALS_HISTORY, payload),
-          historyPayload
+        await this.archiveApprovedProposal(snapshotToArchive);
+      } catch (archiveErr: any) {
+        console.error("[SharePointCERDataService] Error archiving approved proposal snapshot to CERProposalsHistory:", archiveErr);
+        throw new Error(
+          `Unable to archive the previous approved proposal snapshot to CERProposalsHistory. (Details: ${archiveErr instanceof Error ? archiveErr.message : String(archiveErr)})`
         );
-      } catch (archiveErr) {
-        console.warn("[SharePointCERDataService] Warning: Could not archive approved proposal snapshot to CERProposalsHistory:", archiveErr);
       }
     }
 
@@ -1225,6 +1250,7 @@ export class SharePointCERDataService implements ICERDataService {
 
     this._cachedProposals = null;
     this._cachedProposalByNumber.delete(proposal.cerprno.toUpperCase());
+    this._cachedSubmissionsByCerId.clear();
 
     return {
       success: true,
@@ -1284,6 +1310,93 @@ export class SharePointCERDataService implements ICERDataService {
     }
   }
 
+  /**
+   * Archives an approved proposal snapshot into CERProposalsHistory.
+   * Handles schema resilience: full payload -> core payload -> minimal fallback.
+   */
+  public async archiveApprovedProposal(original: ICERProposal): Promise<void> {
+    const cerId = original.cer_proposal_id || original.cerprno;
+    const propNo = original.proposal_no || original.cerprno || cerId;
+
+    let ownerSpUserId: number | null = null;
+    if (original.owner_email || original.owname) {
+      try {
+        const ensuredOwner = await PersonFieldService.resolveUser(
+          this._spHttpClient,
+          this._siteUrl,
+          original.owner_email || original.owname
+        );
+        if (ensuredOwner && ensuredOwner.Id > 0) {
+          ownerSpUserId = ensuredOwner.Id;
+        }
+      } catch (ensureErr) {
+        console.warn("[SharePointCERDataService] ensureUser resolution warning for cerOwner on history archive:", ensureErr);
+      }
+    }
+
+    // 1. Prepare modern full payload
+    const fullPayload: any = this._mapProposalToModernSharePointItem(original);
+    fullPayload.Title = propNo;
+    fullPayload.proposalNo = propNo;
+    fullPayload.cerPrId = cerId;
+    fullPayload.status = "Approved";
+
+    if (ownerSpUserId) {
+      const historyOwnerPayload = PersonFieldService.formatPersonFieldPayload("cerOwner", ownerSpUserId);
+      Object.assign(fullPayload, historyOwnerPayload);
+    }
+
+    try {
+      await this._executeWithFieldFallback(
+        (payload) => this._sp.createListItem(SP_LISTS.CER_PROPOSALS_HISTORY, payload),
+        fullPayload,
+        50
+      );
+      this._cachedSubmissionsByCerId.clear();
+      return;
+    } catch (fullErr) {
+      console.warn("[SharePointCERDataService] Full payload history archival failed, falling back to core schema:", fullErr);
+    }
+
+    // 2. Prepare core payload (only core columns confirmed in user schema)
+    const corePayload: any = {
+      Title: propNo,
+      cerPrId: cerId,
+      proposalNo: propNo,
+      prName: original.pr_name,
+      sbu: original.sbu,
+      status: "Approved",
+      amount: Number(original.amount || 0),
+      currency: original.currency || "USD",
+      category: original.cat || "Vital",
+    };
+    if (ownerSpUserId) {
+      const ownerPayload = PersonFieldService.formatPersonFieldPayload("cerOwner", ownerSpUserId);
+      Object.assign(corePayload, ownerPayload);
+    }
+
+    try {
+      await this._executeWithFieldFallback(
+        (payload) => this._sp.createListItem(SP_LISTS.CER_PROPOSALS_HISTORY, payload),
+        corePayload,
+        25
+      );
+      this._cachedSubmissionsByCerId.clear();
+      return;
+    } catch (coreErr) {
+      console.warn("[SharePointCERDataService] Core payload history archival failed, falling back to minimal payload:", coreErr);
+    }
+
+    // 3. Bare minimum: Title + cerPrId + proposalNo + status
+    await this._sp.createListItem(SP_LISTS.CER_PROPOSALS_HISTORY, {
+      Title: propNo,
+      cerPrId: cerId,
+      proposalNo: propNo,
+      status: "Approved",
+    });
+    this._cachedSubmissionsByCerId.clear();
+  }
+
   public async getAllSubmissionsForCER(cerProposalId: string): Promise<{ active: ICERProposal | null; history: ICERProposal[] }> {
     const cleanId = (cerProposalId || "").trim();
     if (!cleanId) return { active: null, history: [] };
@@ -1300,10 +1413,54 @@ export class SharePointCERDataService implements ICERDataService {
       };
     }
 
-    const [active, history] = await Promise.all([
-      this.getProposalByNumber(cleanId),
-      this.getProposalHistory(cleanId),
-    ]);
+    const active = await this.getProposalByNumber(cleanId);
+    const parentCerId = active?.cer_proposal_id || active?.cerprno || cleanId;
+    let history = await this.getProposalHistory(parentCerId);
+
+    // Self-healing / Backfill:
+    // If history in CERProposalsHistory is currently empty, but the active proposal is a post-approval
+    // revision (e.g. proposal_no has -R1 or revision_count > 0):
+    if (history.length === 0 && active) {
+      const activePropNo = (active.proposal_no || active.cerprno || "").trim();
+      const isPostApprovalRevision =
+        Boolean(activePropNo && /-R\d+$/i.test(activePropNo)) ||
+        Number(active.revision_count || 0) > 0;
+
+      if (isPostApprovalRevision) {
+        const prevNo = activePropNo.replace(/-R\d+$/i, "");
+        if (prevNo !== activePropNo) {
+          // Reconstruct previous approved version
+          let prevAmount = active.amount;
+          try {
+            const audits = await this.getAuditTrail(parentCerId);
+            const amountAudit = audits.find((a) => a.field_name === "amount" && a.old_value);
+            if (amountAudit && amountAudit.old_value) {
+              prevAmount = Number(amountAudit.old_value) || active.amount;
+            }
+          } catch {
+            // non-blocking
+          }
+
+          const reconstructedApproved: ICERProposal = {
+            ...active,
+            proposal_no: prevNo,
+            cerprno: parentCerId,
+            cer_proposal_id: parentCerId,
+            status: "Approved",
+            amount: prevAmount,
+            current_level: 6,
+          };
+
+          try {
+            await this.archiveApprovedProposal(reconstructedApproved);
+            history = [reconstructedApproved];
+          } catch (backfillErr) {
+            console.warn("[SharePointCERDataService] Backfill archival error:", backfillErr);
+            history = [reconstructedApproved];
+          }
+        }
+      }
+    }
 
     const result = { active, history };
     this._cachedSubmissionsByCerId.set(cacheKey, { data: result, timestamp: now });
@@ -2074,6 +2231,7 @@ export class SharePointCERDataService implements ICERDataService {
     this._cachedProposals = null;
     this._cachedProposalByNumber.delete(params.cerprno.toUpperCase());
     this._cachedApprovalDecisions.delete(params.cerprno.toUpperCase());
+    this._cachedSubmissionsByCerId.clear();
 
     return {
       success: true,

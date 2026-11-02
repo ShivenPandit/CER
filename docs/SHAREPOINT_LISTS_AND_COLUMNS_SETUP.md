@@ -133,7 +133,8 @@ Go to **List Settings -> Indexed Columns -> Create a new index**:
 Stores complete historical snapshots of approved proposals prior to post-approval changes.
 
 - **SharePoint List Type:** Custom List
-- **Column Schema:** Exact duplicate of `CERProposals` (Sections A through G fields).
+- **Column Schema:** Mirrors `CERProposals` fields (Sections A through G fields).
+- **Field Type Note:** In `CERProposalsHistory`, choice-based fields from `CERProposals` (such as `sbu`, `status`, `category`, `payable`, `currentBudgeted`, `jointVenture`, `jvRecoverable`, `jvBudgeted`, `pendingWithRole`, `pendingWithEmail`) are configured as **Single line of text** rather than Choice fields to allow flexible archival of historical states without choice constraint conflicts.
 - **Uniqueness Rule:** In `CERProposalsHistory`, `cerPrId` must have **`Enforce unique values = No`** because multiple historical approved versions belong to the same project `CER Proposal ID`.
 - **Purpose:** When an approved CER is edited and resubmitted, the existing approved proposal record is copied into `CERProposalsHistory`, and the active record in `CERProposals` is updated in-place with the new Proposal No and new amounts. In View CER (`DisplayCERView`), these snapshots are retrieved and displayed under the dedicated "CER History" section.
 

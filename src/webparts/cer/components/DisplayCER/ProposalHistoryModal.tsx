@@ -160,11 +160,11 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-[#012964]" />
             <span className="font-semibold text-slate-800 uppercase tracking-wider text-[11px]">
-              Proposal Submission & Version History
+              Proposal History
             </span>
           </div>
           <span className="text-[11px] text-slate-500 hidden sm:inline">
-            Archived snapshots from SharePoint list <strong className="text-slate-700">CERProposalsHistory</strong>
+            Archived snapshots of previously approved proposals
           </span>
         </div>
 
@@ -180,79 +180,17 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
           {isLoading ? (
             <div className="py-20 text-center text-slate-400 text-xs space-y-2">
               <div className="w-7 h-7 border-2 border-[#012964] border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="font-medium">Loading proposal history from CERProposalsHistory...</p>
+              <p className="font-medium">Loading proposal history...</p>
             </div>
           ) : (
             <>
-              {/* Zone 1: Current Active Proposal (from CERProposals) */}
-              {activeProposal && (
-                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs space-y-2.5">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] uppercase tracking-wider font-bold text-slate-500">
-                        Current Active Proposal (CERProposals)
-                      </span>
-                      <span className="font-mono font-bold text-xs bg-[#012964]/10 text-[#012964] px-2 py-0.5 rounded border border-[#012964]/20">
-                        {activeProposal.proposal_no || activeProposal.cerprno}
-                      </span>
-                      <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        {historyProposals.length > 0 ? `Active Version (v${historyProposals.length + 1})` : "Active Submission (v1)"}
-                      </span>
-                    </div>
-                    <StatusBadge status={activeProposal.status} size="sm" />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-slate-100 text-xs">
-                    <div>
-                      <span className="text-slate-400 text-[11px] block">Project Name</span>
-                      <span className="font-semibold text-slate-900 truncate block" title={activeProposal.pr_name}>
-                        {activeProposal.pr_name}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-slate-400 text-[11px] block">Project Owner & SBU</span>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <div className="w-5 h-5 rounded-full bg-blue-50 text-[#012964] font-bold text-[10px] flex items-center justify-center shrink-0">
-                          {getInitials(activeProposal.owname)}
-                        </div>
-                        <span className="font-medium text-slate-800 truncate">{activeProposal.owname}</span>
-                        <span className="text-[10px] font-semibold bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">
-                          {activeProposal.sbu}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <span className="text-slate-400 text-[11px] block">Current Amount</span>
-                      <span className="font-bold text-slate-900 text-sm">
-                        {activeProposal.currency || "USD"} {Number(activeProposal.amount || 0).toLocaleString()}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-slate-400 text-[11px] block">Approval Stage</span>
-                      <span className="font-medium text-slate-700">
-                        {activeProposal.status === "Approved"
-                          ? "Fully Approved"
-                          : activeProposal.status === "Revised"
-                          ? "Initiator (Rework)"
-                          : activeProposal.status === "Draft"
-                          ? "Draft (Not Submitted)"
-                          : `L${activeProposal.current_level} - ${activeProposal.pending_with_role || "Pending"}`}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Zone 2: Historical Snapshots Table (CERProposalsHistory) */}
+              {/* Historical Snapshots Table */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-2">
                     <History className="w-4 h-4 text-[#012964]" />
                     <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
-                      Archived Approved Versions (CERProposalsHistory)
+                      Prior Approved Proposals
                     </h3>
                     <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
                       {historyProposals.length}
@@ -262,16 +200,16 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
 
                 {historyProposals.length === 0 ? (
                   /* Informative Empty State for Initial Cycle Proposals */
-                  <div className="bg-white rounded-xl border border-slate-200/90 p-8 text-center space-y-3 shadow-2xs">
+                  <div className="bg-white rounded-xl border border-slate-200/90 p-10 text-center space-y-3 shadow-2xs">
                     <div className="w-12 h-12 rounded-full bg-blue-50 text-[#012964] border border-blue-200 flex items-center justify-center mx-auto">
                       <History className="w-6 h-6 text-[#012964]" />
                     </div>
                     <div>
                       <h4 className="font-bold text-slate-800 text-sm">
-                        No Historical Versions in CERProposalsHistory
+                        No Previous Proposals
                       </h4>
                       <p className="text-xs text-slate-500 max-w-lg mx-auto mt-1 leading-relaxed">
-                        This proposal is currently in its initial cycle (v1). When an approved proposal is amended and resubmitted, the previous approved snapshot is automatically archived in the SharePoint list <strong>CERProposalsHistory</strong>.
+                        This proposal is currently in its initial submission (Proposal No. 01). Prior approved versions will appear here when amended in future cycles.
                       </p>
                     </div>
                   </div>

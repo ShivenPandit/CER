@@ -407,10 +407,14 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         current_level: 1,
       };
 
-      const result = await dataService.updateProposal(updatedPayload, {
-        name: currentUser.name,
-        email: currentUser.email,
-      });
+      const result = await dataService.updateProposal(
+        updatedPayload,
+        {
+          name: currentUser.name,
+          email: currentUser.email,
+        },
+        originalProposal || undefined,
+      );
 
       // Save any remaining un-uploaded attachments linked to proposal
       const pendingAttachments = attachments.filter(
@@ -428,7 +432,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         isDraft
           ? "CER Proposal draft saved successfully."
           : isApprovedOriginal
-          ? "Post-approval amendment submitted successfully. The previous approved version has been safely archived to CER History."
+          ? "Post-approval amendment submitted successfully. The previous approved version has been safely archived to Proposal History."
           : `CER Proposal No. has been changed and sent for approval (${result.auditRowsCount} field changes recorded in audit trail).`
       );
       setTimeout(() => {
@@ -578,14 +582,11 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-[#012964] text-sm">Post-Approval Resubmission</span>
-                  <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#012964]/10 text-[#012964]">
-                    Archival to CERProposalsHistory
-                  </span>
                 </div>
                 <p className="text-slate-700 leading-relaxed">
                   This proposal was previously approved. You are submitting an amended version.
                   Enter a new, distinct <strong>CER Proposal No.</strong> below (e.g. adding <code>-R1</code>).
-                  Upon submission, the previous approved snapshot will be archived in <strong>CER History</strong>,
+                  Upon submission, the previous approved snapshot will be archived in <strong>Proposal History</strong>,
                   and this updated request will re-enter the sequential workflow at Level 1.
                 </p>
               </div>
