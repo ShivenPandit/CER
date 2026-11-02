@@ -1455,7 +1455,7 @@ export class SharePointCERDataService implements ICERDataService {
   }
 
   // ---------------------------------------------------------------------------
-  // 4. CERWorkflowLevels Operations
+  // 4. Fixed Six-Level Workflow Operations (CERRoleMatrix Approver Resolution)
   // ---------------------------------------------------------------------------
 
   public async getWorkflowLevels(sbu?: string, forceRefresh = false): Promise<IWorkflowLevel[]> {

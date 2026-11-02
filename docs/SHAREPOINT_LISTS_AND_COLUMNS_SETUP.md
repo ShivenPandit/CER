@@ -16,12 +16,10 @@ When creating lists manually in SharePoint (**Site Contents -> New -> List -> Bl
 | 1   | **`CERProposals`**         | Custom List      | Master repository for all active CER proposal records (Sections A through G).                                                                                                   |
 | 2   | **`CERProposalsHistory`**  | Custom List      | Archive repository for approved proposal snapshots prior to post-approval changes (identical schema to `CERProposals`). In View CER, displayed under the "CER History" section. |
 | 3   | **`CERAuditTrail`**        | Custom List      | Granular field-level delta change history for compliance and auditing.                                                                                                          |
-| 4   | **`CERWorkflowLevels`**    | Custom List      | Legacy dynamic workflow levels (superseded by Fixed Six-Level Sequential Workflow; kept for historical reference).                               |
-| 5   | **`CERApprovalDecisions`** | Custom List      | Formal sign-off records (Approved / Rejected) with timestamps.                                                                                                                  |
-| 6   | **`CERAttachments`**       | Document Library | Associated technical and financial PDF/Excel documentation.                                                                                                                     |
-| 7   | **`CERNotifications`**     | Custom List      | Email notification dispatch records and recipient logs.                                                                                                                         |
-| 8   | **`CERRoleMatrix`**        | Custom List      | Modern SBU-wise Role-Based Access Control (RBAC) and Fixed 6-Level Approval Matrix (replaces legacy `CERUserRoles`).                                                           |
-| 9   | **`CERUserRoles`**         | Custom List      | Legacy user roles list (supported with backward-compatible fallback).                                                                                                          |
+| 4   | **`CERApprovalDecisions`** | Custom List      | Formal sign-off records (Approved / Rejected) with timestamps.                                                                                                                  |
+| 5   | **`CERAttachments`**       | Document Library | Associated technical and financial PDF/Excel documentation.                                                                                                                     |
+| 6   | **`CERNotifications`**     | Custom List      | Email notification dispatch records and recipient logs.                                                                                                                         |
+| 7   | **`CERRoleMatrix`**        | Custom List      | Modern SBU-wise Role-Based Access Control (RBAC) and Fixed 6-Level Approval Matrix.                                                                                              |
 
 ---
 
@@ -169,34 +167,7 @@ Go to **List Settings -> Indexed Columns -> Create a new index**:
 
 ---
 
-### 2.4 `CERWorkflowLevels` (SBU-Specific Hierarchies)
-
-Defines the multi-stage approval sequence independently configured for each SBU.
-
-| Display Name    | Internal Column Name | SharePoint Field Type | Required | Unique? | Indexed?           | Choices / Format / Constraints           | Business Description                                                          |
-| --------------- | -------------------- | --------------------- | -------- | ------- | ------------------ | ---------------------------------------- | ----------------------------------------------------------------------------- |
-| **Title**       | `Title`              | Single line of text   | Yes      | No      | **Yes (Built-in)** | SBU Descriptor (e.g., `RJ North - L1`)   | Standard title for level record.                                              |
-| SBU             | `sbu`                | Choice                | Yes      | No      | **Yes**            | `RJ North`, `RJ South`, `CBOS`, `RAVA`   | SBU route to which this stage belongs.                                        |
-| Level ID        | `levelId`            | Number                | Yes      | No      | **Yes**            | Integer (Contiguous 1, 2, 3.. N per SBU) | Sequential stage execution order.                                             |
-| Role Title      | `roleTitle`          | Single line of text   | Yes      | No      | **Yes**            | e.g. `Project Owner`, `Discipline Lead`  | Descriptive governance stage title.                                           |
-| Assignment Type | `assignmentType`     | Choice                | Yes      | No      | **Yes**            | `SpecificUser`, `ProjectOwnerAuto`       | When `ProjectOwnerAuto`, dynamically auto-fetches from proposal's `cerOwner`. |
-| Is Active       | `isActive`           | Yes/No (Boolean)      | Yes      | No      | **Yes**            | `true` / `false` (Default: `Yes`)        | Whether stage participates in active approval routing.                        |
-
-_(Note: Columns `approverName` and `approverEmail` are removed/not needed because approvers are dynamically resolved via Person fields)._
-
-#### `CERWorkflowLevels` — Columns to Index in SharePoint List Settings:
-
-Go to **List Settings -> Indexed Columns -> Create a new index**:
-
-1. `sbu`
-2. `levelId`
-3. `roleTitle`
-4. `assignmentType`
-5. `isActive`
-
----
-
-### 2.5 `CERApprovalDecisions` (Formal Sign-Offs)
+### 2.4 `CERApprovalDecisions` (Formal Sign-Offs)
 
 Captures formal sign-off records by approvers with timestamps and outcomes.
 
@@ -224,7 +195,7 @@ Go to **List Settings -> Indexed Columns -> Create a new index**:
 
 ---
 
-### 2.6 `CERAttachments` (Document Library)
+### 2.5 `CERAttachments` (Document Library)
 
 Document library storing all supporting project files.
 
@@ -247,7 +218,7 @@ Go to **Library Settings -> Indexed Columns -> Create a new index**:
 
 ---
 
-### 2.7 `CERNotifications` (Notification Dispatch History)
+### 2.6 `CERNotifications` (Notification Dispatch History)
 
 Audit log of all system-generated email notifications dispatched to stakeholders.
 
@@ -269,9 +240,9 @@ Go to **List Settings -> Indexed Columns -> Create a new index**:
 
 ---
 
-### 2.8 `CERRoleMatrix` (Modern SBU Role Matrix & Person Columns)
+### 2.7 `CERRoleMatrix` (Modern SBU Role Matrix & Person Columns)
 
-Modern enterprise role matrix replacing `CERUserRoles`. Controls user authorization, SBU scope, and designates the fixed sequential approvers for L1, L3, L4, L5, and L6.
+Modern enterprise role matrix. Controls user authorization, SBU scope, and designates the fixed sequential approvers for L1, L3, L4, L5, and L6.
 
 > [!IMPORTANT]
 > **Key Schema Requirements:**
@@ -302,12 +273,6 @@ Go to **List Settings -> Indexed Columns -> Create a new index**:
 4. `approvalLevel`
 5. `assignedBy` (Person or Group)
 6. `assignedDate`
-
----
-
-### 2.9 `CERUserRoles` (Legacy User Roles List — Backward Compatibility)
-
-Retained as a fallback data source for backward compatibility during phased tenant migration. All new role assignments and UI updates write directly to `CERRoleMatrix`.
 
 ---
 

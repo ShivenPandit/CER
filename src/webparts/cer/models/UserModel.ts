@@ -29,7 +29,7 @@ export interface IUserRoleAssignment {
   assigned_by: string;
   assigned_date: string;
   user_id?: number; // SharePoint User ID (from Person or Group field)
-  approval_hierarchy_page?: boolean; // true when approvalHierarchyPage = Yes in CERUserRoles
+  approval_hierarchy_page?: boolean; // true when granted approval hierarchy administration in CERRoleMatrix
 }
 
 export interface ICERRoleMatrixItem {
@@ -69,7 +69,7 @@ export interface IAdminAuditRecord {
 }
 
 /**
- * @deprecated For testing/fallback only. Production uses real SharePoint identity and CERUserRoles list.
+ * @deprecated For testing/fallback only. Production uses real SharePoint identity and CERRoleMatrix list.
  */
 export const DEMO_USERS: IAppUser[] = [
   {

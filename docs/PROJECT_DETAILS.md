@@ -18,7 +18,7 @@ The **Capital Expenditure Request (CER) Management System** is an enterprise-gra
 3. **Dynamic Project Owner Resolution**: Evaluate Project Owner approval stages dynamically per proposal without hardcoding or schema alterations.
 4. **Strict Segregation of Duties (SoD)**: Systematically prevent proposal initiators and project owners from self-approving their own requests at operational approval stages.
 5. **Indian Fiscal Year Phasing**: Automatically calculate and shift financial phasing labels across 3 fiscal periods aligned with the Indian Financial Year (April 1 to March 31).
-6. **Native SharePoint Person Column Support**: Fully support SharePoint **Person or Group** columns via `ensureUser` and `<Field>Id` payload mapping (`UserId` in `CERUserRoles` and `cerOwnerId` in `CERProposals`), directly resolving Display Name, Email, and Login Identity from expanded Person objects.
+6. **Native SharePoint Person Column Support**: Fully support SharePoint **Person or Group** columns via `ensureUser` and `<Field>Id` payload mapping (`User` in `CERRoleMatrix` and `cerOwnerId` in `CERProposals`), directly resolving Display Name, Email, and Login Identity from expanded Person objects.
 7. **Comprehensive Audit & Reporting**: Maintain granular field-level audit logs, threaded discussion remarks, executive PDF generation, and multi-tab Excel data exports.
 
 ---
@@ -63,7 +63,7 @@ sequenceDiagram
     App->>Factory: DataServiceFactory.getService(props)
     Factory-->>App: Returns SharePointCERDataService (or LocalMock)
     App->>Auth: AuthService.resolveCurrentUser(props, dataService)
-    Auth->>Service: Query CERUserRoles for active roles
+    Auth->>Service: Query CERRoleMatrix for active roles
     Service-->>Auth: Returns user role records
     Auth-->>App: Sets resolved IAppUser in state
     par Load Initial Workspace
@@ -236,13 +236,13 @@ D:/Git/CER/
 ## 5. Business Rules & Governance Matrix
 
 ### 5.1 SBU-Specific Sequential Approval Engine
-Each SBU maintains its own independent, configurable sequence of stages (`levelId = 1, 2, 3.. N`) managed directly in `CERWorkflowLevels`. Proposals follow strict contiguous stage progression (Level 1 → Level 2 → Level 3..) tailored to that SBU's operational requirements without any hardcoded corporate roles.
+Proposals follow a strict Fixed Six-Level Sequential Approval Workflow with approvers dynamically resolved per SBU from `CERRoleMatrix`. Proposals follow strict contiguous stage progression (Level 1 → Level 2 → Level 3..) tailored to that SBU's operational requirements without any hardcoded corporate roles.
 
 ### 5.2 Dynamic Project Owner Resolution (`ProjectOwnerAuto`)
-- In standard approval stages, approver identity is dynamically resolved from `CERUserRoles` matching `role = 'Approver'` and `approvalLevel = levelId`.
+- In standard approval stages, approver identity is dynamically resolved from `CERRoleMatrix` matching `role = 'Approver'` and `approvalLevel = levelId`.
 - When a stage has `assignmentType = 'ProjectOwnerAuto'` (or role title matches "Project Owner" / "Proposal Owner"):
   - The approver identity is **dynamically extracted** from the proposal's `cerOwner` Person field (or fallback `owname` / `owner_email`).
-  - No static email is assigned in `CERWorkflowLevels`.
+  - No static email is configured in `CERRoleMatrix`.
   - Proposals within the same SBU dynamically route to their respective project owners.
 
 ### 5.3 Segregation of Duties (SoD)
@@ -312,8 +312,8 @@ The system enforces 4 enterprise roles:
    - Endorse (Approve) or Return with Remarks (Reject) proposals.
    - Enforced by Segregation of Duties checks.
 3. **Admin**:
-   - Manage SBU approval stages in Admin Console (`CERWorkflowLevels`).
-   - Assign and revoke user roles (`CERUserRoles`).
+   - Manage Fixed 6-Level Approval Matrix in Admin Console (`CERRoleMatrix`).
+   - Assign and revoke user roles (`CERRoleMatrix`).
    - Configure Indian FY phasing and system settings.
    - Full governance override to prevent approval deadlocks.
    - **Designated Bootstrap Admin**: `70007144@cairnindia.com` has automatic, guaranteed administrative access.
@@ -324,20 +324,19 @@ The system enforces 4 enterprise roles:
 
 ---
 
-## 9. Master 8 Lists & Naming Standards Reference
+## 9. Master 7 Lists & Naming Standards Reference
 
-The application communicates exclusively with 8 lists in clean CamelCase (no underscores `_`):
+The application communicates exclusively with 7 lists in clean CamelCase (no underscores `_`):
 
 | # | List / Library Name | Type | Purpose |
 |---|---|---|---|
-| 1 | **`CERProposals`** | Custom List | Master repository for all CER proposal records (Sections A through G). |
-| 2 | **`CERAuditTrail`** | Custom List | Granular field-level delta change history for compliance and auditing. |
-| 3 | **`CERRemarksHistory`** | Custom List | Threaded approval remarks and workflow discussion history. |
-| 4 | **`CERWorkflowLevels`** | Custom List | SBU-specific approval hierarchies, role stages, and routing logic. |
-| 5 | **`CERApprovalDecisions`** | Custom List | Formal sign-off records (Approved / Rejected) with timestamps. |
-| 6 | **`CERAttachments`** | Document Library | Associated technical and financial PDF/Excel documentation. |
-| 7 | **`CERNotifications`** | Custom List | Email notification dispatch records and recipient logs. |
-| 8 | **`CERUserRoles`** | Custom List | Enterprise Role-Based Access Control (RBAC) registry. |
+| 1 | **`CERProposals`** | Custom List | Master repository for all active CER proposal records (Sections A through G). |
+| 2 | **`CERProposalsHistory`** | Custom List | Archive repository for approved proposal snapshots prior to post-approval amendments. |
+| 3 | **`CERAuditTrail`** | Custom List | Granular field-level delta change history for compliance and auditing. |
+| 4 | **`CERApprovalDecisions`** | Custom List | Formal sign-off records (Approved / Rejected) with timestamps. |
+| 5 | **`CERAttachments`** | Document Library | Associated technical and financial PDF/Excel documentation. |
+| 6 | **`CERNotifications`** | Custom List | Email notification dispatch records and recipient logs. |
+| 7 | **`CERRoleMatrix`** | Custom List | Modern SBU-wise Role-Based Access Control (RBAC) and Fixed 6-Level Approval Matrix. |
 
 > For the complete schema specification, field types, and step-by-step manual creation instructions, refer to [SHAREPOINT_LISTS_AND_COLUMNS_SETUP.md](file:///d:/Git/CER/docs/SHAREPOINT_LISTS_AND_COLUMNS_SETUP.md).
 
