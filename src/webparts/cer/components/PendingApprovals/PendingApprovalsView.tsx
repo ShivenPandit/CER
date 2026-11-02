@@ -92,13 +92,20 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
     return proposals.filter((p) => {
       if (p.status !== "In Approval") return false;
 
-      // SBU-specific stage lookup
+      // SBU-specific stage lookup with fallback to "All" or level_id
       const propSbu = (p.sbu || "").trim().toLowerCase();
-      const stageConfig = levels.find(
-        (l) =>
-          (l.sbu || "").trim().toLowerCase() === propSbu &&
-          l.level_id === p.current_level
-      );
+      const stageConfig =
+        levels.find(
+          (l) =>
+            (l.sbu || "").trim().toLowerCase() === propSbu &&
+            l.level_id === p.current_level
+        ) ||
+        levels.find(
+          (l) =>
+            (l.sbu || "").trim().toLowerCase() === "all" &&
+            l.level_id === p.current_level
+        ) ||
+        levels.find((l) => l.level_id === p.current_level);
 
       return PermissionService.canApproveCER(p, currentUser, stageConfig).allowed;
     }).filter((p) => {

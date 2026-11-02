@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Calculator, CheckCircle2, AlertTriangle, AlertCircle } from "lucide-react";
+import { Calculator, CheckCircle2, AlertCircle } from "lucide-react";
 import { ICERProposal } from "../../models/CERModel";
 import { FormErrors } from "../../utils/cerValidation";
 
@@ -35,7 +35,6 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
 
   const cerAmount = Number(formData.amount || 0);
   const isBalanced = cerAmount > 0 && Math.abs(cerAmount - computedTotal) <= 0.01;
-  const hasMismatch = cerAmount > 0 && Math.abs(cerAmount - computedTotal) > 0.01 && computedTotal > 0;
 
   const isINR = formData.currency === "INR";
   const currSymbol = isINR ? "₹" : "$";
@@ -210,10 +209,6 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             {cerAmount > 0 && isBalanced ? (
               <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#012964] bg-[#66CC33]/15 px-2 py-0.5 rounded border border-[#66CC33]/30">
                 <CheckCircle2 className="w-3 h-3 text-[#387a15]" /> Reconciled
-              </span>
-            ) : cerAmount > 0 && hasMismatch ? (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                <AlertCircle className="w-3 h-3 text-amber-600" /> Diff: {currSymbol}{Math.abs(computedTotal - cerAmount).toLocaleString()}{currUnit}
               </span>
             ) : null}
           </div>

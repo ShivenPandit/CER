@@ -40,7 +40,7 @@ async function testPerformanceOptimizations() {
       networkCallCount++;
       queriedUrls.push(url);
 
-      if (url.includes("CER_UserRoles") || url.includes("CERUserRoles")) {
+      if (url.includes("CERRoleMatrix") || url.includes("CER_UserRoles") || url.includes("CERUserRoles")) {
         return {
           ok: true,
           status: 200,
@@ -131,15 +131,12 @@ async function testPerformanceOptimizations() {
 
   console.log(`  Roles returned: ${roles.length}, Levels returned: ${levels.length}`);
   console.log(`  Total network calls made: ${networkCallCount}`);
-  // Expected: Exactly 2 calls (1 for CER_UserRoles, 1 for CER_WorkflowLevels)
-  // WITHOUT deduplication, it would have been 3 calls (2 to CER_UserRoles, 1 to CER_WorkflowLevels)
-  const userRolesCallCount = queriedUrls.filter((u) => u.includes("CER_UserRoles") || u.includes("CERUserRoles")).length;
-  const workflowLevelsCallCount = queriedUrls.filter((u) => u.includes("CER_WorkflowLevels") || u.includes("CERWorkflowLevels")).length;
-  console.log(`  Calls to CERUserRoles: ${userRolesCallCount} (Expected: 1)`);
-  console.log(`  Calls to CERWorkflowLevels: ${workflowLevelsCallCount} (Expected: 1)`);
+  // Expected: Exactly 1 single-flight call for CERRoleMatrix (getWorkflowLevels reuses in-flight roles promise)
+  const userRolesCallCount = queriedUrls.filter((u) => u.includes("CERRoleMatrix") || u.includes("CER_UserRoles") || u.includes("CERUserRoles")).length;
+  console.log(`  Calls to CERRoleMatrix: ${userRolesCallCount} (Expected: 1)`);
 
-  const deduplicationWorked = userRolesCallCount === 1 && workflowLevelsCallCount === 1;
-  console.log(`  ${deduplicationWorked ? "✔ [PASS]" : "✖ [FAIL]"} Deduplication prevented redundant parallel query to CER_UserRoles`);
+  const deduplicationWorked = userRolesCallCount === 1;
+  console.log(`  ${deduplicationWorked ? "✔ [PASS]" : "✖ [FAIL]"} Deduplication prevented redundant parallel query to CERRoleMatrix`);
   if (!deduplicationWorked) throw new Error("Deduplication failed");
 
   // Test 4: Cache Invalidation on Mutation

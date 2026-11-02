@@ -123,7 +123,8 @@ export class AuthService {
    */
   public static async resolveCurrentUser(
     params: IAuthContextParams,
-    dataService: ICERDataService
+    dataService: ICERDataService,
+    forceRefresh = false
   ): Promise<IAuthResolutionResult> {
     const email = normalizeUserIdentifier(params.email);
     const loginName = normalizeUserIdentifier(params.loginName);
@@ -154,7 +155,7 @@ export class AuthService {
 
     let allRoles: IUserRoleAssignment[] = [];
     try {
-      allRoles = await dataService.getUserRoles();
+      allRoles = await dataService.getUserRoles(forceRefresh);
     } catch (err) {
       console.warn("[AuthService] Failed to load role assignments:", err);
     }
@@ -162,7 +163,7 @@ export class AuthService {
     let hierarchyAdmins: string[] = [];
     if (typeof dataService.getHierarchyAdmins === "function") {
       try {
-        hierarchyAdmins = await dataService.getHierarchyAdmins();
+        hierarchyAdmins = await dataService.getHierarchyAdmins(forceRefresh);
       } catch (hErr) {
         console.warn("[AuthService] Failed to derive hierarchy administrators from CERUserRoles:", hErr);
       }
@@ -202,68 +203,65 @@ export class AuthService {
       allRoles = allRoles.filter((a) => !invalidIds.has(a.id));
     }
 
-    // Filter active roles assigned to current user by email or loginName
+    const clean = (val?: string): string =>
+      (val || "")
+        .replace(/\s*\([^)]*\)/g, "") // remove vendor / partner / domain parentheses e.g. (Microlink), (STL Digital)
+        .replace(/[^a-zA-Z0-9\s]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+
+    const cleanDisplayName = clean(displayName);
+    const userPrefixEmail = email ? normalizeUserIdentifier(email).split("@")[0] : "";
+    const userPrefixLogin = loginName ? normalizeUserIdentifier(loginName).split("@")[0] : "";
+    const currentUserIdNum = params.id ? Number(params.id) : undefined;
+
+    // Filter active roles assigned to current user by email, loginName, User ID, or normalized name
     const userAssignments = allRoles.filter((assignment) => {
       const aEmail = normalizeUserIdentifier(assignment.user_email);
       const aLogin = normalizeUserIdentifier(assignment.login_name);
-      const matchEmail = Boolean(email && (aEmail === email || aLogin === email));
-      const matchLogin = Boolean(loginName && (aLogin === loginName || aEmail === loginName));
-      return matchEmail || matchLogin;
-    });
+      const aName = clean(assignment.user_name);
+      const aUserId = assignment.user_id ? Number(assignment.user_id) : undefined;
 
-    const activeAdmins = allRoles.filter(
-      (a) => a.role === "Admin" && a.is_active
-    );
+      // 1. Direct Email / Login Match
+      if (email && (aEmail === email || aLogin === email)) return true;
+      if (loginName && (aLogin === loginName || aEmail === loginName)) return true;
 
-    // Controlled First-Admin Bootstrapping
-    // Only triggered when NO active Admins exist in the entire system, and the current user is a Site Collection Admin
-    if (activeAdmins.length === 0 && isSiteAdmin && email) {
-      console.info("[AuthService] Initial Admin bootstrap triggered for Site Administrator:", email);
-
-      const bootstrapAssignment: Omit<IUserRoleAssignment, "id"> = {
-        user_name: displayName,
-        user_email: email,
-        login_name: loginName || email,
-        role: "Admin",
-        department: params.department || "Enterprise Administration",
-        is_active: true,
-        assigned_by: "SYSTEM_INITIAL_BOOTSTRAP",
-        assigned_date: new Date().toISOString(),
-      };
-
-      try {
-        await dataService.assignUserRole(bootstrapAssignment, {
-          name: "System Bootstrapper",
-          email: "security@system.local",
-        });
-      } catch (bootstrapErr) {
-        console.warn("[AuthService] Could not persist initial bootstrap Admin record:", bootstrapErr);
+      // 2. SharePoint User ID Match
+      if (currentUserIdNum && aUserId && currentUserIdNum === aUserId) {
+        return true;
       }
 
-      const adminUser: IAppUser = {
-        id: params.id,
-        name: displayName,
-        email: email,
-        loginName: loginName || email,
-        role: "Admin",
-        roles: ["Admin", "Initiator"],
-        department: params.department || "Enterprise Administration",
-        is_active: true,
-        isSiteAdmin: true,
-        canManageApprovalHierarchy: hasHierarchyAdminAccess,
-      };
+      // 3. Username / Account Prefix Match (e.g. 70007144 or shiven.pandit)
+      const aPrefixEmail = aEmail ? aEmail.split("@")[0] : "";
+      const aPrefixLogin = aLogin ? aLogin.split("@")[0] : "";
+      if (
+        (userPrefixEmail && (aPrefixEmail === userPrefixEmail || aPrefixLogin === userPrefixEmail)) ||
+        (userPrefixLogin && (aPrefixLogin === userPrefixLogin || aPrefixEmail === userPrefixLogin))
+      ) {
+        return true;
+      }
 
-      return {
-        user: adminUser,
-        isRegistered: true,
-        isFirstAdminBootstrapped: true,
-      };
-    }
+      // 4. Normalized Display Name Match (e.g. "Shiven Pandit" matching "Shiven Pandit (Microlink)")
+      if (cleanDisplayName && aName && cleanDisplayName === aName) {
+        return true;
+      }
+
+      return false;
+    });
+
+    const normalizeRole = (r: string): UserRole => {
+      const clean = (r || "").trim().toLowerCase();
+      if (clean === "admin" || clean === "system admin" || clean === "system_admin") return "Admin";
+      if (clean === "approver") return "Approver";
+      if (clean === "finance & audit" || clean === "finance_audit" || clean === "finance and audit" || clean === "finance") return "Finance_Audit";
+      return "Initiator";
+    };
 
     // Check if user has explicit role assignments
     if (userAssignments.length > 0) {
       // Check if all assigned records are explicitly deactivated
-      const hasAnyActive = userAssignments.some((a) => a.is_active);
+      const hasAnyActive = userAssignments.some((a) => a.is_active !== false);
       if (!hasAnyActive) {
         // User account is deactivated by an administrator
         const deactivatedUser: IAppUser = {
@@ -284,9 +282,9 @@ export class AuthService {
         };
       }
 
-      const activeAssignments = userAssignments.filter((a) => a.is_active);
+      const activeAssignments = userAssignments.filter((a) => a.is_active !== false);
       const roles: UserRole[] = Array.from(
-        new Set(activeAssignments.map((a) => a.role))
+        new Set(activeAssignments.map((a) => normalizeRole(a.role)))
       );
 
       // Resolve primary role in hierarchical priority: Admin > Approver > Finance_Audit > Initiator
@@ -303,7 +301,7 @@ export class AuthService {
 
       // Resolve approval level if approver
       const approverAssignment = activeAssignments.find(
-        (a) => a.role === "Approver" && a.approval_level !== undefined
+        (a) => normalizeRole(a.role) === "Approver" && a.approval_level !== undefined
       );
 
       const resolvedUser: IAppUser = {
@@ -327,24 +325,25 @@ export class AuthService {
       };
     }
 
-    // Unregistered User: Default to unprivileged Initiator policy
-    // Never assume missing record means Administrator
+    // Unregistered User: Strict Zero-Access / Fail-Closed Policy
+    // Users with no entry in CERRoleMatrix possess zero application permissions
     const defaultUser: IAppUser = {
       id: params.id,
       name: displayName,
       email: email,
       loginName: loginName || email,
       role: "Initiator",
-      roles: ["Initiator"],
+      roles: [],
       department: params.department || "CER Management Portal",
-      is_active: true,
+      is_active: false,
       isSiteAdmin,
-      canManageApprovalHierarchy: hasHierarchyAdminAccess,
+      canManageApprovalHierarchy: false,
     };
 
     return {
       user: defaultUser,
       isRegistered: false,
+      isFirstAdminBootstrapped: false,
     };
   }
 }

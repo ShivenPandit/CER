@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { RotateCw } from "lucide-react";
 import { ICERProps } from "./ICERProps";
 import { ICERProposal, IFieldChoices, DEFAULT_FIELD_CHOICES } from "../models/CERModel";
 import { IAppUser } from "../models/UserModel";
@@ -27,6 +28,7 @@ import { AuditTrailView } from "./Audit/AuditTrailView";
 
 // Common Modals
 import { AccessDeniedView } from "./Shared/AccessDeniedView";
+import { UnauthorizedAccessView } from "./Shared/UnauthorizedAccessView";
 import { UserManualModal } from "./UserManual/UserManualModal";
 
 const CER: React.FC<ICERProps> = (props) => {
@@ -80,26 +82,28 @@ const CER: React.FC<ICERProps> = (props) => {
     return initialRoute.view;
   });
 
-  // Initialize current user from authenticated SharePoint context
+  // Strict Authorization Status Gate
+  const [authStatus, setAuthStatus] = useState<"checking" | "authorized" | "unauthorized">("checking");
+
+  // Initialize current user from authenticated SharePoint context (starts in unverified inactive state)
   const [currentUser, setCurrentUser] = useState<IAppUser>(() => {
     const rawEmail = (props.newcurrentUserEmail || "").trim();
     const rawLogin = (props.newcurrentUserLoginName || "").trim();
-    const hasIdentity = Boolean(rawEmail || rawLogin);
     return {
       id: props.newcurrentUserId || 0,
-      name: props.newcurrentUserName || (hasIdentity ? "Authenticated Portal User" : "Unauthenticated User"),
+      name: props.newcurrentUserName || "SharePoint User",
       email: rawEmail,
       loginName: rawLogin,
       role: "Initiator",
-      roles: hasIdentity ? ["Initiator"] : [],
-      is_active: hasIdentity,
+      roles: [],
+      is_active: false,
       department: "CER Management Portal",
       sbu: undefined,
       isSiteAdmin: !!props.newisSiteAdmin,
     };
   });
 
-  // Resolve user's actual roles from CERUserRoles with controlled first-Admin bootstrapping
+  // Resolve user's actual roles from CERRoleMatrix
   useEffect(() => {
     let isMounted = true;
     const resolveSecurityContext = async () => {
@@ -116,9 +120,22 @@ const CER: React.FC<ICERProps> = (props) => {
         );
         if (isMounted) {
           setCurrentUser(resolution.user);
+          if (
+            resolution.isRegistered &&
+            resolution.user.is_active &&
+            Array.isArray(resolution.user.roles) &&
+            resolution.user.roles.length > 0
+          ) {
+            setAuthStatus("authorized");
+          } else {
+            setAuthStatus("unauthorized");
+          }
         }
       } catch (err) {
         console.error("[CER] Error resolving user role context:", err);
+        if (isMounted) {
+          setAuthStatus("unauthorized");
+        }
       }
     };
 
@@ -382,6 +399,63 @@ const CER: React.FC<ICERProps> = (props) => {
 
   const isMobile = typeof window !== "undefined" ? window.innerWidth < 768 : false;
 
+  if (authStatus === "checking") {
+    return (
+      <div className="min-h-screen w-full bg-[#F8FAFC] flex flex-col items-center justify-center p-6 text-center animate-fade-in font-sans">
+        <div className="w-14 h-14 rounded-2xl bg-[#012964]/10 border border-[#012964]/20 flex items-center justify-center text-[#012964] mb-4 shadow-2xs">
+          <RotateCw className="w-7 h-7 animate-spin" />
+        </div>
+        <h2 className="text-base font-bold text-slate-800 tracking-tight">
+          Verifying Role Matrix Credentials...
+        </h2>
+        <p className="text-xs text-slate-500 mt-1 max-w-sm leading-relaxed">
+          Authenticating corporate identity against the CER Role Matrix governance registry.
+        </p>
+      </div>
+    );
+  }
+
+  if (authStatus === "unauthorized") {
+    return (
+      <UnauthorizedAccessView
+        currentUser={currentUser}
+        onRecheck={async () => {
+          setAuthStatus("checking");
+          if (dataService.clearCache) {
+            dataService.clearCache();
+          }
+          try {
+            const resolution = await AuthService.resolveCurrentUser(
+              {
+                id: props.newcurrentUserId || 1,
+                name: props.newcurrentUserName || "SharePoint User",
+                email: props.newcurrentUserEmail || "",
+                loginName: props.newcurrentUserLoginName || "",
+                isSiteAdmin: props.newisSiteAdmin || false,
+              },
+              dataService,
+              true
+            );
+            setCurrentUser(resolution.user);
+            if (
+              resolution.isRegistered &&
+              resolution.user.is_active &&
+              Array.isArray(resolution.user.roles) &&
+              resolution.user.roles.length > 0
+            ) {
+              setAuthStatus("authorized");
+            } else {
+              setAuthStatus("unauthorized");
+            }
+          } catch {
+            setAuthStatus("unauthorized");
+          }
+        }}
+        siteUrl={props.newsiteUrl || props.newrelativeUrl || props.newcontext?.pageContext?.web?.absoluteUrl}
+      />
+    );
+  }
+
   return (
     <div
       ref={appRootRef}
@@ -402,7 +476,12 @@ const CER: React.FC<ICERProps> = (props) => {
         onNavigate={handleNavigate}
         onGoBack={handleGoBack}
         canGoBack={historyStack.length > 0 || currentView !== "dashboard"}
-        onSelectUser={(u) => setCurrentUser(u)}
+        onSelectUser={(u) => {
+          setCurrentUser(u);
+          if (u && u.is_active && Array.isArray(u.roles) && u.roles.length > 0) {
+            setAuthStatus("authorized");
+          }
+        }}
         siteUrl={props.newsiteUrl || props.newrelativeUrl || props.newcontext?.pageContext?.web?.absoluteUrl}
       />
 

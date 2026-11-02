@@ -7,6 +7,15 @@ import { AuthService } from "../services/AuthService";
 import { PermissionService } from "../services/PermissionService";
 import { getCurrentFiscalYearPhasingLabels } from "../utils/dateUtils";
 import { isProjectOwnerStage, IWorkflowLevel, ApproverAssignmentType, isValidEmail } from "../models/WorkflowModel";
+import {
+  sanitizeSingleLineText,
+  sanitizeMultiLineText,
+  sanitizeProposalPayload,
+  containsMaliciousScript,
+  escapeODataString,
+  disarmFormulaInjection,
+} from "../utils/sanitizationUtils";
+import { ExcelExportService } from "../services/ExcelExportService";
 
 
 // Lightweight Test Harness for Node 22 execution
@@ -285,10 +294,17 @@ async function runAllVerificationTests(): Promise<void> {
   // ---------------------------------------------------------------------------------------------
   console.log("\nTest Suite 6: CER Form Field Mapping & Validation Rules (Strict 14 Mandatory Fields)");
 
-  // 1. Name of the Project (Required text field, >= 3 chars)
+  // 1. Name of the Project (Required text field, 3-100 chars, alphanumeric + spaces + - + _ + ())
   assert(validateField("pr_name", "", testProp) !== undefined, "1. Project Name required");
   assert(validateField("pr_name", "AB", testProp) !== undefined, "1. Project Name < 3 chars rejected");
-  assert(validateField("pr_name", "Valid Project Name", testProp) === undefined, "1. Project Name valid accepted");
+  assert(validateField("pr_name", "A".repeat(101), testProp) !== undefined, "1. Project Name > 100 chars rejected");
+  assert(validateField("pr_name", "Project <script>", testProp) !== undefined, "1. Technical symbol < rejected in Project Name");
+  assert(validateField("pr_name", "Project/Test", testProp) !== undefined, "1. Slash / rejected in Project Name");
+  assert(validateField("pr_name", "Valid Project Name-123_test", testProp) === undefined, "1. Project Name valid accepted");
+  assert(validateField("pr_name", "Valid Project Name (Phase-1)", testProp) === undefined, "1. Project Name with parentheses () accepted");
+  assert(validateField("pr_name", "Gas Pipeline (Tie-in Section_2)", testProp) === undefined, "1. Project Name with parentheses, hyphens, and underscores accepted");
+  assert(validateField("pr_name", "Pipe thickness < 5 mm", testProp) === undefined, "1. Project Name with mathematical inequality < 5 mm accepted");
+  assert(validateField("pr_name", "Flow rate > 1200 bopd", testProp) === undefined, "1. Project Name with mathematical inequality > 1200 accepted");
 
   // 2. CER Proposal Number (Required, editable)
   assert(validateField("cerprno", "", testProp) !== undefined, "2. CER Proposal Number required");
@@ -312,10 +328,12 @@ async function runAllVerificationTests(): Promise<void> {
   assert(validateField("sbu", "RJ North", testProp) === undefined, "5c. SBU RJ North accepted");
   assert(validateField("sbu", "RJ South", testProp) === undefined, "5d. SBU RJ South accepted");
 
-  // 6. Objective of CER (Required text field, >= 10 chars)
+  // 6. Objective of CER (Required text field, min 10 chars requirement removed)
   assert(validateField("object", "", testProp) !== undefined, "6. Objective of CER required");
-  assert(validateField("object", "Short", testProp) !== undefined, "6. Objective < 10 chars rejected");
+  assert(validateField("object", "Short", testProp) === undefined, "6. Short Objective accepted (min 10 chars requirement removed)");
   assert(validateField("object", "Pipeline enhancement and integrity inspection project", testProp) === undefined, "6. Valid Objective accepted");
+  assert(validateField("object", "Test <script>alert(1)</script>", testProp) !== undefined, "6. Script tag rejected in Objective");
+  assert(validateField("object", "Operating pressure < 10 bar and temperature > 50 C", testProp) === undefined, "6. Mathematical inequalities (<, >) accepted in Objective");
 
   // 7. Amount of CER (Required numeric positive field)
   assert(validateField("amount", 0, testProp) !== undefined, "7. Amount <= 0 rejected");
@@ -917,34 +935,26 @@ async function runAllVerificationTests(): Promise<void> {
   }
   assert(selfPromotionBlocked, "Scenario 9: Non-admin user cannot promote themselves to Administrator");
 
-  // Scenario 10: The last active Admin cannot be accidentally removed
+  // Scenario 10: System Admin accounts cannot be revoked through application interface
   const testAdminService = new LocalMockCERDataService();
   const existingRoles = await testAdminService.getUserRoles();
   const currentAdmins = existingRoles.filter((r) => r.role === "Admin" && r.is_active);
   assert(currentAdmins.length >= 1, "Scenario 10a: Initial active Administrator exists in registry");
 
-  // Keep adminUser as the sole remaining admin to test last-admin protection
-  for (const admin of currentAdmins) {
-    if (admin.user_email.toLowerCase() !== adminUser.email.toLowerCase()) {
-      await testAdminService.revokeUserRole(admin.id, adminUser);
-    }
-  }
-
   let lastAdminRevocationBlocked = false;
   try {
-    // Revoking sole remaining admin must throw
-    const soleAdmin = (await testAdminService.getUserRoles()).find(
-      (r) => r.role === "Admin" && r.is_active
-    );
-    if (soleAdmin) {
-      await testAdminService.revokeUserRole(soleAdmin.id, adminUser);
-    }
+    await testAdminService.revokeUserRole(currentAdmins[0].id, adminUser);
   } catch (err: any) {
-    if (err && err.message && err.message.indexOf("last active Administrator") !== -1) {
+    if (
+      err &&
+      err.message &&
+      (err.message.indexOf("cannot be deleted through the web interface") !== -1 ||
+        err.message.indexOf("last active Administrator") !== -1)
+    ) {
       lastAdminRevocationBlocked = true;
     }
   }
-  assert(lastAdminRevocationBlocked, "Scenario 10b: Accidental revocation of the last active Admin is strictly blocked");
+  assert(lastAdminRevocationBlocked, "Scenario 10b: Revocation of Admin accounts through the interface is strictly blocked");
 
   // Scenario 11: Direct URL navigation does not bypass authorization
   assert(
@@ -2481,6 +2491,150 @@ async function runAllVerificationTests(): Promise<void> {
     PermissionService.canAccessView("dashboard", s14InactiveUser) === false &&
     PermissionService.canAccessView("my-proposals", s14InactiveUser) === false,
     "15.14: Inactive user with no permissions fails closed on all cards, actions, and views"
+  );
+
+  // ---------------------------------------------------------------------------------------------
+  // Test Suite 16: Input Sanitization, Mathematical Inequalities, & Security Hardening Framework
+  // ---------------------------------------------------------------------------------------------
+  console.log("\nTest Suite 16: Input Sanitization, Mathematical Inequalities, & Security Hardening Framework");
+
+  // 16.1 Whitespace normalization: Single line
+  assert(
+    sanitizeSingleLineText("   Deepwater    Exploration    Well   ") === "Deepwater Exploration Well",
+    "16.1a: Leading, trailing, and consecutive spaces collapsed in single-line text"
+  );
+  assert(
+    sanitizeSingleLineText("Project\x00\x08Name") === "ProjectName",
+    "16.1b: Non-printable control characters stripped from single-line text"
+  );
+
+  // 16.2 Whitespace normalization: Multi line
+  const rawMulti = "  Line 1   with   spaces   \n\n\n\n  Line 2  ";
+  const cleanedMulti = sanitizeMultiLineText(rawMulti);
+  assert(
+    cleanedMulti === "Line 1 with spaces\n\nLine 2",
+    "16.2a: Multi-line text preserves intentional newlines while trimming line whitespace and collapsing excess blank lines"
+  );
+
+  // 16.3 Malicious Script Neutralization (XSS)
+  const xssInput = "Proposal Objective <script>alert('xss')</script> and normal text";
+  assert(containsMaliciousScript(xssInput) === true, "16.3a: containsMaliciousScript flags executable script tag");
+  assert(
+    sanitizeMultiLineText(xssInput) === "Proposal Objective and normal text",
+    "16.3b: sanitizeMultiLineText strips executable script tag"
+  );
+
+  const xssImg = "Notice <img src=x onerror=alert(1)> here";
+  assert(containsMaliciousScript(xssImg) === true, "16.3c: containsMaliciousScript flags inline event handlers");
+  assert(
+    sanitizeMultiLineText(xssImg) === "Notice here",
+    "16.3d: sanitizeMultiLineText strips tags with inline event handlers"
+  );
+
+  // 16.4 Legitimate Engineering Inequalities Preserved
+  const mathNarrative = "Required flow rate > 100 m3/hr and inlet pressure < 15 bar.";
+  assert(
+    containsMaliciousScript(mathNarrative) === false,
+    "16.4a: containsMaliciousScript permits mathematical inequalities"
+  );
+  assert(
+    sanitizeMultiLineText(mathNarrative) === "Required flow rate > 100 m3/hr and inlet pressure < 15 bar.",
+    "16.4b: sanitizeMultiLineText preserves engineering math inequalities"
+  );
+
+  // 16.5 OData Injection Escaping
+  assert(
+    escapeODataString("O'Connor") === "O''Connor",
+    "16.5a: escapeODataString escapes single quotes for OData filters"
+  );
+  assert(
+    escapeODataString("CER-001' or 1=1 or '1'='1") === "CER-001'' or 1=1 or ''1''=''1",
+    "16.5b: escapeODataString neutralizes OData injection payloads"
+  );
+
+  // 16.6 Full Payload Deep Sanitization
+  const uncleanedPayload: ICERProposal = {
+    ...testProp,
+    pr_name: "  Deepwater   Project   (Phase-1)  ",
+    object: "  CER   Objective   \n\n\n  Section 2  <script>doBad()</script>",
+    remarks: "  General   Remarks   ",
+  };
+  const cleanedPayload = sanitizeProposalPayload(uncleanedPayload);
+  assert(
+    cleanedPayload.pr_name === "Deepwater Project (Phase-1)",
+    "16.6a: Proposal payload sanitizes project name"
+  );
+  assert(
+    cleanedPayload.object === "CER Objective\n\nSection 2",
+    "16.6b: Proposal payload cleans narrative and neutralizes scripts"
+  );
+  assert(
+    cleanedPayload.remarks === "General Remarks",
+    "16.6c: Proposal payload cleans remarks"
+  );
+
+  // 16.7 Formula Injection Disarming in Exports (CWE-1236)
+  assert(
+    disarmFormulaInjection("=SUM(A1:B10)") === "'=SUM(A1:B10)",
+    "16.7a: Leading '=' disarmed with single quote"
+  );
+  assert(
+    disarmFormulaInjection("+123456789") === "'+123456789",
+    "16.7b: Leading '+' disarmed with single quote"
+  );
+  assert(
+    disarmFormulaInjection("-2+5+cmd|' /C calc'!A0") === "'-2+5+cmd|' /C calc'!A0",
+    "16.7c: Leading '-' disarmed with single quote"
+  );
+  assert(
+    disarmFormulaInjection("@SUM(1+1)") === "'@SUM(1+1)",
+    "16.7d: Leading '@' disarmed with single quote"
+  );
+  assert(
+    disarmFormulaInjection("\tTAB_INJECT") === "'\tTAB_INJECT",
+    "16.7e: Leading tab '\\t' disarmed with single quote"
+  );
+  assert(
+    disarmFormulaInjection("\rCR_INJECT") === "'\rCR_INJECT",
+    "16.7f: Leading carriage return '\\r' disarmed with single quote"
+  );
+  assert(
+    disarmFormulaInjection("Standard Project Name") === "Standard Project Name",
+    "16.7g: Normal text left unaltered"
+  );
+  assert(
+    disarmFormulaInjection(12345) === 12345,
+    "16.7h: Numeric types left unaltered"
+  );
+  assert(
+    disarmFormulaInjection("'Already Escaped") === "'Already Escaped",
+    "16.7i: Strings already starting with quote are not double-escaped"
+  );
+
+  const maliciousExportProposal: any = {
+    ...testProp,
+    cer_proposal_id: "=cmd|' /C calc'!A0",
+    proposal_no: "@SUM(1+1)",
+    pr_name: "+999999",
+    owname: "-EXEC('powershell')",
+    remarks: "\tMaliciousTab",
+  };
+  const exportRow = ExcelExportService.mapProposalToExportRow(maliciousExportProposal);
+  assert(
+    exportRow["CER Proposal ID"] === "'=cmd|' /C calc'!A0",
+    "16.7j: Export row disarms leading '=' in CER Proposal ID"
+  );
+  assert(
+    exportRow["CER Proposal No"] === "'@SUM(1+1)",
+    "16.7k: Export row disarms leading '@' in CER Proposal No"
+  );
+  assert(
+    exportRow["Proposal Name"] === "'+999999",
+    "16.7l: Export row disarms leading '+' in Proposal Name"
+  );
+  assert(
+    exportRow["CER Owner"] === "'-EXEC('powershell')",
+    "16.7m: Export row disarms leading '-' in CER Owner"
   );
 
   console.log("\n================================================================================");

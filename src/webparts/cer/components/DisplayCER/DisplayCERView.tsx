@@ -115,7 +115,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
             };
           }
 
-          // If approver_name is missing, resolve from CERUserRoles strictly for active users holding the 'Approver' role at this level
+          // If approver_name is missing, resolve from CERRoleMatrix strictly for active users holding the 'Approver' role at this level
           if (!lvl.approver_name) {
             const roleMatch = (roles || []).find(
               (r) =>
@@ -296,11 +296,57 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
           </div>
         </div>
 
-        {/* Status Badge in Top Bar Header (Replaces Search/Retrieve when proposal is loaded) */}
+        {/* Actions & Status Badge in Top Bar Header */}
         {proposal ? (
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 shrink-0">
+            {/* Action Toolbar - Prominently positioned with enhanced UI/UX */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 print:hidden shrink-0">
+              <button
+                type="button"
+                onClick={handleDownloadPDF}
+                className="group flex items-center gap-2 h-10 px-4 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 active:scale-[0.98] text-white text-xs sm:text-[13px] font-semibold rounded-xl shadow-xs hover:shadow transition-all cursor-pointer"
+                title="Download Adobe/Vector CER PDF Form (FR-09)"
+              >
+                <FileDown className="w-4 h-4 shrink-0 transition-transform group-hover:-translate-y-0.5" />
+                <span>PDF Form</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDownloadExcel}
+                className="group flex items-center gap-2 h-10 px-4 bg-[#107C41] hover:bg-[#0E6C38] active:scale-[0.98] text-white text-xs sm:text-[13px] font-semibold rounded-xl shadow-xs hover:shadow transition-all cursor-pointer"
+                title="Download Excel-Compatible Spreadsheet (FR-10)"
+              >
+                <FileSpreadsheet className="w-4 h-4 shrink-0 transition-transform group-hover:-translate-y-0.5" />
+                <span>Excel Export</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsStatusHistoryOpen(true)}
+                className="group flex items-center gap-2 h-10 px-3.5 sm:px-4 bg-white hover:bg-slate-50 active:scale-[0.98] text-slate-700 hover:text-[#012964] border border-slate-200 hover:border-slate-300 text-xs sm:text-[13px] font-semibold rounded-xl shadow-2xs hover:shadow-xs transition-all cursor-pointer"
+                title="View complete stage-by-stage status history, approvals, rejections, and comments"
+              >
+                <History className="w-4 h-4 text-slate-500 group-hover:text-[#012964] shrink-0 transition-transform group-hover:rotate-[-20deg]" />
+                <span>Status History</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsProposalHistoryOpen(true)}
+                className="group flex items-center gap-2 h-10 px-3.5 sm:px-4 bg-white hover:bg-slate-50 active:scale-[0.98] text-slate-700 hover:text-[#012964] border border-slate-200 hover:border-slate-300 text-xs sm:text-[13px] font-semibold rounded-xl shadow-2xs hover:shadow-xs transition-all cursor-pointer"
+                title="View complete proposal submissions and approved version history"
+              >
+                <History className="w-4 h-4 text-slate-500 group-hover:text-[#012964] shrink-0 transition-transform group-hover:rotate-[-20deg]" />
+                <span>Proposal History</span>
+              </button>
+            </div>
+
+            <div className="h-6 w-px bg-slate-200 hidden xl:block shrink-0" />
+
+            {/* Proposal Status Badge */}
             <span
-              className={`inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold px-3 py-1 rounded-full border shadow-2xs ${
+              className={`inline-flex items-center gap-2 h-10 text-xs sm:text-sm font-bold px-3.5 sm:px-4 rounded-xl border shadow-2xs shrink-0 ${
                 proposal.status === "Approved"
                   ? "bg-white cer-border-green text-slate-900"
                   : proposal.status === "Rejected"
@@ -313,7 +359,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
               }`}
             >
               <Clock
-                className="w-4 h-4"
+                className="w-4 h-4 shrink-0"
                 style={{
                   color:
                     proposal.status === "Approved"
@@ -416,50 +462,11 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
               </div>
             </div>
 
-            {/* Second Row: Project Title & Action Toolbar (Integrated to save vertical space) */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-0.5">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+            {/* Second Row: Project Title (Clean, unconstrained headline) */}
+            <div className="pt-0.5 pb-1">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 leading-snug">
                 {proposal.pr_name}
               </h1>
-
-              {/* Action Toolbar */}
-              <div className="flex flex-wrap items-center gap-2 print:hidden shrink-0">
-                <button
-                  onClick={handleDownloadPDF}
-                  className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium rounded-lg shadow-2xs transition-colors cursor-pointer"
-                  title="Download Adobe/Vector CER PDF Form (FR-09)"
-                >
-                  <FileDown className="w-3.5 h-3.5" />
-                  <span>PDF Form</span>
-                </button>
-
-                <button
-                  onClick={handleDownloadExcel}
-                  className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 bg-[#107C41] hover:bg-[#0E6C38] text-white text-xs font-semibold rounded-lg shadow-2xs transition-colors cursor-pointer"
-                  title="Download Excel-Compatible Spreadsheet (FR-10)"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5" />
-                  <span>Excel Export</span>
-                </button>
-
-                <button
-                  onClick={() => setIsStatusHistoryOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 text-xs font-medium rounded-lg shadow-2xs transition-colors cursor-pointer"
-                  title="View complete stage-by-stage status history, approvals, rejections, and comments"
-                >
-                  <History className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Status History</span>
-                </button>
-
-                <button
-                  onClick={() => setIsProposalHistoryOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 text-xs font-medium rounded-lg shadow-2xs transition-colors cursor-pointer"
-                  title="View complete proposal submissions and approved version history"
-                >
-                  <History className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Proposal History</span>
-                </button>
-              </div>
             </div>
 
             {/* Third Row: Metadata Grid with subtle dividers */}

@@ -22,13 +22,29 @@ export interface IUserRoleAssignment {
   login_name: string;
   role: UserRole;
   approval_level?: number;
+  approver_role_title?: string;
   department?: string;
   sbu?: string;
-  is_active: boolean;
+  is_active?: boolean;
   assigned_by: string;
   assigned_date: string;
   user_id?: number; // SharePoint User ID (from Person or Group field)
   approval_hierarchy_page?: boolean; // true when approvalHierarchyPage = Yes in CERUserRoles
+}
+
+export interface ICERRoleMatrixItem {
+  id: string;
+  user_name: string;
+  user_email: string;
+  login_name: string;
+  user_id?: number;
+  role: UserRole;
+  sbu: string;
+  approver_level?: number;
+  approver_role_title?: string;
+  department?: string;
+  assigned_by: string;
+  assigned_date: string;
 }
 
 export type AdminAuditAction =

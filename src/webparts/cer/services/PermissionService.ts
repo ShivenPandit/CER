@@ -460,7 +460,15 @@ export class PermissionService {
     }
 
     // 7. SBU match check if user has an SBU assigned
-    if (user.sbu && user.sbu !== "All" && proposal.sbu) {
+    // If the proposal is explicitly routed to this user via pending_with_email or stage approver,
+    // they are authorized to act on this specific task. Otherwise, enforce strict SBU alignment.
+    const pendingWithEmail = (proposal.pending_with_email || "").trim().toLowerCase();
+    const isDirectlyRoutedToUser = Boolean(
+      (targetApproverEmail && (normUserEmail === targetApproverEmail || normUserLogin === targetApproverEmail)) ||
+      (pendingWithEmail && (normUserEmail === pendingWithEmail || normUserLogin === pendingWithEmail))
+    );
+
+    if (!isDirectlyRoutedToUser && user.sbu && user.sbu !== "All" && proposal.sbu) {
       const userSbu = user.sbu.trim().toLowerCase();
       const propSbu = proposal.sbu.trim().toLowerCase();
       if (userSbu !== propSbu) {

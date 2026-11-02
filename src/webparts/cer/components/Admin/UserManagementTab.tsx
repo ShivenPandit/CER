@@ -12,6 +12,8 @@ import {
   Filter,
   UserPlus,
   Edit,
+  Lock,
+  Building2,
 } from "lucide-react";
 import {
   IAppUser,
@@ -24,6 +26,7 @@ import { ICERDataService } from "../../services/ICERDataService";
 import { useDynamicPagination } from "../../hooks/useDynamicPagination";
 import { DataTablePagination } from '../Shared/DataTablePagination';
 import { UserAvatar } from "../Common/UserAvatar";
+import { ROLE_MATRIX_SBUS } from "../../constants";
 
 interface IUserManagementTabProps {
   dataService: ICERDataService;
@@ -44,6 +47,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
+  const [sbuFilter, setSbuFilter] = useState<string>("ALL");
   const [levels, setLevels] = useState<IWorkflowLevel[]>(workflowLevels || []);
 
   useEffect(() => {
@@ -81,7 +85,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
     };
   }, [isAssignModalOpen]);
 
-  // Form Fields
+  // Form Fields for Assign Modal
   const [directorySearchQuery, setDirectorySearchQuery] = useState("");
   const [directoryResults, setDirectoryResults] = useState<IDirectoryUser[]>([]);
   const [selectedDirectoryUser, setSelectedDirectoryUser] = useState<IDirectoryUser | null>(null);
@@ -90,11 +94,10 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
   const dropdownContainerRef = useRef<HTMLDivElement>(null);
 
   const [selectedRole, setSelectedRole] = useState<UserRole>("Initiator");
+  const [selectedSbu, setSelectedSbu] = useState<string>("RJ North");
   const [approvalLevel, setApprovalLevel] = useState<number>(1);
-  const [department, setDepartment] = useState("");
-  const [assignApprovalHierarchy, setAssignApprovalHierarchy] = useState<boolean>(false);
 
-  // Check if selected directory user already exists with an active role
+  // Check if selected directory user already exists in CERRoleMatrix (Enforcing unique constraint)
   const selectedEmail = (
     selectedDirectoryUser?.mail ||
     selectedDirectoryUser?.userPrincipalName ||
@@ -104,7 +107,6 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
   const existingAssignmentForSelected = selectedDirectoryUser
     ? roles.find((r) => {
-        if (!r.is_active) return false;
         const rEmail = (r.user_email || "").toLowerCase().trim();
         const rLogin = (r.login_name || "").toLowerCase().trim();
         const rName = (r.user_name || "").toLowerCase().trim();
@@ -114,16 +116,14 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
       })
     : null;
 
-  // Confirmation Modals
-  const [adminConfirmationTarget, setAdminConfirmationTarget] = useState<string | null>(null);
+  // Revocation Confirmation Modal
   const [revokingAssignment, setRevokingAssignment] = useState<IUserRoleAssignment | null>(null);
 
   // Edit Role Modal
   const [editingAssignment, setEditingAssignment] = useState<IUserRoleAssignment | null>(null);
   const [editRole, setEditRole] = useState<UserRole>("Initiator");
+  const [editSbu, setEditSbu] = useState<string>("RJ North");
   const [editApprovalLevel, setEditApprovalLevel] = useState<number>(1);
-  const [editDepartment, setEditDepartment] = useState("");
-  const [editApprovalHierarchy, setEditApprovalHierarchy] = useState<boolean>(false);
   const [editErrorMessage, setEditErrorMessage] = useState<string | null>(null);
 
   // Close dropdown on outside click
@@ -186,12 +186,12 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
     const matchSearch =
       !q ||
       r.user_name.toLowerCase().indexOf(q) !== -1 ||
-      r.user_email.toLowerCase().indexOf(q) !== -1 ||
-      (r.department && r.department.toLowerCase().indexOf(q) !== -1);
+      r.user_email.toLowerCase().indexOf(q) !== -1;
 
     const matchRole = roleFilter === "ALL" || r.role === roleFilter;
+    const matchSbu = sbuFilter === "ALL" || (r.sbu && r.sbu.toLowerCase() === sbuFilter.toLowerCase());
 
-    return matchSearch && matchRole;
+    return matchSearch && matchRole && matchSbu;
   });
 
   // Fully Automatic Dynamic Table Pagination
@@ -205,7 +205,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
   useEffect(() => {
     pagination.setCurrentPage(1);
-  }, [searchTerm, roleFilter]);
+  }, [searchTerm, roleFilter, sbuFilter]);
 
   const getRoleBadgeStyle = (role: UserRole): string => {
     switch (role) {
@@ -221,15 +221,31 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
     }
   };
 
+  const getApproverRoleTitle = (level: number): string => {
+    switch (level) {
+      case 1:
+        return "Finance";
+      case 3:
+        return "BU CFO";
+      case 4:
+        return "BU Director";
+      case 5:
+        return "VOGL CFO";
+      case 6:
+        return "VOGL CEO";
+      default:
+        return "Approver";
+    }
+  };
+
   const handleOpenAssignModal = () => {
     setSelectedDirectoryUser(null);
     setDirectorySearchQuery("");
     setDirectoryResults([]);
     setIsDropdownOpen(false);
     setSelectedRole("Initiator");
-    setApprovalLevel(levels.length > 0 ? levels[0].level_id : 1);
-    setDepartment("");
-    setAssignApprovalHierarchy(false);
+    setSelectedSbu("RJ North");
+    setApprovalLevel(1);
     setErrorMessage(null);
     setHasAttemptedSubmit(false);
     setIsAssignModalOpen(true);
@@ -241,9 +257,6 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
     setDirectoryResults([]);
     setIsDropdownOpen(false);
     setErrorMessage(null);
-    if (user.department) {
-      setDepartment(user.department);
-    }
   };
 
   const handleAssignRoleSubmit = async (e: React.FormEvent) => {
@@ -251,7 +264,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
     setHasAttemptedSubmit(true);
     setErrorMessage(null);
 
-    // Inline validation blocks submission directly on the field
+    // Inline validation blocks submission if user is missing or already assigned in CERRoleMatrix
     if (!selectedDirectoryUser || existingAssignmentForSelected) {
       return;
     }
@@ -262,34 +275,39 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
       return;
     }
 
-    // Explicit confirmation check before granting Admin role
-    if (selectedRole === "Admin" && !adminConfirmationTarget) {
-      setAdminConfirmationTarget(selectedDirectoryUser.displayName);
+    // System Admins cannot be created via the UI per security policy
+    if (selectedRole === "Admin") {
+      setErrorMessage("System Admin accounts cannot be created via the web interface. They must be added directly in the SharePoint CERRoleMatrix list.");
       return;
     }
 
     setIsSubmitting(true);
     try {
+      const isApprover = selectedRole === "Approver";
+      const lvl = isApprover ? Number(approvalLevel) : undefined;
+      const title = isApprover && lvl ? getApproverRoleTitle(lvl) : undefined;
+
       await dataService.assignUserRole(
         {
           user_name: selectedDirectoryUser.displayName,
           user_email: email,
           login_name: selectedDirectoryUser.userPrincipalName || email,
-          user_id: undefined,
+          user_id: selectedDirectoryUser.id && !isNaN(Number(selectedDirectoryUser.id)) && Number(selectedDirectoryUser.id) > 0
+            ? Number(selectedDirectoryUser.id)
+            : undefined,
           role: selectedRole,
-          approval_level: selectedRole === "Approver" ? Number(approvalLevel) : undefined,
-          department: department.trim() || selectedDirectoryUser.department,
+          sbu: selectedSbu,
+          approval_level: lvl,
+          approver_role_title: title,
           is_active: true,
-          approval_hierarchy_page: selectedRole === "Admin" ? assignApprovalHierarchy : false,
           assigned_by: currentUser.name,
           assigned_date: new Date().toISOString(),
         },
         { name: currentUser.name, email: currentUser.email }
       );
 
-      setSuccessMessage(`Role '${selectedRole}' successfully assigned to ${selectedDirectoryUser.displayName}.`);
+      setSuccessMessage(`Role '${selectedRole}' for SBU '${selectedSbu}' successfully assigned to ${selectedDirectoryUser.displayName}.`);
       setIsAssignModalOpen(false);
-      setAdminConfirmationTarget(null);
       await onRefreshRoles();
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
@@ -300,11 +318,14 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
   };
 
   const handleOpenEditModal = (assignment: IUserRoleAssignment) => {
+    if (assignment.role === "Admin") {
+      // System Admins cannot be modified via UI
+      return;
+    }
     setEditingAssignment(assignment);
     setEditRole(assignment.role);
-    setEditApprovalLevel(assignment.approval_level || (levels.length > 0 ? levels[0].level_id : 1));
-    setEditDepartment(assignment.department || "");
-    setEditApprovalHierarchy(Boolean(assignment.approval_hierarchy_page));
+    setEditSbu(assignment.sbu || "RJ North");
+    setEditApprovalLevel(assignment.approval_level || 1);
     setEditErrorMessage(null);
   };
 
@@ -313,23 +334,24 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
     if (!editingAssignment) return;
     setEditErrorMessage(null);
 
-    // Safeguard: Check if demoting the last active Admin
-    if (editingAssignment.role === "Admin" && editRole !== "Admin") {
-      const activeAdmins = roles.filter((r) => r.role === "Admin");
-      if (activeAdmins.length <= 1) {
-        setEditErrorMessage("Cannot demote the only Administrator in the system.");
-        return;
-      }
+    // Safeguard: Cannot promote to Admin or edit Admin via UI
+    if (editingAssignment.role === "Admin" || editRole === "Admin") {
+      setEditErrorMessage("System Admin accounts cannot be created or modified via the UI. Manage directly in SharePoint CERRoleMatrix list.");
+      return;
     }
 
     setIsSubmitting(true);
     try {
+      const isApprover = editRole === "Approver";
+      const lvl = isApprover ? Number(editApprovalLevel) : undefined;
+      const title = isApprover && lvl ? getApproverRoleTitle(lvl) : undefined;
+
       const updated: IUserRoleAssignment = {
         ...editingAssignment,
         role: editRole,
-        approval_level: editRole === "Approver" ? Number(editApprovalLevel) : undefined,
-        department: editDepartment.trim(),
-        approval_hierarchy_page: editRole === "Admin" ? editApprovalHierarchy : false,
+        sbu: editSbu,
+        approval_level: lvl,
+        approver_role_title: title,
         is_active: true,
       };
 
@@ -351,6 +373,12 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
   const handleConfirmRevoke = async () => {
     if (!revokingAssignment) return;
+    if (revokingAssignment.role === "Admin") {
+      alert("System Admin accounts cannot be deleted through the UI. They must be managed directly in SharePoint CERRoleMatrix list.");
+      setRevokingAssignment(null);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await dataService.revokeUserRole(revokingAssignment.id, {
@@ -395,13 +423,28 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by name, email, or department..."
+            placeholder="Search by employee name or email..."
             className="w-full pl-9 pr-3.5 py-2 text-xs 2xl:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] focus:bg-white transition-all text-slate-900 placeholder:text-slate-400"
           />
         </div>
 
         {/* Filter Controls + Add Button */}
         <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto">
+          {/* SBU Filter */}
+          <div className="flex items-center gap-1.5 text-xs text-slate-600 flex-1 sm:flex-initial">
+            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+            <select
+              value={sbuFilter}
+              onChange={(e) => setSbuFilter(e.target.value)}
+              className="w-full sm:w-auto text-xs 2xl:text-sm bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964]"
+            >
+              <option value="ALL">All SBUs</option>
+              {ROLE_MATRIX_SBUS.map((sbu) => (
+                <option key={sbu} value={sbu}>{sbu}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Role Filter */}
           <div className="flex items-center gap-1.5 text-xs text-slate-600 flex-1 sm:flex-initial">
             <Filter className="w-3.5 h-3.5 text-slate-400" />
@@ -440,11 +483,9 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 font-semibold uppercase tracking-wider text-[10px] 2xl:text-xs">
                 <th className="py-3 px-4 2xl:py-4 2xl:px-6">Employee</th>
-                <th className="py-3 px-4 2xl:py-4 2xl:px-6">Corporate Email</th>
                 <th className="py-3 px-4 2xl:py-4 2xl:px-6">Assigned Role</th>
-                <th className="py-3 px-4 2xl:py-4 2xl:px-6">Approval Level</th>
-                <th className="py-3 px-4 2xl:py-4 2xl:px-6">Department</th>
-                <th className="py-3 px-4 2xl:py-4 2xl:px-6">Assigned By</th>
+                <th className="py-3 px-4 2xl:py-4 2xl:px-6">SBU</th>
+                <th className="py-3 px-4 2xl:py-4 2xl:px-6">Approval Level Stage</th>
                 <th className="py-3 px-4 2xl:py-4 2xl:px-6 text-right">Actions</th>
               </tr>
             </thead>
@@ -459,19 +500,13 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                       </div>
                     </td>
                     <td className="py-3.5 px-4 2xl:py-4 2xl:px-6">
-                      <div className="h-3 w-44 bg-slate-200 rounded" />
-                    </td>
-                    <td className="py-3.5 px-4 2xl:py-4 2xl:px-6">
                       <div className="h-5 w-20 bg-slate-200 rounded-full" />
                     </td>
                     <td className="py-3.5 px-4 2xl:py-4 2xl:px-6">
                       <div className="h-5 w-16 bg-slate-200 rounded" />
                     </td>
                     <td className="py-3.5 px-4 2xl:py-4 2xl:px-6">
-                      <div className="h-3 w-32 bg-slate-200 rounded" />
-                    </td>
-                    <td className="py-3.5 px-4 2xl:py-4 2xl:px-6">
-                      <div className="h-3 w-28 bg-slate-200 rounded" />
+                      <div className="h-5 w-24 bg-slate-200 rounded" />
                     </td>
                     <td className="py-3.5 px-4 2xl:py-4 2xl:px-6 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -483,19 +518,12 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 ))
               ) : visibleRoles.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
+                  <td colSpan={5} className="py-8 text-center text-slate-400">
                     No role assignments match the selected criteria.
                   </td>
                 </tr>
               ) : (
                 visibleRoles.map((assignment) => {
-                  const initials = assignment.user_name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .substring(0, 2)
-                    .toUpperCase();
-
                   return (
                     <tr
                       key={assignment.id}
@@ -508,80 +536,80 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                             email={assignment.user_email}
                             size="sm"
                           />
-                          <span className="font-bold text-slate-900 2xl:text-sm">
-                            {assignment.user_name}
-                          </span>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-bold text-slate-900 2xl:text-sm truncate">
+                              {assignment.user_name}
+                            </span>
+                            {assignment.user_email && (
+                              <span className="text-[11px] text-slate-400 font-mono truncate">
+                                {assignment.user_email}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </td>
-                      <td className="py-3 px-4 2xl:py-4 2xl:px-6 font-mono text-[11px] 2xl:text-xs text-slate-600">
-                        {assignment.user_email}
                       </td>
                       <td className="py-3 px-4 2xl:py-4 2xl:px-6">
-                        <div className="flex flex-col items-start gap-1">
-                          <span
-                            className={`inline-flex items-center gap-1 text-[10px] 2xl:text-xs font-semibold px-2 py-0.5 2xl:px-2.5 2xl:py-1 rounded-full border ${getRoleBadgeStyle(
-                              assignment.role
-                            )}`}
-                          >
-                            <Shield className="w-3 h-3" />
-                            <span>{assignment.role.replace("_", " & ")}</span>
-                          </span>
-                          {assignment.approval_hierarchy_page && (
-                            <span
-                              className="inline-flex items-center text-[9px] 2xl:text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-50 text-[#012964] border border-blue-200/80"
-                              title="Authorized to access Approval Hierarchy (approvalHierarchyPage = Yes)"
-                            >
-                              Hierarchy Admin
-                            </span>
-                          )}
-                        </div>
+                        <span
+                          className={`inline-flex items-center gap-1 text-[10px] 2xl:text-xs font-semibold px-2 py-0.5 2xl:px-2.5 2xl:py-1 rounded-full border ${getRoleBadgeStyle(
+                            assignment.role
+                          )}`}
+                        >
+                          <Shield className="w-3 h-3" />
+                          <span>{assignment.role.replace("_", " & ")}</span>
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 2xl:py-4 2xl:px-6">
+                        <span className="font-semibold text-xs px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                          {assignment.sbu || "All"}
+                        </span>
                       </td>
                       <td className="py-3 px-4 2xl:py-4 2xl:px-6">
                         {assignment.role === "Approver" && assignment.approval_level ? (
                           <div className="flex flex-col">
                             <span className="font-semibold text-[#012964] bg-[#012964]/10 px-2 py-0.5 2xl:px-2.5 2xl:py-1 rounded border border-[#012964]/20 text-xs w-fit">
-                              Level {assignment.approval_level}
+                              Stage L{assignment.approval_level}
                             </span>
-                            {(() => {
-                              const match = levels.find((l) => l.level_id === assignment.approval_level);
-                              return match ? (
-                                <span className="text-[10px] 2xl:text-[11px] text-slate-500 mt-0.5 truncate max-w-[140px] 2xl:max-w-[180px]">
-                                  {match.role_title || match.level_name}
-                                </span>
-                              ) : null;
-                            })()}
+                            <span className="text-[11px] text-slate-600 font-medium mt-0.5 truncate max-w-[160px] 2xl:max-w-[200px]">
+                              {assignment.approver_role_title || getApproverRoleTitle(assignment.approval_level)}
+                            </span>
                           </div>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-slate-400 text-xs font-medium">—</span>
                         )}
                       </td>
-                      <td className="py-3 px-4 2xl:py-4 2xl:px-6 text-slate-600 font-medium">
-                        {assignment.department || "—"}
-                      </td>
-                      <td className="py-3 px-4 2xl:py-4 2xl:px-6 text-slate-500 text-[11px] 2xl:text-xs">
-                        {assignment.assigned_by}
-                      </td>
                       <td className="py-3 px-4 2xl:py-4 2xl:px-6 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* Edit Role Button */}
-                          <button
-                            onClick={() => handleOpenEditModal(assignment)}
-                            className="p-1.5 2xl:p-2 rounded-lg text-[#012964] hover:bg-[#012964]/10 transition-colors cursor-pointer"
-                            title="Edit role assignment"
-                            aria-label="Edit role assignment"
-                          >
-                            <Edit className="w-3.5 h-3.5 2xl:w-4 2xl:h-4" />
-                          </button>
+                        {assignment.role === "Admin" ? (
+                          <div className="flex items-center justify-end">
+                            <span
+                              className="inline-flex items-center gap-1 text-[11px] font-medium text-purple-700 bg-purple-50 px-2 py-1 rounded-md border border-purple-200"
+                              title="System Admin accounts cannot be edited or deleted via the UI. Manage directly in SharePoint CERRoleMatrix list."
+                            >
+                              <Lock className="w-3 h-3 text-purple-600" />
+                              <span>Managed in SP</span>
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* Edit Role Button */}
+                            <button
+                              onClick={() => handleOpenEditModal(assignment)}
+                              className="p-1.5 2xl:p-2 rounded-lg text-[#012964] hover:bg-[#012964]/10 transition-colors cursor-pointer"
+                              title="Edit role assignment"
+                              aria-label="Edit role assignment"
+                            >
+                              <Edit className="w-3.5 h-3.5 2xl:w-4 2xl:h-4" />
+                            </button>
 
-                          {/* Revoke Role Button */}
-                          <button
-                            onClick={() => setRevokingAssignment(assignment)}
-                            className="p-1.5 2xl:p-2 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
-                            title="Revoke role assignment"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 2xl:w-4 2xl:h-4" />
-                          </button>
-                        </div>
+                            {/* Revoke Role Button */}
+                            <button
+                              onClick={() => setRevokingAssignment(assignment)}
+                              className="p-1.5 2xl:p-2 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
+                              title="Revoke role assignment"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 2xl:w-4 2xl:h-4" />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -615,13 +643,6 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
             </div>
           ) : (
             visibleRoles.map((assignment) => {
-              const initials = assignment.user_name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
-                .substring(0, 2)
-                .toUpperCase();
-
               return (
                 <div
                   key={assignment.id}
@@ -644,7 +665,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                     </div>
                   </div>
 
-                  {/* Badges: Assigned Role, Level, Dept/SBU */}
+                  {/* Badges: Assigned Role, SBU, Level, Dept */}
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span
                       className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${getRoleBadgeStyle(
@@ -655,45 +676,51 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                       <span>{assignment.role.replace("_", " & ")}</span>
                     </span>
 
+                    <span className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                      SBU: {assignment.sbu || "All"}
+                    </span>
+
                     {assignment.role === "Approver" && assignment.approval_level && (
                       <span className="font-semibold text-[#012964] bg-[#012964]/10 px-2 py-0.5 rounded border border-[#012964]/20 text-[10px]">
-                        Level {assignment.approval_level}
-                      </span>
-                    )}
-
-                    {assignment.department && (
-                      <span className="text-[10px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 truncate max-w-[200px]">
-                        {assignment.department}
+                        L{assignment.approval_level} ({assignment.approver_role_title || getApproverRoleTitle(assignment.approval_level)})
                       </span>
                     )}
                   </div>
 
-                  {/* Bottom: Assigned By & Actions */}
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px] text-slate-500">
-                    <span className="text-[11px] text-slate-500 truncate max-w-[150px]">
-                      By: <span className="font-medium text-slate-700">{assignment.assigned_by || "System"}</span>
-                    </span>
+                  {/* Bottom: Actions */}
+                  <div className="flex items-center justify-end pt-2 border-t border-slate-100 text-[11px] text-slate-500">
+                    <div>
+                      {assignment.role === "Admin" ? (
+                        <span
+                          className="inline-flex items-center gap-1 text-[10px] font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200"
+                          title="System Admin accounts cannot be edited or deleted via the UI"
+                        >
+                          <Lock className="w-3 h-3 text-purple-600" />
+                          <span>Managed in SP</span>
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          {/* Edit Role Button */}
+                          <button
+                            onClick={() => handleOpenEditModal(assignment)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#012964]/10 text-[#012964] border border-[#012964]/20 hover:bg-[#012964]/20 transition-colors cursor-pointer"
+                            title="Edit role assignment"
+                            aria-label="Edit role assignment"
+                          >
+                            <Edit className="w-3 h-3" />
+                            <span>Edit</span>
+                          </button>
 
-                    <div className="flex items-center gap-1.5">
-                      {/* Edit Role Button */}
-                      <button
-                        onClick={() => handleOpenEditModal(assignment)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#012964]/10 text-[#012964] border border-[#012964]/20 hover:bg-[#012964]/20 transition-colors cursor-pointer"
-                        title="Edit role assignment"
-                        aria-label="Edit role assignment"
-                      >
-                        <Edit className="w-3 h-3" />
-                        <span>Edit</span>
-                      </button>
-
-                      {/* Revoke Role Button */}
-                      <button
-                        onClick={() => setRevokingAssignment(assignment)}
-                        className="p-1.5 rounded-lg text-rose-500 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer"
-                        title="Revoke role"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                          {/* Revoke Role Button */}
+                          <button
+                            onClick={() => setRevokingAssignment(assignment)}
+                            className="p-1.5 rounded-lg text-rose-500 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer"
+                            title="Revoke role"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -742,6 +769,14 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
             <form onSubmit={handleAssignRoleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
+
+              {/* Error Message Alert */}
+              {errorMessage && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-start gap-2 animate-fade-in">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
+                  <span className="leading-relaxed font-medium">{errorMessage}</span>
+                </div>
+              )}
 
               {/* Directory Search & People Picker */}
               <div className="relative" ref={dropdownContainerRef}>
@@ -935,13 +970,28 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                   <option value="Initiator">Initiator (Create & track proposals)</option>
                   <option value="Approver">Approver (Review assigned stages)</option>
                   <option value="Finance_Audit">Finance & Audit (Reporting & Compliance)</option>
-                  <option value="Admin">Administrator (Console & Platform Management)</option>
+                </select>
+              </div>
+
+              {/* SBU Selection */}
+              <div>
+                <label className="block font-semibold text-slate-800 mb-1">
+                  Strategic Business Unit (SBU) <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={selectedSbu}
+                  onChange={(e) => setSelectedSbu(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] font-medium"
+                >
+                  {ROLE_MATRIX_SBUS.map((sbu) => (
+                    <option key={sbu} value={sbu}>{sbu}</option>
+                  ))}
                 </select>
               </div>
 
               {/* Approval Level (If Approver) */}
               {selectedRole === "Approver" && (
-                <div>
+                <div className="space-y-1.5">
                   <label className="block font-semibold text-slate-800 mb-1">
                     Approval Level Stage <span className="text-rose-500">*</span>
                   </label>
@@ -950,66 +1000,16 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                     onChange={(e) => setApprovalLevel(Number(e.target.value))}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] font-medium"
                   >
-                    {levels.length > 0 ? (
-                      levels
-                        .slice()
-                        .sort((a, b) => {
-                          const s = (a.sbu || "").localeCompare(b.sbu || "");
-                          if (s !== 0) return s;
-                          return a.level_id - b.level_id;
-                        })
-                        .map((lvl) => {
-                          const isPO = isProjectOwnerStage(lvl);
-                          return (
-                            <option key={`${lvl.sbu || "ALL"}-${lvl.level_id}-${lvl.id || ""}`} value={lvl.level_id}>
-                              [{lvl.sbu || "All"}] Stage {lvl.level_id} — {lvl.level_name} ({lvl.role_title}){isPO ? " — Auto-fetched per Proposal" : ""}
-                            </option>
-                          );
-                        })
-                    ) : (
-                      <option value={1}>Stage 1 — Default Review Stage</option>
-                    )}
+                    <option value={1}>Stage L1 — Finance</option>
+                    <option value={3}>Stage L3 — BU CFO</option>
+                    <option value={4}>Stage L4 — BU Director</option>
+                    <option value={5}>Stage L5 — VOGL CFO</option>
+                    <option value={6}>Stage L6 — VOGL CEO</option>
                   </select>
+                  <p className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                    ℹ️ <strong>Stage L2 (Project Owner)</strong> is resolved automatically from each CER Proposal and does not require matrix configuration.
+                  </p>
                 </div>
-              )}
-
-              {/* Department */}
-              <div>
-                <label className="block font-semibold text-slate-800 mb-1">
-                  Department
-                </label>
-                <input
-                  type="text"
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  placeholder="e.g. Operations, Finance, IT"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] font-medium"
-                />
-              </div>
-
-              {/* Admin Warning Note & Hierarchy Access Toggle */}
-              {selectedRole === "Admin" && (
-                <>
-                  <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-purple-900 text-[11px] flex items-start gap-2">
-                    <ShieldAlert className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-                    <span>
-                      Granting Administrator access provides elevated privileges over user roles, workflow configurations, and administrative audit logs.
-                    </span>
-                  </div>
-                  <div className="flex items-start gap-2.5 p-3 bg-blue-50/60 border border-blue-200/80 rounded-xl">
-                    <input
-                      type="checkbox"
-                      id="assign-approval-hierarchy"
-                      checked={assignApprovalHierarchy}
-                      onChange={(e) => setAssignApprovalHierarchy(e.target.checked)}
-                      className="mt-0.5 rounded border-slate-300 text-[#012964] focus:ring-[#012964]/20 cursor-pointer"
-                    />
-                    <label htmlFor="assign-approval-hierarchy" className="text-xs text-slate-700 cursor-pointer select-none">
-                      <span className="font-semibold text-slate-900 block">Approval Hierarchy Page Access</span>
-                      Grants permission to view and configure SBU approval workflows and hierarchy levels (<code className="text-[#012964] font-semibold">approvalHierarchyPage = Yes</code>).
-                    </label>
-                  </div>
-                </>
               )}
 
               </div>
@@ -1025,9 +1025,9 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !selectedDirectoryUser || !!existingAssignmentForSelected}
                   className={`px-5 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 ${
-                    isSubmitting
+                    isSubmitting || !selectedDirectoryUser || !!existingAssignmentForSelected
                       ? "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed shadow-none"
                       : "bg-[#012964] hover:bg-[#001f4d] text-white shadow-subtle hover:shadow-hover cursor-pointer"
                   }`}
@@ -1114,13 +1114,28 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                   <option value="Initiator">Initiator (Create & track proposals)</option>
                   <option value="Approver">Approver (Review assigned stages)</option>
                   <option value="Finance_Audit">Finance & Audit (Reporting & Compliance)</option>
-                  <option value="Admin">Administrator (Console & Platform Management)</option>
+                </select>
+              </div>
+
+              {/* SBU Selection */}
+              <div>
+                <label className="block font-semibold text-slate-800 mb-1">
+                  Strategic Business Unit (SBU) <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={editSbu}
+                  onChange={(e) => setEditSbu(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] font-medium"
+                >
+                  {ROLE_MATRIX_SBUS.map((sbu) => (
+                    <option key={sbu} value={sbu}>{sbu}</option>
+                  ))}
                 </select>
               </div>
 
               {/* Approval Level (If Approver) */}
               {editRole === "Approver" && (
-                <div>
+                <div className="space-y-1.5">
                   <label className="block font-semibold text-slate-800 mb-1">
                     Approval Level Stage <span className="text-rose-500">*</span>
                   </label>
@@ -1129,66 +1144,16 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                     onChange={(e) => setEditApprovalLevel(Number(e.target.value))}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] font-medium"
                   >
-                    {levels.length > 0 ? (
-                      levels
-                        .slice()
-                        .sort((a, b) => {
-                          const s = (a.sbu || "").localeCompare(b.sbu || "");
-                          if (s !== 0) return s;
-                          return a.level_id - b.level_id;
-                        })
-                        .map((lvl) => {
-                          const isPO = isProjectOwnerStage(lvl);
-                          return (
-                            <option key={`${lvl.sbu || "ALL"}-${lvl.level_id}-${lvl.id || ""}`} value={lvl.level_id}>
-                              [{lvl.sbu || "All"}] Stage {lvl.level_id} — {lvl.level_name} ({lvl.role_title}){isPO ? " — Auto-fetched per Proposal" : ""}
-                            </option>
-                          );
-                        })
-                    ) : (
-                      <option value={1}>Stage 1 — Default Review Stage</option>
-                    )}
+                    <option value={1}>Stage L1 — Finance</option>
+                    <option value={3}>Stage L3 — BU CFO</option>
+                    <option value={4}>Stage L4 — BU Director</option>
+                    <option value={5}>Stage L5 — VOGL CFO</option>
+                    <option value={6}>Stage L6 — VOGL CEO</option>
                   </select>
+                  <p className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                    ℹ️ <strong>Stage L2 (Project Owner)</strong> is resolved automatically from each CER Proposal.
+                  </p>
                 </div>
-              )}
-
-              {/* Department */}
-              <div>
-                <label className="block font-semibold text-slate-800 mb-1">
-                  Department
-                </label>
-                <input
-                  type="text"
-                  value={editDepartment}
-                  onChange={(e) => setEditDepartment(e.target.value)}
-                  placeholder="e.g. Operations, Finance, IT"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] font-medium"
-                />
-              </div>
-
-              {/* Admin Warning Note & Hierarchy Access Toggle */}
-              {editRole === "Admin" && (
-                <>
-                  <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-purple-900 text-[11px] flex items-start gap-2">
-                    <ShieldAlert className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-                    <span>
-                      Granting Administrator access provides elevated privileges over user roles, workflow configurations, and administrative audit logs.
-                    </span>
-                  </div>
-                  <div className="flex items-start gap-2.5 p-3 bg-blue-50/60 border border-blue-200/80 rounded-xl">
-                    <input
-                      type="checkbox"
-                      id="edit-approval-hierarchy"
-                      checked={editApprovalHierarchy}
-                      onChange={(e) => setEditApprovalHierarchy(e.target.checked)}
-                      className="mt-0.5 rounded border-slate-300 text-[#012964] focus:ring-[#012964]/20 cursor-pointer"
-                    />
-                    <label htmlFor="edit-approval-hierarchy" className="text-xs text-slate-700 cursor-pointer select-none">
-                      <span className="font-semibold text-slate-900 block">Approval Hierarchy Page Access</span>
-                      Grants permission to view and configure SBU approval workflows and hierarchy levels (<code className="text-[#012964] font-semibold">approvalHierarchyPage = Yes</code>).
-                    </label>
-                  </div>
-                </>
               )}
 
               </div>
@@ -1218,38 +1183,6 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 </button>
               </div>
             </form>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* Modal: Explicit Confirmation for Granting Admin */}
-      {adminConfirmationTarget && createPortal(
-        <div className="fixed inset-0 !m-0 !top-0 !left-0 !right-0 !bottom-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
-          <div className="max-w-md w-full bg-white rounded-2xl shadow-elevated border border-slate-200 p-6 text-center space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center mx-auto">
-              <ShieldAlert className="w-6 h-6" />
-            </div>
-            <h3 className="text-base font-bold text-slate-900">
-              Grant Administrator Privileges?
-            </h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Are you sure you want to grant <strong>Administrator</strong> privileges to <strong>{adminConfirmationTarget}</strong>? This user will gain full management rights over user roles and approval workflows.
-            </p>
-            <div className="flex items-center justify-center gap-3 pt-2">
-              <button
-                onClick={() => setAdminConfirmationTarget(null)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={(e) => handleAssignRoleSubmit(e as any)}
-                className="px-5 py-2 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-xl shadow-subtle cursor-pointer"
-              >
-                Yes, Grant Admin Privileges
-              </button>
-            </div>
           </div>
         </div>,
         document.body

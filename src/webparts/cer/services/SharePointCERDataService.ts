@@ -23,7 +23,8 @@ import { validateAttachment } from "../utils/attachmentValidation";
 import { getCurrentFiscalYearPhasingLabels, formatLocalDate, formatLocalTime, getLocalComponents } from "../utils/dateUtils";
 import { SharePointOperations } from "../hooks/useSharePointOperations";
 import { PersonFieldService } from "./PersonFieldService";
-import { SP_LISTS } from "../constants";
+import { SP_LISTS, FIXED_6_LEVEL_APPROVAL_STAGES } from "../constants";
+import { sanitizeProposalPayload, escapeODataString } from "../utils/sanitizationUtils";
 
 export class SharePointCERDataService implements ICERDataService {
   private _spHttpClient: SPHttpClient;
@@ -353,6 +354,7 @@ export class SharePointCERDataService implements ICERDataService {
     const fetchPromise = (async () => {
       const candidateLists = [SP_LISTS.CER_PROPOSALS, SP_LISTS.CER_PROPOSALS_HISTORY];
       let lastErr: any = null;
+      const safeFilterVal = escapeODataString(cerprno);
 
       for (const listName of candidateLists) {
         try {
@@ -360,7 +362,7 @@ export class SharePointCERDataService implements ICERDataService {
           // Tier 1: With full Person & System expansion (cerOwner, Author, Editor)
           try {
             items = await this._sp.getListItems(listName, {
-              filter: `cerPrId eq '${cerprno}' or proposalNo eq '${cerprno}' or Title eq '${cerprno}'`,
+              filter: `cerPrId eq '${safeFilterVal}' or proposalNo eq '${safeFilterVal}' or Title eq '${safeFilterVal}'`,
               orderby: "Modified desc",
               expand: "cerOwner,Author,Editor",
               select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
@@ -370,7 +372,7 @@ export class SharePointCERDataService implements ICERDataService {
             // Tier 2: With cerOwner only
             try {
               items = await this._sp.getListItems(listName, {
-                filter: `cerPrId eq '${cerprno}' or Title eq '${cerprno}' or proposalNo eq '${cerprno}'`,
+                filter: `cerPrId eq '${safeFilterVal}' or Title eq '${safeFilterVal}' or proposalNo eq '${safeFilterVal}'`,
                 orderby: "Modified desc",
                 expand: "cerOwner",
                 select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name",
@@ -688,30 +690,32 @@ export class SharePointCERDataService implements ICERDataService {
   public async createProposal(
     proposal: ICERProposal,
   ): Promise<{ success: boolean; message: string; proposal: ICERProposal }> {
+    // Defense-in-depth: Deeply sanitize all fields on write
+    const cleanProposal = sanitizeProposalPayload(proposal);
     const now = new Date().toISOString();
-    const isDraft = proposal.status === "Draft";
+    const isDraft = cleanProposal.status === "Draft";
 
     // Validate mandatory user-entered CER Proposal No
-    const effectiveProposalNo = (proposal.proposal_no || proposal.cerprno || "").trim();
+    const effectiveProposalNo = (cleanProposal.proposal_no || cleanProposal.cerprno || "").trim();
     if (!effectiveProposalNo) {
       throw new Error("CER Proposal No is required.");
     }
 
-    const activeLevels = await this.getWorkflowLevels(proposal.sbu);
+    const activeLevels = await this.getWorkflowLevels(cleanProposal.sbu);
     if (!isDraft && activeLevels.length === 0) {
-      throw new Error(`No approval stages configured for SBU '${proposal.sbu}'. Please configure workflow levels in Admin settings.`);
+      throw new Error(`No approval stages configured for SBU '${cleanProposal.sbu}'. Please configure workflow levels in Admin settings.`);
     }
     const activeL1 = activeLevels.find((l) => l.level_id === 1 && l.is_active) || activeLevels[0];
     const isL1PO = activeL1 ? isProjectOwnerStage(activeL1) : false;
 
-    if (!isDraft && isL1PO && !isValidEmail(proposal.owner_email)) {
-      throw new Error(`Cannot route to Project Owner: Proposal Owner Email ('${proposal.owner_email || ""}') is missing or invalid.`);
+    if (!isDraft && isL1PO && !isValidEmail(cleanProposal.owner_email)) {
+      throw new Error(`Cannot route to Project Owner: Proposal Owner Email ('${cleanProposal.owner_email || ""}') is missing or invalid.`);
     }
 
     // Allocate permanent, immutable CER Proposal ID in CER-YYYY-NNNN format using atomic CAS counter
-    let permanentId = (proposal.cer_proposal_id || proposal.cerprno || "").trim();
+    let permanentId = (cleanProposal.cer_proposal_id || cleanProposal.cerprno || "").trim();
     const isPermanentIdValid =
-      Boolean(proposal.id) &&
+      Boolean(cleanProposal.id) &&
       permanentId.startsWith("CER-") &&
       !permanentId.startsWith("CER-COUNTER-") &&
       /^CER-\d{4}-\d{4}$/.test(permanentId);
@@ -722,7 +726,7 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     const newProposal: ICERProposal = {
-      ...proposal,
+      ...cleanProposal,
       proposal_no: effectiveProposalNo,
       cer_proposal_id: permanentId,
       cerprno: permanentId,
@@ -957,9 +961,11 @@ export class SharePointCERDataService implements ICERDataService {
     proposal: ICERProposal;
     auditRowsCount: number;
   }> {
+    // Defense-in-depth: Deeply sanitize all fields on update
+    const cleanProposal = sanitizeProposalPayload(proposal);
     const now = new Date().toISOString();
-    const existing = await this.getProposalByNumber(proposal.cerprno);
-    const original = existing || proposal;
+    const existing = await this.getProposalByNumber(cleanProposal.cerprno);
+    const original = existing || cleanProposal;
 
     // Enterprise RBAC: Only designated CER Owner or Administrator can edit proposals
     const userEmail = (user.email || "").trim().toLowerCase();
@@ -982,11 +988,11 @@ export class SharePointCERDataService implements ICERDataService {
 
     // 1. Calculate field-level deltas for CERAuditTrail
     const auditRecords: ICERAuditRecord[] = [];
-    const changedKeys = (Object.keys(proposal) as Array<keyof ICERProposal>).filter(
+    const changedKeys = (Object.keys(cleanProposal) as Array<keyof ICERProposal>).filter(
       (key) => {
         if (EXCLUDED_AUDIT_FIELDS.has(key as string)) return false;
         const oldVal = original[key];
-        const newVal = proposal[key];
+        const newVal = cleanProposal[key];
         return String(oldVal ?? "") !== String(newVal ?? "");
       },
     );
@@ -1021,7 +1027,7 @@ export class SharePointCERDataService implements ICERDataService {
     let nextStatus = proposal.status;
     let nextLevel = 1;
     let nextRole = proposal.pending_with_role;
-    let nextEmail = proposal.pending_with_email;
+    let nextEmail = cleanProposal.pending_with_email;
 
     if (isDraft) {
       nextStatus = "Draft";
@@ -1032,30 +1038,30 @@ export class SharePointCERDataService implements ICERDataService {
       // Re-triggering or launching workflow at Level 1 (Draft submit, Revised re-trigger, or Approved change)
       nextStatus = "In Approval";
       nextLevel = 1;
-      const activeLevels = await this.getWorkflowLevels(proposal.sbu);
+      const activeLevels = await this.getWorkflowLevels(cleanProposal.sbu);
       if (activeLevels.length === 0) {
-        throw new Error(`No approval stages configured for SBU '${proposal.sbu}'. Please configure workflow levels in Admin settings.`);
+        throw new Error(`No approval stages configured for SBU '${cleanProposal.sbu}'. Please configure workflow levels in Admin settings.`);
       }
       const activeL1 = activeLevels.find((l) => l.level_id === 1 && l.is_active) || activeLevels[0];
       const isL1PO = activeL1 ? isProjectOwnerStage(activeL1) : false;
 
-      if (isL1PO && !isValidEmail(proposal.owner_email)) {
-        throw new Error(`Cannot route to Project Owner: Proposal Owner Email ('${proposal.owner_email || ""}') is missing or invalid.`);
+      if (isL1PO && !isValidEmail(cleanProposal.owner_email)) {
+        throw new Error(`Cannot route to Project Owner: Proposal Owner Email ('${cleanProposal.owner_email || ""}') is missing or invalid.`);
       }
 
       nextRole = activeL1 ? activeL1.role_title : "L1 Approver";
-      nextEmail = isL1PO ? (proposal.owner_email || "") : (activeL1 ? (activeL1.approver_email || "") : "");
+      nextEmail = isL1PO ? (cleanProposal.owner_email || "") : (activeL1 ? (activeL1.approver_email || "") : "");
     }
 
     // Preserve permanent CER Proposal ID: cannot be altered or overridden by client update
     const permanentId = original.cer_proposal_id || original.cerprno;
-    const effectiveProposalNo = (proposal.proposal_no || original.proposal_no || original.cerprno || "").trim();
+    const effectiveProposalNo = (cleanProposal.proposal_no || original.proposal_no || original.cerprno || "").trim();
     if (!effectiveProposalNo) {
       throw new Error("CER Proposal No is required.");
     }
 
     const todayDate = now.split("T")[0];
-    let nextRequestDate = original.request_date || proposal.request_date;
+    let nextRequestDate = original.request_date || cleanProposal.request_date;
 
     if (!isDraft) {
       if (original.status === "Approved") {
@@ -1063,7 +1069,7 @@ export class SharePointCERDataService implements ICERDataService {
         nextRequestDate = todayDate;
       } else if (original.status === "Revised") {
         // Requirement: Do not update if editing 'Sendback CER'.
-        nextRequestDate = original.request_date || proposal.request_date;
+        nextRequestDate = original.request_date || cleanProposal.request_date;
       } else if (original.status === "Draft") {
         // Initial submission of a draft proposal
         nextRequestDate = todayDate;
@@ -1071,7 +1077,7 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     const updatedProposal: ICERProposal = {
-      ...proposal,
+      ...cleanProposal,
       proposal_no: effectiveProposalNo,
       cer_proposal_id: permanentId,
       cerprno: permanentId,
@@ -1087,17 +1093,18 @@ export class SharePointCERDataService implements ICERDataService {
 
     // Find SharePoint Item ID in CERProposals
     let spItemId: number = 0;
-    const candidateId = existing?.id || proposal.id;
+    const candidateId = existing?.id || cleanProposal.id;
     const targetListName: string = SP_LISTS.CER_PROPOSALS;
 
     if (candidateId && /^\d+$/.test(candidateId)) {
       spItemId = parseInt(candidateId, 10);
     } else {
       let existingItems: Array<{ Id: number }> = [];
+      const safeCerprno = escapeODataString(cleanProposal.cerprno);
       try {
         try {
           existingItems = await this._sp.getListItems<{ Id: number }>(targetListName, {
-            filter: `cerPrId eq '${proposal.cerprno}' or proposalNo eq '${proposal.cerprno}' or Title eq '${proposal.cerprno}'`,
+            filter: `cerPrId eq '${safeCerprno}' or proposalNo eq '${safeCerprno}' or Title eq '${safeCerprno}'`,
             select: "Id",
             top: 1,
           });
@@ -1108,10 +1115,10 @@ export class SharePointCERDataService implements ICERDataService {
           });
           existingItems = allItems.filter(
             (it: any) =>
-              (it.cerPrId && it.cerPrId === proposal.cerprno) ||
-              (it.cerPrNo && it.cerPrNo === proposal.cerprno) ||
-              it.Title === proposal.cerprno ||
-              (it.proposalNo && it.proposalNo === proposal.cerprno)
+              (it.cerPrId && it.cerPrId === cleanProposal.cerprno) ||
+              (it.cerPrNo && it.cerPrNo === cleanProposal.cerprno) ||
+              it.Title === cleanProposal.cerprno ||
+              (it.proposalNo && it.proposalNo === cleanProposal.cerprno)
           );
         }
       } catch {
@@ -1229,35 +1236,44 @@ export class SharePointCERDataService implements ICERDataService {
     };
   }
 
-  public async getProposalHistory(cerProposalId: string): Promise<ICERProposal[]> {
+  public async getProposalHistory(cerProposalId?: string): Promise<ICERProposal[]> {
     const cleanId = (cerProposalId || "").trim();
-    if (!cleanId) return [];
+    const filterClause =
+      cleanId && cleanId.toUpperCase() !== "ALL"
+        ? `cerPrId eq '${cleanId}' or proposalNo eq '${cleanId}' or Title eq '${cleanId}'`
+        : undefined;
 
     try {
       let items: any[] = [];
+      const queryOptions: any = {
+        orderby: "Modified desc",
+        expand: "cerOwner,Author,Editor",
+        select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
+        top: 100,
+      };
+      if (filterClause) {
+        queryOptions.filter = filterClause;
+      }
+
       try {
-        items = await this._sp.getListItems(SP_LISTS.CER_PROPOSALS_HISTORY, {
-          filter: `cerPrId eq '${cleanId}' or Title eq '${cleanId}'`,
-          orderby: "Modified desc",
-          expand: "cerOwner,Author,Editor",
-          select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
-          top: 100,
-        });
+        items = await this._sp.getListItems(SP_LISTS.CER_PROPOSALS_HISTORY, queryOptions);
       } catch {
         try {
-          items = await this._sp.getListItems(SP_LISTS.CER_PROPOSALS_HISTORY, {
-            filter: `cerPrId eq '${cleanId}' or Title eq '${cleanId}'`,
+          const fallbackOptions: any = {
             orderby: "Modified desc",
             expand: "cerOwner",
             select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name",
             top: 100,
-          });
+          };
+          if (filterClause) fallbackOptions.filter = filterClause;
+          items = await this._sp.getListItems(SP_LISTS.CER_PROPOSALS_HISTORY, fallbackOptions);
         } catch {
-          items = await this._sp.getListItems(SP_LISTS.CER_PROPOSALS_HISTORY, {
-            filter: `cerPrId eq '${cleanId}' or Title eq '${cleanId}'`,
+          const basicOptions: any = {
             orderby: "Id desc",
             top: 100,
-          });
+          };
+          if (filterClause) basicOptions.filter = filterClause;
+          items = await this._sp.getListItems(SP_LISTS.CER_PROPOSALS_HISTORY, basicOptions);
         }
       }
 
@@ -1460,95 +1476,88 @@ export class SharePointCERDataService implements ICERDataService {
 
     const fetchPromise = (async () => {
       try {
-        let items: Record<string, any>[] = [];
-        const candidateLists = [SP_LISTS.CER_WORKFLOW_LEVELS];
-
-        for (const listName of candidateLists) {
-          const fetchItems = typeof this._sp.getAllListItems === "function"
-            ? (opts: any) => this._sp.getAllListItems(listName, opts)
-            : (opts: any) => this._sp.getListItems(listName, opts);
-          try {
-            // Retrieve all workflow levels without fragile $select projections that fail on schema variances
-            items = await fetchItems({
-              top: 500,
-            });
-            break;
-          } catch {
-            // try next candidate
-          }
-        }
-
-        if (items.length === 0) {
-          this._cachedWorkflowLevels.set(cacheKey, { data: [], timestamp: Date.now() });
-          return [];
-        }
-
-        // Fetch user roles to dynamically resolve approvers from CER_UserRoles (reuses cached/in-flight roles)
+        // Fetch user roles to dynamically resolve approvers from CERRoleMatrix
         let approverRoles: IUserRoleAssignment[] = [];
         try {
           approverRoles = await this.getUserRoles(forceRefresh);
-        } catch {
-          // non-blocking
+        } catch (e) {
+          console.warn("[SharePointCERDataService] Failed to load roles for workflow levels:", e);
         }
 
-        const allLevels: IWorkflowLevel[] = items.map((item: any) => {
-          const lid = Number(item.levelId ?? item.level_id ?? 1);
-          const rawAssignmentType = (item.assignmentType || item.assignment_type) as ApproverAssignmentType | undefined;
-          const lvlObj = {
-            role_title: item.roleTitle || item.role_title || "",
-            level_name: item.roleTitle || item.role_title || item.level_name || item.Title || `Level ${lid}`,
-            assignment_type: rawAssignmentType,
-          };
-          const isPO = isProjectOwnerStage(lvlObj);
-          const assignmentType: ApproverAssignmentType = rawAssignmentType || (isPO ? "ProjectOwnerAuto" : "SpecificUser");
+        const targetSbu = sbu ? sbu.trim() : "";
 
-          // Dynamically match approver from CERUserRoles by approval_level only if NOT Project Owner stage
-          const matchedUser = !isPO
-            ? approverRoles.find(
+        // Fixed Six-Level Sequential Approval Workflow:
+        // L1: Finance (from CERRoleMatrix matching proposal SBU)
+        // L2: Project Owner (Auto-fetched dynamically from CER Proposal)
+        // L3: BU CFO (from CERRoleMatrix matching proposal SBU)
+        // L4: BU Director (from CERRoleMatrix matching proposal SBU)
+        // L5: VOGL CFO (from CERRoleMatrix matching proposal SBU / All)
+        // L6: VOGL CEO (from CERRoleMatrix matching proposal SBU / All)
+        const levels: IWorkflowLevel[] = FIXED_6_LEVEL_APPROVAL_STAGES.map((stage) => {
+          const lid = stage.level;
+          const isPO = stage.isProjectOwnerStage;
+
+          let matchedUser: IUserRoleAssignment | undefined;
+          if (!isPO) {
+            // 1. Try exact SBU match for Approver at this level
+            if (targetSbu) {
+              matchedUser = approverRoles.find(
                 (u) =>
-                  u.is_active &&
+                  u.is_active !== false &&
+                  u.role === "Approver" &&
+                  u.approval_level === lid &&
+                  Boolean(u.sbu && u.sbu.toLowerCase() === targetSbu.toLowerCase())
+              );
+            }
+
+            // 2. Try 'All' SBU assignment for Approver at this level
+            if (!matchedUser) {
+              matchedUser = approverRoles.find(
+                (u) =>
+                  u.is_active !== false &&
+                  u.role === "Approver" &&
+                  u.approval_level === lid &&
+                  Boolean(u.sbu && u.sbu.toLowerCase() === "all")
+              );
+            }
+
+            // 3. Fallback to any active Approver matching this level
+            if (!matchedUser) {
+              matchedUser = approverRoles.find(
+                (u) =>
+                  u.is_active !== false &&
                   u.role === "Approver" &&
                   u.approval_level === lid
-              )
-            : undefined;
+              );
+            }
+          }
 
           return {
-            id: String(item.ID !== undefined ? item.ID : item.Id !== undefined ? item.Id : item.id || Date.now()),
+            id: `L${lid}-${targetSbu || "ALL"}`,
             level_id: lid,
-            level_name: lvlObj.level_name,
-            role_title: lvlObj.role_title,
-            sbu: item.sbu || "",
-            is_active: item.isActive !== undefined ? !!item.isActive : (item.is_active !== undefined ? !!item.is_active : true),
-            assignment_type: assignmentType,
+            level_name: stage.name,
+            role_title: stage.roleTitle,
+            sbu: targetSbu || "All",
+            is_active: true,
+            assignment_type: stage.assignmentType,
             is_project_owner_stage: isPO,
-            created_by: matchedUser ? matchedUser.user_name : (item.created_by || item.Author?.Title || ""),
-            created_date: item.created_date || item.Created || "",
-            approver_name: isPO ? "Project Owner (Auto-fetched from CER Proposal)" : (matchedUser ? matchedUser.user_name : ""),
-            approver_email: isPO ? "" : (matchedUser ? matchedUser.user_email : ""),
+            approver_name: isPO
+              ? "Project Owner (Auto-fetched from CER Proposal)"
+              : matchedUser
+              ? matchedUser.user_name
+              : "",
+            approver_email: isPO
+              ? ""
+              : matchedUser
+              ? matchedUser.user_email
+              : "",
+            created_by: matchedUser ? matchedUser.assigned_by : "System",
+            created_date: matchedUser ? matchedUser.assigned_date : "",
           };
         });
 
-        // Filter by exact SBU if requested, sorted by level_id asc
-        const filteredLevels = sbu
-          ? allLevels.filter(
-              (lvl) =>
-                lvl.sbu && lvl.sbu.toLowerCase() === sbu.trim().toLowerCase()
-            ).sort((a, b) => a.level_id - b.level_id)
-          : allLevels.sort((a, b) => {
-              const sbuComp = (a.sbu || "").localeCompare(b.sbu || "");
-              if (sbuComp !== 0) return sbuComp;
-              return a.level_id - b.level_id;
-            });
-
-        this._cachedWorkflowLevels.set(cacheKey, { data: filteredLevels, timestamp: Date.now() });
-        return filteredLevels;
-      } catch (e) {
-        if (e && (String((e as any)?.message || e).indexOf("404") !== -1 || String((e as any)?.message || e).indexOf("does not exist") !== -1)) {
-          console.warn("[SharePointCERDataService] CERWorkflowLevels list not found on site, returning empty levels:", e);
-          return [];
-        }
-        console.error("[SharePointCERDataService] Error querying CERWorkflowLevels from SharePoint:", e);
-        throw new Error(`Unable to load workflow levels from SharePoint: ${e instanceof Error ? e.message : String(e)}`);
+        this._cachedWorkflowLevels.set(cacheKey, { data: levels, timestamp: Date.now() });
+        return levels;
       } finally {
         this._inFlightWorkflowLevels.delete(cacheKey);
       }
@@ -1561,147 +1570,9 @@ export class SharePointCERDataService implements ICERDataService {
 
   public async saveWorkflowLevels(levels: IWorkflowLevel[]): Promise<void> {
     this.clearCache();
-    try {
-      // 1. Fetch all existing items from CERWorkflowLevels / CER_WorkflowLevels
-      let existingRaw: any[] = [];
-      let targetListName: string = SP_LISTS.CER_WORKFLOW_LEVELS;
-      for (const listName of [SP_LISTS.CER_WORKFLOW_LEVELS]) {
-        try {
-          existingRaw = await this._sp.getListItems<any>(listName, {
-            top: 100,
-          });
-          targetListName = listName;
-          break;
-        } catch {
-          // try next
-        }
-      }
-
-      const existingItems = existingRaw.map((item: any) => ({
-        Id: Number(item.Id !== undefined ? item.Id : item.ID),
-        level_id: Number(item.levelId ?? item.level_id ?? 1),
-        sbu: String(item.sbu || "").trim(),
-      }));
-
-      const usedSpIds = new Set<number>();
-
-      // 2. Insert or update each level
-      for (const lvl of levels) {
-        const assignmentType: ApproverAssignmentType = lvl.assignment_type || (isProjectOwnerStage(lvl) ? "ProjectOwnerAuto" : "SpecificUser");
-        const modernPayload = {
-          Title: lvl.level_name || `Level ${lvl.level_id}`,
-          levelId: Number(lvl.level_id),
-          roleTitle: lvl.role_title,
-          sbu: (lvl.sbu || "").trim(),
-          isActive: lvl.is_active !== undefined ? Boolean(lvl.is_active) : true,
-          assignmentType: assignmentType,
-        };
-        const legacyPayload = {
-          Title: lvl.level_name || `Level ${lvl.level_id}`,
-          level_id: Number(lvl.level_id),
-          level_name: lvl.level_name,
-          role_title: lvl.role_title,
-          sbu: (lvl.sbu || "").trim(),
-          is_active: lvl.is_active !== undefined ? Boolean(lvl.is_active) : true,
-          assignment_type: assignmentType,
-        };
-
-        // Match existing item by SharePoint Id first, or by sbu + level_id
-        let targetSpId: number | undefined;
-        if (lvl.id && !isNaN(Number(lvl.id))) {
-          const matchById = existingItems.find(
-            (item) => item.Id === Number(lvl.id) && !usedSpIds.has(item.Id)
-          );
-          if (matchById) {
-            targetSpId = matchById.Id;
-          }
-        }
-        if (!targetSpId) {
-          const matchBySbuAndLevel = existingItems.find(
-            (item) =>
-              item.sbu.toLowerCase() === modernPayload.sbu.toLowerCase() &&
-              item.level_id === Number(lvl.level_id) &&
-              !usedSpIds.has(item.Id)
-          );
-          if (matchBySbuAndLevel) {
-            targetSpId = matchBySbuAndLevel.Id;
-          }
-        }
-
-        if (targetSpId) {
-          usedSpIds.add(targetSpId);
-          try {
-            try {
-              await this._sp.updateListItem(targetListName, targetSpId, modernPayload);
-            } catch {
-              await this._sp.updateListItem(targetListName, targetSpId, legacyPayload);
-            }
-          } catch (updateErr: any) {
-            const fallbackPayload: Record<string, any> = { Title: modernPayload.Title, sbu: modernPayload.sbu };
-            await this._sp.updateListItem(targetListName, targetSpId, fallbackPayload);
-          }
-        } else {
-          // New level to create
-          const newId = await this._createWorkflowLevelRecord(modernPayload, targetListName);
-          if (newId) {
-            usedSpIds.add(newId);
-          }
-        }
-      }
-
-      // 3. Delete any obsolete items that are no longer in levels
-      for (const item of existingItems) {
-        if (!usedSpIds.has(item.Id)) {
-          try {
-            await this._sp.deleteListItem(targetListName, item.Id);
-          } catch (delErr) {
-            console.warn(`[SharePointCERDataService] Obsolete workflow level ${item.Id} deletion warning:`, delErr);
-          }
-        }
-      }
-    } catch (e) {
-      console.error("[SharePointCERDataService] Error saving workflow levels to SharePoint:", e);
-      throw e;
-    }
-  }
-
-  private async _createWorkflowLevelRecord(payload: Record<string, any>, preferredListName: string = SP_LISTS.CER_WORKFLOW_LEVELS): Promise<number | undefined> {
-    const modernPayload = {
-      Title: payload.Title || `Level ${payload.levelId || payload.level_id}`,
-      levelId: Number(payload.levelId ?? payload.level_id ?? 1),
-      roleTitle: payload.roleTitle || payload.role_title || "",
-      sbu: payload.sbu || "",
-      isActive: payload.isActive !== undefined ? Boolean(payload.isActive) : (payload.is_active !== undefined ? Boolean(payload.is_active) : true),
-      assignmentType: payload.assignmentType || payload.assignment_type || "SpecificUser",
-    };
-    const legacyPayload = {
-      Title: payload.Title || `Level ${payload.levelId || payload.level_id}`,
-      level_id: Number(payload.levelId ?? payload.level_id ?? 1),
-      level_name: payload.roleTitle || payload.role_title || payload.Title,
-      role_title: payload.roleTitle || payload.role_title || "",
-      sbu: payload.sbu || "",
-      is_active: payload.isActive !== undefined ? Boolean(payload.isActive) : (payload.is_active !== undefined ? Boolean(payload.is_active) : true),
-      assignment_type: payload.assignmentType || payload.assignment_type || "SpecificUser",
-    };
-
-    const candidateLists = [preferredListName];
-    let lastErr: any = null;
-
-    for (const listName of candidateLists) {
-      try {
-        try {
-          const created = await this._sp.createListItem<{ Id: number }>(listName, modernPayload);
-          return created.Id;
-        } catch {
-          const created = await this._sp.createListItem<{ Id: number }>(listName, legacyPayload);
-          return created.Id;
-        }
-      } catch (err: any) {
-        lastErr = err;
-      }
-    }
-    console.error("[SharePointCERDataService] Failed to create workflow level item in SharePoint:", lastErr);
-    throw lastErr;
+    // CERWorkflowLevels list has been retired and deleted from SharePoint.
+    // The application strictly uses the hardcoded fixed 6-level sequential workflow, resolving approvers from CERRoleMatrix.
+    return Promise.resolve();
   }
 
   // ---------------------------------------------------------------------------
@@ -2826,84 +2697,43 @@ export class SharePointCERDataService implements ICERDataService {
     this._inFlightUserRoles = (async () => {
       try {
         let items: Record<string, any>[] = [];
-        const listName = SP_LISTS.CER_USER_ROLES;
+        const listName = SP_LISTS.CER_ROLE_MATRIX;
 
-        const isListMissing = (err: any) => {
-          if (!err) return false;
-          const msg = String(err?.message || err).toLowerCase();
-          return (
-            (msg.indexOf("list") !== -1 && msg.indexOf("does not exist") !== -1) ||
-            msg.indexOf("404") !== -1 ||
-            msg.indexOf("itemnotfound") !== -1
-          );
-        };
-
-        // Tier 1: Modern schema with Person fields 'User' and 'assignedBy' expanded matching CERUserRoles
         try {
+          // Tier 1: Modern CERRoleMatrix schema with Person field 'User' expanded
           items = await this._sp.getListItems<Record<string, any>>(listName, {
-            select: "Id,ID,Title,role,approvalLevel,department,approvalHierarchyPage,assignedDate,Created,User/Id,User/Title,User/EMail,User/Name,assignedBy/Id,assignedBy/Title,assignedBy/EMail",
-            expand: "User,assignedBy",
+            select: "Id,ID,Title,role,sbu,approverLevel,approverRoleTitle,Created,User/Id,User/Title,User/EMail,User/LoginName",
+            expand: "User",
             top: 500,
           });
-        } catch (t1Err: any) {
-          if (isListMissing(t1Err)) {
-            console.warn(`[SharePointCERDataService] ${listName} list not found on site, defaulting to empty roles:`, t1Err);
-            this._cachedUserRoles = [];
-            this._cachedUserRolesTimestamp = Date.now();
-            return [];
-          }
-          console.warn(`[SharePointCERDataService] Tier 1 fetch failed on ${listName}, trying Tier 2 (User only):`, t1Err);
+        } catch {
           try {
-            // Tier 2: Only User expanded
+            // Tier 2: User Person field with Id & Title only (fallback if tenant restricts LoginName/EMail projection)
             items = await this._sp.getListItems<Record<string, any>>(listName, {
-              select: "Id,ID,Title,role,approvalLevel,department,approvalHierarchyPage,assignedDate,Created,User/Id,User/Title,User/EMail,User/Name",
+              select: "Id,ID,Title,role,sbu,approverLevel,approverRoleTitle,Created,User/Id,User/Title",
               expand: "User",
               top: 500,
             });
-          } catch (t2Err: any) {
-            if (isListMissing(t2Err)) {
-              console.warn(`[SharePointCERDataService] ${listName} list not found on site, defaulting to empty roles:`, t2Err);
-              this._cachedUserRoles = [];
-              this._cachedUserRolesTimestamp = Date.now();
-              return [];
-            }
-            console.warn(`[SharePointCERDataService] Tier 2 fetch failed on ${listName}, trying Tier 3 (standard text columns):`, t2Err);
+          } catch {
             try {
-              // Tier 3: Baseline fallback without Person expansion
+              // Tier 3: Unprojected safe query (SharePoint never fails on column projection mismatch when select is omitted)
               items = await this._sp.getListItems<Record<string, any>>(listName, {
-                select: "Id,ID,Title,role,approvalLevel,department,assignedDate,Created",
                 top: 500,
               });
-            } catch (t3Err: any) {
-              if (isListMissing(t3Err)) {
-                console.warn(`[SharePointCERDataService] ${listName} list not found on site, defaulting to empty roles:`, t3Err);
-                this._cachedUserRoles = [];
-                this._cachedUserRolesTimestamp = Date.now();
-                return [];
-              }
-              console.warn(`[SharePointCERDataService] Tier 3 fetch failed on ${listName}, trying Tier 4 (safe baseline with no $select):`, t3Err);
-              try {
-                // Tier 4: Total safe baseline - NO $select projection. SharePoint never fails on column mismatch when $select is omitted!
-                items = await this._sp.getListItems<Record<string, any>>(listName, {
-                  top: 500,
-                });
-              } catch (t4Err: any) {
-                if (isListMissing(t4Err)) {
-                  console.warn(`[SharePointCERDataService] ${listName} list not found on site, defaulting to empty roles:`, t4Err);
-                  this._cachedUserRoles = [];
-                  this._cachedUserRolesTimestamp = Date.now();
-                  return [];
-                }
-                console.warn(`[SharePointCERDataService] All tiers failed for ${listName}, defaulting to empty roles to prevent UI failure:`, t4Err);
-                this._cachedUserRoles = [];
-                this._cachedUserRolesTimestamp = Date.now();
-                return [];
-              }
+            } catch (err) {
+              console.warn(`[SharePointCERDataService] Query on ${listName} failed:`, err);
+              items = [];
             }
           }
         }
 
-        const list = items.map((item: any) => {
+        if (!items || items.length === 0) {
+          this._cachedUserRoles = [];
+          this._cachedUserRolesTimestamp = Date.now();
+          return [];
+        }
+
+        const list: IUserRoleAssignment[] = items.map((item: any) => {
           const userPerson = PersonFieldService.extractPersonField(item, "User");
           const assignedByPerson = PersonFieldService.extractPersonField(item, "assignedBy");
 
@@ -2915,6 +2745,8 @@ export class SharePointCERDataService implements ICERDataService {
           const assignedByName = assignedByPerson?.name || item.assignedBy || item.assigned_by || (item.Author ? item.Author.Title : "System Administrator");
           const assignedDate = item.assignedDate || item.assigned_date || item.Created || new Date().toISOString();
 
+          const rawLevel = item.approverLevel !== undefined ? item.approverLevel : (item.approvalLevel !== undefined ? item.approvalLevel : item.approval_level);
+
           return {
             id: String(item.ID !== undefined ? item.ID : item.Id !== undefined ? item.Id : item.id || Date.now()),
             user_name: userName,
@@ -2922,11 +2754,12 @@ export class SharePointCERDataService implements ICERDataService {
             login_name: loginName,
             user_id: userId,
             role: item.role || "Initiator",
-            approval_level: item.approvalLevel !== undefined ? Number(item.approvalLevel) : (item.approval_level !== undefined ? Number(item.approval_level) : undefined),
-            department: item.department || "",
+            approval_level: rawLevel !== undefined && rawLevel !== null ? Number(rawLevel) : undefined,
+            approver_role_title: item.approverRoleTitle || item.approver_role_title || "",
+            department: item.department || undefined,
             sbu: item.sbu || "",
-            is_active: item.isActive !== undefined ? !!item.isActive : (item.is_active !== undefined ? !!item.is_active : true),
-            approval_hierarchy_page: item.approvalHierarchyPage === true || item.approvalHierarchyPage === 1 || String(item.approvalHierarchyPage).toLowerCase() === "yes" || String(item.approvalHierarchyPage).toLowerCase() === "true",
+            is_active: item.isActive !== undefined ? !!item.isActive : true, // Presence in CERRoleMatrix represents active authorization
+            approval_hierarchy_page: item.approvalHierarchyPage === true || item.approvalHierarchyPage === 1 || String(item.approvalHierarchyPage).toLowerCase() === "yes",
             assigned_by: assignedByName,
             assigned_date: assignedDate,
           };
@@ -2937,7 +2770,7 @@ export class SharePointCERDataService implements ICERDataService {
         this._cachedUserRolesTimestamp = Date.now();
         return list;
       } catch (e) {
-        console.warn("[SharePointCERDataService] Querying CERUserRoles caught unexpected error, defaulting to empty roles:", e);
+        console.warn("[SharePointCERDataService] Querying role matrix caught unexpected error, defaulting to empty roles:", e);
         this._cachedUserRoles = [];
         this._cachedUserRolesTimestamp = Date.now();
         return [];
@@ -2952,7 +2785,7 @@ export class SharePointCERDataService implements ICERDataService {
 
   /**
    * Returns the list of identity strings for users permitted to manage the Approval Hierarchy.
-   * Derived from CERUserRoles rows where approvalHierarchyPage = Yes (and is_active = true).
+   * Derived from CERRoleMatrix rows where approvalHierarchyPage = Yes (and is_active = true).
    * No separate SharePoint list query — reuses the already-cached getUserRoles result.
    */
   public async getHierarchyAdmins(forceRefresh = false): Promise<string[]> {
@@ -3002,7 +2835,7 @@ export class SharePointCERDataService implements ICERDataService {
 
       return Array.from(new Set(admins.filter(Boolean)));
     } catch (err) {
-      console.warn("[SharePointCERDataService] Failed to derive hierarchy administrators from CERUserRoles:", err);
+      console.warn("[SharePointCERDataService] Failed to derive hierarchy administrators from CERRoleMatrix:", err);
       return [];
     }
   }
@@ -3012,89 +2845,128 @@ export class SharePointCERDataService implements ICERDataService {
     actor: { name: string; email: string }
   ): Promise<IUserRoleAssignment> {
     this.clearCache();
+    // Security restriction: System Admin accounts cannot be created or modified via the UI
+    if (assignment.role === "Admin") {
+      throw new Error(
+        "Security Restriction: System Admin accounts cannot be created or modified through the web interface. System Admin permissions must be managed directly in SharePoint CERRoleMatrix list."
+      );
+    }
+
     try {
-      // 1. Resolve SharePoint user ID using PersonFieldService.resolveUser for the target employee
+      // 1. Resolve SharePoint user ID for target employee with multi-stage resolution
       let spUserId: number | null = assignment.user_id || null;
       if (!spUserId && (assignment.login_name || assignment.user_email)) {
-        try {
-          const targetLogon = assignment.login_name || assignment.user_email;
-          const ensured = await PersonFieldService.resolveUser(
-            this._spHttpClient,
-            this._siteUrl,
-            targetLogon
-          );
-          spUserId = ensured.Id;
-        } catch (ensureErr) {
-          console.warn("[SharePointCERDataService] ensureUser resolution warning during assignUserRole:", ensureErr);
+        const candidates = [
+          assignment.login_name,
+          assignment.user_email,
+          assignment.login_name && assignment.login_name.indexOf("|") === -1 ? `i:0#.f|membership|${assignment.login_name}` : "",
+          assignment.user_email && assignment.user_email.indexOf("|") === -1 ? `i:0#.f|membership|${assignment.user_email}` : "",
+        ].filter(Boolean) as string[];
+
+        for (const candidate of candidates) {
+          try {
+            const ensured = await PersonFieldService.resolveUser(
+              this._spHttpClient,
+              this._siteUrl,
+              candidate
+            );
+            if (ensured && ensured.Id) {
+              spUserId = ensured.Id;
+              break;
+            }
+          } catch {
+            // try next candidate
+          }
+        }
+
+        // Secondary fallback: query site users directly
+        if (!spUserId) {
+          try {
+            const siteUsers = await this._sp.getSiteUsers<{ Id: number; Email?: string; LoginName?: string; Title?: string }>();
+            const normEmail = (assignment.user_email || "").toLowerCase().trim();
+            const normLogin = (assignment.login_name || "").toLowerCase().trim();
+            const normName = (assignment.user_name || "").toLowerCase().trim();
+
+            const found = siteUsers.find((u) => {
+              const uEmail = (u.Email || "").toLowerCase().trim();
+              const uLogin = (u.LoginName || "").toLowerCase().trim();
+              const uTitle = (u.Title || "").toLowerCase().trim();
+              return (
+                (normEmail && (uEmail === normEmail || uLogin.indexOf(normEmail) !== -1)) ||
+                (normLogin && (uLogin === normLogin || uLogin.indexOf(normLogin) !== -1)) ||
+                (normName && uTitle === normName)
+              );
+            });
+            if (found && found.Id) {
+              spUserId = found.Id;
+            }
+          } catch {
+            // ignore fallback error
+          }
         }
       }
 
-      // 2. Resolve SharePoint user ID for the actor (assignedBy)
-      let assignedById: number | null = null;
-      if (actor.email) {
-        try {
-          const ensuredActor = await PersonFieldService.resolveUser(
-            this._spHttpClient,
-            this._siteUrl,
-            actor.email
-          );
-          assignedById = ensuredActor.Id;
-        } catch (actorErr) {
-          console.warn("[SharePointCERDataService] ensureUser resolution warning for actor:", actorErr);
-        }
-      }
-
+      // Base payload targeting CERRoleMatrix list columns
       const payload: Record<string, any> = {
         Title: assignment.user_name,
         role: assignment.role,
-        department: assignment.department || "",
-        assignedDate: new Date().toISOString(),
+        sbu: assignment.sbu || "All",
       };
 
       if (assignment.approval_level) {
-        payload.approvalLevel = assignment.approval_level;
+        payload.approverLevel = assignment.approval_level;
       }
-      if (assignment.approval_hierarchy_page !== undefined) {
-        payload.approvalHierarchyPage = Boolean(assignment.approval_hierarchy_page);
+      if (assignment.approver_role_title) {
+        payload.approverRoleTitle = assignment.approver_role_title;
       }
       if (spUserId) {
-        Object.assign(payload, PersonFieldService.formatPersonFieldPayload("User", spUserId));
-      }
-      if (assignedById) {
-        Object.assign(payload, PersonFieldService.formatPersonFieldPayload("assignedBy", assignedById));
+        payload.UserId = spUserId;
       }
 
       let res: { Id?: number; ID?: number } | null = null;
-      const listName = SP_LISTS.CER_USER_ROLES;
+      const listName = SP_LISTS.CER_ROLE_MATRIX;
+      let currentPayload: Record<string, any> = { ...payload };
       let lastCreateErr: any = null;
 
-      try {
-        res = await this._sp.createListItem<{ Id?: number; ID?: number }>(listName, payload);
-      } catch (createErr: any) {
-        lastCreateErr = createErr;
-        const errStr = String(createErr?.message || "").toLowerCase();
-        const fallbackPayload: Record<string, any> = { ...payload };
-        if (errStr.indexOf("assignedbyid") !== -1) delete fallbackPayload.assignedById;
-        if (errStr.indexOf("approvalhierarchypage") !== -1) delete fallbackPayload.approvalHierarchyPage;
-        if (errStr.indexOf("userid") !== -1 || errStr.indexOf("user") !== -1) delete fallbackPayload.UserId;
-        if (errStr.indexOf("approvallevel") !== -1) {
-          delete fallbackPayload.approvalLevel;
-          fallbackPayload.approval_level = assignment.approval_level || null;
-        }
-        if (errStr.indexOf("assigneddate") !== -1) {
-          delete fallbackPayload.assignedDate;
-          fallbackPayload.assigned_date = payload.assignedDate;
-          fallbackPayload.assigned_by = actor.name;
-        }
+      // Robust creation loop: auto-prune non-existent columns if tenant schema differs
+      for (let attempt = 0; attempt < 5; attempt++) {
         try {
-          res = await this._sp.createListItem<{ Id?: number; ID?: number }>(listName, fallbackPayload);
-        } catch (fbErr) {
-          lastCreateErr = fbErr;
+          res = await this._sp.createListItem<{ Id?: number; ID?: number }>(listName, currentPayload);
+          break;
+        } catch (createErr: any) {
+          lastCreateErr = createErr;
+          const errStr = String(createErr?.message || "").toLowerCase();
+
+          // Match field name from SharePoint error message (e.g. "The field or property 'xyz' does not exist")
+          const fieldMatch = errStr.match(/field or property '([^']+)' does not exist/i) ||
+                             errStr.match(/field '([^']+)' does not exist/i);
+          if (fieldMatch && fieldMatch[1]) {
+            const missingField = fieldMatch[1].toLowerCase();
+            const keyToRemove = Object.keys(currentPayload).find(
+              (k) => k.toLowerCase() === missingField
+            );
+            if (keyToRemove) {
+              delete currentPayload[keyToRemove];
+              continue;
+            }
+          }
+
+          // Known optional column fallbacks
+          if (errStr.indexOf("approverlevel") !== -1 && currentPayload.approverLevel !== undefined) {
+            delete currentPayload.approverLevel;
+            continue;
+          }
+          if (errStr.indexOf("approverroletitle") !== -1 && currentPayload.approverRoleTitle !== undefined) {
+            delete currentPayload.approverRoleTitle;
+            continue;
+          }
+
+          break;
         }
       }
 
       if (!res) {
-        throw new Error(`Failed to write to CERUserRoles list. (${lastCreateErr instanceof Error ? lastCreateErr.message : String(lastCreateErr)})`);
+        throw new Error(`Failed to write to role matrix list in SharePoint. (${lastCreateErr instanceof Error ? lastCreateErr.message : String(lastCreateErr)})`);
       }
 
       const created: IUserRoleAssignment = {
@@ -3102,7 +2974,7 @@ export class SharePointCERDataService implements ICERDataService {
         id: String(res.ID !== undefined ? res.ID : res.Id !== undefined ? res.Id : Date.now()),
         user_id: spUserId || undefined,
         assigned_by: actor.name,
-        assigned_date: payload.assignedDate,
+        assigned_date: new Date().toISOString(),
       };
 
       try {
@@ -3112,7 +2984,7 @@ export class SharePointCERDataService implements ICERDataService {
           action: "ROLE_ASSIGNED",
           target_type: "USER",
           target_id: created.id,
-          details: `Assigned role '${created.role}' to ${created.user_name} (${created.user_email})${created.approval_level ? ` with Approval Level ${created.approval_level}` : ""}.`,
+          details: `Assigned role '${created.role}' to ${created.user_name} (${created.user_email}) for SBU '${created.sbu || "All"}'${created.approval_level ? ` with Approval Level ${created.approval_level}` : ""}.`,
           after_value: JSON.stringify(created),
           timestamp: new Date().toISOString(),
         });
@@ -3123,7 +2995,7 @@ export class SharePointCERDataService implements ICERDataService {
       return created;
     } catch (e) {
       console.error("[SharePointCERDataService] assignUserRole failed in SharePoint:", e);
-      throw new Error(`Unable to assign user role to '${assignment.user_name}' in SharePoint CERUserRoles list: ${e instanceof Error ? e.message : String(e)}`);
+      throw new Error(`Unable to assign user role to '${assignment.user_name}' in SharePoint role matrix: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
@@ -3132,6 +3004,13 @@ export class SharePointCERDataService implements ICERDataService {
     actor: { name: string; email: string }
   ): Promise<void> {
     this.clearCache();
+    // Security restriction: System Admin accounts cannot be modified via the UI
+    if (assignment.role === "Admin") {
+      throw new Error(
+        "Security Restriction: System Admin accounts cannot be modified through the web interface. System Admin permissions must be managed directly in SharePoint CERRoleMatrix list."
+      );
+    }
+
     try {
       // 1. Resolve SharePoint user ID using ensureUser
       let spUserId: number | null = assignment.user_id || null;
@@ -3152,60 +3031,68 @@ export class SharePointCERDataService implements ICERDataService {
       const payload: Record<string, any> = {
         Title: assignment.user_name,
         role: assignment.role,
-        department: assignment.department || "",
+        sbu: assignment.sbu || "All",
       };
 
       if (assignment.approval_level) {
-        payload.approvalLevel = assignment.approval_level;
+        payload.approverLevel = assignment.approval_level;
       }
-      if (assignment.approval_hierarchy_page !== undefined) {
-        payload.approvalHierarchyPage = Boolean(assignment.approval_hierarchy_page);
-      }
-      if (assignment.is_active !== undefined) {
-        payload.isActive = Boolean(assignment.is_active);
+      if (assignment.approver_role_title) {
+        payload.approverRoleTitle = assignment.approver_role_title;
       }
       if (spUserId) {
-        Object.assign(payload, PersonFieldService.formatPersonFieldPayload("User", spUserId));
+        payload.UserId = spUserId;
       }
 
-      const listName = SP_LISTS.CER_USER_ROLES;
+      const listName = SP_LISTS.CER_ROLE_MATRIX;
       let updated = false;
+      let currentPayload: Record<string, any> = { ...payload };
       let lastUpdateErr: any = null;
 
-      try {
-        await this._sp.updateListItem(listName, assignment.id, payload);
-        updated = true;
-      } catch (updateErr: any) {
-        lastUpdateErr = updateErr;
-        const errStr = String(updateErr?.message || "").toLowerCase();
-        const fallbackPayload: Record<string, any> = { ...payload };
-        if (errStr.indexOf("isactive") !== -1) delete fallbackPayload.isActive;
-        if (errStr.indexOf("approvalhierarchypage") !== -1) delete fallbackPayload.approvalHierarchyPage;
-        if (errStr.indexOf("userid") !== -1 || errStr.indexOf("user") !== -1) delete fallbackPayload.UserId;
-        if (errStr.indexOf("approvallevel") !== -1) {
-          delete fallbackPayload.approvalLevel;
-          fallbackPayload.approval_level = assignment.approval_level || null;
-        }
+      for (let attempt = 0; attempt < 5; attempt++) {
         try {
-          await this._sp.updateListItem(listName, assignment.id, fallbackPayload);
+          await this._sp.updateListItem(listName, assignment.id, currentPayload);
           updated = true;
-        } catch (fbErr) {
-          lastUpdateErr = fbErr;
+          break;
+        } catch (updateErr: any) {
+          lastUpdateErr = updateErr;
+          const errStr = String(updateErr?.message || "").toLowerCase();
+          const fieldMatch = errStr.match(/field or property '([^']+)' does not exist/i) ||
+                             errStr.match(/field '([^']+)' does not exist/i);
+          if (fieldMatch && fieldMatch[1]) {
+            const missingField = fieldMatch[1].toLowerCase();
+            const keyToRemove = Object.keys(currentPayload).find(
+              (k) => k.toLowerCase() === missingField
+            );
+            if (keyToRemove) {
+              delete currentPayload[keyToRemove];
+              continue;
+            }
+          }
+          if (errStr.indexOf("approverlevel") !== -1 && currentPayload.approverLevel !== undefined) {
+            delete currentPayload.approverLevel;
+            continue;
+          }
+          if (errStr.indexOf("approverroletitle") !== -1 && currentPayload.approverRoleTitle !== undefined) {
+            delete currentPayload.approverRoleTitle;
+            continue;
+          }
+          break;
         }
       }
 
       if (!updated) {
-        throw new Error(`Failed to update item ${assignment.id} in CERUserRoles. (${lastUpdateErr instanceof Error ? lastUpdateErr.message : String(lastUpdateErr)})`);
+        throw new Error(`Failed to update item ${assignment.id} in role matrix. (${lastUpdateErr instanceof Error ? lastUpdateErr.message : String(lastUpdateErr)})`);
       }
 
       try {
         await this.logAdminAudit({
           actor_name: actor.name,
           actor_email: actor.email,
-          action: assignment.is_active ? "ROLE_UPDATED" : "ROLE_STATUS_TOGGLED",
+          action: "ROLE_UPDATED",
           target_type: "USER",
           target_id: assignment.id,
-          details: `Updated role assignment for ${assignment.user_name}. Active: ${assignment.is_active}, Role: ${assignment.role}.`,
+          details: `Updated role assignment for ${assignment.user_name}. SBU: ${assignment.sbu || "All"}, Role: ${assignment.role}${assignment.approval_level ? `, Level: ${assignment.approval_level}` : ""}.`,
           after_value: JSON.stringify(assignment),
           timestamp: new Date().toISOString(),
         });
@@ -3215,7 +3102,7 @@ export class SharePointCERDataService implements ICERDataService {
       return;
     } catch (e) {
       console.error("[SharePointCERDataService] updateUserRole failed in SharePoint:", e);
-      throw new Error(`Unable to update user role for '${assignment.user_name}' in SharePoint CERUserRoles list: ${e instanceof Error ? e.message : String(e)}`);
+      throw new Error(`Unable to update user role for '${assignment.user_name}' in SharePoint role matrix: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
@@ -3224,8 +3111,23 @@ export class SharePointCERDataService implements ICERDataService {
     actor: { name: string; email: string }
   ): Promise<void> {
     this.clearCache();
+    // Security restriction: System Admin accounts cannot be deleted via the UI
     try {
-      const listName = SP_LISTS.CER_USER_ROLES;
+      const existingRoles = await this.getUserRoles();
+      const target = existingRoles.find((r) => String(r.id) === String(assignmentId));
+      if (target && target.role === "Admin") {
+        throw new Error(
+          "Security Restriction: System Admin accounts cannot be deleted through the web interface. System Admin permissions must be managed directly in SharePoint CERRoleMatrix list."
+        );
+      }
+    } catch (checkErr: any) {
+      if (String(checkErr?.message || "").indexOf("Security Restriction") !== -1) {
+        throw checkErr;
+      }
+    }
+
+    try {
+      const listName = SP_LISTS.CER_ROLE_MATRIX;
       await this._sp.deleteListItem(listName, assignmentId);
 
       try {
@@ -3244,7 +3146,7 @@ export class SharePointCERDataService implements ICERDataService {
       return;
     } catch (e) {
       console.error("[SharePointCERDataService] revokeUserRole failed in SharePoint:", e);
-      throw new Error(`Unable to revoke user role assignment '${assignmentId}' in SharePoint CERUserRoles list: ${e instanceof Error ? e.message : String(e)}`);
+      throw new Error(`Unable to revoke user role assignment '${assignmentId}' in SharePoint role matrix: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 

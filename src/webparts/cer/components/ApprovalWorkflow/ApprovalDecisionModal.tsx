@@ -6,6 +6,7 @@ import { IWorkflowLevel } from "../../models/WorkflowModel";
 import { IAppUser } from "../../models/UserModel";
 import { PermissionService } from "../../services/PermissionService";
 import { UserAvatar } from "../Common/UserAvatar";
+import { sanitizeMultiLineText } from "../../utils/sanitizationUtils";
 
 interface IApprovalDecisionModalProps {
   proposal: ICERProposal;
@@ -53,9 +54,11 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
       return;
     }
 
+    const sanitizedComments = sanitizeMultiLineText(comments);
+
     setIsSubmitting(true);
     try {
-      await onSubmitDecision(decision, comments.trim());
+      await onSubmitDecision(decision, sanitizedComments);
       onClose();
     } catch (e: any) {
       setError(e.message || "Failed to record decision.");

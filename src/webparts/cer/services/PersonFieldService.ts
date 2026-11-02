@@ -330,8 +330,16 @@ export class PersonFieldService {
     if (personObj && typeof personObj === "object") {
       const id = Number(personObj.Id !== undefined ? personObj.Id : personObj.id);
       const name = String(personObj.Title || personObj.title || personObj.LookupValue || "");
-      const email = String(personObj.EMail || personObj.Email || personObj.email || personObj.Mail || "");
-      const loginName = String(personObj.Name || personObj.name || personObj.UserName || email);
+      let email = String(personObj.EMail || personObj.Email || personObj.email || personObj.Mail || "");
+      let loginName = String(personObj.LoginName || personObj.loginName || personObj.Name || personObj.name || personObj.UserName || email);
+
+      // If email is empty (common for vendor/contractor accounts like 70007144@cairnindia.com), extract email from LoginName
+      if (!email && loginName) {
+        const claimsStripped = loginName.replace(/^i:0#\.f\|membership\|/i, "");
+        if (claimsStripped.indexOf("@") !== -1) {
+          email = claimsStripped;
+        }
+      }
 
       return {
         id: !isNaN(id) && id > 0 ? id : undefined,

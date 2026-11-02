@@ -174,7 +174,7 @@ async function runPersistenceRegressionTests() {
             }),
           };
         }
-        if (url.includes("CER_UserRoles") || url.includes("CERUserRoles")) {
+        if (url.includes("CERRoleMatrix") || url.includes("CER_UserRoles") || url.includes("CERUserRoles")) {
           return {
             ok: true,
             status: 200,
@@ -625,7 +625,7 @@ async function runPersistenceRegressionTests() {
     const mockHttp = createMockHttpClient({
       get: async () => ({ ok: true, status: 200, json: async () => ({ value: [] }) }),
       post: async (url: string) => {
-        if (url.includes("CER_UserRoles") || url.includes("CERUserRoles")) {
+        if (url.includes("CERRoleMatrix") || url.includes("CER_UserRoles") || url.includes("CERUserRoles")) {
           return {
             ok: false,
             status: 403,

@@ -16,11 +16,12 @@ When creating lists manually in SharePoint (**Site Contents -> New -> List -> Bl
 | 1   | **`CERProposals`**         | Custom List      | Master repository for all active CER proposal records (Sections A through G).                                                                                                   |
 | 2   | **`CERProposalsHistory`**  | Custom List      | Archive repository for approved proposal snapshots prior to post-approval changes (identical schema to `CERProposals`). In View CER, displayed under the "CER History" section. |
 | 3   | **`CERAuditTrail`**        | Custom List      | Granular field-level delta change history for compliance and auditing.                                                                                                          |
-| 4   | **`CERWorkflowLevels`**    | Custom List      | SBU-specific approval hierarchies, role stages, and routing logic.                                                                                                              |
+| 4   | **`CERWorkflowLevels`**    | Custom List      | Legacy dynamic workflow levels (superseded by Fixed Six-Level Sequential Workflow; kept for historical reference).                               |
 | 5   | **`CERApprovalDecisions`** | Custom List      | Formal sign-off records (Approved / Rejected) with timestamps.                                                                                                                  |
 | 6   | **`CERAttachments`**       | Document Library | Associated technical and financial PDF/Excel documentation.                                                                                                                     |
 | 7   | **`CERNotifications`**     | Custom List      | Email notification dispatch records and recipient logs.                                                                                                                         |
-| 8   | **`CERUserRoles`**         | Custom List      | Enterprise Role-Based Access Control (RBAC) registry.                                                                                                                           |
+| 8   | **`CERRoleMatrix`**        | Custom List      | Modern SBU-wise Role-Based Access Control (RBAC) and Fixed 6-Level Approval Matrix (replaces legacy `CERUserRoles`).                                                           |
+| 9   | **`CERUserRoles`**         | Custom List      | Legacy user roles list (supported with backward-compatible fallback).                                                                                                          |
 
 ---
 
@@ -268,31 +269,65 @@ Go to **List Settings -> Indexed Columns -> Create a new index**:
 
 ---
 
-### 2.8 `CERUserRoles` (Master RBAC Registry & Person Columns)
+### 2.8 `CERRoleMatrix` (Modern SBU Role Matrix & Person Columns)
 
-Stores role assignments for governance, authorization checks, and directory integration.
+Modern enterprise role matrix replacing `CERUserRoles`. Controls user authorization, SBU scope, and designates the fixed sequential approvers for L1, L3, L4, L5, and L6.
 
-| Display Name                | Internal Column Name        | SharePoint Field Type | Required | Unique? | Indexed? | Choices / Format / Constraints                    | Business Description                                                                                                                                                                                                                    |
-| --------------------------- | --------------------------- | --------------------- | -------- | ------- | -------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Title**                   | `Title`                     | Single line of text   | Yes      | No      | No       | Full Display Name                                 | Employee display name.                                                                                                                                                                                                                  |
-| **User**                    | **`User`**                  | **Person or Group**   | **Yes**  | No      | **Yes**  | **`SPFieldUser` (Single)**                        | **Native SharePoint Person column.** Populated via `UserId: <IntegerId>` obtained from `ensureUser`. Stores full employee identity including corporate email (`User/EMail`), login name (`User/Name`), presence, and M365 profile card. |
-| Assigned Role               | `role`                      | Choice                | Yes      | No      | **Yes**  | `Admin`, `Initiator`, `Approver`, `Finance_Audit` | Primary system security role.                                                                                                                                                                                                           |
-| Approval Level              | `approvalLevel`             | Number                | No       | No      | **Yes**  | Integer (1..N, only for `Approver`)               | Target approval stage for stage approvers.                                                                                                                                                                                              |
-| Department                  | `department`                | Single line of text   | No       | No      | **Yes**  | Free text                                         | Employee organizational department.                                                                                                                                                                                                     |
-| **Assigned By**             | **`assignedBy`**            | **Person or Group**   | **Yes**  | No      | **Yes**  | **`SPFieldUser` (Single)**                        | **Native SharePoint Person column.** Populated via `assignedById: <IntegerId>` of the Administrator who granted the role. (Can also fall back to built-in `Author` / Created By).                                                       |
-| Assigned Date               | `assignedDate`              | Date and Time         | Yes      | No      | **Yes**  | DateTime (ISO 8601)                               | Timestamp of role grant.                                                                                                                                                                                                                |
-| **Approval Hierarchy Page** | **`approvalHierarchyPage`** | **Yes/No**            | No       | No      | **Yes**  | **Default: `No` (Boolean)**                       | **Granular access flag.** When set to `Yes`, grants this user permission to access and manage the Approval Hierarchy configuration tab in Admin Console (eliminates need for separate `CERHierarchyAdmins` list).                       |
+> [!IMPORTANT]
+> **Key Schema Requirements:**
+> 1. **`User` Unique Constraint:** When creating the `User` column in SharePoint list settings, select **"Enforce unique values: Yes"**. Each employee can have at most one active record in `CERRoleMatrix`.
+> 2. **`isActive` Omission:** The `isActive` column is intentionally **omitted** (not created in SharePoint). Active authorization is denoted by presence in `CERRoleMatrix`.
+> 3. **System Admin Account Governance:** System Admin accounts **cannot** be created, edited, or deleted through the web application UI. New System Admins must be provisioned directly in SharePoint list settings by an authorized SharePoint Administrator.
+> 4. **Mandatory SBU:** SBU is mandatory and strictly limited to: `CBOS`, `RAVA`, `RJ North`, `RJ South`, `All`.
+> 5. **`department` Column Omission:** The `department` column is omitted (not created in SharePoint) from `CERRoleMatrix`. User identity, role, and SBU are the primary matrix dimensions.
 
-#### `CERUserRoles` — Columns to Index in SharePoint List Settings:
+| Display Name            | Internal Column Name | SharePoint Field Type   | Required | Unique?           | Indexed?           | Choices / Format / Constraints                                    | Business Description                                                                                                                                                                                                                    |
+| ----------------------- | -------------------- | ----------------------- | -------- | ----------------- | ------------------ | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Title**               | `Title`              | Single line of text     | Yes      | No                | **Yes (Built-in)** | Employee display name or UPN                                      | Standard SharePoint title field.                                                                                                                                                                                                        |
+| **User**                | **`User`**           | **Person or Group**     | **Yes**  | **Yes (Enforced)**| **Yes**            | **`SPFieldUser` (Single, People only)**                           | **Native SharePoint Person column.** Populated via `UserId: <IntegerId>` obtained from `ensureUser`. Stores full employee identity including corporate email (`User/EMail`), login name (`User/Name`), presence, and M365 profile card. |
+| Assigned Role           | `role`               | Choice                  | Yes      | No                | **Yes**            | `Admin`, `Initiator`, `Approver`, `Finance_Audit`                 | Primary system role. (`Admin` can only be set directly in SharePoint list).                                                                                                                                                             |
+| **SBU**                 | **`sbu`**            | **Choice**              | **Yes**  | No                | **Yes**            | **`CBOS`, `RAVA`, `RJ North`, `RJ South`, `All`**                 | **Mandatory SBU scope.** Determines proposal governance and approval pipeline assignment.                                                                                                                                               |
+| Approval Level Stage    | `approvalLevel`      | Number                  | No       | No                | **Yes**            | Integer (`1`, `3`, `4`, `5`, `6` — only for `Approver`)           | Sequential approval level for stage approvers. (Level 2 is Project Owner and auto-fetched per proposal).                                                                                                                                 |
+| Approver Role Title     | `approverRoleTitle`  | Single line of text     | No       | No                | **Yes**            | `Finance`, `BU CFO`, `BU Director`, `VOGL CFO`, `VOGL CEO`        | Descriptive role title for stage display and audit records.                                                                                                                                                                             |
+| **Assigned By**         | **`assignedBy`**     | **Person or Group**     | **Yes**  | No                | **Yes**            | **`SPFieldUser` (Single, People only)**                           | **Native SharePoint Person column.** Populated via `assignedById: <IntegerId>` of the Administrator who granted the role.                                                                                                             |
+| Assigned Date           | `assignedDate`       | Date and Time           | Yes      | No                | **Yes**            | DateTime (ISO 8601)                                               | Timestamp of role assignment.                                                                                                                                                                                                           |
+
+#### `CERRoleMatrix` — Columns to Index in SharePoint List Settings:
 
 Go to **List Settings -> Indexed Columns -> Create a new index**:
 
-1. `User`
+1. `User` (Person or Group)
 2. `role`
-3. `approvalLevel`
-4. `department`
-5. `assignedBy`
+3. `sbu`
+4. `approvalLevel`
+5. `assignedBy` (Person or Group)
 6. `assignedDate`
-7. `approvalHierarchyPage`
 
 ---
+
+### 2.9 `CERUserRoles` (Legacy User Roles List — Backward Compatibility)
+
+Retained as a fallback data source for backward compatibility during phased tenant migration. All new role assignments and UI updates write directly to `CERRoleMatrix`.
+
+---
+
+## 3. Fixed Six-Level Sequential Approval Workflow Specification
+
+The application enforces an immutable, hardcoded six-level sequential approval workflow. Users and administrators cannot add, delete, rename, or reorder levels through the UI.
+
+| Level | Approval Stage Name | Approver Assignment Mechanism | Resolution Source in `CERRoleMatrix` |
+|---|---|---|---|
+| **L1** | **Finance** | SBU-wise Designated Approver | User with `role = "Approver"`, `approvalLevel = 1`, and matching `sbu` (or `sbu = "All"`) |
+| **L2** | **Project Owner** | **Dynamic Automatic Resolution** | **Resolved automatically from each proposal's `cerOwner` (`owner_email`).** Never configured in `CERRoleMatrix`. |
+| **L3** | **BU CFO** | SBU-wise Designated Approver | User with `role = "Approver"`, `approvalLevel = 3`, and matching `sbu` (or `sbu = "All"`) |
+| **L4** | **BU Director** | SBU-wise Designated Approver | User with `role = "Approver"`, `approvalLevel = 4`, and matching `sbu` (or `sbu = "All"`) |
+| **L5** | **VOGL CFO** | Corporate / SBU Designated Approver | User with `role = "Approver"`, `approvalLevel = 5`, and matching `sbu` (or `sbu = "All"`) |
+| **L6** | **VOGL CEO** | Corporate / SBU Designated Approver | User with `role = "Approver"`, `approvalLevel = 6`, and matching `sbu` (or `sbu = "All"`) |
+
+### Key Workflow Rules:
+1. **Strict Sequential Progression:** A proposal must be approved in strict order: L1 -> L2 -> L3 -> L4 -> L5 -> L6.
+2. **Project Owner Auto-Fetch at L2:** The Project Owner assigned to the CER (`cerOwner` / `owname` / `owner_email`) is dynamically assigned as the L2 approver for that specific proposal.
+3. **Segregation of Duties (SoD):** The initiator or creator of a proposal cannot approve their own proposal at any stage except the designated dynamic Project Owner stage (L2).
+4. **Send Back & Revision Reset:** If any approver selects "Send Back", the proposal reverts to `Revised` status and returns to the Initiator for rework. Upon resubmission, the proposal resets to `In Approval` at **Level 1 (Finance)**.
+5. **Rejection Terminal State:** If any approver rejects the proposal, it permanently transitions to `Rejected` status.
+

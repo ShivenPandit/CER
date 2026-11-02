@@ -249,7 +249,7 @@ async function runPersonFieldServiceTests() {
 
   const mockHttp = {
     get: async (url: string) => {
-      if (url.includes("CERUserRoles") || url.includes("CER_UserRoles")) {
+      if (url.includes("CERRoleMatrix") || url.includes("CERUserRoles") || url.includes("CER_UserRoles")) {
         return {
           ok: true,
           status: 200,
@@ -328,13 +328,13 @@ async function runPersonFieldServiceTests() {
   await spDataService.updateUserRole(
     {
       ...assigned,
-      department: 'Digital Operations',
+      sbu: 'RAVA',
     },
     { name: 'Admin', email: 'admin@example.com' }
   );
   const mergeCall = requestHistory.find((r) => r.method === 'MERGE');
   assert(!!mergeCall && mergeCall.body.UserId === 105, 'updateUserRole wrote UserId: 105 to update payload');
-  assert(!!mergeCall && mergeCall.body.department === 'Digital Operations', 'updateUserRole updated department');
+  assert(!!mergeCall && mergeCall.body.sbu === 'RAVA', 'updateUserRole updated sbu');
 
   // Test getUserRoles with Person field expansion
   const roles = await spDataService.getUserRoles();

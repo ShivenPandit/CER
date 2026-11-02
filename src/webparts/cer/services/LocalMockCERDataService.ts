@@ -6,6 +6,7 @@ import { ICERAttachment } from "../models/AttachmentModel";
 import { IDirectoryUser, MOCK_DIRECTORY_USERS, IUserRoleAssignment, IAdminAuditRecord } from "../models/UserModel";
 import { validateAttachment } from "../utils/attachmentValidation";
 import { getCurrentFiscalYearPhasingLabels, getLocalComponents } from "../utils/dateUtils";
+import { FIXED_6_LEVEL_APPROVAL_STAGES } from "../constants";
 
 const STORAGE_KEYS = {
   PROPOSALS: "CER_APP_PROPOSALS",
@@ -31,6 +32,76 @@ const DEFAULT_USER_ROLES: IUserRoleAssignment[] = [
     sbu: "RJ North",
     is_active: true,
     approval_hierarchy_page: true,
+    assigned_by: "System Bootstrap",
+    assigned_date: "2026-10-23T18:30:00Z",
+  },
+  {
+    id: "2",
+    user_name: "Finance Approver",
+    user_email: "finance.approver@example.com",
+    login_name: "finance.approver@example.com",
+    role: "Approver",
+    approval_level: 1,
+    approver_role_title: "Finance",
+    department: "Finance & Accounts",
+    sbu: "All",
+    is_active: true,
+    assigned_by: "System Bootstrap",
+    assigned_date: "2026-10-23T18:30:00Z",
+  },
+  {
+    id: "3",
+    user_name: "BU CFO Approver",
+    user_email: "bu.cfo@example.com",
+    login_name: "bu.cfo@example.com",
+    role: "Approver",
+    approval_level: 3,
+    approver_role_title: "BU CFO",
+    department: "Finance",
+    sbu: "All",
+    is_active: true,
+    assigned_by: "System Bootstrap",
+    assigned_date: "2026-10-23T18:30:00Z",
+  },
+  {
+    id: "4",
+    user_name: "BU Director Approver",
+    user_email: "bu.director@example.com",
+    login_name: "bu.director@example.com",
+    role: "Approver",
+    approval_level: 4,
+    approver_role_title: "BU Director",
+    department: "Executive Management",
+    sbu: "All",
+    is_active: true,
+    assigned_by: "System Bootstrap",
+    assigned_date: "2026-10-23T18:30:00Z",
+  },
+  {
+    id: "5",
+    user_name: "VOGL CFO Approver",
+    user_email: "vogl.cfo@example.com",
+    login_name: "vogl.cfo@example.com",
+    role: "Approver",
+    approval_level: 5,
+    approver_role_title: "VOGL CFO",
+    department: "Corporate Finance",
+    sbu: "All",
+    is_active: true,
+    assigned_by: "System Bootstrap",
+    assigned_date: "2026-10-23T18:30:00Z",
+  },
+  {
+    id: "6",
+    user_name: "VOGL CEO Approver",
+    user_email: "vogl.ceo@example.com",
+    login_name: "vogl.ceo@example.com",
+    role: "Approver",
+    approval_level: 6,
+    approver_role_title: "VOGL CEO",
+    department: "Executive Leadership",
+    sbu: "All",
+    is_active: true,
     assigned_by: "System Bootstrap",
     assigned_date: "2026-10-23T18:30:00Z",
   },
@@ -580,16 +651,19 @@ export class LocalMockCERDataService implements ICERDataService {
     return historyFound ? { ...historyFound } : null;
   }
 
-  public async getProposalHistory(cerProposalId: string): Promise<ICERProposal[]> {
+  public async getProposalHistory(cerProposalId?: string): Promise<ICERProposal[]> {
     const cleanId = (cerProposalId || "").trim().toUpperCase();
-    if (!cleanId) return [];
+    if (!cleanId || cleanId === "ALL") {
+      return this._proposalsHistory.map((p) => ({ ...p }));
+    }
     return this._proposalsHistory
-      .filter(p => {
+      .filter((p) => {
         const pCerId = (p.cer_proposal_id || p.cerPrId || p.cerprno || "").trim().toUpperCase();
         const pCerNo = (p.cerprno || "").trim().toUpperCase();
-        return pCerId === cleanId || pCerNo === cleanId;
+        const pPropNo = (p.proposal_no || "").trim().toUpperCase();
+        return pCerId === cleanId || pCerNo === cleanId || pPropNo === cleanId;
       })
-      .map(p => ({ ...p }));
+      .map((p) => ({ ...p }));
   }
 
   public async getAllSubmissionsForCER(cerProposalId: string): Promise<{ active: ICERProposal | null; history: ICERProposal[] }> {
@@ -681,10 +755,7 @@ export class LocalMockCERDataService implements ICERDataService {
 
     const now = new Date().toISOString();
     const isDraft = proposal.status === "Draft";
-    const sbuLower = (proposal.sbu || "").trim().toLowerCase();
-    const activeLevels = this._workflowLevels
-      .filter(l => l.is_active && (l.sbu || "").trim().toLowerCase() === sbuLower)
-      .sort((a, b) => a.level_id - b.level_id);
+    const activeLevels = await this.getWorkflowLevels(proposal.sbu);
 
     if (!isDraft && activeLevels.length === 0) {
       throw new Error(`No approval stages configured for SBU '${proposal.sbu}'. Please configure workflow levels in Admin settings.`);
@@ -948,46 +1019,104 @@ export class LocalMockCERDataService implements ICERDataService {
   }
 
   public async getWorkflowLevels(sbu?: string, _forceRefresh?: boolean): Promise<IWorkflowLevel[]> {
-    const mapLevel = (lvl: IWorkflowLevel): IWorkflowLevel => {
-      const isPO = isProjectOwnerStage(lvl);
-      const assignmentType: ApproverAssignmentType = lvl.assignment_type || (isPO ? "ProjectOwnerAuto" : "SpecificUser");
-      if (isPO) {
+    if (this._workflowLevels && this._workflowLevels.length > 0) {
+      const mapLevel = (lvl: IWorkflowLevel): IWorkflowLevel => {
+        const isPO = isProjectOwnerStage(lvl);
+        const assignmentType: ApproverAssignmentType = lvl.assignment_type || (isPO ? "ProjectOwnerAuto" : "SpecificUser");
+        if (isPO) {
+          return {
+            ...lvl,
+            assignment_type: assignmentType,
+            is_project_owner_stage: true,
+            approver_name: "Project Owner (Auto-fetched from CER Proposal)",
+            approver_email: "",
+          };
+        }
+
+        const matchedUser = this._userRoles.find(
+          (u) => u.is_active && u.role === "Approver" && u.approval_level === lvl.level_id
+        );
+
         return {
           ...lvl,
           assignment_type: assignmentType,
-          is_project_owner_stage: true,
-          approver_name: "Project Owner (Auto-fetched from CER Proposal)",
-          approver_email: "",
+          is_project_owner_stage: false,
+          approver_name: lvl.approver_name || (matchedUser ? matchedUser.user_name : ""),
+          approver_email: lvl.approver_email || (matchedUser ? matchedUser.user_email : ""),
         };
-      }
-
-      const matchedUser = this._userRoles.find(
-        (u) => u.is_active && u.role === "Approver" && u.approval_level === lvl.level_id
-      );
-
-      return {
-        ...lvl,
-        assignment_type: assignmentType,
-        is_project_owner_stage: false,
-        approver_name: matchedUser ? matchedUser.user_name : (lvl.approver_name || ""),
-        approver_email: matchedUser ? matchedUser.user_email : (lvl.approver_email || ""),
       };
-    };
 
-    if (sbu) {
-      const sbuLower = sbu.trim().toLowerCase();
-      return this._workflowLevels
-        .filter(l => (l.sbu || "").trim().toLowerCase() === sbuLower)
-        .sort((a, b) => a.level_id - b.level_id)
+      if (sbu) {
+        const sbuLower = sbu.trim().toLowerCase();
+        return this._workflowLevels
+          .filter(l => (l.sbu || "").trim().toLowerCase() === sbuLower)
+          .sort((a, b) => a.level_id - b.level_id)
+          .map(mapLevel);
+      }
+      return [...this._workflowLevels]
+        .sort((a, b) => {
+          const sbuComp = (a.sbu || "").localeCompare(b.sbu || "");
+          if (sbuComp !== 0) return sbuComp;
+          return a.level_id - b.level_id;
+        })
         .map(mapLevel);
     }
-    return [...this._workflowLevels]
-      .sort((a, b) => {
-        const sbuComp = (a.sbu || "").localeCompare(b.sbu || "");
-        if (sbuComp !== 0) return sbuComp;
-        return a.level_id - b.level_id;
-      })
-      .map(mapLevel);
+
+    const targetSbu = sbu ? sbu.trim() : "";
+    return FIXED_6_LEVEL_APPROVAL_STAGES.map((stage) => {
+      const lid = stage.level;
+      const isPO = stage.isProjectOwnerStage;
+
+      let matchedUser: IUserRoleAssignment | undefined;
+      if (!isPO) {
+        matchedUser = this._userRoles.find(
+          (u) =>
+            u.is_active &&
+            u.role === "Approver" &&
+            u.approval_level === lid &&
+            Boolean(u.sbu && u.sbu.toLowerCase() === targetSbu.toLowerCase())
+        );
+
+        if (!matchedUser) {
+          matchedUser = this._userRoles.find(
+            (u) =>
+              u.is_active &&
+              u.role === "Approver" &&
+              u.approval_level === lid &&
+              Boolean(u.sbu && u.sbu.toLowerCase() === "all")
+          );
+        }
+
+        if (!matchedUser) {
+          matchedUser = this._userRoles.find(
+            (u) => u.is_active && u.role === "Approver" && u.approval_level === lid
+          );
+        }
+      }
+
+      return {
+        id: `L${lid}-${targetSbu || "ALL"}`,
+        level_id: lid,
+        level_name: stage.name,
+        role_title: stage.roleTitle,
+        sbu: targetSbu || "All",
+        is_active: true,
+        assignment_type: stage.assignmentType,
+        is_project_owner_stage: isPO,
+        approver_name: isPO
+          ? "Project Owner (Auto-fetched from CER Proposal)"
+          : matchedUser
+          ? matchedUser.user_name
+          : "",
+        approver_email: isPO
+          ? ""
+          : matchedUser
+          ? matchedUser.user_email
+          : "",
+        created_by: matchedUser ? matchedUser.assigned_by : "System Bootstrap",
+        created_date: matchedUser ? matchedUser.assigned_date : "",
+      };
+    });
   }
 
   public async saveWorkflowLevels(levels: IWorkflowLevel[]): Promise<void> {
@@ -1030,10 +1159,7 @@ export class LocalMockCERDataService implements ICERDataService {
     const proposal = this._proposals[propIndex];
 
     // Determine active levels for proposal SBU
-    const sbuLower = (proposal.sbu || "").trim().toLowerCase();
-    const activeLevels = this._workflowLevels
-      .filter(l => l.is_active && (l.sbu || "").trim().toLowerCase() === sbuLower)
-      .sort((a, b) => a.level_id - b.level_id);
+    const activeLevels = await this.getWorkflowLevels(proposal.sbu);
 
     const currentLevelConfig = activeLevels.find(l => l.level_id === params.level_id);
     const isCurrentPO = currentLevelConfig ? isProjectOwnerStage(currentLevelConfig) : false;
@@ -1366,11 +1492,17 @@ export class LocalMockCERDataService implements ICERDataService {
     assignment: Omit<IUserRoleAssignment, "id">,
     actor: { name: string; email: string }
   ): Promise<IUserRoleAssignment> {
+    if (assignment.role === "Admin" && actor.name !== "SYSTEM_INITIAL_BOOTSTRAP" && actor.name !== "SYSTEM_DESIGNATED_ADMIN_PROVISION") {
+      throw new Error(
+        "Security Restriction: System Admin accounts cannot be created or modified through the web interface. System Admin permissions must be managed directly in SharePoint CERRoleMatrix list."
+      );
+    }
+
     const actorEmail = (actor.email || "").trim().toLowerCase();
     const isAdminActor = this._userRoles.some(
       r => r.user_email.trim().toLowerCase() === actorEmail && r.role === "Admin" && r.is_active
     );
-    if (!isAdminActor && actorEmail.indexOf("Admin") === -1 && actor.name !== "SYSTEM_INITIAL_BOOTSTRAP") {
+    if (!isAdminActor && actorEmail.indexOf("Admin") === -1 && actor.name !== "SYSTEM_INITIAL_BOOTSTRAP" && actor.name !== "SYSTEM_DESIGNATED_ADMIN_PROVISION") {
       throw new Error(`Unauthorized: Only an active Administrator can assign roles. Actor '${actor.name}' does not possess Admin privileges.`);
     }
 
@@ -1410,6 +1542,12 @@ export class LocalMockCERDataService implements ICERDataService {
     assignment: IUserRoleAssignment,
     actor: { name: string; email: string }
   ): Promise<void> {
+    if (assignment.role === "Admin" && actor.name !== "SYSTEM_INITIAL_BOOTSTRAP" && actor.name !== "SYSTEM_DESIGNATED_ADMIN_PROVISION") {
+      throw new Error(
+        "Security Restriction: System Admin accounts cannot be modified through the web interface. System Admin permissions must be managed directly in SharePoint CERRoleMatrix list."
+      );
+    }
+
     const actorEmail = (actor.email || "").trim().toLowerCase();
     const isAdminActor = this._userRoles.some(
       r => r.user_email.trim().toLowerCase() === actorEmail && r.role === "Admin" && r.is_active
@@ -1455,6 +1593,13 @@ export class LocalMockCERDataService implements ICERDataService {
     assignmentId: string,
     actor: { name: string; email: string }
   ): Promise<void> {
+    const existing = this._userRoles.find(r => r.id === assignmentId);
+    if (existing && existing.role === "Admin" && actor.name !== "SYSTEM_INITIAL_BOOTSTRAP") {
+      throw new Error(
+        "Security Restriction: System Admin accounts cannot be deleted through the web interface. System Admin permissions must be managed directly in SharePoint CERRoleMatrix list."
+      );
+    }
+
     const actorEmail = (actor.email || "").trim().toLowerCase();
     const isAdminActor = this._userRoles.some(
       r => r.user_email.trim().toLowerCase() === actorEmail && r.role === "Admin" && r.is_active

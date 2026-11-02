@@ -6,6 +6,9 @@ import {
   AlertCircle,
   FileText,
   ChevronRight,
+  History,
+  Eye,
+  Calendar,
 } from "lucide-react";
 import { ICERProposal } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
@@ -63,33 +66,16 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
     };
   }, [cerProposalId, dataService]);
 
-  // Combine active and history items for the table
-  const allSubmissions: Array<{ proposal: ICERProposal; isCurrent: boolean; versionLabel: string }> = [];
-
-  if (activeProposal) {
-    allSubmissions.push({
-      proposal: activeProposal,
-      isCurrent: true,
-      versionLabel: historyProposals.length > 0 ? `Active Version (v${historyProposals.length + 1})` : "Active Submission",
-    });
-  }
-
-  // Historical items ordered from most recent archived to oldest
-  historyProposals.forEach((item, idx) => {
-    const revNum = historyProposals.length - idx;
-    allSubmissions.push({
-      proposal: item,
-      isCurrent: false,
-      versionLabel: `Archived Approved (v${revNum})`,
-    });
-  });
-
-  const projectName = activeProposal?.pr_name || historyProposals[0]?.pr_name || "Capital Expenditure Request";
+  const projectName =
+    activeProposal?.pr_name || historyProposals[0]?.pr_name || "Capital Expenditure Request";
 
   const getInitials = (name?: string): string => {
     if (!name) return "U";
-    // Strip parenthesized or bracketed text like "(Microlink)" or "[Contractor]"
-    const clean = name.replace(/\(.*?\)/g, "").replace(/\[.*?\]/g, "").replace(/[^a-zA-Z\s]/g, " ").trim();
+    const clean = name
+      .replace(/\(.*?\)/g, "")
+      .replace(/\[.*?\]/g, "")
+      .replace(/[^a-zA-Z\s]/g, " ")
+      .trim();
     const parts = clean.split(/\s+/).filter(Boolean);
     if (parts.length === 0) {
       const alphaOnly = name.replace(/[^a-zA-Z]/g, "");
@@ -99,6 +85,21 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
       return parts[0].substring(0, Math.min(2, parts[0].length)).toUpperCase();
     }
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  const formatSnapshotDate = (dateVal?: string): string => {
+    if (!dateVal) return "—";
+    try {
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return dateVal;
+      return d.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    } catch {
+      return dateVal;
+    }
   };
 
   return (
@@ -130,9 +131,9 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-          <Clock className="w-3.5 h-3.5 text-slate-400" />
+          <History className="w-3.5 h-3.5 text-slate-400" />
           <span>
-            Total Submissions: <strong className="text-slate-800">{allSubmissions.length}</strong>
+            Historical Snapshots: <strong className="text-slate-800">{historyProposals.length}</strong>
           </span>
         </div>
       </div>
@@ -145,247 +146,287 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
         </div>
       )}
 
-      {/* Main Submissions Table */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden">
-        <div className="px-4 py-3 bg-slate-50/70 border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-[#012964]" />
-            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-              CER Submissions & Version History
-            </h2>
-          </div>
-          <span className="text-[11px] text-slate-500">
-            Click on any <strong className="text-slate-700">row</strong> to view full details
-          </span>
+      {isLoading ? (
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-16 text-center text-slate-400 text-xs space-y-2">
+          <div className="w-7 h-7 border-2 border-[#012964] border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="font-medium">Loading proposal history from CERProposalsHistory...</p>
         </div>
-
-        {isLoading ? (
-          <div className="py-16 text-center text-slate-400 text-xs space-y-2">
-            <div className="w-6 h-6 border-2 border-[#012964] border-t-transparent rounded-full animate-spin mx-auto" />
-            <p>Loading proposal submissions...</p>
-          </div>
-        ) : allSubmissions.length === 0 ? (
-          <div className="py-16 text-center text-slate-400 text-xs">
-            No proposal records found for ID {cerProposalId}.
-          </div>
-        ) : (
-          <>
-            {/* Mobile Adaptive Cards View (< 640px) */}
-            <div className="block sm:hidden divide-y divide-slate-100">
-              {allSubmissions.map(({ proposal: prop, isCurrent, versionLabel }) => {
-                const effectiveNo = prop.proposal_no || prop.cerprno;
-
-                return (
-                  <div
-                    key={prop.id || effectiveNo}
-                    onClick={() => onNavigateToDisplay(effectiveNo)}
-                    className={`p-4 space-y-2.5 hover:bg-slate-50/80 transition-colors cursor-pointer group ${
-                      isCurrent ? "bg-[#012964]/[0.02]" : ""
-                    }`}
+      ) : (
+        <>
+          {/* Zone 1: Current Active Proposal (CERProposals) */}
+          {activeProposal && (
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] uppercase tracking-wider font-bold text-slate-500">
+                    Current Active Proposal (CERProposals)
+                  </span>
+                  <span className="font-mono font-bold text-xs bg-[#012964]/10 text-[#012964] px-2.5 py-0.5 rounded border border-[#012964]/20">
+                    {activeProposal.proposal_no || activeProposal.cerprno}
+                  </span>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    {historyProposals.length > 0 ? `Active Version (v${historyProposals.length + 1})` : "Active Submission (v1)"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={activeProposal.status} size="sm" />
+                  <button
+                    onClick={() => onNavigateToDisplay(activeProposal.proposal_no || activeProposal.cerprno)}
+                    className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold text-[#012964] bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200/80 cursor-pointer"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-mono font-bold text-sm text-[#012964] group-hover:underline">
-                          {effectiveNo}
-                        </span>
-                        <span
-                          className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${
-                            isCurrent
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              : "bg-slate-100 text-slate-600 border border-slate-200"
-                          }`}
-                        >
-                          {versionLabel}
-                        </span>
-                      </div>
-                      <StatusBadge status={prop.status} size="sm" />
-                    </div>
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>View Proposal</span>
+                  </button>
+                </div>
+              </div>
 
-                    <div>
-                      <h4 className="font-semibold text-slate-900 text-sm leading-snug group-hover:text-[#012964] transition-colors">
-                        {prop.pr_name}
-                      </h4>
-                      <div className="flex items-center gap-2 text-xs text-slate-600 mt-1">
-                        <div className="w-6 h-6 rounded-full bg-blue-50 text-[#012964] font-bold text-[10px] leading-none flex items-center justify-center shrink-0 border border-blue-200/80 shadow-2xs">
-                          {getInitials(prop.owname)}
-                        </div>
-                        <span className="truncate max-w-[150px]">{prop.owname}</span>
-                        <span>•</span>
-                        <span className="font-medium bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">{prop.sbu}</span>
-                      </div>
-                    </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-3 border-t border-slate-100 text-xs">
+                <div>
+                  <span className="text-slate-400 text-[11px] block">Project Name</span>
+                  <span className="font-semibold text-slate-900 truncate block mt-0.5" title={activeProposal.pr_name}>
+                    {activeProposal.pr_name}
+                  </span>
+                </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                      <div>
-                        <span className="text-[10px] text-slate-400 uppercase font-semibold block">
-                          Amount
-                        </span>
-                        <span className="font-bold text-sm text-slate-900">
-                          {prop.currency || "USD"} {Number(prop.amount || 0).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="text-right">
-                          <span className="text-[10px] text-slate-400 uppercase font-semibold block">
-                            Stage
-                          </span>
-                          <span className="text-slate-700 text-xs font-medium">
-                            {prop.status === "Approved" ? "Completed" : `L${prop.current_level || 0}`}
-                          </span>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#012964] group-hover:translate-x-0.5 transition-transform" />
-                      </div>
+                <div>
+                  <span className="text-slate-400 text-[11px] block">Project Owner & SBU</span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <div className="w-5 h-5 rounded-full bg-blue-50 text-[#012964] font-bold text-[10px] flex items-center justify-center shrink-0">
+                      {getInitials(activeProposal.owname)}
                     </div>
+                    <span className="font-medium text-slate-800 truncate">{activeProposal.owname}</span>
+                    <span className="text-[10px] font-semibold bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">
+                      {activeProposal.sbu}
+                    </span>
                   </div>
-                );
-              })}
+                </div>
+
+                <div>
+                  <span className="text-slate-400 text-[11px] block">Current Amount</span>
+                  <span className="font-bold text-slate-900 text-sm mt-0.5 block">
+                    {activeProposal.currency || "USD"} {Number(activeProposal.amount || 0).toLocaleString()}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-slate-400 text-[11px] block">Approval Stage</span>
+                  <span className="font-medium text-slate-700 mt-0.5 block">
+                    {activeProposal.status === "Approved"
+                      ? "Fully Approved"
+                      : activeProposal.status === "Revised"
+                      ? "Initiator (Rework)"
+                      : activeProposal.status === "Draft"
+                      ? "Draft (Not Submitted)"
+                      : `L${activeProposal.current_level} - ${activeProposal.pending_with_role || "Pending"}`}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Zone 2: Historical Snapshots Archive (CERProposalsHistory) */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden">
+            <div className="px-5 py-3.5 bg-slate-50/70 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#012964]" />
+                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Archived Approved Versions (CERProposalsHistory)
+                </h2>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                  {historyProposals.length}
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-500 hidden sm:inline">
+                Click on any <strong className="text-slate-700">row</strong> to load that snapshot
+              </span>
             </div>
 
-            {/* Desktop Table View (>= 640px) */}
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-left border-collapse table-fixed">
-              <colgroup>
-                <col style={{ width: "180px" }} />
-                <col />
-                <col style={{ width: "220px" }} />
-                <col style={{ width: "120px" }} />
-                <col style={{ width: "90px" }} />
-                <col style={{ width: "160px" }} />
-                <col style={{ width: "80px" }} />
-                <col style={{ width: "40px" }} />
-              </colgroup>
-              <thead>
-                <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold uppercase text-xs tracking-wider select-none">
-                  <th className="py-3.5 px-4 whitespace-nowrap">Proposal No</th>
-                  <th className="py-3.5 px-4">Name of Project</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">Project Owner</th>
-                  <th className="py-3.5 px-4 text-right whitespace-nowrap">Amount</th>
-                  <th className="py-3.5 px-3 text-center whitespace-nowrap">Status</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">Pending</th>
-                  <th className="py-3.5 px-3 text-center whitespace-nowrap">Level</th>
-                  <th className="py-3.5 px-3 text-right whitespace-nowrap" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {allSubmissions.map(({ proposal: prop, isCurrent, versionLabel }) => {
-                  const effectiveNo = prop.proposal_no || prop.cerprno;
+            {historyProposals.length === 0 ? (
+              /* Informative Empty State */
+              <div className="p-10 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-blue-50 text-[#012964] border border-blue-200 flex items-center justify-center mx-auto">
+                  <History className="w-6 h-6 text-[#012964]" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-sm">
+                    No Historical Versions in CERProposalsHistory
+                  </h3>
+                  <p className="text-xs text-slate-500 max-w-lg mx-auto mt-1 leading-relaxed">
+                    This proposal is currently in its initial cycle (v1). When an approved proposal is amended and resubmitted, the previous approved snapshot is automatically archived in the SharePoint list <strong>CERProposalsHistory</strong>.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Mobile Cards View (< 640px) */}
+                <div className="block sm:hidden divide-y divide-slate-100">
+                  {historyProposals.map((prop, idx) => {
+                    const revNum = historyProposals.length - idx;
+                    const effectiveNo = prop.proposal_no || prop.cerprno;
 
-                  return (
-                    <tr
-                      key={prop.id || effectiveNo}
-                      onClick={() => onNavigateToDisplay(effectiveNo)}
-                      className={`hover:bg-blue-50/40 cursor-pointer transition-colors group select-none ${
-                        isCurrent ? "bg-[#012964]/[0.02]" : ""
-                      }`}
-                      title="Click to view proposal details"
-                    >
-                      {/* 1. Proposal No */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="flex flex-col items-start gap-1">
-                          <span className="font-mono font-bold text-sm text-[#012964] group-hover:underline text-left">
-                            {effectiveNo}
-                          </span>
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                              isCurrent
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                : "bg-slate-100 text-slate-600 border border-slate-200"
-                            }`}
-                          >
-                            {versionLabel}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* 2. Name of Project */}
-                      <td className="py-3.5 px-4 font-semibold text-sm text-slate-900 overflow-hidden">
-                        <span className="block truncate group-hover:text-[#012964] transition-colors" title={prop.pr_name}>
-                          {prop.pr_name}
-                        </span>
-                        {prop.request_date && (
-                          <span className="text-xs text-slate-400 block mt-0.5 font-normal">
-                            Req Date: {prop.request_date}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* 3. Project Owner */}
-                      <td className="py-3.5 px-4 overflow-hidden">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-7 h-7 rounded-full bg-blue-50 text-[#012964] font-bold text-[11px] leading-none flex items-center justify-center shrink-0 border border-blue-200/80 shadow-2xs group-hover:border-[#012964]/40">
-                            {getInitials(prop.owname)}
-                          </div>
-                          <div className="min-w-0">
-                            <span className="font-medium text-sm text-slate-800 block truncate" title={prop.owname}>
-                              {prop.owname}
+                    return (
+                      <div
+                        key={prop.id || `${effectiveNo}-${idx}`}
+                        onClick={() => onNavigateToDisplay(effectiveNo)}
+                        className="p-4 space-y-2.5 hover:bg-slate-50/80 transition-colors cursor-pointer group"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-bold text-sm text-[#012964] group-hover:underline">
+                              {effectiveNo}
                             </span>
-                            <span className="text-xs text-slate-400 font-medium block truncate">
+                            <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                              Archived v{revNum}
+                            </span>
+                          </div>
+                          <StatusBadge status="Approved" size="sm" />
+                        </div>
+
+                        <div>
+                          <h4 className="font-semibold text-slate-900 text-xs leading-snug group-hover:text-[#012964] transition-colors">
+                            {prop.pr_name}
+                          </h4>
+                          <div className="flex items-center gap-2 text-xs text-slate-600 mt-1">
+                            <div className="w-5 h-5 rounded-full bg-blue-50 text-[#012964] font-bold text-[10px] flex items-center justify-center shrink-0">
+                              {getInitials(prop.owname)}
+                            </div>
+                            <span className="truncate">{prop.owname}</span>
+                            <span>•</span>
+                            <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] font-semibold">
                               {prop.sbu}
                             </span>
                           </div>
                         </div>
-                      </td>
 
-                      {/* 4. AMOUNT */}
-                      <td className="py-3.5 px-4 text-right font-bold text-sm text-slate-900 whitespace-nowrap">
-                        {prop.currency || "USD"} {Number(prop.amount || 0).toLocaleString()}
-                      </td>
-
-                      {/* 5. STATUS */}
-                      <td className="py-3.5 px-3 text-center whitespace-nowrap">
-                        <StatusBadge status={prop.status} size="sm" />
-                      </td>
-
-                      {/* 6. PENDING */}
-                      <td className="py-3.5 px-4 whitespace-nowrap text-sm font-medium">
-                        <span
-                          title={
-                            prop.status === "Approved"
-                              ? "Completed"
-                              : prop.status === "Rejected"
-                              ? "Rejected"
-                              : prop.status === "Revised"
-                              ? "Initiator (Rework)"
-                              : prop.pending_with_role || "Pending"
-                          }
-                        >
-                          {prop.status === "Approved" ? (
-                            <span className="text-emerald-700 font-semibold flex items-center gap-1.5">
-                              <CheckCircle2 className="w-3.5 h-3.5 inline" />
-                              Approved
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+                              Approved Amount
                             </span>
-                          ) : prop.status === "Rejected" ? (
-                            <span className="text-rose-700 font-semibold">Rejected</span>
-                          ) : prop.status === "Revised" ? (
-                            <span className="text-purple-700 font-semibold">Initiator (Rework)</span>
-                          ) : (
-                            <span className="text-slate-700">
-                              {prop.pending_with_role || "Approver"}
+                            <span className="font-bold text-slate-900">
+                              {prop.currency || "USD"} {Number(prop.amount || 0).toLocaleString()}
                             </span>
-                          )}
-                        </span>
-                      </td>
+                          </div>
+                          <div className="flex items-center gap-1 text-[#012964] font-semibold text-xs">
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>View Snapshot</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
 
-                      {/* 7. LEVEL */}
-                      <td className="py-3.5 px-3 text-center whitespace-nowrap">
-                        <span className="font-mono text-slate-700 font-semibold text-sm">
-                          {prop.status === "Approved" ? "Completed" : `L${prop.current_level || 0}`}
-                        </span>
-                      </td>
+                {/* Desktop & Tablet Table View (>= 640px) */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse table-fixed">
+                    <colgroup>
+                      <col style={{ width: "160px" }} />
+                      <col />
+                      <col style={{ width: "190px" }} />
+                      <col style={{ width: "130px" }} />
+                      <col style={{ width: "120px" }} />
+                      <col style={{ width: "90px" }} />
+                      <col style={{ width: "130px" }} />
+                    </colgroup>
+                    <thead>
+                      <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold uppercase text-xs tracking-wider select-none">
+                        <th className="py-3 px-4 whitespace-nowrap">Archived Version</th>
+                        <th className="py-3 px-4">Name of Project</th>
+                        <th className="py-3 px-4 whitespace-nowrap">Project Owner</th>
+                        <th className="py-3 px-4 text-right whitespace-nowrap">Approved Amount</th>
+                        <th className="py-3 px-4 whitespace-nowrap">Archived Date</th>
+                        <th className="py-3 px-3 text-center whitespace-nowrap">Status</th>
+                        <th className="py-3 px-3 text-center whitespace-nowrap">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {historyProposals.map((prop, idx) => {
+                        const revNum = historyProposals.length - idx;
+                        const effectiveNo = prop.proposal_no || prop.cerprno;
 
-                      {/* 8. Chevron Indicator */}
-                      <td className="py-3.5 px-3 text-right whitespace-nowrap w-12">
-                        <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-[#012964] group-hover:translate-x-0.5 transition-all inline-block" />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        return (
+                          <tr
+                            key={prop.id || `${effectiveNo}-${idx}`}
+                            onClick={() => onNavigateToDisplay(effectiveNo)}
+                            className="hover:bg-blue-50/40 cursor-pointer transition-colors group select-none"
+                            title="Click to load historical snapshot into Display view"
+                          >
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <div className="flex flex-col items-start gap-0.5">
+                                <span className="font-mono font-bold text-sm text-[#012964] group-hover:underline">
+                                  {effectiveNo}
+                                </span>
+                                <span className="text-[11px] font-semibold text-slate-500">
+                                  Archived Version (v{revNum})
+                                </span>
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-4 font-semibold text-sm text-slate-900 overflow-hidden">
+                              <span className="block truncate group-hover:text-[#012964] transition-colors" title={prop.pr_name}>
+                                {prop.pr_name}
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4 overflow-hidden">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-6 h-6 rounded-full bg-blue-50 text-[#012964] font-bold text-[10px] leading-none flex items-center justify-center shrink-0 border border-blue-200 shadow-2xs">
+                                  {getInitials(prop.owname)}
+                                </div>
+                                <div className="min-w-0">
+                                  <span className="font-medium text-xs text-slate-800 block truncate" title={prop.owname}>
+                                    {prop.owname}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 font-medium block">
+                                    {prop.sbu}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-4 text-right font-bold text-sm text-slate-900 whitespace-nowrap">
+                              {prop.currency || "USD"} {Number(prop.amount || 0).toLocaleString()}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-xs text-slate-600 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                <span>{formatSnapshotDate(prop.modified_date || prop.created_date)}</span>
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-3 text-center whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Approved
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-3 text-center whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onNavigateToDisplay(effectiveNo);
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-[#012964] bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200/80 cursor-pointer"
+                                title="View this historical snapshot"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>View</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         </>
       )}
-      </div>
     </div>
   );
 };

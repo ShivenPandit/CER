@@ -303,7 +303,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
               <col style={{ width: "105px" }} />
               <col style={{ width: "95px" }} />
               <col style={{ width: "140px" }} />
-              <col style={{ width: "150px" }} />
+              <col style={{ width: "175px" }} />
             </colgroup>
             <thead>
               <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold uppercase text-xs tracking-wider select-none">
@@ -329,12 +329,17 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                 visibleProposals.map((prop) => (
                   <tr
                     key={prop.id}
-                    onClick={() => handleRowClick(prop)}
-                    className="hover:bg-blue-50/40 cursor-pointer transition-colors group select-none"
-                    title="Click to view proposal details"
+                    className="hover:bg-slate-50/70 transition-colors select-none"
                   >
-                    <td className="py-3.5 px-4 text-left align-middle font-mono font-bold text-sm text-[#012964] group-hover:underline whitespace-nowrap">
-                      {prop.cer_proposal_id || prop.cerprno}
+                    <td className="py-3.5 px-4 text-left align-middle whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => handleRowClick(prop)}
+                        className="font-mono font-bold text-sm text-[#012964] hover:underline cursor-pointer text-left focus:outline-none"
+                        title={`View ${prop.cer_proposal_id || prop.cerprno}`}
+                      >
+                        {prop.cer_proposal_id || prop.cerprno}
+                      </button>
                     </td>
                     <td className="py-3.5 px-4 text-left align-middle overflow-hidden whitespace-nowrap">
                       <span
@@ -383,6 +388,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                     </td>
                     <td className="py-3.5 px-3 text-center align-middle whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        {/* Always show View button across all statuses */}
                         <button
                           type="button"
                           onClick={() => {
@@ -395,21 +401,35 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                           <Eye className="w-3.5 h-3.5" />
                           <span>View</span>
                         </button>
-                        {(() => {
-                          if (prop.status === "In Approval") {
-                            return null;
-                          }
 
+                        {/* Status-specific action button */}
+                        {(() => {
+                          const targetId = prop.cerprno || prop.proposal_no || prop.cer_proposal_id;
                           const editAuth = PermissionService.canEditCER(prop, currentUser);
                           const canEdit = editAuth.allowed && Boolean(onNavigateToChange);
+                          if (!canEdit) return null;
 
-                          if (prop.status === "Approved") {
-                            if (!canEdit) return null;
+                          if (prop.status === "Draft") {
                             return (
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const targetId = prop.cerprno || prop.proposal_no || prop.cer_proposal_id;
+                                  if (onNavigateToChange && targetId) onNavigateToChange(targetId);
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer border border-amber-200"
+                                title="Edit draft proposal"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                                <span>Edit</span>
+                              </button>
+                            );
+                          }
+
+                          if (prop.status === "Approved") {
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => {
                                   if (onNavigateToChange && targetId) onNavigateToChange(targetId);
                                 }}
                                 className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 rounded-lg transition-colors cursor-pointer border border-emerald-200/60 shadow-2xs"
@@ -421,20 +441,18 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                             );
                           }
 
-                          if (prop.status === "Draft" || prop.status === "Revised") {
-                            if (!canEdit) return null;
+                          if (prop.status === "Revised") {
                             return (
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const targetId = prop.cerprno || prop.proposal_no || prop.cer_proposal_id;
                                   if (onNavigateToChange && targetId) onNavigateToChange(targetId);
                                 }}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-amber-700 bg-amber-50/80 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer border border-amber-200/60"
-                                title="Edit proposal"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer border border-amber-200"
+                                title="Edit and resubmit reworked proposal"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
-                                <span>Edit</span>
+                                <span>Edit & Resubmit</span>
                               </button>
                             );
                           }
@@ -460,13 +478,16 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
             visibleProposals.map((prop) => (
               <div
                 key={prop.id}
-                onClick={() => handleRowClick(prop)}
-                className="p-4 space-y-3 hover:bg-slate-50/80 transition-colors cursor-pointer group"
+                className="p-4 space-y-3 hover:bg-slate-50/80 transition-colors"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono font-bold text-sm text-[#012964] bg-blue-50/80 px-2.5 py-1 rounded-lg border border-blue-200/60 group-hover:underline">
+                  <button
+                    type="button"
+                    onClick={() => handleRowClick(prop)}
+                    className="font-mono font-bold text-sm text-[#012964] bg-blue-50/80 px-2.5 py-1 rounded-lg border border-blue-200/60 hover:underline cursor-pointer"
+                  >
                     {prop.cer_proposal_id || prop.cerprno}
-                  </span>
+                  </button>
                   <div className="flex items-center gap-1.5">
                     <CategoryBadge category={prop.cat} />
                     <StatusBadge status={prop.status} size="sm" />
@@ -523,14 +544,31 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                     className="inline-flex items-center gap-1 px-2.5 py-1 font-semibold text-[#012964] bg-blue-50/80 hover:bg-blue-100 rounded-lg border border-blue-200/60 cursor-pointer"
                   >
                     <Eye className="w-3.5 h-3.5" />
-                    <span>View Details</span>
+                    <span>View</span>
                   </button>
-                  {(() => {
-                    if (prop.status === "In Approval") return null;
 
+                  {(() => {
+                    const targetId = prop.cerprno || prop.proposal_no || prop.cer_proposal_id;
                     const editAuth = PermissionService.canEditCER(prop, currentUser);
                     const canEdit = editAuth.allowed && Boolean(onNavigateToChange);
                     if (!canEdit) return null;
+
+                    if (prop.status === "Draft") {
+                      return (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onNavigateToChange && targetId) onNavigateToChange(targetId);
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 cursor-pointer"
+                          title="Edit proposal"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+                      );
+                    }
 
                     if (prop.status === "Approved") {
                       return (
@@ -538,7 +576,6 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            const targetId = prop.cerprno || prop.proposal_no || prop.cer_proposal_id;
                             if (onNavigateToChange && targetId) onNavigateToChange(targetId);
                           }}
                           className="inline-flex items-center gap-1 px-2.5 py-1 font-semibold text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 rounded-lg border border-emerald-200/60 cursor-pointer"
@@ -550,20 +587,19 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                       );
                     }
 
-                    if (prop.status === "Draft" || prop.status === "Revised") {
+                    if (prop.status === "Revised") {
                       return (
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            const targetId = prop.cerprno || prop.proposal_no || prop.cer_proposal_id;
                             if (onNavigateToChange && targetId) onNavigateToChange(targetId);
                           }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 font-semibold text-amber-700 bg-amber-50/80 hover:bg-amber-100 rounded-lg border border-amber-200/60 cursor-pointer"
-                          title="Edit proposal"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 cursor-pointer"
+                          title="Edit & Resubmit"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
-                          <span>Edit</span>
+                          <span>Edit & Resubmit</span>
                         </button>
                       );
                     }

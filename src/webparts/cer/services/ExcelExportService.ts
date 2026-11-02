@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { ICERProposal } from "../models/CERModel";
 import { calculateExactDays, getCurrentFiscalYearPhasingLabels } from "../utils/dateUtils";
+import { disarmFormulaInjection } from "../utils/sanitizationUtils";
 import { ICERDataService } from "./ICERDataService";
 
 export interface IExcelExportFilterOptions {
@@ -15,23 +16,10 @@ export interface IExcelExportFilterOptions {
 
 export class ExcelExportService {
   /**
-   * Sanitizes strings to prevent Spreadsheet Formula Injection (CSV / XLS injection attacks)
+   * Sanitizes strings to prevent Spreadsheet Formula Injection (CSV / XLS injection attacks - CWE-1236)
    */
-  private static sanitizeFormula(value: any): any {
-    if (typeof value === "string") {
-      const trimmed = value.trim();
-      if (
-        trimmed.startsWith("=") ||
-        trimmed.startsWith("+") ||
-        trimmed.startsWith("-") ||
-        trimmed.startsWith("@") ||
-        trimmed.startsWith("\t") ||
-        trimmed.startsWith("\r")
-      ) {
-        return `'${trimmed}`;
-      }
-    }
-    return value;
+  public static sanitizeFormula(value: any): any {
+    return disarmFormulaInjection(value);
   }
 
   /**

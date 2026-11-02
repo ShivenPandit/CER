@@ -11,19 +11,17 @@
 
 // SharePoint List & Library Internal Names
 export const SP_LISTS = {
+  CER_ROLE_MATRIX: "CERRoleMatrix",
   CER_PROPOSALS: "CERProposals",
   CER_PROPOSALS_HISTORY: "CERProposalsHistory",
   CER_AUDIT_TRAIL: "CERAuditTrail",
   CER_REMARKS_HISTORY: "CERRemarksHistory",
-  CER_WORKFLOW_LEVELS: "CERWorkflowLevels",
   CER_APPROVAL_DECISIONS: "CERApprovalDecisions",
   CER_ATTACHMENTS: "CERAttachments",
   CER_NOTIFICATIONS: "CERNotifications",
-  CER_USER_ROLES: "CERUserRoles",
   // Legacy compatibility aliases
   CER_MASTER: "CERProposals",
   CER_WORKFLOW_HISTORY: "CERApprovalDecisions",
-  CER_WORKFLOW_CONFIG: "CERWorkflowLevels",
   CER_AUDIT_LOG: "CERAuditTrail",
   CER_NOTIFICATION_LOG: "CERNotifications",
   CER_DOCUMENTS: "CERAttachments",
@@ -44,7 +42,75 @@ export const NAV_VIEWS = {
   WORKFLOW_CONFIG: "workflow-config",
 } as const;
 
-// 7-Level Approval Workflow Hierarchy
+// Fixed Six-Level Approval Workflow Stages
+export interface IFixedApprovalStageConfig {
+  level: number;
+  name: string;
+  roleTitle: string;
+  assignmentType: "SpecificUser" | "ProjectOwnerAuto";
+  isProjectOwnerStage: boolean;
+  approverRoleKey: "Finance" | "ProjectOwner" | "BU_CFO" | "BU_Director" | "VOGL_CFO" | "VOGL_CEO";
+}
+
+export const FIXED_6_LEVEL_APPROVAL_STAGES: readonly IFixedApprovalStageConfig[] = [
+  {
+    level: 1,
+    name: "L1 - Finance Review",
+    roleTitle: "Finance",
+    assignmentType: "SpecificUser",
+    isProjectOwnerStage: false,
+    approverRoleKey: "Finance",
+  },
+  {
+    level: 2,
+    name: "L2 - Project Owner Approval",
+    roleTitle: "Project Owner",
+    assignmentType: "ProjectOwnerAuto",
+    isProjectOwnerStage: true,
+    approverRoleKey: "ProjectOwner",
+  },
+  {
+    level: 3,
+    name: "L3 - BU CFO Approval",
+    roleTitle: "BU CFO",
+    assignmentType: "SpecificUser",
+    isProjectOwnerStage: false,
+    approverRoleKey: "BU_CFO",
+  },
+  {
+    level: 4,
+    name: "L4 - BU Director Approval",
+    roleTitle: "BU Director",
+    assignmentType: "SpecificUser",
+    isProjectOwnerStage: false,
+    approverRoleKey: "BU_Director",
+  },
+  {
+    level: 5,
+    name: "L5 - VOGL CFO Approval",
+    roleTitle: "VOGL CFO",
+    assignmentType: "SpecificUser",
+    isProjectOwnerStage: false,
+    approverRoleKey: "VOGL_CFO",
+  },
+  {
+    level: 6,
+    name: "L6 - VOGL CEO Approval",
+    roleTitle: "VOGL CEO",
+    assignmentType: "SpecificUser",
+    isProjectOwnerStage: false,
+    approverRoleKey: "VOGL_CEO",
+  },
+] as const;
+
+// SBU-Wise Role Matrix Choices (Mandatory SBUs)
+export const ROLE_MATRIX_SBUS = ["CBOS", "RAVA", "RJ North", "RJ South", "All"] as const;
+export type RoleMatrixSBU = typeof ROLE_MATRIX_SBUS[number];
+
+// Supported Roles in CERRoleMatrix
+export const ROLE_MATRIX_ROLES = ["Initiator", "Approver", "Finance_Audit", "Admin"] as const;
+
+// Legacy 7-Level Approval Workflow Hierarchy (retained for backward compatibility)
 export const APPROVAL_LEVELS = [
   { level: 1, name: "HOD Approval", defaultRole: "Approver" },
   { level: 2, name: "Finance & Accounts (F&A)", defaultRole: "Finance" },

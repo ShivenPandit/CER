@@ -1,4 +1,5 @@
 import { ICERProposal } from "../models/CERModel";
+import { containsMaliciousScript } from "./sanitizationUtils";
 
 export type FormErrors = Partial<Record<keyof ICERProposal | "phasing_mismatch" | "cost_mismatch", string>>;
 
@@ -37,7 +38,18 @@ export function validateField(
       const trimmed = String(value || "").trim();
       if (!trimmed) return "Name of the Project is required to save a draft.";
       if (trimmed.length < 3) return "Name of the Project must be at least 3 characters.";
-      if (trimmed.length > 200) return "Name of the Project must not exceed 200 characters.";
+      if (trimmed.length > 100) return "Name of the Project cannot exceed 100 characters.";
+      if (
+        containsMaliciousScript(trimmed) ||
+        /<\s*\/?\s*(script|iframe|object|embed|style|html|body|svg)\b/i.test(trimmed) ||
+        /<\s*[a-zA-Z][^>]*>/i.test(trimmed)
+      ) {
+        return "HTML tags and code snippets are not allowed in Project Name.";
+      }
+      const validCharsRegex = /^[a-zA-Z0-9\s\-_().,:<>=+%]+$/;
+      if (!validCharsRegex.test(trimmed)) {
+        return "Only letters, numbers, spaces, hyphens (-), underscores (_), parentheses (), and symbols (<, >, =) are allowed.";
+      }
       return undefined;
     }
     if (field === "owname") {
@@ -61,18 +73,32 @@ export function validateField(
         return "Completion Date of Project must be on or after Start Date.";
       }
     }
+    if (value && typeof value === "string" && containsMaliciousScript(value)) {
+      return "Field contains disallowed HTML or script tags.";
+    }
     return undefined;
   }
 
   switch (field) {
     // -------------------------------------------------------------------------------------------
-    // 1. Name of the Project (Required text field)
+    // 1. Name of the Project (Required text field, 3-100 characters, alphanumeric, spaces, -, _, (), <, >, =, etc.)
     // -------------------------------------------------------------------------------------------
     case "pr_name": {
       const trimmed = String(value || "").trim();
       if (!trimmed) return "Name of the Project is required.";
       if (trimmed.length < 3) return "Name of the Project must be at least 3 characters.";
-      if (trimmed.length > 200) return "Name of the Project must not exceed 200 characters.";
+      if (trimmed.length > 100) return "Name of the Project cannot exceed 100 characters.";
+      if (
+        containsMaliciousScript(trimmed) ||
+        /<\s*\/?\s*(script|iframe|object|embed|style|html|body|svg)\b/i.test(trimmed) ||
+        /<\s*[a-zA-Z][^>]*>/i.test(trimmed)
+      ) {
+        return "HTML tags and code snippets are not allowed in Project Name.";
+      }
+      const validCharsRegex = /^[a-zA-Z0-9\s\-_().,:<>=+%]+$/;
+      if (!validCharsRegex.test(trimmed)) {
+        return "Only letters, numbers, spaces, hyphens (-), underscores (_), parentheses (), and symbols (<, >, =) are allowed.";
+      }
       return undefined;
     }
 
@@ -136,13 +162,15 @@ export function validateField(
     }
 
     // -------------------------------------------------------------------------------------------
-    // 6. Objective of CER (Required field)
+    // 6. Objective of CER (Required field, max 2,000 characters)
     // -------------------------------------------------------------------------------------------
     case "object": {
       const trimmed = String(value || "").trim();
       if (!trimmed) return "Objective of CER is required.";
-      if (trimmed.length < 10) return "Objective of CER must be at least 10 characters.";
       if (trimmed.length > 2000) return "Objective of CER must not exceed 2,000 characters.";
+      if (containsMaliciousScript(trimmed)) {
+        return "Objective of CER contains disallowed HTML or script tags. Please remove any code snippets.";
+      }
       return undefined;
     }
 
@@ -266,7 +294,9 @@ export function validateField(
     }
 
     case "cost_assumptions": {
-      // Optional field
+      if (value && typeof value === "string" && containsMaliciousScript(value)) {
+        return "Key Assumptions contain disallowed HTML or script tags. Please remove any code snippets.";
+      }
       return undefined;
     }
 
@@ -281,7 +311,9 @@ export function validateField(
     }
 
     case "reason": {
-      // Optional field
+      if (value && typeof value === "string" && containsMaliciousScript(value)) {
+        return "Reason contains disallowed HTML or script tags. Please remove any code snippets.";
+      }
       return undefined;
     }
 
@@ -298,13 +330,18 @@ export function validateField(
 
     case "jv_reason":
     case "remarks_jv": {
-      // Optional field
+      if (value && typeof value === "string" && containsMaliciousScript(value)) {
+        return "JV remarks contain disallowed HTML or script tags. Please remove any code snippets.";
+      }
       return undefined;
     }
 
     case "remarks": {
       if (value) {
         const trimmed = String(value).trim();
+        if (containsMaliciousScript(trimmed)) {
+          return "Remarks contain disallowed HTML or script tags. Please remove any code snippets.";
+        }
         const words = trimmed.split(/\s+/).filter(Boolean).length;
         if (words > 400) {
           return `Remarks exceed the 400-word limit (${words} words entered). Please condense your remarks.`;

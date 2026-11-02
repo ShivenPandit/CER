@@ -13,6 +13,7 @@ import { RemarksSection } from "./RemarksSection";
 import { AttachmentSection } from "./AttachmentSection";
 import { CategoryDefinitionSection } from '../Shared/CategoryDefinitionSection';
 import { FormErrors, validateField, validateAll } from "../../utils/cerValidation";
+import { sanitizeSingleLineText, sanitizeMultiLineText, sanitizeProposalPayload } from "../../utils/sanitizationUtils";
 import { MAX_TOTAL_SIZE_BYTES, formatBytes } from "../../utils/attachmentValidation";
 import { getCurrentFiscalYearPhasingLabels } from "../../utils/dateUtils";
 
@@ -192,10 +193,33 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     }
   };
 
-  // On blur: mark field as touched and validate immediately
+  // On blur: automatically sanitize whitespace/scripts, mark field as touched, and validate immediately
   const handleFieldBlur = (field: keyof ICERProposal) => {
+    let currentVal = formData[field];
+    const isSingleLine = ["pr_name", "proposal_no", "cerprno", "owname"].indexOf(field as string) !== -1;
+    const isMultiLine = ["object", "cost_assumptions", "reason", "jv_reason", "remarks", "remarks_jv"].indexOf(field as string) !== -1;
+
+    let updatedForm = { ...formData };
+    if (typeof currentVal === "string") {
+      if (isSingleLine) {
+        const cleaned = sanitizeSingleLineText(currentVal);
+        if (cleaned !== currentVal) {
+          currentVal = cleaned;
+          updatedForm = { ...updatedForm, [field]: cleaned };
+          setFormData((prev) => ({ ...prev, [field]: cleaned }));
+        }
+      } else if (isMultiLine) {
+        const cleaned = sanitizeMultiLineText(currentVal);
+        if (cleaned !== currentVal) {
+          currentVal = cleaned;
+          updatedForm = { ...updatedForm, [field]: cleaned };
+          setFormData((prev) => ({ ...prev, [field]: cleaned }));
+        }
+      }
+    }
+
     setTouched((prev) => ({ ...prev, [field]: true }));
-    const error = validateField(field, formData[field], formData, false);
+    const error = validateField(field, currentVal, updatedForm, false);
     setErrors((prev) => {
       const updated = { ...prev };
       if (error) {
@@ -207,7 +231,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     });
 
     if (field === "cerprno") {
-      void checkCerNoUniqueness(formData.cerprno);
+      void checkCerNoUniqueness(updatedForm.cerprno);
     }
 
     if (field === "capex_till" || field === "capex_fy" || field === "capex_beyond") {
@@ -262,8 +286,12 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
       return;
     }
 
+    // Normalize and sanitize payload prior to validation and persistence
+    const sanitizedData = sanitizeProposalPayload(formData);
+    setFormData(sanitizedData);
+
     // Validate using modern rules
-    const { errors: validationErrors, isValid, firstErrorField } = validateAll(formData, isDraft);
+    const { errors: validationErrors, isValid, firstErrorField } = validateAll(sanitizedData, isDraft);
 
     if (!isValid) {
       setErrors(validationErrors);
@@ -285,7 +313,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     }
 
     // Verify CER Proposal No. uniqueness before submitting
-    const trimmedNo = (formData.cerprno || "").trim();
+    const trimmedNo = (sanitizedData.cerprno || "").trim();
     if (!trimmedNo) {
       setErrors((prev) => ({ ...prev, cerprno: "CER Proposal Number is required." }));
       setTouched((prev) => ({ ...prev, cerprno: true }));
@@ -313,7 +341,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     setIsSubmitting(true);
     try {
       const payload: ICERProposal = {
-        ...formData,
+        ...sanitizedData,
         status: isDraft ? "Draft" : "In Approval",
       };
 
