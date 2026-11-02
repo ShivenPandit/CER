@@ -403,6 +403,7 @@ const CER: React.FC<ICERProps> = (props) => {
         onGoBack={handleGoBack}
         canGoBack={historyStack.length > 0 || currentView !== "dashboard"}
         onSelectUser={(u) => setCurrentUser(u)}
+        siteUrl={props.newsiteUrl || props.newrelativeUrl || props.newcontext?.pageContext?.web?.absoluteUrl}
       />
 
       {/* Main Content Area - Full Document Flow with Natural Scrolling */}
@@ -423,6 +424,7 @@ const CER: React.FC<ICERProps> = (props) => {
             pendingCount={pendingCount}
             availableHeight={availableHeight}
             hasOwnedProposals={hasOwnedProposals}
+            siteUrl={props.newsiteUrl || props.newrelativeUrl || props.newcontext?.pageContext?.web?.absoluteUrl}
           />
         )}
 

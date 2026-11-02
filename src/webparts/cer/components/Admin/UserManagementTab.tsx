@@ -92,6 +92,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
   const [selectedRole, setSelectedRole] = useState<UserRole>("Initiator");
   const [approvalLevel, setApprovalLevel] = useState<number>(1);
   const [department, setDepartment] = useState("");
+  const [assignApprovalHierarchy, setAssignApprovalHierarchy] = useState<boolean>(false);
 
   // Check if selected directory user already exists with an active role
   const selectedEmail = (
@@ -122,6 +123,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
   const [editRole, setEditRole] = useState<UserRole>("Initiator");
   const [editApprovalLevel, setEditApprovalLevel] = useState<number>(1);
   const [editDepartment, setEditDepartment] = useState("");
+  const [editApprovalHierarchy, setEditApprovalHierarchy] = useState<boolean>(false);
   const [editErrorMessage, setEditErrorMessage] = useState<string | null>(null);
 
   // Close dropdown on outside click
@@ -227,6 +229,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
     setSelectedRole("Initiator");
     setApprovalLevel(levels.length > 0 ? levels[0].level_id : 1);
     setDepartment("");
+    setAssignApprovalHierarchy(false);
     setErrorMessage(null);
     setHasAttemptedSubmit(false);
     setIsAssignModalOpen(true);
@@ -277,6 +280,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
           approval_level: selectedRole === "Approver" ? Number(approvalLevel) : undefined,
           department: department.trim() || selectedDirectoryUser.department,
           is_active: true,
+          approval_hierarchy_page: selectedRole === "Admin" ? assignApprovalHierarchy : false,
           assigned_by: currentUser.name,
           assigned_date: new Date().toISOString(),
         },
@@ -300,6 +304,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
     setEditRole(assignment.role);
     setEditApprovalLevel(assignment.approval_level || (levels.length > 0 ? levels[0].level_id : 1));
     setEditDepartment(assignment.department || "");
+    setEditApprovalHierarchy(Boolean(assignment.approval_hierarchy_page));
     setEditErrorMessage(null);
   };
 
@@ -324,6 +329,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
         role: editRole,
         approval_level: editRole === "Approver" ? Number(editApprovalLevel) : undefined,
         department: editDepartment.trim(),
+        approval_hierarchy_page: editRole === "Admin" ? editApprovalHierarchy : false,
         is_active: true,
       };
 
@@ -511,14 +517,24 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                         {assignment.user_email}
                       </td>
                       <td className="py-3 px-4 2xl:py-4 2xl:px-6">
-                        <span
-                          className={`inline-flex items-center gap-1 text-[10px] 2xl:text-xs font-semibold px-2 py-0.5 2xl:px-2.5 2xl:py-1 rounded-full border ${getRoleBadgeStyle(
-                            assignment.role
-                          )}`}
-                        >
-                          <Shield className="w-3 h-3" />
-                          <span>{assignment.role.replace("_", " & ")}</span>
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span
+                            className={`inline-flex items-center gap-1 text-[10px] 2xl:text-xs font-semibold px-2 py-0.5 2xl:px-2.5 2xl:py-1 rounded-full border ${getRoleBadgeStyle(
+                              assignment.role
+                            )}`}
+                          >
+                            <Shield className="w-3 h-3" />
+                            <span>{assignment.role.replace("_", " & ")}</span>
+                          </span>
+                          {assignment.approval_hierarchy_page && (
+                            <span
+                              className="inline-flex items-center text-[9px] 2xl:text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-50 text-[#012964] border border-blue-200/80"
+                              title="Authorized to access Approval Hierarchy (approvalHierarchyPage = Yes)"
+                            >
+                              Hierarchy Admin
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3 px-4 2xl:py-4 2xl:px-6">
                         {assignment.role === "Approver" && assignment.approval_level ? (
@@ -971,14 +987,29 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 />
               </div>
 
-              {/* Admin Warning Note */}
+              {/* Admin Warning Note & Hierarchy Access Toggle */}
               {selectedRole === "Admin" && (
-                <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-purple-900 text-[11px] flex items-start gap-2">
-                  <ShieldAlert className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-                  <span>
-                    Granting Administrator access provides elevated privileges over user roles, workflow configurations, and administrative audit logs.
-                  </span>
-                </div>
+                <>
+                  <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-purple-900 text-[11px] flex items-start gap-2">
+                    <ShieldAlert className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+                    <span>
+                      Granting Administrator access provides elevated privileges over user roles, workflow configurations, and administrative audit logs.
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-2.5 p-3 bg-blue-50/60 border border-blue-200/80 rounded-xl">
+                    <input
+                      type="checkbox"
+                      id="assign-approval-hierarchy"
+                      checked={assignApprovalHierarchy}
+                      onChange={(e) => setAssignApprovalHierarchy(e.target.checked)}
+                      className="mt-0.5 rounded border-slate-300 text-[#012964] focus:ring-[#012964]/20 cursor-pointer"
+                    />
+                    <label htmlFor="assign-approval-hierarchy" className="text-xs text-slate-700 cursor-pointer select-none">
+                      <span className="font-semibold text-slate-900 block">Approval Hierarchy Page Access</span>
+                      Grants permission to view and configure SBU approval workflows and hierarchy levels (<code className="text-[#012964] font-semibold">approvalHierarchyPage = Yes</code>).
+                    </label>
+                  </div>
+                </>
               )}
 
               </div>
@@ -1135,14 +1166,29 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 />
               </div>
 
-              {/* Admin Warning Note */}
+              {/* Admin Warning Note & Hierarchy Access Toggle */}
               {editRole === "Admin" && (
-                <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-purple-900 text-[11px] flex items-start gap-2">
-                  <ShieldAlert className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-                  <span>
-                    Granting Administrator access provides elevated privileges over user roles, workflow configurations, and administrative audit logs.
-                  </span>
-                </div>
+                <>
+                  <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-purple-900 text-[11px] flex items-start gap-2">
+                    <ShieldAlert className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+                    <span>
+                      Granting Administrator access provides elevated privileges over user roles, workflow configurations, and administrative audit logs.
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-2.5 p-3 bg-blue-50/60 border border-blue-200/80 rounded-xl">
+                    <input
+                      type="checkbox"
+                      id="edit-approval-hierarchy"
+                      checked={editApprovalHierarchy}
+                      onChange={(e) => setEditApprovalHierarchy(e.target.checked)}
+                      className="mt-0.5 rounded border-slate-300 text-[#012964] focus:ring-[#012964]/20 cursor-pointer"
+                    />
+                    <label htmlFor="edit-approval-hierarchy" className="text-xs text-slate-700 cursor-pointer select-none">
+                      <span className="font-semibold text-slate-900 block">Approval Hierarchy Page Access</span>
+                      Grants permission to view and configure SBU approval workflows and hierarchy levels (<code className="text-[#012964] font-semibold">approvalHierarchyPage = Yes</code>).
+                    </label>
+                  </div>
+                </>
               )}
 
               </div>

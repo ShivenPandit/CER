@@ -30,6 +30,7 @@ const DEFAULT_USER_ROLES: IUserRoleAssignment[] = [
     department: "IT Administration",
     sbu: "RJ North",
     is_active: true,
+    approval_hierarchy_page: true,
     assigned_by: "System Bootstrap",
     assigned_date: "2026-10-23T18:30:00Z",
   },
@@ -1349,7 +1350,16 @@ export class LocalMockCERDataService implements ICERDataService {
   }
 
   public async getHierarchyAdmins(_forceRefresh?: boolean): Promise<string[]> {
-    return ["demo.admin@example.com", "admin.hierarchy@example.com"];
+    // Derived from mock user roles where approval_hierarchy_page = true (mirrors real SharePointCERDataService)
+    return this._userRoles
+      .filter((r) => r.is_active && r.approval_hierarchy_page)
+      .reduce<string[]>((acc, r) => {
+        if (r.user_email) acc.push(r.user_email.trim().toLowerCase());
+        if (r.login_name) acc.push(r.login_name.trim().toLowerCase());
+        if (r.user_name) acc.push(r.user_name.trim().toLowerCase());
+        return acc;
+      }, [])
+      .filter(Boolean);
   }
 
   public async assignUserRole(

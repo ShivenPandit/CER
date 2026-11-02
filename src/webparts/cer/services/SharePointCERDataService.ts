@@ -37,10 +37,6 @@ export class SharePointCERDataService implements ICERDataService {
   private _cachedUserRolesTimestamp: number = 0;
   private _inFlightUserRoles: Promise<IUserRoleAssignment[]> | null = null;
 
-  private _cachedHierarchyAdmins: string[] | null = null;
-  private _cachedHierarchyAdminsTimestamp: number = 0;
-  private _inFlightHierarchyAdmins: Promise<string[]> | null = null;
-
   private _cachedWorkflowLevels: Map<string, { data: IWorkflowLevel[]; timestamp: number }> = new Map();
   private _inFlightWorkflowLevels: Map<string, Promise<IWorkflowLevel[]>> = new Map();
 
@@ -67,9 +63,6 @@ export class SharePointCERDataService implements ICERDataService {
     this._cachedUserRoles = null;
     this._cachedUserRolesTimestamp = 0;
     this._inFlightUserRoles = null;
-    this._cachedHierarchyAdmins = null;
-    this._cachedHierarchyAdminsTimestamp = 0;
-    this._inFlightHierarchyAdmins = null;
     this._cachedWorkflowLevels.clear();
     this._inFlightWorkflowLevels.clear();
     this._cachedProposals = null;
@@ -2869,7 +2862,7 @@ export class SharePointCERDataService implements ICERDataService {
         // Tier 1: Modern schema with Person fields 'User' and 'assignedBy' expanded matching CERUserRoles
         try {
           items = await this._sp.getListItems<Record<string, any>>(listName, {
-            select: "Id,ID,Title,role,approvalLevel,department,assignedDate,Created,User/Id,User/Title,User/EMail,User/Name,assignedBy/Id,assignedBy/Title,assignedBy/EMail",
+            select: "Id,ID,Title,role,approvalLevel,department,approvalHierarchyPage,assignedDate,Created,User/Id,User/Title,User/EMail,User/Name,assignedBy/Id,assignedBy/Title,assignedBy/EMail",
             expand: "User,assignedBy",
             top: 500,
           });
@@ -2884,7 +2877,7 @@ export class SharePointCERDataService implements ICERDataService {
           try {
             // Tier 2: Only User expanded
             items = await this._sp.getListItems<Record<string, any>>(listName, {
-              select: "Id,ID,Title,role,approvalLevel,department,assignedDate,Created,User/Id,User/Title,User/EMail,User/Name",
+              select: "Id,ID,Title,role,approvalLevel,department,approvalHierarchyPage,assignedDate,Created,User/Id,User/Title,User/EMail,User/Name",
               expand: "User",
               top: 500,
             });
@@ -2954,6 +2947,7 @@ export class SharePointCERDataService implements ICERDataService {
             department: item.department || "",
             sbu: item.sbu || "",
             is_active: item.isActive !== undefined ? !!item.isActive : (item.is_active !== undefined ? !!item.is_active : true),
+            approval_hierarchy_page: item.approvalHierarchyPage === true || item.approvalHierarchyPage === 1 || String(item.approvalHierarchyPage).toLowerCase() === "yes" || String(item.approvalHierarchyPage).toLowerCase() === "true",
             assigned_by: assignedByName,
             assigned_date: assignedDate,
           };
@@ -2977,157 +2971,61 @@ export class SharePointCERDataService implements ICERDataService {
     return [...result];
   }
 
+  /**
+   * Returns the list of identity strings for users permitted to manage the Approval Hierarchy.
+   * Derived from CERUserRoles rows where approvalHierarchyPage = Yes (and is_active = true).
+   * No separate SharePoint list query — reuses the already-cached getUserRoles result.
+   */
   public async getHierarchyAdmins(forceRefresh = false): Promise<string[]> {
-    const CACHE_TTL_MS = 30000;
-    if (!forceRefresh && this._cachedHierarchyAdmins && (Date.now() - this._cachedHierarchyAdminsTimestamp < CACHE_TTL_MS)) {
-      return [...this._cachedHierarchyAdmins];
-    }
-    if (this._inFlightHierarchyAdmins) {
-      const pending = await this._inFlightHierarchyAdmins;
-      return [...pending];
-    }
+    try {
+      const roles = await this.getUserRoles(forceRefresh);
+      const admins: string[] = [];
 
-    this._inFlightHierarchyAdmins = (async () => {
-      try {
-        let items: Record<string, any>[] = [];
-        const listName = SP_LISTS.CER_HIERARCHY_ADMINS;
-
-        try {
-          // Tier 1: Expand native User Person column with explicit clean $select
-          items = await this._sp.getListItems<Record<string, any>>(listName, {
-            select: "Id,Title,isActive,UserId,User/Id,User/Title,User/EMail,User/Name,notes",
-            expand: "User",
-            top: 200,
-          });
-        } catch (t1Err: any) {
-          try {
-            // Tier 2: Safe select without isActive projection in case column name is IsActive/is_active
-            items = await this._sp.getListItems<Record<string, any>>(listName, {
-              select: "Id,Title,User/Id,User/Title,User/EMail,User/Name",
-              expand: "User",
-              top: 200,
-            });
-          } catch (t2Err: any) {
-            try {
-              // Tier 3: User0 expansion fallback with explicit $select
-              items = await this._sp.getListItems<Record<string, any>>(listName, {
-                select: "Id,Title,User0/Id,User0/Title,User0/EMail,User0/Name",
-                expand: "User0",
-                top: 200,
-              });
-            } catch (t3Err: any) {
-              try {
-                // Tier 4: Total safe baseline without any $select or $expand (returns raw flat fields)
-                items = await this._sp.getListItems<Record<string, any>>(listName, {
-                  top: 200,
-                });
-              } catch (t4Err: any) {
-                console.warn(`[SharePointCERDataService] ${listName} list not accessible or empty:`, t4Err?.message || t4Err);
-                items = [];
-              }
-            }
-          }
-        }
-
-        const activeAdmins: string[] = [];
-        for (const item of items) {
-          const rawActive = item.isActive !== undefined ? item.isActive : (item.is_active !== undefined ? item.is_active : item.IsActive);
-          const isActive = rawActive !== undefined ? (rawActive === true || rawActive === 1 || String(rawActive).toLowerCase() === "true" || String(rawActive).toLowerCase() === "yes") : true;
-          if (!isActive) continue;
-
-          const userPerson = PersonFieldService.extractPersonField(item, "User") ||
-                             PersonFieldService.extractPersonField(item, "User0");
-
-          let email = userPerson?.email || item.userEmail || item.user_email || item.email || "";
-          let login = userPerson?.loginName || item.loginName || item.login_name || "";
-          let userName = (userPerson?.name || "").trim();
-          const title = String(item.Title || "").trim();
-          const notes = String(item.notes || item.Notes || "").trim();
-
-          // If email or loginName is missing, resolve flat User ID if available
-          const flatUserId = userPerson?.id || item.UserId || item.User0Id || item.UserStringId;
-          if (flatUserId && Number(flatUserId) > 0) {
-            const numId = Number(flatUserId);
-            activeAdmins.push(String(numId));
-            activeAdmins.push(`id:${numId}`);
-            if (!email || !login || !userName) {
-              try {
-                const resolved = await PersonFieldService.resolveUserById(this._spHttpClient, this._siteUrl, numId);
-                if (resolved) {
-                  if (!email && resolved.Email) email = resolved.Email;
-                  if (!login && resolved.LoginName) login = resolved.LoginName;
-                  if (!userName && resolved.Title) userName = resolved.Title;
-                }
-              } catch (resErr) {
-                console.warn("[SharePointCERDataService] Could not resolve flat UserId:", flatUserId, resErr);
-              }
-            }
-          }
-
-          if (email) {
-            const cleanEmail = email.trim().toLowerCase();
-            activeAdmins.push(cleanEmail);
+      roles
+        .filter((r) => r.is_active && r.approval_hierarchy_page)
+        .forEach((r) => {
+          if (r.user_email) {
+            const cleanEmail = r.user_email.trim().toLowerCase();
+            admins.push(cleanEmail);
             if (cleanEmail.indexOf("@") !== -1) {
-              activeAdmins.push(cleanEmail.split("@")[0]);
+              admins.push(cleanEmail.split("@")[0]);
             }
           }
-
-          if (login) {
-            const cleanLogin = login.trim().toLowerCase();
-            activeAdmins.push(cleanLogin);
-            const normLogin = cleanLogin.replace(/^i:0#\.f\|membership\|/i, "").replace(/^membership\|/i, "");
-            activeAdmins.push(normLogin);
+          if (r.login_name) {
+            const cleanLogin = r.login_name.trim().toLowerCase();
+            admins.push(cleanLogin);
+            const normLogin = cleanLogin
+              .replace(/^i:0#\.f\|membership\|/i, "")
+              .replace(/^membership\|/i, "");
+            admins.push(normLogin);
             if (normLogin.indexOf("@") !== -1) {
-              activeAdmins.push(normLogin.split("@")[0]);
+              admins.push(normLogin.split("@")[0]);
             }
             if (normLogin.indexOf("#ext#") !== -1) {
               const b2bPrefix = normLogin.split("#ext#")[0];
               const lastUnderscore = b2bPrefix.lastIndexOf("_");
               if (lastUnderscore > 0) {
-                const b2bUsername = b2bPrefix.substring(0, lastUnderscore);
-                activeAdmins.push(b2bUsername);
+                admins.push(b2bPrefix.substring(0, lastUnderscore));
               }
             }
           }
-
-          if (userName) {
-            activeAdmins.push(userName.toLowerCase());
-            // Strip parenthetical vendor or team annotations, e.g. "Full Name (Vendor)" -> "full name"
-            const strippedName = userName.replace(/\s*\(.*?\)\s*/g, "").replace(/\s+/g, " ").trim().toLowerCase();
-            if (strippedName) {
-              activeAdmins.push(strippedName);
-            }
+          if (r.user_name) {
+            const cleanName = r.user_name.toLowerCase();
+            admins.push(cleanName);
+            const strippedName = r.user_name.replace(/\s*\(.*?\)\s*/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+            if (strippedName) admins.push(strippedName);
           }
-
-          if (title) {
-            activeAdmins.push(title.toLowerCase());
-            const strippedTitle = title.replace(/\s*\(.*?\)\s*/g, "").replace(/\s+/g, " ").trim().toLowerCase();
-            if (strippedTitle) {
-              activeAdmins.push(strippedTitle);
-            }
+          if (r.user_id && r.user_id > 0) {
+            admins.push(String(r.user_id));
+            admins.push(`id:${r.user_id}`);
           }
+        });
 
-          if (notes) {
-            activeAdmins.push(notes.toLowerCase());
-          }
-        }
-
-        const uniqueAdmins = Array.from(new Set(activeAdmins.filter(Boolean)));
-        this._cachedHierarchyAdmins = uniqueAdmins;
-        this._cachedHierarchyAdminsTimestamp = Date.now();
-        return uniqueAdmins;
-      } catch (err) {
-        console.warn("[SharePointCERDataService] getHierarchyAdmins error, defaulting to empty:", err);
-        this._cachedHierarchyAdmins = [];
-        this._cachedHierarchyAdminsTimestamp = Date.now();
-        return [];
-      } finally {
-        this._inFlightHierarchyAdmins = null;
-      }
-    })();
-
-    const res = await this._inFlightHierarchyAdmins;
-    return [...res];
+      return Array.from(new Set(admins.filter(Boolean)));
+    } catch (err) {
+      console.warn("[SharePointCERDataService] Failed to derive hierarchy administrators from CERUserRoles:", err);
+      return [];
+    }
   }
 
   public async assignUserRole(
@@ -3177,6 +3075,9 @@ export class SharePointCERDataService implements ICERDataService {
       if (assignment.approval_level) {
         payload.approvalLevel = assignment.approval_level;
       }
+      if (assignment.approval_hierarchy_page !== undefined) {
+        payload.approvalHierarchyPage = Boolean(assignment.approval_hierarchy_page);
+      }
       if (spUserId) {
         Object.assign(payload, PersonFieldService.formatPersonFieldPayload("User", spUserId));
       }
@@ -3195,6 +3096,7 @@ export class SharePointCERDataService implements ICERDataService {
         const errStr = String(createErr?.message || "").toLowerCase();
         const fallbackPayload: Record<string, any> = { ...payload };
         if (errStr.includes("assignedbyid")) delete fallbackPayload.assignedById;
+        if (errStr.includes("approvalhierarchypage")) delete fallbackPayload.approvalHierarchyPage;
         if (errStr.includes("userid") || errStr.includes("user")) delete fallbackPayload.UserId;
         if (errStr.includes("approvallevel")) {
           delete fallbackPayload.approvalLevel;
@@ -3277,6 +3179,9 @@ export class SharePointCERDataService implements ICERDataService {
       if (assignment.approval_level) {
         payload.approvalLevel = assignment.approval_level;
       }
+      if (assignment.approval_hierarchy_page !== undefined) {
+        payload.approvalHierarchyPage = Boolean(assignment.approval_hierarchy_page);
+      }
       if (spUserId) {
         Object.assign(payload, PersonFieldService.formatPersonFieldPayload("User", spUserId));
       }
@@ -3292,6 +3197,7 @@ export class SharePointCERDataService implements ICERDataService {
         lastUpdateErr = updateErr;
         const errStr = String(updateErr?.message || "").toLowerCase();
         const fallbackPayload: Record<string, any> = { ...payload };
+        if (errStr.includes("approvalhierarchypage")) delete fallbackPayload.approvalHierarchyPage;
         if (errStr.includes("userid") || errStr.includes("user")) delete fallbackPayload.UserId;
         if (errStr.includes("approvallevel")) {
           delete fallbackPayload.approvalLevel;

@@ -20,7 +20,6 @@ export const SP_LISTS = {
   CER_ATTACHMENTS: "CERAttachments",
   CER_NOTIFICATIONS: "CERNotifications",
   CER_USER_ROLES: "CERUserRoles",
-  CER_HIERARCHY_ADMINS: "CERHierarchyAdmins",
   // Legacy compatibility aliases
   CER_MASTER: "CERProposals",
   CER_WORKFLOW_HISTORY: "CERApprovalDecisions",

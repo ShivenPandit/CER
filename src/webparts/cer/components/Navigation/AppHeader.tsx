@@ -10,8 +10,13 @@ import {
 } from "lucide-react";
 import { IAppUser, UserRole } from "../../models/UserModel";
 import { NavView } from "./Sidebar";
-import vedantaLogo from "../../assets/Vedanta.png";
 import { UserAvatar } from "../Common/UserAvatar";
+import {
+  getVedantaLogoUrl,
+  handleAssetError,
+  DEFAULT_SITE_ASSETS,
+  vedantaLogoFallback,
+} from "../../utils/assetUtils";
 
 interface IAppHeaderProps {
   currentUser: IAppUser;
@@ -22,6 +27,7 @@ interface IAppHeaderProps {
   onSelectUser?: (user: IAppUser) => void;
   onOpenNotifications?: () => void;
   notificationCount?: number;
+  siteUrl?: string;
 }
 
 export const AppHeader: React.FC<IAppHeaderProps> = ({
@@ -29,6 +35,7 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
   currentView,
   onNavigate,
   onSelectUser,
+  siteUrl,
 }) => {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
@@ -77,11 +84,14 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
             tabIndex={0}
             title="Return to Home"
           >
-            {/* Official Vedanta Logo */}
+            {/* Official Vedanta Logo from SharePoint SiteAssets */}
             <div className="shrink-0 flex items-center pr-0.5">
               <img
-                src={vedantaLogo}
+                src={getVedantaLogoUrl(siteUrl)}
                 alt="Vedanta"
+                onError={(e) =>
+                  handleAssetError(e, DEFAULT_SITE_ASSETS.VEDANTA_LOGO, siteUrl, vedantaLogoFallback)
+                }
                 className="h-7 sm:h-7.5 lg:h-8 w-auto max-w-[140px] sm:max-w-[170px] md:max-w-[195px] 2xl:max-w-[220px] object-contain transform group-hover:scale-105 transition-transform"
               />
             </div>

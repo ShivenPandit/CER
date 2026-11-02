@@ -28,6 +28,7 @@ export interface IUserRoleAssignment {
   assigned_by: string;
   assigned_date: string;
   user_id?: number; // SharePoint User ID (from Person or Group field)
+  approval_hierarchy_page?: boolean; // true when approvalHierarchyPage = Yes in CERUserRoles
 }
 
 export type AdminAuditAction =

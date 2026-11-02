@@ -99,7 +99,7 @@ export function checkUserHierarchyAdminAccess(
 
 /**
  * Enterprise Designated System Administrators.
- * @deprecated All administrative privileges are now dynamically loaded from CERUserRoles and CERHierarchyAdmins.
+ * @deprecated All administrative privileges are now dynamically loaded from CERUserRoles (role + approvalHierarchyPage column).
  */
 export const DESIGNATED_ADMIN_IDENTIFIERS: string[] = [];
 
@@ -115,7 +115,7 @@ export class AuthService {
    * 1. Uses authenticated SharePoint identity (email, loginName, id, display name).
    * 2. Queries CERUserRoles for real assigned roles.
    * 3. Prevents unregistered users from obtaining elevated privileges (default is unprivileged Initiator).
-   * 4. Enforces 100% list-driven administrator role assignment via CERUserRoles and CERHierarchyAdmins.
+   * 4. Enforces 100% list-driven administrator role assignment via CERUserRoles (role + approvalHierarchyPage).
    * 5. Implements controlled first-Admin bootstrapping: If the role registry has no active Admins
    *    and the current user is a verified SharePoint Site Admin, grants initial Admin privileges
    *    and records an audit log entry.
@@ -164,7 +164,7 @@ export class AuthService {
       try {
         hierarchyAdmins = await dataService.getHierarchyAdmins();
       } catch (hErr) {
-        console.warn("[AuthService] Failed to load hierarchy administrators from CERHierarchyAdmins:", hErr);
+        console.warn("[AuthService] Failed to derive hierarchy administrators from CERUserRoles:", hErr);
       }
     }
 

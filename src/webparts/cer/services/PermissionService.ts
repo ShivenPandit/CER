@@ -10,7 +10,7 @@ export interface IActionAuthResult {
 }
 
 /**
- * @deprecated Approval Hierarchy permission is now dynamically loaded from the CERHierarchyAdmins SharePoint list.
+ * @deprecated Approval Hierarchy permission is now dynamically loaded from CERUserRoles (approvalHierarchyPage column).
  * This legacy export is preserved only for backwards compatibility with legacy test harnesses.
  */
 export const AUTHORIZED_APPROVAL_HIERARCHY_EMAIL = "";
@@ -20,9 +20,9 @@ export class PermissionService {
   /**
    * Centralized access-control rule:
    * Dynamically permits Approval Hierarchy management based on permissions
-   * loaded from the CERHierarchyAdmins SharePoint list (or Site Administrator).
+   * loaded from the CERUserRoles SharePoint list (approvalHierarchyPage column or Site Administrator).
    * - Eliminates hardcoded individual email addresses.
-   * - Evaluates `user.canManageApprovalHierarchy` populated dynamically from CERHierarchyAdmins.
+   * - Evaluates `user.canManageApprovalHierarchy` populated dynamically from CERUserRoles.
    * - Denies by default if identity is unavailable, unresolved, or inactive.
    */
   public static canAccessApprovalHierarchy(

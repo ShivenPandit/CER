@@ -2,7 +2,7 @@
  * Automated Verification Suite for Approval Hierarchy Access Restriction
  *
  * Verifies all 10 core requirements specified for Approval Hierarchy access control:
- *  1. Exact authorized email in CERHierarchyAdmins can see and access Approval Hierarchy.
+ *  1. Exact authorized email with approvalHierarchyPage=Yes in CERUserRoles can see and access Approval Hierarchy.
  *  2. Email comparison is case-insensitive, whitespace-safe, and handles SharePoint claims prefixes.
  *  3. Other Admin users (including other Designated Admins) cannot see or access the tab.
  *  4. Ordinary users (Initiator, Approver, Finance, Reviewer) cannot see or access the tab.
@@ -74,7 +74,7 @@ async function runApprovalHierarchyAccessTests(): Promise<void> {
       { ...authorizedUser, canManageApprovalHierarchy: false },
       dynamicHierarchyAdmins
     ) === true,
-    "1b. Exact authorized email matching CERHierarchyAdmins list is granted access"
+    "1b. Exact authorized email matching CERUserRoles approvalHierarchyPage list is granted access"
   );
 
   // ---------------------------------------------------------------------------------------------

@@ -1,12 +1,17 @@
 import React from "react";
-// Import offshore rig image asset
-import heroImage from "../../assets/offshore_rig_hero.jpg";
+import {
+  getHeroImageUrl,
+  handleAssetError,
+  DEFAULT_SITE_ASSETS,
+  heroImageFallback,
+} from "../../utils/assetUtils";
 
 interface IHeroBannerProps {
   availableHeight?: number;
+  siteUrl?: string;
 }
 
-export const HeroBanner: React.FC<IHeroBannerProps> = ({ availableHeight }) => {
+export const HeroBanner: React.FC<IHeroBannerProps> = ({ availableHeight, siteUrl }) => {
   const isTall = availableHeight !== undefined ? availableHeight >= 850 : false;
   const isVeryTall = availableHeight !== undefined ? availableHeight >= 1050 : false;
   const isShort = availableHeight !== undefined ? availableHeight < 680 : false;
@@ -24,11 +29,14 @@ export const HeroBanner: React.FC<IHeroBannerProps> = ({ availableHeight }) => {
       style={isVeryTall ? { minHeight: "280px" } : isTall ? { minHeight: "220px" } : undefined}
       className="relative w-full overflow-hidden bg-gradient-to-r from-[#06182E] via-[#092244] to-[#0D2D56] text-white select-none shadow-md touch-pan-y shrink-0 short:py-2.5 tall:py-6 very-tall:py-10"
     >
-      {/* Background Oil Rig Image (Right Aligned, Responsive Cropping) */}
+      {/* Background Oil Rig Image (Right Aligned, Responsive Cropping from SharePoint SiteAssets) */}
       <div className="absolute inset-y-0 right-0 w-full sm:w-4/5 md:w-3/4 lg:w-2/3 xl:w-3/5 h-full overflow-hidden pointer-events-none">
         <img
-          src={heroImage}
+          src={getHeroImageUrl(siteUrl)}
           alt="Offshore Oil Drilling Platform at Sunset"
+          onError={(e) =>
+            handleAssetError(e, DEFAULT_SITE_ASSETS.HERO_IMAGE, siteUrl, heroImageFallback)
+          }
           className="w-full h-full object-cover object-right md:object-center transform scale-105 opacity-85 sm:opacity-95"
         />
         {/* Soft Golden & Amber Sky Warmth Overlay */}

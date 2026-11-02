@@ -11,6 +11,7 @@ interface IHomeViewProps {
   pendingCount?: number;
   availableHeight?: number;
   hasOwnedProposals?: boolean;
+  siteUrl?: string;
 }
 
 export const HomeView: React.FC<IHomeViewProps> = ({
@@ -20,11 +21,12 @@ export const HomeView: React.FC<IHomeViewProps> = ({
   pendingCount = 0,
   availableHeight,
   hasOwnedProposals,
+  siteUrl,
 }) => {
   return (
     <div className="w-full max-w-none flex-1 flex flex-col justify-between min-h-full md:min-h-0 md:h-full bg-[#F8FAFC] overflow-y-auto md:overflow-hidden">
       {/* 1. Full-Width Hero Banner Directly Below Header */}
-      <HeroBanner availableHeight={availableHeight} />
+      <HeroBanner availableHeight={availableHeight} siteUrl={siteUrl} />
 
       {/* 2. Six Pastel Navigation Cards in a 3-Column Auto-Fit Grid - Uses Available Vertical Space */}
       <div className="w-full max-w-none min-w-0 flex-1 flex flex-col min-h-0 overflow-visible md:overflow-hidden py-1 sm:py-1.5 lg:py-2">
