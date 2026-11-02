@@ -58,8 +58,10 @@ export class SharePointCERDataService implements ICERDataService {
   private _inFlightNotificationLogs: Map<string, Promise<INotificationLog[]>> = new Map();
 
   private _cachedSubmissionsByCerId: Map<string, { data: { active: ICERProposal | null; history: ICERProposal[] }; timestamp: number }> = new Map();
+  private _cachedHistoryFields: Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string }> | null = null;
 
   public clearCache(): void {
+    this._cachedHistoryFields = null;
     this._cachedSubmissionsByCerId.clear();
     this._cachedUserRoles = null;
     this._cachedUserRolesTimestamp = 0;
@@ -621,7 +623,7 @@ export class SharePointCERDataService implements ICERDataService {
   private async _executeWithFieldFallback<T = void>(
     action: (payload: Record<string, any>) => Promise<T>,
     initialPayload: Record<string, any>,
-    maxRetries: number = 50
+    maxRetries: number = 10
   ): Promise<T> {
     const payload: Record<string, any> = { ...initialPayload };
     // Safety check: always strip legacy internal properties that do not exist on modern lists
@@ -660,11 +662,21 @@ export class SharePointCERDataService implements ICERDataService {
 
           delete payload[missingProp];
 
-          // Handle known casing mismatches:
+          // Handle known casing / schema variations:
           if (missingProp === "RequestDate" && initialPayload.RequestDate && !payload.requestDate) {
             payload.requestDate = initialPayload.RequestDate;
           } else if (missingProp === "requestDate" && (initialPayload.requestDate || initialPayload.RequestDate) && !payload.RequestDate) {
             payload.RequestDate = initialPayload.requestDate || initialPayload.RequestDate;
+          } else if (missingProp === "cerPrId" && !payload.CERProposalID && initialPayload.cerPrId) {
+            payload.CERProposalID = initialPayload.cerPrId;
+          } else if (missingProp === "proposalNo" && !payload.ProposalNo && initialPayload.proposalNo) {
+            payload.ProposalNo = initialPayload.proposalNo;
+          } else if (missingProp === "prName" && !payload.PrName && initialPayload.prName) {
+            payload.PrName = initialPayload.prName;
+          } else if (missingProp === "sbu" && !payload.SBU && initialPayload.sbu) {
+            payload.SBU = initialPayload.sbu;
+          } else if (missingProp === "status" && !payload.Status && initialPayload.status) {
+            payload.Status = initialPayload.status;
           }
 
           if (attempts <= maxRetries) {
@@ -1262,11 +1274,164 @@ export class SharePointCERDataService implements ICERDataService {
     };
   }
 
+  public async getHistoryListFields(): Promise<Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string }>> {
+    if (this._cachedHistoryFields && this._cachedHistoryFields.length > 0) {
+      return this._cachedHistoryFields;
+    }
+    try {
+      const fields = await this._sp.getListFields<any>(SP_LISTS.CER_PROPOSALS_HISTORY, {
+        filter: "Hidden eq false and ReadOnlyField eq false",
+        select: "InternalName,Title,TypeAsString,EntityPropertyName",
+      });
+      if (fields && fields.length > 0) {
+        this._cachedHistoryFields = fields;
+        return fields;
+      }
+    } catch (err) {
+      console.warn("[SharePointCERDataService] Querying fields for CERProposalsHistory returned warning:", err);
+    }
+    return [];
+  }
+
+  private _buildHistoryPayload(
+    original: ICERProposal,
+    ownerSpUserId: number | null,
+    availableFields: Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string }>
+  ): Record<string, any> {
+    const cerId = (original.cer_proposal_id || original.cerprno || "").trim();
+    const propNo = (original.proposal_no || original.cerprno || cerId).trim();
+
+    const formatIsoDate = (val?: string) => {
+      if (!val) return null;
+      if (val.indexOf("T") !== -1) return val;
+      return `${val}T00:00:00Z`;
+    };
+
+    const dataDict: Record<string, any> = {
+      Title: propNo,
+      cerPrId: cerId,
+      proposalNo: propNo,
+      prName: original.pr_name || "",
+      cerOwner: ownerSpUserId || original.owname || original.owner_email || "",
+      sbu: original.sbu || "RJ North",
+      status: "Approved",
+      object: original.object || "",
+      amount: Number(original.amount || 0),
+      currency: original.currency || "USD",
+      category: original.cat || "Vital",
+      payable: original.payable || "Payback",
+      period: original.period || "",
+      paybackQuarters: original.payback_quarters ? Number(original.payback_quarters) : null,
+      benefitNpv: original.ben_npv !== undefined && original.ben_npv !== null ? Number(original.ben_npv) : null,
+      benefitIrr: original.ben_irr !== undefined && original.ben_irr !== null ? Number(original.ben_irr) : null,
+      costAssumptions: original.cost_assumptions || "",
+      startDate: formatIsoDate(original.st_date),
+      completionDate: formatIsoDate(original.com_date),
+      durationMonths: original.duration_months ? Number(original.duration_months) : null,
+      currentBudgeted: original.cbudget || "Yes",
+      currentBudgetAmount: original.cb_amnt ? Number(original.cb_amnt) : null,
+      currentBudgetCurrency: original.cb_currency || undefined,
+      unbudgetedReason: original.reason || "",
+      jointVenture: original.jv || "No",
+      jvRecoverable: original.jv_recoverable || "No",
+      jvCost: original.jv_cost ? Number(original.jv_cost) : null,
+      jvBudgeted: original.jv_budget || "No",
+      jvAmount: original.jv_amnt ? Number(original.jv_amnt) : null,
+      jvReason: original.jv_reason || "",
+      phTillLabel: original.ph_till_label || "",
+      phFyLabel: original.ph_fy_label || "",
+      phBeyondLabel: original.ph_beyond_label || "",
+      prodTill: Number(original.prod_till || 0),
+      prodFy: Number(original.prod_fy || 0),
+      prodBeyond: Number(original.prod_beyond || 0),
+      capexTill: Number(original.capex_till || 0),
+      capexFy: Number(original.capex_fy || 0),
+      capexBeyond: Number(original.capex_beyond || 0),
+      opexTill: Number(original.opex_till || 0),
+      opexFy: Number(original.opex_fy || 0),
+      opexBeyond: Number(original.opex_beyond || 0),
+      engineeringCost: Number(original.engineer || 0),
+      surfaceFacilitiesCost: Number(original.s_fac || 0),
+      commissioningCost: Number(original.comis || 0),
+      preoperativeCost: Number(original.preop || 0),
+      otherCosts: Number(original.others || 0),
+      total: Number(original.total || 0),
+      remarks: original.remarks || "",
+      remarksJv: original.remarks_jv || "",
+      currentLevel: Number(original.current_level || 6),
+      pendingWithRole: original.pending_with_role || "Approved",
+      pendingWithEmail: original.pending_with_email || "",
+      RequestDate: formatIsoDate(original.request_date),
+      revisionCount: Number(original.revision_count || 0),
+    };
+
+    const payload: Record<string, any> = {};
+
+    if (availableFields && availableFields.length > 0) {
+      for (const field of availableFields) {
+        const intName = field.InternalName;
+        const dispName = field.Title || "";
+        const entityProp = field.EntityPropertyName || "";
+        const type = (field.TypeAsString || "").toLowerCase();
+
+        let matchedKey: string | undefined;
+        for (const key of Object.keys(dataDict)) {
+          if (
+            key.toLowerCase() === intName.toLowerCase() ||
+            key.toLowerCase() === dispName.toLowerCase() ||
+            key.toLowerCase() === entityProp.toLowerCase() ||
+            key.replace(/[^a-z0-9]/gi, "").toLowerCase() === intName.replace(/[^a-z0-9]/gi, "").toLowerCase() ||
+            key.replace(/[^a-z0-9]/gi, "").toLowerCase() === dispName.replace(/[^a-z0-9]/gi, "").toLowerCase()
+          ) {
+            matchedKey = key;
+            break;
+          }
+        }
+
+        if (matchedKey !== undefined) {
+          const rawVal = dataDict[matchedKey];
+          if (matchedKey === "cerOwner") {
+            if (type.indexOf("user") !== -1 || type.indexOf("person") !== -1) {
+              if (ownerSpUserId) {
+                payload[`${intName}Id`] = ownerSpUserId;
+              }
+            } else {
+              payload[intName] = original.owname || original.owner_email || "";
+            }
+          } else if (type.indexOf("number") !== -1 || type.indexOf("currency") !== -1) {
+            payload[intName] = rawVal !== null && rawVal !== undefined && !isNaN(Number(rawVal)) ? Number(rawVal) : null;
+          } else if (type.indexOf("date") !== -1) {
+            payload[intName] = rawVal || null;
+          } else if (type.indexOf("note") !== -1 || type.indexOf("text") !== -1 || type.indexOf("choice") !== -1) {
+            payload[intName] = rawVal !== null && rawVal !== undefined ? String(rawVal) : "";
+          } else {
+            payload[intName] = rawVal;
+          }
+        }
+      }
+    } else {
+      Object.assign(payload, dataDict);
+      if (ownerSpUserId) {
+        payload.cerOwnerId = ownerSpUserId;
+      }
+      delete payload.cerOwner;
+    }
+
+    payload.Title = propNo;
+    if (!payload.cerPrId && !payload.CERProposalID) payload.cerPrId = cerId;
+    if (!payload.proposalNo && !payload.ProposalNo) payload.proposalNo = propNo;
+    if (!payload.status && !payload.Status) payload.status = "Approved";
+
+    return payload;
+  }
+
   public async getProposalHistory(cerProposalId?: string): Promise<ICERProposal[]> {
     const cleanId = (cerProposalId || "").trim();
+    const safeCleanId = escapeODataString(cleanId);
+    const baseNo = safeCleanId.replace(/-R\d+$/i, "");
     const filterClause =
       cleanId && cleanId.toUpperCase() !== "ALL"
-        ? `cerPrId eq '${cleanId}' or proposalNo eq '${cleanId}' or Title eq '${cleanId}'`
+        ? `cerPrId eq '${safeCleanId}' or proposalNo eq '${safeCleanId}' or Title eq '${safeCleanId}' or proposalNo eq '${baseNo}' or Title eq '${baseNo}'`
         : undefined;
 
     try {
@@ -1303,7 +1468,26 @@ export class SharePointCERDataService implements ICERDataService {
         }
       }
 
-      return items.map((it) => this._mapSharePointItemToProposal(it));
+      // If strict filter returned 0, try Title eq fallback
+      if (items.length === 0 && cleanId && cleanId.toUpperCase() !== "ALL") {
+        try {
+          items = await this._sp.getListItems(SP_LISTS.CER_PROPOSALS_HISTORY, {
+            filter: `Title eq '${safeCleanId}' or Title eq '${baseNo}'`,
+            top: 100,
+          });
+        } catch {
+          // ignore
+        }
+      }
+
+      return items.map((it) => {
+        const p = this._mapSharePointItemToProposal(it);
+        if ((!p.cer_proposal_id || p.cer_proposal_id === p.proposal_no) && cleanId && cleanId.startsWith("CER-")) {
+          p.cer_proposal_id = cleanId;
+          p.cerprno = cleanId;
+        }
+        return p;
+      });
     } catch (err) {
       console.warn(`[SharePointCERDataService] Failed to fetch proposal history for ${cerProposalId}:`, err);
       return [];
@@ -1312,11 +1496,12 @@ export class SharePointCERDataService implements ICERDataService {
 
   /**
    * Archives an approved proposal snapshot into CERProposalsHistory.
-   * Handles schema resilience: full payload -> core payload -> minimal fallback.
+   * Discovers exact column schema from SharePoint, deduplicates by proposal number,
+   * updates any existing row and purges duplicates.
    */
   public async archiveApprovedProposal(original: ICERProposal): Promise<void> {
-    const cerId = original.cer_proposal_id || original.cerprno;
-    const propNo = original.proposal_no || original.cerprno || cerId;
+    const cerId = (original.cer_proposal_id || original.cerprno || "").trim();
+    const propNo = (original.proposal_no || original.cerprno || cerId).trim();
 
     let ownerSpUserId: number | null = null;
     if (original.owner_email || original.owname) {
@@ -1334,66 +1519,61 @@ export class SharePointCERDataService implements ICERDataService {
       }
     }
 
-    // 1. Prepare modern full payload
-    const fullPayload: any = this._mapProposalToModernSharePointItem(original);
-    fullPayload.Title = propNo;
-    fullPayload.proposalNo = propNo;
-    fullPayload.cerPrId = cerId;
-    fullPayload.status = "Approved";
+    // 1. Discover list fields for CERProposalsHistory
+    const discoveredFields = await this.getHistoryListFields();
+    const payload = this._buildHistoryPayload(original, ownerSpUserId, discoveredFields);
 
-    if (ownerSpUserId) {
-      const historyOwnerPayload = PersonFieldService.formatPersonFieldPayload("cerOwner", ownerSpUserId);
-      Object.assign(fullPayload, historyOwnerPayload);
+    // 2. Check for existing items with this proposal number to prevent duplicate rows
+    let existingItems: Array<{ Id: number }> = [];
+    const safePropNo = escapeODataString(propNo);
+    try {
+      existingItems = await this._sp.getListItems<{ Id: number }>(SP_LISTS.CER_PROPOSALS_HISTORY, {
+        filter: `Title eq '${safePropNo}' or proposalNo eq '${safePropNo}'`,
+        select: "Id",
+        top: 10,
+      });
+    } catch {
+      try {
+        existingItems = await this._sp.getListItems<{ Id: number }>(SP_LISTS.CER_PROPOSALS_HISTORY, {
+          filter: `Title eq '${safePropNo}'`,
+          select: "Id",
+          top: 10,
+        });
+      } catch {
+        existingItems = [];
+      }
     }
 
-    try {
+    if (existingItems && existingItems.length > 0) {
+      // Update existing item instead of creating duplicate
+      const primaryId = existingItems[0].Id;
       await this._executeWithFieldFallback(
-        (payload) => this._sp.createListItem(SP_LISTS.CER_PROPOSALS_HISTORY, payload),
-        fullPayload,
-        50
+        (p) => this._sp.updateListItem(SP_LISTS.CER_PROPOSALS_HISTORY, primaryId, p),
+        payload,
+        5
       );
+
+      // Clean up any extraneous duplicate rows
+      if (existingItems.length > 1) {
+        for (let i = 1; i < existingItems.length; i++) {
+          try {
+            await this._sp.deleteListItem(SP_LISTS.CER_PROPOSALS_HISTORY, existingItems[i].Id);
+          } catch (delErr) {
+            console.warn("[SharePointCERDataService] Could not remove duplicate history item:", delErr);
+          }
+        }
+      }
+
       this._cachedSubmissionsByCerId.clear();
       return;
-    } catch (fullErr) {
-      console.warn("[SharePointCERDataService] Full payload history archival failed, falling back to core schema:", fullErr);
     }
 
-    // 2. Prepare core payload (only core columns confirmed in user schema)
-    const corePayload: any = {
-      Title: propNo,
-      cerPrId: cerId,
-      proposalNo: propNo,
-      prName: original.pr_name,
-      sbu: original.sbu,
-      status: "Approved",
-      amount: Number(original.amount || 0),
-      currency: original.currency || "USD",
-      category: original.cat || "Vital",
-    };
-    if (ownerSpUserId) {
-      const ownerPayload = PersonFieldService.formatPersonFieldPayload("cerOwner", ownerSpUserId);
-      Object.assign(corePayload, ownerPayload);
-    }
-
-    try {
-      await this._executeWithFieldFallback(
-        (payload) => this._sp.createListItem(SP_LISTS.CER_PROPOSALS_HISTORY, payload),
-        corePayload,
-        25
-      );
-      this._cachedSubmissionsByCerId.clear();
-      return;
-    } catch (coreErr) {
-      console.warn("[SharePointCERDataService] Core payload history archival failed, falling back to minimal payload:", coreErr);
-    }
-
-    // 3. Bare minimum: Title + cerPrId + proposalNo + status
-    await this._sp.createListItem(SP_LISTS.CER_PROPOSALS_HISTORY, {
-      Title: propNo,
-      cerPrId: cerId,
-      proposalNo: propNo,
-      status: "Approved",
-    });
+    // 3. Create new history item if not already existing
+    await this._executeWithFieldFallback(
+      (p) => this._sp.createListItem(SP_LISTS.CER_PROPOSALS_HISTORY, p),
+      payload,
+      5
+    );
     this._cachedSubmissionsByCerId.clear();
   }
 
@@ -1403,7 +1583,7 @@ export class SharePointCERDataService implements ICERDataService {
 
     const cacheKey = cleanId.toUpperCase();
     const now = Date.now();
-    const CACHE_TTL_MS = 25000;
+    const CACHE_TTL_MS = 15000;
 
     const cached = this._cachedSubmissionsByCerId.get(cacheKey);
     if (cached && now - cached.timestamp < CACHE_TTL_MS) {
@@ -1416,6 +1596,49 @@ export class SharePointCERDataService implements ICERDataService {
     const active = await this.getProposalByNumber(cleanId);
     const parentCerId = active?.cer_proposal_id || active?.cerprno || cleanId;
     let history = await this.getProposalHistory(parentCerId);
+
+    // If history query by parentCerId returned nothing, but active has a proposal_no (e.g. PR-2026/01-R1):
+    // Also try querying history by base proposal number (e.g. PR-2026/01)
+    if (history.length === 0 && active?.proposal_no) {
+      const baseNo = active.proposal_no.replace(/-R\d+$/i, "").trim();
+      if (baseNo && baseNo !== active.proposal_no) {
+        history = await this.getProposalHistory(baseNo);
+      }
+    }
+
+    // Auto-heal existing blank rows in CERProposalsHistory:
+    // If historical items exist but lack pr_name or sbu, re-archive the snapshot so columns become populated
+    if (history.length > 0 && active) {
+      const needsHealing = history.some((h) => !h.pr_name || !h.sbu);
+      if (needsHealing) {
+        for (const h of history) {
+          if (!h.pr_name || !h.sbu) {
+            const healed: ICERProposal = {
+              ...active,
+              ...h,
+              cer_proposal_id: parentCerId,
+              cerprno: parentCerId,
+              proposal_no: h.proposal_no || h.cerprno || (active.proposal_no ? active.proposal_no.replace(/-R\d+$/i, "") : parentCerId),
+              status: "Approved",
+              current_level: 6,
+            };
+            void this.archiveApprovedProposal(healed);
+          }
+        }
+      }
+    }
+
+    // Deduplicate history items in memory by proposal_no
+    const seenPropNos = new Set<string>();
+    const deduplicatedHistory: ICERProposal[] = [];
+    for (const h of history) {
+      const pKey = (h.proposal_no || h.cerprno || "").toUpperCase();
+      if (pKey && !seenPropNos.has(pKey)) {
+        seenPropNos.add(pKey);
+        deduplicatedHistory.push(h);
+      }
+    }
+    history = deduplicatedHistory;
 
     // Self-healing / Backfill:
     // If history in CERProposalsHistory is currently empty, but the active proposal is a post-approval

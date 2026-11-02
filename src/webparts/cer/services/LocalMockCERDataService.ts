@@ -696,7 +696,14 @@ export class LocalMockCERDataService implements ICERDataService {
             status: "Approved",
             current_level: 6,
           };
-          this._proposalsHistory.unshift(reconstructedApproved);
+          const existIdx = this._proposalsHistory.findIndex(
+            (h) => (h.proposal_no && h.proposal_no.toUpperCase() === prevNo.toUpperCase())
+          );
+          if (existIdx !== -1) {
+            this._proposalsHistory[existIdx] = reconstructedApproved;
+          } else {
+            this._proposalsHistory.unshift(reconstructedApproved);
+          }
           this._saveToStorage(STORAGE_KEYS.PROPOSALS_HISTORY, this._proposalsHistory);
           history = [reconstructedApproved];
         }
@@ -990,7 +997,14 @@ export class LocalMockCERDataService implements ICERDataService {
       const snapshot = (originalProposal && originalProposal.status === "Approved") ? originalProposal : oldProposal;
       // Archive the previously approved proposal snapshot into CERProposalsHistory
       const historySnapshot: ICERProposal = JSON.parse(JSON.stringify(snapshot));
-      this._proposalsHistory.unshift(historySnapshot);
+      const existIdx = this._proposalsHistory.findIndex(
+        (h) => (h.proposal_no && h.proposal_no.toUpperCase() === (historySnapshot.proposal_no || "").toUpperCase())
+      );
+      if (existIdx !== -1) {
+        this._proposalsHistory[existIdx] = historySnapshot;
+      } else {
+        this._proposalsHistory.unshift(historySnapshot);
+      }
       this._saveToStorage(STORAGE_KEYS.PROPOSALS_HISTORY, this._proposalsHistory);
     }
 

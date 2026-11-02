@@ -32,7 +32,6 @@ import { ExcelExportService } from "../../services/ExcelExportService";
 import { PermissionService } from "../../services/PermissionService";
 import { StatusBadge } from '../Shared/StatusBadge';
 import { CategoryBadge } from '../Shared/CategoryBadge';
-import { ApprovalProgressTracker } from '../ApprovalWorkflow/ApprovalProgressTracker';
 import { StatusHistoryModal } from '../ApprovalWorkflow/StatusHistoryModal';
 import { AuditTrailModal } from '../Audit/AuditTrailModal';
 import { ProposalHistoryModal } from './ProposalHistoryModal';
@@ -534,16 +533,6 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
               </div>
             </div>
           </div>
-
-          {/* Multilevel Approval Workflow Pipeline Tracker */}
-          <ApprovalProgressTracker
-            levels={workflowLevels}
-            decisions={decisions}
-            currentLevel={proposal.current_level}
-            status={proposal.status}
-            proposal={proposal}
-            currentUser={currentUser}
-          />
 
           {/* Section A & B: Project Info and Financial Benefits Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
