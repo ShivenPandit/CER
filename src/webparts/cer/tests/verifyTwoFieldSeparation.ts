@@ -490,6 +490,39 @@ async function runTwoFieldSeparationVerification(): Promise<void> {
   assert(fallbackProposal.cerPrId === "CER-2025-0010", "Fallback extracts identifier from Title when cerPrId is absent");
   assert(fallbackProposal.proposal_no === "CER-2025-0010", "Fallback sets proposal_no to identifier when proposalNo is absent");
 
+  // --- TEST 15: Schema Resilience & Auto-Recovery from Non-Existent Fields ---
+  console.log("\n--- TEST 15: Schema Resilience & Auto-Recovery from Non-Existent Fields ---");
+  assert((modernPayload as any).cerprno === undefined, "Modern payload strictly excludes 'cerprno'");
+  assert((modernPayload as any).requestDate === undefined, "Modern payload strictly avoids duplicate lowercase 'requestDate'");
+  assert((modernPayload as any).RequestDate !== undefined, "Modern payload includes standard 'RequestDate'");
+
+  interface IFieldFallbackHelper {
+    _executeWithFieldFallback: <T = void>(
+      action: (payload: Record<string, any>) => Promise<T>,
+      initialPayload: Record<string, any>
+    ) => Promise<T>;
+  }
+  const fallbackHelper = spDataService as unknown as IFieldFallbackHelper;
+
+  let attemptCount = 0;
+  const capturedPayloads: Record<string, any>[] = [];
+  await fallbackHelper._executeWithFieldFallback(
+    async (payload) => {
+      attemptCount++;
+      capturedPayloads.push({ ...payload });
+      if (payload.unknownField) {
+        throw new Error("[SPOperations] MERGE failed (400): {\"error\":{\"code\":\"-1, Microsoft.SharePoint.Client.InvalidClientQueryException\",\"message\":\"The property 'unknownField' does not exist on type 'SP.Data.CERProposalsListItem'.\"}}");
+      }
+      return true;
+    },
+    { Title: "CER-2026-0001", unknownField: "bad_val", RequestDate: "2026-11-02T00:00:00Z" }
+  );
+
+  assert(attemptCount === 2, `_executeWithFieldFallback retried after non-existent field (Attempts: ${attemptCount})`);
+  assert(capturedPayloads[0].unknownField === "bad_val", "First attempt had offending property");
+  assert(capturedPayloads[1].unknownField === undefined, "Second attempt cleanly stripped non-existent property");
+  assert(capturedPayloads[1].Title === "CER-2026-0001", "Second attempt preserved legitimate fields");
+
   // ===========================================================================
   // SUMMARY
   // ===========================================================================

@@ -84,7 +84,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         );
         const normalized: ICERProposal = {
           ...found,
-          payback_quarters: found.payback_quarters || 4,
+          payback_quarters: found.payback_quarters !== undefined && found.payback_quarters !== null ? found.payback_quarters : 0,
           jv_recoverable: found.jv_recoverable || "No",
           ph_till_label: found.ph_till_label || defaultPhasing.ph_till_label,
           ph_fy_label: found.ph_fy_label || defaultPhasing.ph_fy_label,

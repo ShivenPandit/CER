@@ -298,8 +298,8 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
                       </td>
 
                       {/* 2. Name of Project */}
-                      <td className="py-3.5 px-4 font-semibold text-sm text-slate-900">
-                        <span className="group-hover:text-[#012964] transition-colors" title={prop.pr_name}>
+                      <td className="py-3.5 px-4 font-semibold text-sm text-slate-900 overflow-hidden">
+                        <span className="block truncate group-hover:text-[#012964] transition-colors" title={prop.pr_name}>
                           {prop.pr_name}
                         </span>
                         {prop.request_date && (

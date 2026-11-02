@@ -35,6 +35,7 @@ import { CategoryBadge } from '../Shared/CategoryBadge';
 import { ApprovalProgressTracker } from '../ApprovalWorkflow/ApprovalProgressTracker';
 import { StatusHistoryModal } from '../ApprovalWorkflow/StatusHistoryModal';
 import { AuditTrailModal } from '../Audit/AuditTrailModal';
+import { ProposalHistoryModal } from './ProposalHistoryModal';
 import { UserAvatar } from '../Common/UserAvatar';
 import { calculateExactDays, getCurrentFiscalYearPhasingLabels } from "../../utils/dateUtils";
 
@@ -66,6 +67,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
   const [isStatusHistoryOpen, setIsStatusHistoryOpen] = useState(false);
+  const [isProposalHistoryOpen, setIsProposalHistoryOpen] = useState(false);
   const [isAuditTrailOpen, setIsAuditTrailOpen] = useState(false);
 
   const loadProposal = async (cerprno: string): Promise<void> => {
@@ -294,27 +296,59 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
           </div>
         </div>
 
-        {/* Lookup / Retrieve Form */}
-        <form onSubmit={handleLookup} className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              value={proposalNumberInput}
-              onChange={(e) => setProposalNumberInput(e.target.value)}
-              placeholder="CER Proposal ID or No..."
-              className="w-full pl-9 pr-3.5 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs font-mono font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none cer-input-focus transition-all"
-            />
+        {/* Status Badge in Top Bar Header (Replaces Search/Retrieve when proposal is loaded) */}
+        {proposal ? (
+          <div className="flex items-center gap-2 shrink-0">
+            <span
+              className={`inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold px-3 py-1 rounded-full border shadow-2xs ${
+                proposal.status === "Approved"
+                  ? "bg-white cer-border-green text-slate-900"
+                  : proposal.status === "Rejected"
+                  ? "bg-rose-50 text-rose-700 border-rose-200"
+                  : proposal.status === "Draft"
+                  ? "bg-slate-100 text-slate-700 border-slate-200"
+                  : proposal.status === "Revised"
+                  ? "bg-purple-50 text-purple-700 border-purple-200"
+                  : "bg-white cer-border-blue cer-text-blue"
+              }`}
+            >
+              <Clock
+                className="w-4 h-4"
+                style={{
+                  color:
+                    proposal.status === "Approved"
+                      ? "var(--cer-brand-green)"
+                      : proposal.status === "Rejected"
+                      ? undefined
+                      : "var(--cer-brand-blue)",
+                }}
+              />
+              <span>{proposal.status}</span>
+            </span>
           </div>
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="flex items-center justify-center gap-1.5 px-4 py-2 cer-btn-primary text-xs font-semibold rounded-xl shadow-sm transition-opacity shrink-0 disabled:opacity-50"
-          >
-            <Search className="w-3.5 h-3.5" />
-            <span>{isLoading ? "Loading..." : "Retrieve"}</span>
-          </button>
-        </form>
+        ) : (
+          /* Fallback Lookup Form if navigated without proposal ID */
+          <form onSubmit={handleLookup} className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-64">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={proposalNumberInput}
+                onChange={(e) => setProposalNumberInput(e.target.value)}
+                placeholder="CER Proposal ID or No..."
+                className="w-full pl-9 pr-3.5 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs font-mono font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none cer-input-focus transition-all"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="flex items-center justify-center gap-1.5 px-4 py-2 cer-btn-primary text-xs font-semibold rounded-xl shadow-sm transition-opacity shrink-0 disabled:opacity-50"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>{isLoading ? "Loading..." : "Retrieve"}</span>
+            </button>
+          </form>
+        )}
       </div>
 
       {/* Mandatory Validation Error / Notice as required by FR-02 / FR-03 */}
@@ -352,34 +386,6 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                       No: {proposal.proposal_no}
                     </span>
                   )}
-
-                  {/* Proposal Status Pill */}
-                  <span
-                    className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full border ${
-                      proposal.status === "Approved"
-                        ? "bg-white cer-border-green text-slate-900"
-                        : proposal.status === "Rejected"
-                        ? "bg-rose-50 text-rose-700 border-rose-200"
-                        : proposal.status === "Draft"
-                        ? "bg-slate-100 text-slate-700 border-slate-200"
-                        : proposal.status === "Revised"
-                        ? "bg-purple-50 text-purple-700 border-purple-200"
-                        : "bg-white cer-border-blue cer-text-blue"
-                    }`}
-                  >
-                    <Clock
-                      className="w-3.5 h-3.5"
-                      style={{
-                        color:
-                          proposal.status === "Approved"
-                            ? "var(--cer-brand-green)"
-                            : proposal.status === "Rejected"
-                            ? undefined
-                            : "var(--cer-brand-blue)",
-                      }}
-                    />
-                    <span>{proposal.status}</span>
-                  </span>
 
                   {/* Vital / Category Pill (only if applicable) */}
                   {proposal.cat && (
@@ -446,12 +452,12 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                 </button>
 
                 <button
-                  onClick={() => setIsAuditTrailOpen(true)}
+                  onClick={() => setIsProposalHistoryOpen(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 text-xs font-medium rounded-lg shadow-2xs transition-colors cursor-pointer"
-                  title="Inspect Field-Level Audit Trail and Delta Changes"
+                  title="View complete proposal submissions and approved version history"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Audit Trail</span>
+                  <History className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Proposal History</span>
                 </button>
               </div>
             </div>
@@ -888,6 +894,19 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
           levels={workflowLevels}
           decisions={decisions}
           dataService={dataService}
+        />
+      )}
+
+      {proposal && (
+        <ProposalHistoryModal
+          isOpen={isProposalHistoryOpen}
+          onClose={() => setIsProposalHistoryOpen(false)}
+          cerProposalId={proposal.cer_proposal_id || proposal.cerprno}
+          dataService={dataService}
+          onSelectProposal={(selectedNo) => {
+            setIsProposalHistoryOpen(false);
+            loadProposal(selectedNo).catch((e) => console.error(e));
+          }}
         />
       )}
 
