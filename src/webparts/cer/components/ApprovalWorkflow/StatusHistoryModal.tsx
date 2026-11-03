@@ -7,10 +7,10 @@ import {
   Clock,
   RotateCcw,
   FileText,
-  Layers,
   ShieldCheck,
   Check,
   MessageSquare,
+  AlertTriangle,
 } from "lucide-react";
 import { ICERProposal } from "../../models/CERModel";
 import { IWorkflowLevel, IApprovalDecision } from "../../models/WorkflowModel";
@@ -54,6 +54,26 @@ export interface IProposalVersionEntry {
   currency: string;
   dateStr: string;
   rawProposal: ICERProposal;
+}
+
+export interface IIterationRun {
+  iterationIndex: number;
+  isLatestActive: boolean;
+  isSentBack: boolean;
+  sentBackLevel?: number;
+  sentBackStageName?: string;
+  sentBackBy?: string;
+  sentBackDate?: string;
+  sentBackRemarks?: string;
+  decisions: IApprovalDecision[];
+}
+
+export interface ITableRowData {
+  stage: IFixedApprovalStage;
+  statusText: "Approved" | "Send Back" | "Rejected" | "Pending" | "Not Started";
+  updatedBy: string;
+  dateTime: string;
+  remarks: string;
 }
 
 export function formatDecisionDateTime(timestamp?: string | Date): string {
@@ -104,6 +124,289 @@ export function formatVersionDate(timestamp?: string | Date): string {
     month: "short",
     year: "numeric",
   });
+}
+
+/**
+ * Splits a version's sequential decisions into approval iteration runs.
+ * When a level is sent back and the proposal is subsequently retriggered / resubmitted,
+ * each run is isolated so that the active retriggered workflow appears on top and the prior sent-back run appears below.
+ */
+export function splitDecisionsIntoIterations(
+  versionDecisions: IApprovalDecision[],
+  isCurrentVersion: boolean,
+  currentProposal: ICERProposal
+): IIterationRun[] {
+  if (!versionDecisions || versionDecisions.length === 0) {
+    return [
+      {
+        iterationIndex: 1,
+        isLatestActive: true,
+        isSentBack: false,
+        decisions: [],
+      },
+    ];
+  }
+
+  // Sort decisions chronologically ascending (oldest first)
+  const sorted = [...versionDecisions].sort((a, b) => {
+    const tA = new Date((a as any).decision_date || (a as any).decidedAt || a.timestamp || (a as any).Created || 0).getTime();
+    const tB = new Date((b as any).decision_date || (b as any).decidedAt || b.timestamp || (b as any).Created || 0).getTime();
+    return tA - tB;
+  });
+
+  const iterations: IIterationRun[] = [];
+  let currentRunDecs: IApprovalDecision[] = [];
+
+  for (let i = 0; i < sorted.length; i++) {
+    const dec = sorted[i];
+    currentRunDecs.push(dec);
+
+    const isSendBack =
+      (dec.decision || "").trim().toUpperCase() === "SENT_BACK" ||
+      (dec.decision || "").trim().toUpperCase() === "SENT BACK";
+
+    if (isSendBack) {
+      // Check if subsequent decisions exist in this list (e.g. L1 Approved after L2 Send Back)
+      const hasSubsequentDecisions = i < sorted.length - 1;
+      // Or if current proposal was retriggered and is actively 'In Approval'
+      const isRetriggered = hasSubsequentDecisions || (isCurrentVersion && currentProposal.status === "In Approval");
+
+      if (isRetriggered) {
+        const stageName = FIXED_APPROVAL_STAGES.find((s) => s.level === dec.level_id)?.name || `Stage ${dec.level_id}`;
+        iterations.push({
+          iterationIndex: iterations.length + 1,
+          isLatestActive: false,
+          isSentBack: true,
+          sentBackLevel: dec.level_id,
+          sentBackStageName: stageName,
+          sentBackBy: dec.approver_name || dec.approver_email || "—",
+          sentBackDate: formatDecisionDateTime((dec as any).decision_date || (dec as any).decidedAt || dec.timestamp || (dec as any).Created),
+          sentBackRemarks: dec.comments || (dec as any).remarks || "",
+          decisions: [...currentRunDecs],
+        });
+        currentRunDecs = [];
+      }
+    }
+  }
+
+  // Final / active iteration
+  const latestDec = currentRunDecs[currentRunDecs.length - 1];
+  const isLatestSentBack =
+    latestDec &&
+    ((latestDec.decision || "").trim().toUpperCase() === "SENT_BACK" ||
+      (latestDec.decision || "").trim().toUpperCase() === "SENT BACK");
+
+  iterations.push({
+    iterationIndex: iterations.length + 1,
+    isLatestActive: true,
+    isSentBack: !!isLatestSentBack,
+    sentBackLevel: isLatestSentBack ? latestDec.level_id : undefined,
+    sentBackStageName: isLatestSentBack
+      ? FIXED_APPROVAL_STAGES.find((s) => s.level === latestDec.level_id)?.name
+      : undefined,
+    sentBackBy: isLatestSentBack ? latestDec.approver_name || latestDec.approver_email || "—" : undefined,
+    sentBackDate: isLatestSentBack
+      ? formatDecisionDateTime((latestDec as any).decision_date || (latestDec as any).decidedAt || latestDec.timestamp || (latestDec as any).Created)
+      : undefined,
+    sentBackRemarks: isLatestSentBack ? latestDec.comments || (latestDec as any).remarks || "" : undefined,
+    decisions: currentRunDecs,
+  });
+
+  return iterations;
+}
+
+/**
+ * Builds table row definitions for all 6 fixed workflow levels for a given iteration run.
+ */
+export function buildTableRowsForIteration(
+  iteration: IIterationRun,
+  proposalVersion: IProposalVersionEntry
+): ITableRowData[] {
+  const isApprovedHistorical = !proposalVersion.isCurrent && proposalVersion.status === "Approved";
+
+  // Determine highest level approved in this iteration's decisions
+  const approvedLevelsInDecs = iteration.decisions
+    .filter((d) => (d.decision || "").trim().toUpperCase() === "APPROVED")
+    .map((d) => d.level_id);
+  const maxApprovedLevelInDecs = approvedLevelsInDecs.length > 0 ? Math.max(...approvedLevelsInDecs) : 0;
+
+  return FIXED_APPROVAL_STAGES.map((stage) => {
+    const matchingDecs = iteration.decisions
+      .filter((d) => d.level_id === stage.level || (d as any).levelId === stage.level)
+      .sort((a, b) => {
+        const tA = new Date((a as any).decision_date || (a as any).decidedAt || a.timestamp || (a as any).Created || 0).getTime();
+        const tB = new Date((b as any).decision_date || (b as any).decidedAt || b.timestamp || (b as any).Created || 0).getTime();
+        return tB - tA;
+      });
+
+    const latestDec = matchingDecs[0];
+
+    let statusText: "Approved" | "Send Back" | "Rejected" | "Pending" | "Not Started" = "Not Started";
+    let updatedBy = "—";
+    let dateTime = "—";
+    let remarks = "";
+
+    if (latestDec) {
+      const decUpper = (latestDec.decision || "").trim().toUpperCase();
+      if (decUpper === "APPROVED") {
+        statusText = "Approved";
+      } else if (decUpper === "SENT_BACK" || decUpper === "SENT BACK") {
+        statusText = "Send Back";
+      } else if (decUpper === "REJECTED") {
+        statusText = "Rejected";
+      }
+
+      updatedBy = latestDec.approver_name || latestDec.approver_email || "—";
+      dateTime = formatDecisionDateTime(
+        (latestDec as any).decision_date ||
+        (latestDec as any).decidedAt ||
+        latestDec.timestamp ||
+        (latestDec as any).Created
+      );
+      remarks = latestDec.comments || (latestDec as any).remarks || "";
+    } else {
+      if (isApprovedHistorical) {
+        // Historical snapshots in CERProposalHistory are fully approved proposals
+        statusText = "Approved";
+        updatedBy = "Designated Approver";
+        dateTime = proposalVersion.dateStr;
+      } else if (iteration.isLatestActive) {
+        if (proposalVersion.isCurrent) {
+          const propStatus = proposalVersion.status;
+          const currentLvl = proposalVersion.rawProposal.current_level || 1;
+
+          if (propStatus === "In Approval") {
+            if (stage.level === currentLvl) {
+              statusText = "Pending";
+            } else if (stage.level > currentLvl) {
+              statusText = "Not Started";
+            } else if (stage.level < currentLvl) {
+              // If stage is below current level, it was approved in the active iteration or predecessor
+              statusText = "Approved";
+            }
+          } else if (propStatus === "Revised") {
+            if (stage.level === currentLvl) {
+              statusText = "Pending";
+            } else {
+              statusText = "Not Started";
+            }
+          } else if (propStatus === "Approved") {
+            statusText = "Approved";
+          } else {
+            statusText = "Not Started";
+          }
+        } else {
+          statusText = "Not Started";
+        }
+      } else {
+        // In a sent-back prior iteration, stages beyond the sent-back level were not started
+        if (iteration.sentBackLevel && stage.level > iteration.sentBackLevel) {
+          statusText = "Not Started";
+        } else {
+          statusText = "Not Started";
+        }
+      }
+    }
+
+    return {
+      stage,
+      statusText,
+      updatedBy,
+      dateTime,
+      remarks,
+    };
+  });
+}
+
+/**
+ * Robustly partitions a master list of approval decisions across proposal versions.
+ * Discovers whether decisions share the root permanentCerId or have distinct proposal numbers,
+ * and splits them along version completion boundaries.
+ */
+export function partitionDecisionsByVersion(
+  allDecisions: IApprovalDecision[],
+  versionEntries: IProposalVersionEntry[]
+): Record<string, IApprovalDecision[]> {
+  const result: Record<string, IApprovalDecision[]> = {};
+  versionEntries.forEach((v) => {
+    result[v.id] = [];
+  });
+
+  if (!allDecisions || allDecisions.length === 0) return result;
+
+  // Sort all decisions chronologically ascending (oldest first)
+  const sorted = [...allDecisions].sort((a, b) => {
+    const tA = new Date((a as any).decision_date || (a as any).decidedAt || a.timestamp || (a as any).Created || 0).getTime();
+    const tB = new Date((b as any).decision_date || (b as any).decidedAt || b.timestamp || (b as any).Created || 0).getTime();
+    return tA - tB;
+  });
+
+  // Check if decisions explicitly contain the version's proposalNo
+  const hasExplicitMatching = sorted.some((d) => {
+    const dNo = (d.cerprno || "").trim().toUpperCase();
+    return versionEntries.some(
+      (v) => (v.proposalNo || "").trim().toUpperCase() === dNo && dNo !== (v.rawProposal.cer_proposal_id || "").trim().toUpperCase()
+    );
+  });
+
+  if (hasExplicitMatching) {
+    sorted.forEach((d) => {
+      const dNo = (d.cerprno || "").trim().toUpperCase();
+      const matchedVer = versionEntries.find((v) => (v.proposalNo || "").trim().toUpperCase() === dNo);
+      if (matchedVer) {
+        result[matchedVer.id].push(d);
+      } else {
+        const currentVer = versionEntries.find((v) => v.isCurrent) || versionEntries[0];
+        result[currentVer.id].push(d);
+      }
+    });
+    return result;
+  }
+
+  // If all decisions share the same root CER Proposal ID (e.g. CER-2026-0002):
+  // Boundary Partitioning:
+  // Chronological order: [Historical 1, ..., Current]
+  if (versionEntries.length === 1) {
+    result[versionEntries[0].id] = sorted;
+    return result;
+  }
+
+  const chronologicalVersions = [...versionEntries].reverse(); // e.g. [Historical 1, Current]
+  const currentVer = versionEntries.find((v) => v.isCurrent) || versionEntries[0];
+  const histVer = chronologicalVersions[0];
+
+  // Find the boundary where Historical 1 ended:
+  // Historical 1 achieved full final approval (e.g. Level 6 Approved, or highest level approved before a post-approval amendment send-back)
+  let boundaryIndex = -1;
+  for (let i = 0; i < sorted.length; i++) {
+    const dec = sorted[i];
+    const isL6Approved = dec.level_id === 6 && (dec.decision || "").trim().toUpperCase() === "APPROVED";
+    const isSendBack = (dec.decision || "").trim().toUpperCase() === "SENT_BACK" || (dec.decision || "").trim().toUpperCase() === "SENT BACK";
+
+    if (isL6Approved) {
+      boundaryIndex = i;
+      break;
+    }
+    if (isSendBack && i > 0) {
+      boundaryIndex = i - 1;
+      break;
+    }
+  }
+
+  if (boundaryIndex !== -1) {
+    result[histVer.id] = sorted.slice(0, boundaryIndex + 1);
+    result[currentVer.id] = sorted.slice(boundaryIndex + 1);
+  } else {
+    // If no clear boundary, assign all historical decisions to Historical 1 if it is Approved
+    if (histVer.status === "Approved") {
+      result[histVer.id] = sorted.filter((d) => (d.decision || "").trim().toUpperCase() === "APPROVED");
+      result[currentVer.id] = sorted;
+    } else {
+      result[currentVer.id] = sorted;
+    }
+  }
+
+  return result;
 }
 
 export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
@@ -163,16 +466,6 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
     };
   }, [isOpen, proposal, permanentCerId, propHistoryProposals, dataService]);
 
-  // Initialize decisions for current proposal if passed in initialDecisions
-  useEffect(() => {
-    if (initialDecisions && initialDecisions.length > 0) {
-      setVersionDecisionsMap((prev) => ({
-        ...prev,
-        CURRENT: initialDecisions,
-      }));
-    }
-  }, [initialDecisions]);
-
   // Build sorted version entries (Current + Historical Snapshots, newest first)
   const versionEntries: IProposalVersionEntry[] = useMemo(() => {
     if (!proposal) return [];
@@ -226,134 +519,92 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
     return versionEntries.find((v) => v.id === selectedVersionId) || versionEntries[0];
   }, [versionEntries, selectedVersionId]);
 
-  // Fetch approval decisions for the selected version if not already cached
+  // Unified decision loading across the entire CER lifecycle
   useEffect(() => {
-    if (!isOpen || !selectedVersion) return;
-    const vId = selectedVersion.id;
-
-    if (versionDecisionsMap[vId]) {
-      return;
-    }
+    if (!isOpen || !proposal) return;
 
     let isMounted = true;
-    const fetchDecisions = async () => {
+    const loadAllDecisions = async () => {
       setIsLoadingDecisions(true);
       try {
-        const targetProposal = selectedVersion.rawProposal;
-        const queryKey = selectedVersion.isCurrent
-          ? targetProposal.cerprno
-          : targetProposal.proposal_no || targetProposal.cerprno;
+        // Query root permanent CER ID to fetch all decisions across all cycles
+        const queryPromises: Array<Promise<IApprovalDecision[]>> = [
+          dataService.getApprovalDecisions(permanentCerId, true),
+        ];
 
-        let decs = await dataService.getApprovalDecisions(queryKey, true);
-
-        // If query by cerprno returned empty for current, also check proposal_no
-        if ((!decs || decs.length === 0) && targetProposal.proposal_no && targetProposal.proposal_no !== targetProposal.cerprno) {
-          decs = await dataService.getApprovalDecisions(targetProposal.proposal_no, true);
+        // Also query current proposal_no if distinct
+        if (proposal.proposal_no && proposal.proposal_no !== permanentCerId) {
+          queryPromises.push(dataService.getApprovalDecisions(proposal.proposal_no, true));
         }
 
+        // Query historical proposal numbers if distinct
+        historyList.forEach((hp) => {
+          if (hp.proposal_no && hp.proposal_no !== permanentCerId) {
+            queryPromises.push(dataService.getApprovalDecisions(hp.proposal_no, true));
+          }
+        });
+
+        const results = await Promise.all(queryPromises);
+        const combined: IApprovalDecision[] = [];
+        const seenKeys = new Set<string>();
+
+        results.forEach((list) => {
+          (list || []).forEach((d) => {
+            const key = d.id || `${d.level_id}_${(d as any).decision_date || d.timestamp}_${d.approver_name}`;
+            if (!seenKeys.has(key)) {
+              seenKeys.add(key);
+              combined.push(d);
+            }
+          });
+        });
+
+        // Also include initialDecisions if provided
+        if (initialDecisions && initialDecisions.length > 0) {
+          initialDecisions.forEach((d) => {
+            const key = d.id || `${d.level_id}_${(d as any).decision_date || d.timestamp}_${d.approver_name}`;
+            if (!seenKeys.has(key)) {
+              seenKeys.add(key);
+              combined.push(d);
+            }
+          });
+        }
+
+        // Partition decisions accurately across all versions
+        const partitioned = partitionDecisionsByVersion(combined, versionEntries);
+
         if (isMounted) {
-          setVersionDecisionsMap((prev) => ({
-            ...prev,
-            [vId]: decs || [],
-          }));
+          setVersionDecisionsMap(partitioned);
         }
       } catch (err) {
-        console.warn(`[StatusHistoryModal] Failed to load decisions for version ${vId}:`, err);
-        if (isMounted) {
-          setVersionDecisionsMap((prev) => ({ ...prev, [vId]: [] }));
-        }
+        console.warn("[StatusHistoryModal] Error querying unified approval decisions:", err);
       } finally {
         if (isMounted) setIsLoadingDecisions(false);
       }
     };
 
-    fetchDecisions().catch((e) => console.error(e));
+    loadAllDecisions().catch((e) => console.error(e));
 
     return () => {
       isMounted = false;
     };
-  }, [isOpen, selectedVersion, dataService, versionDecisionsMap]);
+  }, [isOpen, permanentCerId, proposal, historyList, versionEntries, dataService, initialDecisions]);
 
   if (!isOpen || !proposal) return null;
 
-  const currentDecisions = (selectedVersion && versionDecisionsMap[selectedVersion.id]) || [];
+  // Retrieve decisions for the selected version and split into iterations
+  const versionDecisions = (selectedVersion && versionDecisionsMap[selectedVersion.id]) || [];
+  const iterations = splitDecisionsIntoIterations(versionDecisions, selectedVersion.isCurrent, selectedVersion.rawProposal);
 
-  // Table rows computation for exactly 6 fixed workflow levels
-  const tableRows = FIXED_APPROVAL_STAGES.map((stage) => {
-    const matchingDecs = currentDecisions
-      .filter((d) => d.level_id === stage.level || (d as any).levelId === stage.level)
-      .sort((a, b) => {
-        const tA = new Date((a as any).decision_date || (a as any).decidedAt || a.timestamp || (a as any).Created || 0).getTime();
-        const tB = new Date((b as any).decision_date || (b as any).decidedAt || b.timestamp || (b as any).Created || 0).getTime();
-        return tB - tA;
-      });
+  // Active iteration (top table) and prior iterations (lower tables)
+  const activeIteration = iterations[iterations.length - 1];
+  const priorIterations = iterations.slice(0, -1).reverse();
 
-    const latestDec = matchingDecs[0];
+  // Active table rows
+  const activeRows = buildTableRowsForIteration(activeIteration, selectedVersion);
 
-    let statusText: "Approved" | "Send Back" | "Rejected" | "Pending" | "Not Started" = "Not Started";
-    let updatedBy = "—";
-    let dateTime = "—";
-    let remarks = "";
-
-    if (latestDec) {
-      const decUpper = (latestDec.decision || "").trim().toUpperCase();
-      if (decUpper === "APPROVED") {
-        statusText = "Approved";
-      } else if (decUpper === "SENT_BACK" || decUpper === "SENT BACK") {
-        statusText = "Send Back";
-      } else if (decUpper === "REJECTED") {
-        statusText = "Rejected";
-      }
-
-      updatedBy = latestDec.approver_name || latestDec.approver_email || "—";
-      dateTime = formatDecisionDateTime(
-        (latestDec as any).decision_date ||
-        (latestDec as any).decidedAt ||
-        latestDec.timestamp ||
-        (latestDec as any).Created
-      );
-      remarks = latestDec.comments || (latestDec as any).remarks || "";
-    } else {
-      // Determine pending vs not started if no decision recorded
-      if (selectedVersion.isCurrent) {
-        const propStatus = selectedVersion.status;
-        const currentLvl = selectedVersion.rawProposal.current_level || 1;
-
-        if (propStatus === "In Approval") {
-          if (stage.level === currentLvl) {
-            statusText = "Pending";
-          } else if (stage.level > currentLvl) {
-            statusText = "Not Started";
-          } else {
-            statusText = "Not Started";
-          }
-        } else if (propStatus === "Revised") {
-          if (stage.level === currentLvl) {
-            statusText = "Pending";
-          } else {
-            statusText = "Not Started";
-          }
-        } else {
-          statusText = "Not Started";
-        }
-      } else {
-        // Historical snapshots are completed prior approved proposals
-        statusText = "Not Started";
-      }
-    }
-
-    return {
-      stage,
-      statusText,
-      updatedBy,
-      dateTime,
-      remarks,
-    };
-  });
-
-  // Summary Metrics calculations
+  // Summary Metrics calculations based strictly on the active iteration
   const totalLevels = 6;
-  const approvedLevelsCount = tableRows.filter((r) => r.statusText === "Approved").length;
+  const approvedLevelsCount = activeRows.filter((r) => r.statusText === "Approved").length;
 
   let currentPendingStageText = "All Approved";
   if (selectedVersion.isCurrent) {
@@ -371,9 +622,113 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
     } else if (status === "Approved") {
       currentPendingStageText = "All Approved";
     }
+  } else {
+    currentPendingStageText = "All Approved";
   }
 
   const sanctionAmountFormatted = `${selectedVersion.currency} ${selectedVersion.amount.toLocaleString()}`;
+
+  // Helper to render standard status badge
+  const renderStatusBadge = (statusText: string) => {
+    switch (statusText) {
+      case "Approved":
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span>Approved</span>
+          </span>
+        );
+      case "Send Back":
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 shadow-2xs">
+            <RotateCcw className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <span>Send Back</span>
+          </span>
+        );
+      case "Rejected":
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs">
+            <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+            <span>Rejected</span>
+          </span>
+        );
+      case "Pending":
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
+            <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <span>Pending</span>
+          </span>
+        );
+      case "Not Started":
+      default:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+            <span>Not Started</span>
+          </span>
+        );
+    }
+  };
+
+  // Helper to render a table row
+  const renderTableRow = (row: ITableRowData) => {
+    const { stage, statusText, updatedBy, dateTime, remarks } = row;
+    return (
+      <tr key={stage.level} className="hover:bg-slate-50/70 transition-colors">
+        {/* Column 1: Level */}
+        <td className="py-3 px-3.5 font-bold">
+          <span className="inline-block px-2 py-0.5 rounded-md font-mono text-xs font-bold bg-[#012964]/10 text-[#012964] border border-[#012964]/20">
+            {stage.levelBadge}
+          </span>
+        </td>
+
+        {/* Column 2: Level Name */}
+        <td className="py-3 px-3.5">
+          <span className="font-semibold text-slate-900 text-xs">
+            {stage.name}
+          </span>
+        </td>
+
+        {/* Column 3: Status */}
+        <td className="py-3 px-3.5">
+          {renderStatusBadge(statusText)}
+        </td>
+
+        {/* Column 4: Status Updated By */}
+        <td className="py-3 px-3.5">
+          {updatedBy !== "—" ? (
+            <div>
+              <span className="font-semibold text-slate-800 text-xs">
+                {updatedBy}
+              </span>
+              {remarks && (
+                <div
+                  className="text-[11px] text-slate-500 italic mt-0.5 flex items-center gap-1 max-w-md truncate"
+                  title={remarks}
+                >
+                  <MessageSquare className="w-3 h-3 text-slate-400 shrink-0" />
+                  <span className="truncate">"{remarks}"</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <span className="text-slate-400 font-medium">—</span>
+          )}
+        </td>
+
+        {/* Column 5: Date & Time */}
+        <td className="py-3 px-3.5">
+          {dateTime !== "—" ? (
+            <span className="font-medium text-slate-700 text-xs whitespace-nowrap">
+              {dateTime}
+            </span>
+          ) : (
+            <span className="text-slate-400 font-medium">—</span>
+          )}
+        </td>
+      </tr>
+    );
+  };
 
   return (
     <div className="cer-display-scope fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
@@ -505,7 +860,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
           </div>
 
           {/* ========================================================================================= */}
-          {/* RIGHT PANEL (~70% width): Summary Cards & 6-Level Approval History Table */}
+          {/* RIGHT PANEL (~70% width): Summary Cards & Multi-Iteration Tables */}
           {/* ========================================================================================= */}
           <div className="flex-1 flex flex-col overflow-y-auto bg-white p-5 lg:p-6 space-y-5 min-w-0">
             {/* 4 Compact Summary Cards */}
@@ -565,25 +920,50 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
               </div>
             </div>
 
-            {/* Approval History Table Header Section */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col flex-1">
-              <div className="px-4 py-3 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
+            {/* UNIFIED APPROVAL HISTORY BOX (Contains Active Iteration + All Prior Iterations in One Box) */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col shrink-0">
+              {/* Box Master Header */}
+              <div className="px-4 py-3 bg-slate-50/90 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-[#012964]" />
+                  <ShieldCheck className="w-4 h-4 text-[#012964] shrink-0" />
                   <h3 className="font-bold text-xs text-slate-900 uppercase tracking-wider">
                     Workflow Stages & Approval History ({selectedVersion.proposalNo})
                   </h3>
                 </div>
-                {isLoadingDecisions && (
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                    <div className="w-3.5 h-3.5 border-2 border-[#012964] border-t-transparent rounded-full animate-spin" />
-                    <span>Updating...</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  {isLoadingDecisions && (
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                      <div className="w-3.5 h-3.5 border-2 border-[#012964] border-t-transparent rounded-full animate-spin" />
+                      <span>Updating...</span>
+                    </div>
+                  )}
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#012964] border border-blue-200">
+                    {priorIterations.length > 0
+                      ? `${iterations.length} Iterations (${priorIterations.length} Sent Back)`
+                      : selectedVersion.isCurrent
+                      ? "Active Workflow"
+                      : "Approved Snapshot"}
+                  </span>
+                </div>
               </div>
 
-              {/* Table Container */}
-              <div className="overflow-x-auto flex-1">
+              {/* Active Iteration Sub-Header (Shown when prior iterations exist to differentiate active run) */}
+              {priorIterations.length > 0 && (
+                <div className="px-4 py-2 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-200 animate-pulse shrink-0" />
+                    <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wide">
+                      Active Workflow Cycle (Iteration {activeIteration.iterationIndex})
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-medium text-slate-600">
+                    Current Status: <strong className="font-semibold text-slate-900">{selectedVersion.status}</strong>
+                  </span>
+                </div>
+              )}
+
+              {/* Active Iteration Table */}
+              <div className="overflow-x-auto overflow-y-hidden">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-700 font-bold uppercase text-[11px] tracking-wider">
@@ -595,113 +975,59 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {tableRows.map((row) => {
-                      const { stage, statusText, updatedBy, dateTime, remarks } = row;
-
-                      // Professional Status Badges
-                      const renderStatusBadge = () => {
-                        switch (statusText) {
-                          case "Approved":
-                            return (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                <span>Approved</span>
-                              </span>
-                            );
-                          case "Send Back":
-                            return (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 shadow-2xs">
-                                <RotateCcw className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                                <span>Send Back</span>
-                              </span>
-                            );
-                          case "Rejected":
-                            return (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs">
-                                <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                                <span>Rejected</span>
-                              </span>
-                            );
-                          case "Pending":
-                            return (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
-                                <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                                <span>Pending</span>
-                              </span>
-                            );
-                          case "Not Started":
-                          default:
-                            return (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 shadow-2xs">
-                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                                <span>Not Started</span>
-                              </span>
-                            );
-                        }
-                      };
-
-                      return (
-                        <tr
-                          key={stage.level}
-                          className="hover:bg-slate-50/70 transition-colors"
-                        >
-                          {/* Column 1: Level */}
-                          <td className="py-3 px-3.5 font-bold">
-                            <span className="inline-block px-2 py-0.5 rounded-md font-mono text-xs font-bold bg-[#012964]/10 text-[#012964] border border-[#012964]/20">
-                              {stage.levelBadge}
-                            </span>
-                          </td>
-
-                          {/* Column 2: Level Name */}
-                          <td className="py-3 px-3.5">
-                            <span className="font-semibold text-slate-900 text-xs">
-                              {stage.name}
-                            </span>
-                          </td>
-
-                          {/* Column 3: Status */}
-                          <td className="py-3 px-3.5">
-                            {renderStatusBadge()}
-                          </td>
-
-                          {/* Column 4: Status Updated By */}
-                          <td className="py-3 px-3.5">
-                            {updatedBy !== "—" ? (
-                              <div>
-                                <span className="font-semibold text-slate-800 text-xs">
-                                  {updatedBy}
-                                </span>
-                                {remarks && (
-                                  <div
-                                    className="text-[11px] text-slate-500 italic mt-0.5 flex items-center gap-1 max-w-md truncate"
-                                    title={remarks}
-                                  >
-                                    <MessageSquare className="w-3 h-3 text-slate-400 shrink-0" />
-                                    <span className="truncate">"{remarks}"</span>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-slate-400 font-medium">—</span>
-                            )}
-                          </td>
-
-                          {/* Column 5: Date & Time */}
-                          <td className="py-3 px-3.5">
-                            {dateTime !== "—" ? (
-                              <span className="font-medium text-slate-700 text-xs whitespace-nowrap">
-                                {dateTime}
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 font-medium">—</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {activeRows.map((row) => renderTableRow(row))}
                   </tbody>
                 </table>
               </div>
+
+              {/* Prior Iteration Tables inside the same unified box */}
+              {priorIterations.map((iter) => {
+                const iterRows = buildTableRowsForIteration(iter, selectedVersion);
+
+                return (
+                  <div key={`prior-iter-${iter.iterationIndex}`} className="border-t-2 border-amber-200/90">
+                    {/* Prior Iteration Divider Header */}
+                    <div className="px-4 py-2.5 bg-amber-50/80 border-b border-amber-200/80 flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <RotateCcw className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                        <div>
+                          <span className="font-bold text-xs text-amber-950 uppercase tracking-wider">
+                            Prior Iteration {iter.iterationIndex} — Sent Back at Level {iter.sentBackLevel} ({iter.sentBackStageName})
+                          </span>
+                          {iter.sentBackBy && (
+                            <p className="text-[11px] text-amber-800 mt-0.5">
+                              Returned to Initiator by <strong>{iter.sentBackBy}</strong>
+                              {iter.sentBackDate && iter.sentBackDate !== "—" ? ` on ${iter.sentBackDate}` : ""}
+                              {iter.sentBackRemarks ? ` • "${iter.sentBackRemarks}"` : ""}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
+                        Sent Back for Revision
+                      </span>
+                    </div>
+
+                    {/* Prior Iteration Table */}
+                    <div className="overflow-x-auto overflow-y-hidden">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-amber-50/40 border-b border-amber-100 text-slate-700 font-bold uppercase text-[11px] tracking-wider">
+                            <th className="py-2.5 px-3.5 w-16">Level</th>
+                            <th className="py-2.5 px-3.5 w-48">Level Name</th>
+                            <th className="py-2.5 px-3.5 w-36">Status</th>
+                            <th className="py-2.5 px-3.5">Status Updated By</th>
+                            <th className="py-2.5 px-3.5 w-44">Date & Time</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {iterRows.map((row) => renderTableRow(row))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
