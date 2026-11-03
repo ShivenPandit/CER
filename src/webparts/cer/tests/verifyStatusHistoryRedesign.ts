@@ -315,6 +315,10 @@ async function runTests() {
   assert(rejRows[1].updatedBy === "Shiven Pandit (Microlink)", "5i. Stage 2 updatedBy shows rejector name");
   assert(rejRows[1].remarks === "Testing Rejection", "5j. Stage 2 remarks captured");
   assert(rejRows[2].statusText === "Not Started", "5k. Stage 3 (L3 BU CFO) statusText is Not Started");
+  assert(rejIteration.isRejected === true, "5l. Active rejected iteration is marked isRejected");
+  assert(rejIteration.rejectedLevel === 2, "5m. Active rejected iteration level is 2");
+  assert(rejIteration.rejectedStageName === "Project Owner", "5n. Active rejected iteration stage name is Project Owner");
+  assert(rejIteration.rejectedBy === "Shiven Pandit (Microlink)", "5o. Active rejected iteration rejectedBy captured");
 
   // 6. Multi-Version Snapshot Isolation without Overwriting (Images 1, 2, 3 fix)
   console.log("\n--- Testing Multi-Version CERProposalsHistory Isolation ---");
@@ -381,6 +385,58 @@ async function runTests() {
   assert(rejRows[1].remarks === "Testing Rejection", "7a. Remarks captured on rejected L2 row");
   assert(rejRows[0].remarks === "Finance Approved", "7b. Remarks captured on approved L1 row");
   assert(rejRows[2].remarks === "", "7c. Remarks empty for unstarted L3 row");
+
+  // 8. CER-2026-0002 Specific Regression: No L3 Approval in L2 Send Back & Serial 1 Complete Snapshot
+  console.log("\n--- Testing CER-2026-0002 Isolation & L2 Send-Back Sequential Bounds ---");
+  const cer0002Decisions: IApprovalDecision[] = [
+    // Cycle 1: PR-2026/02 approved at 11:54
+    { id: "c1_1", cerprno: "CER-2026-0002", level_id: 1, level_name: "Finance", decision: "APPROVED", approver_name: "Priya Kalekar (STL Digital)", timestamp: "2026-11-03T11:54:10Z" } as any,
+    { id: "c1_2", cerprno: "CER-2026-0002", level_id: 2, level_name: "Project Owner", decision: "APPROVED", approver_name: "Priya Kalekar (STL Digital)", timestamp: "2026-11-03T11:54:20Z" } as any,
+    { id: "c1_3", cerprno: "CER-2026-0002", level_id: 3, level_name: "BU CFO", decision: "APPROVED", approver_name: "Priya Kalekar (STL Digital)", timestamp: "2026-11-03T11:54:30Z" } as any,
+    { id: "c1_4", cerprno: "CER-2026-0002", level_id: 4, level_name: "BU Director", decision: "APPROVED", approver_name: "Priya Kalekar (STL Digital)", timestamp: "2026-11-03T11:54:40Z" } as any,
+    { id: "c1_5", cerprno: "CER-2026-0002", level_id: 5, level_name: "VOGL CFO", decision: "APPROVED", approver_name: "Priya Kalekar (STL Digital)", timestamp: "2026-11-03T11:54:50Z" } as any,
+    { id: "c1_6", cerprno: "CER-2026-0002", level_id: 6, level_name: "VOGL CEO", decision: "APPROVED", approver_name: "Priya Kalekar (STL Digital)", timestamp: "2026-11-03T11:55:00Z" } as any,
+    // Cycle 2: PR-2026/02-R1 Iteration 1 at 11:59
+    { id: "c2_1", cerprno: "CER-2026-0002", level_id: 1, level_name: "Finance", decision: "APPROVED", approver_name: "Priya Kalekar (STL Digital)", timestamp: "2026-11-03T11:59:10Z" } as any,
+    { id: "c2_2", cerprno: "CER-2026-0002", level_id: 2, level_name: "Project Owner", decision: "SENT_BACK", approver_name: "Shiven Pandit (Microlink)", comments: "Post Approval Send Back", timestamp: "2026-11-03T11:59:40Z" } as any,
+    // Cycle 2: PR-2026/02-R1 Retrigger Iteration 2 at 13:44 & 15:57
+    { id: "c2_3", cerprno: "CER-2026-0002", level_id: 1, level_name: "Finance", decision: "APPROVED", approver_name: "Priya Kalekar (STL Digital)", timestamp: "2026-11-03T13:44:00Z" } as any,
+    { id: "c2_4", cerprno: "CER-2026-0002", level_id: 2, level_name: "Project Owner", decision: "REJECTED", approver_name: "Shiven Pandit (Microlink)", comments: "Rejected at L2", timestamp: "2026-11-03T15:57:00Z" } as any,
+  ];
+
+  const cer0002Partitioned = partitionDecisionsByVersion(cer0002Decisions, versionEntries);
+  assert(cer0002Partitioned["HIST_1"].length === 6, `8a. Serial 1 received exactly the 6 Cycle 1 decisions (got: ${cer0002Partitioned["HIST_1"].length})`);
+  assert(cer0002Partitioned["CURRENT"].length === 4, `8b. Serial 2 received all 4 Cycle 2 decisions (got: ${cer0002Partitioned["CURRENT"].length})`);
+
+  // Serial 1: Exactly 1 iteration with all 6 Approved
+  const cer0002HistIters = splitDecisionsIntoIterations(cer0002Partitioned["HIST_1"], false, version1Proposal);
+  assert(cer0002HistIters.length === 1, `8c. Serial 1 has exactly 1 iteration (no send-backs) (got: ${cer0002HistIters.length})`);
+  const cer0002HistRows = buildTableRowsForIteration(cer0002HistIters[0], versionEntries[1]);
+  assert(cer0002HistRows.every((r) => r.statusText === "Approved"), "8d. Serial 1 is 100% Approved Snapshot");
+
+  // Serial 2: 2 iterations (Iteration 1: Sent Back at L2; Iteration 2: Rejected at L2)
+  const cer0002CurrentIters = splitDecisionsIntoIterations(cer0002Partitioned["CURRENT"], true, { ...version2Proposal, status: "Rejected" });
+  assert(cer0002CurrentIters.length === 2, `8e. Serial 2 splits into 2 iterations (got: ${cer0002CurrentIters.length})`);
+
+  // Verify Iteration 1 (Prior Sent Back):
+  const cer0002SbIter = cer0002CurrentIters[0];
+  assert(cer0002SbIter.isSentBack === true && cer0002SbIter.sentBackLevel === 2, "8f. Iteration 1 is Sent Back at Level 2");
+  const cer0002SbRows = buildTableRowsForIteration(cer0002SbIter, versionEntries[0]);
+  assert(cer0002SbRows[0].statusText === "Approved", "8g. L1 is Approved in sent-back iteration");
+  assert(cer0002SbRows[1].statusText === "Send Back", "8h. L2 is Send Back in sent-back iteration");
+  assert(cer0002SbRows[2].statusText === "Not Started", `8i. L3 BU CFO MUST BE 'Not Started', NOT Approved (got: ${cer0002SbRows[2].statusText})`);
+  assert(cer0002SbRows[3].statusText === "Not Started", "8j. L4 is Not Started in sent-back iteration");
+  assert(cer0002SbRows[4].statusText === "Not Started", "8k. L5 is Not Started in sent-back iteration");
+  assert(cer0002SbRows[5].statusText === "Not Started", "8l. L6 is Not Started in sent-back iteration");
+
+  // Verify Iteration 2 (Upper Table, Active Cycle):
+  const cer0002ActIter = cer0002CurrentIters[1];
+  assert(cer0002ActIter.isLatestActive === true, "8m. Iteration 2 is active");
+  assert(cer0002ActIter.isRejected === true && cer0002ActIter.rejectedLevel === 2, "8n. Iteration 2 is Rejected at Level 2");
+  const cer0002ActRows = buildTableRowsForIteration(cer0002ActIter, versionEntries[0]);
+  assert(cer0002ActRows[0].statusText === "Approved", "8o. Upper table L1 is Approved");
+  assert(cer0002ActRows[1].statusText === "Rejected", "8p. Upper table L2 is Rejected");
+  assert(cer0002ActRows[2].statusText === "Not Started", "8q. Upper table L3 is Not Started");
 
   console.log("\n==================================================");
   console.log("  ALL REDESIGN VERIFICATIONS PASSED               ");

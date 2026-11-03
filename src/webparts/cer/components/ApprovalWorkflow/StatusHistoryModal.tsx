@@ -65,6 +65,12 @@ export interface IIterationRun {
   sentBackBy?: string;
   sentBackDate?: string;
   sentBackRemarks?: string;
+  isRejected?: boolean;
+  rejectedLevel?: number;
+  rejectedStageName?: string;
+  rejectedBy?: string;
+  rejectedDate?: string;
+  rejectedRemarks?: string;
   decisions: IApprovalDecision[];
 }
 
@@ -136,12 +142,19 @@ export function splitDecisionsIntoIterations(
   isCurrentVersion: boolean,
   currentProposal: ICERProposal
 ): IIterationRun[] {
+  const isPropRejected = (currentProposal.status || "").trim().toUpperCase() === "REJECTED";
+
   if (!versionDecisions || versionDecisions.length === 0) {
+    const rejLvl = currentProposal.current_level || 1;
+    const rejStageName = FIXED_APPROVAL_STAGES.find((s) => s.level === rejLvl)?.name || `Stage ${rejLvl}`;
     return [
       {
         iterationIndex: 1,
         isLatestActive: true,
         isSentBack: false,
+        isRejected: isCurrentVersion && isPropRejected,
+        rejectedLevel: isCurrentVersion && isPropRejected ? rejLvl : undefined,
+        rejectedStageName: isCurrentVersion && isPropRejected ? rejStageName : undefined,
         decisions: [],
       },
     ];
@@ -164,9 +177,10 @@ export function splitDecisionsIntoIterations(
     const isSendBack =
       (dec.decision || "").trim().toUpperCase() === "SENT_BACK" ||
       (dec.decision || "").trim().toUpperCase() === "SENT BACK";
+    const isRejected = (dec.decision || "").trim().toUpperCase() === "REJECTED";
 
-    if (isSendBack) {
-      // Check if subsequent decisions exist in this list (e.g. L1 Approved after L2 Send Back)
+    if (isSendBack || isRejected) {
+      // Check if subsequent decisions exist in this list (e.g. L1 Approved after L2 Send Back/Rejected)
       const hasSubsequentDecisions = i < sorted.length - 1;
       // Or if current proposal was retriggered and is actively 'In Approval'
       const isRetriggered = hasSubsequentDecisions || (isCurrentVersion && currentProposal.status === "In Approval");
@@ -176,12 +190,22 @@ export function splitDecisionsIntoIterations(
         iterations.push({
           iterationIndex: iterations.length + 1,
           isLatestActive: false,
-          isSentBack: true,
-          sentBackLevel: dec.level_id,
-          sentBackStageName: stageName,
-          sentBackBy: dec.approver_name || dec.approver_email || "—",
-          sentBackDate: formatDecisionDateTime((dec as any).decision_date || (dec as any).decidedAt || dec.timestamp || (dec as any).Created),
-          sentBackRemarks: dec.comments || (dec as any).remarks || "",
+          isSentBack: isSendBack,
+          sentBackLevel: isSendBack ? dec.level_id : undefined,
+          sentBackStageName: isSendBack ? stageName : undefined,
+          sentBackBy: isSendBack ? dec.approver_name || dec.approver_email || "—" : undefined,
+          sentBackDate: isSendBack
+            ? formatDecisionDateTime((dec as any).decision_date || (dec as any).decidedAt || dec.timestamp || (dec as any).Created)
+            : undefined,
+          sentBackRemarks: isSendBack ? dec.comments || (dec as any).remarks || "" : undefined,
+          isRejected,
+          rejectedLevel: isRejected ? dec.level_id : undefined,
+          rejectedStageName: isRejected ? stageName : undefined,
+          rejectedBy: isRejected ? dec.approver_name || dec.approver_email || "—" : undefined,
+          rejectedDate: isRejected
+            ? formatDecisionDateTime((dec as any).decision_date || (dec as any).decidedAt || dec.timestamp || (dec as any).Created)
+            : undefined,
+          rejectedRemarks: isRejected ? dec.comments || (dec as any).remarks || "" : undefined,
           decisions: [...currentRunDecs],
         });
         currentRunDecs = [];
@@ -196,6 +220,18 @@ export function splitDecisionsIntoIterations(
     ((latestDec.decision || "").trim().toUpperCase() === "SENT_BACK" ||
       (latestDec.decision || "").trim().toUpperCase() === "SENT BACK");
 
+  const rejectedDec = currentRunDecs.find(
+    (d) => (d.decision || "").trim().toUpperCase() === "REJECTED"
+  );
+  const isLatestRejected = !!rejectedDec || (isCurrentVersion && isPropRejected);
+  const rejLvl = rejectedDec?.level_id || (isCurrentVersion ? currentProposal.current_level : 1) || 1;
+  const rejStageName = FIXED_APPROVAL_STAGES.find((s) => s.level === rejLvl)?.name || `Stage ${rejLvl}`;
+  const rejBy = rejectedDec ? rejectedDec.approver_name || rejectedDec.approver_email || "—" : undefined;
+  const rejDate = rejectedDec
+    ? formatDecisionDateTime((rejectedDec as any).decision_date || (rejectedDec as any).decidedAt || rejectedDec.timestamp || (rejectedDec as any).Created)
+    : undefined;
+  const rejRemarks = rejectedDec ? rejectedDec.comments || (rejectedDec as any).remarks || "" : undefined;
+
   iterations.push({
     iterationIndex: iterations.length + 1,
     isLatestActive: true,
@@ -209,6 +245,12 @@ export function splitDecisionsIntoIterations(
       ? formatDecisionDateTime((latestDec as any).decision_date || (latestDec as any).decidedAt || latestDec.timestamp || (latestDec as any).Created)
       : undefined,
     sentBackRemarks: isLatestSentBack ? latestDec.comments || (latestDec as any).remarks || "" : undefined,
+    isRejected: !!isLatestRejected,
+    rejectedLevel: isLatestRejected ? rejLvl : undefined,
+    rejectedStageName: isLatestRejected ? rejStageName : undefined,
+    rejectedBy: isLatestRejected ? rejBy : undefined,
+    rejectedDate: isLatestRejected ? rejDate : undefined,
+    rejectedRemarks: isLatestRejected ? rejRemarks : undefined,
     decisions: currentRunDecs,
   });
 
@@ -231,6 +273,30 @@ export function buildTableRowsForIteration(
   const maxApprovedLevelInDecs = approvedLevelsInDecs.length > 0 ? Math.max(...approvedLevelsInDecs) : 0;
 
   return FIXED_APPROVAL_STAGES.map((stage) => {
+    // 1. Strict Sequential Limit for Sent Back:
+    // In any iteration where a stage was Sent Back, stages higher than the sent-back level were never reached!
+    if (iteration.isSentBack && iteration.sentBackLevel && stage.level > iteration.sentBackLevel) {
+      return {
+        stage,
+        statusText: "Not Started",
+        updatedBy: "—",
+        dateTime: "—",
+        remarks: "",
+      };
+    }
+
+    // 2. Strict Sequential Limit for Rejected:
+    // In any iteration where a stage was Rejected, stages higher than the rejected level were never reached!
+    if (iteration.isRejected && iteration.rejectedLevel && stage.level > iteration.rejectedLevel) {
+      return {
+        stage,
+        statusText: "Not Started",
+        updatedBy: "—",
+        dateTime: "—",
+        remarks: "",
+      };
+    }
+
     const matchingDecs = iteration.decisions
       .filter((d) => d.level_id === stage.level || (d as any).levelId === stage.level)
       .sort((a, b) => {
@@ -365,17 +431,23 @@ export function partitionDecisionsByVersion(
   });
 
   const currentVer = versionEntries.find((v) => v.isCurrent) || versionEntries[0];
-  const historicalVers = versionEntries.filter((v) => !v.isCurrent);
+  const historicalVersAsc = [...versionEntries]
+    .filter((v) => !v.isCurrent)
+    .sort((a, b) => a.serialNo - b.serialNo);
 
   sorted.forEach((d) => {
     const rawV = String((d as any).version || (d as any).Version || "").trim().toUpperCase();
     const dNo = (d.cerprno || "").trim().toUpperCase();
+    const dTitle = ((d as any).Title || "").trim().toUpperCase();
     const dTime = new Date((d as any).decision_date || (d as any).decidedAt || d.timestamp || (d as any).Created || 0).getTime();
 
     // 1. Check exact proposal number match if versions have distinct proposal numbers
-    const explicitNoVer = versionEntries.find(
-      (v) => (v.proposalNo || "").trim().toUpperCase() === dNo && dNo !== (v.rawProposal.cer_proposal_id || "").trim().toUpperCase()
-    );
+    const explicitNoVer = versionEntries.find((v) => {
+      const pNo = (v.proposalNo || "").trim().toUpperCase();
+      const pId = (v.rawProposal.cer_proposal_id || "").trim().toUpperCase();
+      if (!pNo) return false;
+      return (dNo === pNo || dTitle === pNo) && pNo !== pId;
+    });
     if (explicitNoVer) {
       result[explicitNoVer.id].push(d);
       return;
@@ -404,15 +476,37 @@ export function partitionDecisionsByVersion(
       }
     }
 
-    // 3. Fallback for untagged / unversioned decisions: Check chronological boundary against historical snapshots
+    // 3. Fallback for untagged / unversioned decisions:
+    // Route to historical versions sequentially until each is fully approved, then route remaining to CURRENT
     let assigned = false;
-    for (const hist of historicalVers) {
-      const histDate = new Date(hist.rawProposal.modified_date || hist.rawProposal.created_date || 0).getTime();
-      if (histDate > 0 && dTime <= histDate) {
-        result[hist.id].push(d);
-        assigned = true;
-        break;
+    for (const hist of historicalVersAsc) {
+      const histDecs = result[hist.id];
+      const hasFinalApproval = histDecs.some(
+        (hd) => hd.level_id === 6 && (hd.decision || "").trim().toUpperCase() === "APPROVED"
+      );
+
+      // If hist already has its complete approved run (reached level 6), it is closed
+      if (hasFinalApproval) {
+        continue;
       }
+
+      // If hist already has an approved Level 1 and higher levels, and d is an L1 decision:
+      // this marks the start of the next version/cycle!
+      const hasL1 = histDecs.some((hd) => hd.level_id === 1 && (hd.decision || "").trim().toUpperCase() === "APPROVED");
+      const maxLvlInHist = Math.max(...histDecs.map((hd) => hd.level_id), 0);
+      if (hasL1 && maxLvlInHist >= 2 && d.level_id === 1) {
+        continue;
+      }
+
+      // Check chronological boundary if available
+      const histArchiveDate = new Date(hist.rawProposal.modified_date || hist.rawProposal.created_date || 0).getTime();
+      if (histArchiveDate > 0 && dTime > histArchiveDate && histDecs.length >= 6) {
+        continue;
+      }
+
+      result[hist.id].push(d);
+      assigned = true;
+      break;
     }
 
     if (!assigned) {
@@ -839,6 +933,12 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
+            {isLoadingDecisions && (
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 mr-1">
+                <div className="w-3.5 h-3.5 border-2 border-[#012964] border-t-transparent rounded-full animate-spin" />
+                <span>Updating...</span>
+              </div>
+            )}
             <button
               onClick={onClose}
               className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
@@ -1007,39 +1107,65 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
 
             {/* UNIFIED APPROVAL HISTORY BOX (Contains Active Iteration + All Prior Iterations in One Box) */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col shrink-0">
-              {/* Box Master Header */}
-              <div className="px-4 py-3 bg-slate-50/90 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-[#012964] shrink-0" />
-                  <h3 className="font-bold text-sm sm:text-base text-slate-900 tracking-tight">
-                    Workflow Stages & Approval History ({selectedVersion.proposalNo}
-                    {versionEntries.length > 1 && !hasDistinctProposalNos ? ` • Serial No. ${selectedVersion.serialNo}` : ""})
-                  </h3>
-                </div>
-                <div className="flex items-center gap-2">
-                  {isLoadingDecisions && (
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                      <div className="w-3.5 h-3.5 border-2 border-[#012964] border-t-transparent rounded-full animate-spin" />
-                      <span>Updating...</span>
-                    </div>
-                  )}
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-[#012964] border border-blue-200">
-                    {priorIterations.length > 0
-                      ? `${iterations.length} Iterations (${priorIterations.length} Sent Back)`
-                      : selectedVersion.isCurrent
-                      ? "Active Workflow"
-                      : "Approved Snapshot"}
+              {/* Active Iteration Sub-Header Banner */}
+              {activeIteration.isRejected ? (
+                <div className="px-4 py-3 bg-rose-50/80 border-b border-rose-200/80 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <XCircle className="w-4 h-4 text-rose-700 shrink-0" />
+                    <span className="font-bold text-xs sm:text-[13px] text-rose-950 uppercase tracking-wider">
+                      {iterations.length > 1
+                        ? `Active Workflow Cycle (Iteration ${activeIteration.iterationIndex}) — Rejected at Level ${activeIteration.rejectedLevel} (${activeIteration.rejectedStageName})`
+                        : `Workflow Rejected at Level ${activeIteration.rejectedLevel} (${activeIteration.rejectedStageName})`}
+                    </span>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 shrink-0">
+                    Rejected
                   </span>
                 </div>
-              </div>
-
-              {/* Active Iteration Sub-Header (Shown when prior iterations exist to differentiate active run) */}
-              {priorIterations.length > 0 && (
+              ) : activeIteration.isSentBack ? (
+                <div className="px-4 py-3 bg-amber-50/80 border-b border-amber-200/80 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <RotateCcw className="w-4 h-4 text-amber-700 shrink-0" />
+                    <span className="font-bold text-xs sm:text-[13px] text-amber-950 uppercase tracking-wider">
+                      {iterations.length > 1
+                        ? `Active Workflow Cycle (Iteration ${activeIteration.iterationIndex}) — Sent Back at Level ${activeIteration.sentBackLevel} (${activeIteration.sentBackStageName})`
+                        : `Workflow Sent Back at Level ${activeIteration.sentBackLevel} (${activeIteration.sentBackStageName})`}
+                    </span>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
+                    Sent Back for Revision
+                  </span>
+                </div>
+              ) : !selectedVersion.isCurrent && selectedVersion.status === "Approved" ? (
+                <div className="px-4 py-2.5 bg-emerald-50/70 border-b border-emerald-200/80 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <span className="font-bold text-xs sm:text-[13px] text-emerald-950 uppercase tracking-wider">
+                      Approved Proposal Snapshot
+                    </span>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+                    All Approved
+                  </span>
+                </div>
+              ) : priorIterations.length > 0 ? (
                 <div className="px-4 py-2.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-200 animate-pulse shrink-0" />
                     <span className="text-xs sm:text-[13px] font-bold text-slate-800 uppercase tracking-wide">
                       Active Workflow Cycle (Iteration {activeIteration.iterationIndex})
+                    </span>
+                  </div>
+                  <span className="text-xs font-medium text-slate-600">
+                    Current Status: <strong className="font-semibold text-slate-900">{selectedVersion.status}</strong>
+                  </span>
+                </div>
+              ) : (
+                <div className="px-4 py-2.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-200 animate-pulse shrink-0" />
+                    <span className="text-xs sm:text-[13px] font-bold text-slate-800 uppercase tracking-wide">
+                      Active Workflow Cycle
                     </span>
                   </div>
                   <span className="text-xs font-medium text-slate-600">
@@ -1052,7 +1178,15 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
               <div className="overflow-x-auto overflow-y-hidden">
                 <table className="w-full text-left border-collapse text-sm">
                   <thead>
-                    <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-700 font-bold uppercase text-xs sm:text-[13px] tracking-wider">
+                    <tr
+                      className={
+                        activeIteration.isRejected
+                          ? "bg-rose-50/40 border-b border-rose-100 text-slate-700 font-bold uppercase text-xs sm:text-[13px] tracking-wider"
+                          : activeIteration.isSentBack
+                          ? "bg-amber-50/40 border-b border-amber-100 text-slate-700 font-bold uppercase text-xs sm:text-[13px] tracking-wider"
+                          : "bg-slate-100/80 border-b border-slate-200 text-slate-700 font-bold uppercase text-xs sm:text-[13px] tracking-wider"
+                      }
+                    >
                       <th className="py-3 px-3.5 w-16">Level</th>
                       <th className="py-3 px-3.5 w-52">Level Name</th>
                       <th className="py-3 px-3.5 w-40">Status</th>
@@ -1070,28 +1204,45 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
               {/* Prior Iteration Tables inside the same unified box */}
               {priorIterations.map((iter) => {
                 const iterRows = buildTableRowsForIteration(iter, selectedVersion);
+                const isIterRejected = iter.isRejected;
 
                 return (
-                  <div key={`prior-iter-${iter.iterationIndex}`} className="border-t-2 border-amber-200/90">
+                  <div
+                    key={`prior-iter-${iter.iterationIndex}`}
+                    className={isIterRejected ? "border-t-2 border-rose-200/90" : "border-t-2 border-amber-200/90"}
+                  >
                     {/* Prior Iteration Divider Header */}
-                    <div className="px-4 py-3 bg-amber-50/80 border-b border-amber-200/80 flex items-center justify-between flex-wrap gap-2">
+                    <div
+                      className={`px-4 py-3 border-b flex items-center justify-between flex-wrap gap-2 ${
+                        isIterRejected
+                          ? "bg-rose-50/80 border-rose-200/80"
+                          : "bg-amber-50/80 border-amber-200/80"
+                      }`}
+                    >
                       <div className="flex items-center gap-2">
-                        <RotateCcw className="w-4 h-4 text-amber-700 shrink-0" />
-                        <div>
-                          <span className="font-bold text-xs sm:text-[13px] text-amber-950 uppercase tracking-wider">
-                            Prior Iteration {iter.iterationIndex} — Sent Back at Level {iter.sentBackLevel} ({iter.sentBackStageName})
-                          </span>
-                          {iter.sentBackBy && (
-                            <p className="text-xs sm:text-[13px] text-amber-900 mt-0.5">
-                              Returned to Initiator by <strong>{iter.sentBackBy}</strong>
-                              {iter.sentBackDate && iter.sentBackDate !== "—" ? ` on ${iter.sentBackDate}` : ""}
-                              {iter.sentBackRemarks ? ` • "${iter.sentBackRemarks}"` : ""}
-                            </p>
-                          )}
-                        </div>
+                        {isIterRejected ? (
+                          <XCircle className="w-4 h-4 text-rose-700 shrink-0" />
+                        ) : (
+                          <RotateCcw className="w-4 h-4 text-amber-700 shrink-0" />
+                        )}
+                        <span
+                          className={`font-bold text-xs sm:text-[13px] uppercase tracking-wider ${
+                            isIterRejected ? "text-rose-950" : "text-amber-950"
+                          }`}
+                        >
+                          {isIterRejected
+                            ? `Prior Iteration ${iter.iterationIndex} — Rejected at Level ${iter.rejectedLevel} (${iter.rejectedStageName})`
+                            : `Prior Iteration ${iter.iterationIndex} — Sent Back at Level ${iter.sentBackLevel} (${iter.sentBackStageName})`}
+                        </span>
                       </div>
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
-                        Sent Back for Revision
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-xs font-bold border shrink-0 ${
+                          isIterRejected
+                            ? "bg-rose-100 text-rose-800 border-rose-300"
+                            : "bg-amber-100 text-amber-800 border-amber-300"
+                        }`}
+                      >
+                        {isIterRejected ? "Rejected" : "Sent Back for Revision"}
                       </span>
                     </div>
 
@@ -1099,7 +1250,13 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
                     <div className="overflow-x-auto overflow-y-hidden">
                       <table className="w-full text-left border-collapse text-sm">
                         <thead>
-                          <tr className="bg-amber-50/40 border-b border-amber-100 text-slate-700 font-bold uppercase text-xs sm:text-[13px] tracking-wider">
+                          <tr
+                            className={`border-b text-slate-700 font-bold uppercase text-xs sm:text-[13px] tracking-wider ${
+                              isIterRejected
+                                ? "bg-rose-50/40 border-rose-100"
+                                : "bg-amber-50/40 border-amber-100"
+                            }`}
+                          >
                             <th className="py-3 px-3.5 w-16">Level</th>
                             <th className="py-3 px-3.5 w-52">Level Name</th>
                             <th className="py-3 px-3.5 w-40">Status</th>
