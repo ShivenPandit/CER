@@ -1,10 +1,7 @@
 import * as React from "react";
 import {
-  Users,
   AlertTriangle,
   RotateCw,
-  ArrowLeft,
-  Shield,
 } from "lucide-react";
 import { ICERDataService } from "../../services/ICERDataService";
 import {
@@ -86,36 +83,6 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
         </div>
       )}
 
-      {/* Header Bar with Back Button & Title */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle p-3.5 sm:p-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          {onCancel && (
-            <button
-              onClick={onCancel}
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0"
-              title="Go back"
-              aria-label="Go back"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-          )}
-          <div className="h-6 w-px bg-slate-200 shrink-0" />
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#012964]/10 flex items-center justify-center text-[#012964]">
-              <Users className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-                User & Role Management
-              </h2>
-              <p className="text-xs text-slate-500">
-                SBU-wise role matrix, designated stage approvers, and user access directory
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="transition-all duration-150">
         <UserManagementTab
@@ -125,6 +92,7 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
           dataService={dataService}
           isLoading={isLoading}
           onRefreshRoles={() => loadData(true)}
+          onCancel={onCancel}
         />
       </div>
     </div>

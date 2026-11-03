@@ -104,7 +104,7 @@ export const FIXED_6_LEVEL_APPROVAL_STAGES: readonly IFixedApprovalStageConfig[]
 ] as const;
 
 // SBU-Wise Role Matrix Choices (Mandatory SBUs)
-export const ROLE_MATRIX_SBUS = ["CBOS", "RAVA", "RJ North", "RJ South", "All"] as const;
+export const ROLE_MATRIX_SBUS = ["CBOS", "RAVA", "RJ North", "RJ South"] as const;
 export type RoleMatrixSBU = typeof ROLE_MATRIX_SBUS[number];
 
 // Supported Roles in CERRoleMatrix

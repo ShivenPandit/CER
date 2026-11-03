@@ -170,3 +170,77 @@ export function getLocalComponents(date: Date = new Date()): { localDate: string
   };
 }
 
+/**
+ * Formats a date string or Date object for Excel display as DD-MMM-YYYY (e.g. 03-Nov-2026).
+ */
+export function formatExcelDate(dateVal?: string | Date): string {
+  if (!dateVal) return "";
+  let d: Date;
+  if (dateVal instanceof Date) {
+    d = dateVal;
+  } else {
+    const str = String(dateVal).trim();
+    if (!str) return "";
+    // If format is DD-MM-YYYY (e.g. 02-11-2026)
+    if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
+      const [day, m, y] = str.split("-");
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const mIdx = parseInt(m, 10) - 1;
+      return `${day}-${months[mIdx] || m}-${y}`;
+    }
+    // If format is YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      const [y, m, day] = str.split("-");
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const mIdx = parseInt(m, 10) - 1;
+      return `${day}-${months[mIdx] || m}-${y}`;
+    }
+    let parseStr = str;
+    if (parseStr.includes("T") && !parseStr.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(parseStr)) {
+      parseStr = parseStr + "Z";
+    }
+    d = new Date(parseStr);
+  }
+  if (isNaN(d.getTime())) return String(dateVal);
+  const pad2 = (n: number | string): string => ("0" + n).slice(-2);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const day = pad2(d.getDate());
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+
+/**
+ * Formats a date/timestamp string or Date object for Excel display in local user timezone as DD-MMM-YYYY HH:mm:ss.
+ * (e.g. 03-Nov-2026 09:53:43). Converts UTC timestamps (like SharePoint's Created/Modified) accurately
+ * to the user's local browser timezone.
+ */
+export function formatExcelDateTime(timestampOrDate?: string | Date): string {
+  if (!timestampOrDate) return "";
+  let d: Date;
+  if (timestampOrDate instanceof Date) {
+    d = timestampOrDate;
+  } else {
+    let str = String(timestampOrDate).trim();
+    if (!str) return "";
+    // If date-only string without time
+    if (!str.includes("T") && !str.includes(":") && !str.includes(" ")) {
+      return formatExcelDate(str);
+    }
+    if (str.includes("T") && !str.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(str)) {
+      str = str + "Z";
+    }
+    d = new Date(str);
+  }
+  if (isNaN(d.getTime())) return String(timestampOrDate);
+  const pad2 = (n: number | string): string => ("0" + n).slice(-2);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const day = pad2(d.getDate());
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+  const hours = pad2(d.getHours());
+  const minutes = pad2(d.getMinutes());
+  const seconds = pad2(d.getSeconds());
+  return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
+}
+

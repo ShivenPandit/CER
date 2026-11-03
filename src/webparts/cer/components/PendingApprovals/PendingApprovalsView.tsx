@@ -5,6 +5,7 @@ import {
   CheckSquare,
   Search,
   ArrowLeft,
+  RotateCw,
 } from "lucide-react";
 import { ICERProposal } from "../../models/CERModel";
 import { IWorkflowLevel, isProjectOwnerStage } from "../../models/WorkflowModel";
@@ -44,17 +45,20 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
   const [selectedProposal, setSelectedProposal] = useState<ICERProposal | null>(null);
   const [selectedAttachments, setSelectedAttachments] = useState<ICERAttachment[]>([]);
   const [isDecisionModalOpen, setIsDecisionModalOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastSynced, setLastSynced] = useState<Date>(new Date());
   const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    if (initialProposals && initialProposals.length > 0) {
+    if (initialProposals !== undefined) {
       setProposals(initialProposals);
       setIsLoading(false);
+      setLastSynced(new Date());
     }
   }, [initialProposals]);
 
   useEffect(() => {
-    if (initialWorkflowLevels && initialWorkflowLevels.length > 0) {
+    if (initialWorkflowLevels !== undefined && initialWorkflowLevels.length > 0) {
       setLevels(initialWorkflowLevels);
     }
   }, [initialWorkflowLevels]);
@@ -72,11 +76,57 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
       ]);
       setProposals(allProps);
       setLevels(allLevels);
+      setLastSynced(new Date());
     } catch (e) {
       console.error("Error loading pending approvals:", e);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleManualRefresh = async (): Promise<void> => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        loadData(true),
+        onRefreshProposals ? onRefreshProposals() : Promise.resolve(),
+      ]);
+      setLastSynced(new Date());
+    } catch (e) {
+      console.error("Error refreshing pending approvals queue:", e);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Window Focus & Tab Visibility Auto-Revalidation (SWR Pattern)
+  useEffect(() => {
+    let lastCheck = Date.now();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        const now = Date.now();
+        if (now - lastCheck > 15000) {
+          lastCheck = now;
+          handleManualRefresh().catch((err) => console.error(err));
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleVisibilityChange);
+    };
+  }, []);
+
+  const getLastSyncedText = (): string => {
+    const diffSec = Math.floor((Date.now() - lastSynced.getTime()) / 1000);
+    if (diffSec < 45) return "Just now";
+    if (diffSec < 120) return "1m ago";
+    const mins = Math.floor(diffSec / 60);
+    return `${mins}m ago`;
   };
 
   useEffect(() => {
@@ -203,6 +253,21 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
             />
           </div>
 
+          <button
+            type="button"
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400 rounded-xl text-xs font-semibold text-slate-700 hover:text-[#012964] transition-all shadow-2xs cursor-pointer disabled:opacity-60"
+            title="Check for new approval tasks immediately without reloading browser"
+          >
+            <RotateCw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? "animate-spin text-[#012964]" : ""}`} />
+            <span>{isRefreshing ? "Checking..." : "Refresh Queue"}</span>
+          </button>
+
+          <span className="text-[11px] text-slate-400 hidden xl:inline" title="Time since last synchronization">
+            Synced {getLastSyncedText()}
+          </span>
+
           <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
             {pendingList.length} Tasks Pending Review
           </span>
@@ -268,7 +333,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
                       <CategoryBadge category={prop.cat} />
                       <StatusBadge status={prop.status} size="sm" />
                       <span className="text-[11px] font-semibold text-[#012964] bg-[#012964]/10 px-2 py-0.5 rounded border border-[#012964]/20">
-                        Level {prop.current_level}: {currentLevelCfg ? currentLevelCfg.level_name : prop.pending_with_role}
+                        {currentLevelCfg?.level_name || prop.pending_with_role || `Level ${prop.current_level}`}
                       </span>
                     </div>
 

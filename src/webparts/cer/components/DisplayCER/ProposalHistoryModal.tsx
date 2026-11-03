@@ -241,25 +241,13 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
           overflow: "hidden",
         }}
       >
-        {/* Top Header matching Enterprise Branding */}
-        <div
-          className="flex items-center justify-between px-5 py-3.5 border-b border-blue-900 text-white shrink-0 gap-3"
-          style={{
-            backgroundColor: "#012964",
-            color: "#ffffff",
-          }}
-        >
+        {/* Top Header */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-white shrink-0 gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div
-              className="p-2 rounded-xl shrink-0"
-              style={{
-                backgroundColor: "rgba(255, 255, 255, 0.12)",
-                border: "1px solid rgba(255, 255, 255, 0.2)",
-              }}
-            >
-              <History className="w-5 h-5 text-white" />
+            <div className="p-2 rounded-xl bg-[#012964]/10 border border-[#012964]/20 text-[#012964] shrink-0">
+              <History className="w-5 h-5 text-[#012964]" />
             </div>
-            <h2 className="text-base sm:text-lg font-bold text-white truncate">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight truncate">
               Proposal History ({cerProposalId || "—"})
             </h2>
           </div>
@@ -267,7 +255,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
           <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-blue-200 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
               title="Close modal"
               aria-label="Close modal"
             >

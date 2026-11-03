@@ -156,13 +156,18 @@ export class SharePointCERDataService implements ICERDataService {
     const now = Date.now();
     const CACHE_TTL_MS = 25000;
 
-    if (!forceRefresh && this._cachedProposals && now - this._cachedProposals.timestamp < CACHE_TTL_MS) {
-      return this._cachedProposals.data.map((p) => ({ ...p }));
-    }
+    if (forceRefresh) {
+      this._cachedProposals = null;
+      this._inFlightProposals = null;
+    } else {
+      if (this._cachedProposals && now - this._cachedProposals.timestamp < CACHE_TTL_MS) {
+        return this._cachedProposals.data.map((p) => ({ ...p }));
+      }
 
-    if (!forceRefresh && this._inFlightProposals) {
-      const res = await this._inFlightProposals;
-      return res.map((p) => ({ ...p }));
+      if (this._inFlightProposals) {
+        const res = await this._inFlightProposals;
+        return res.map((p) => ({ ...p }));
+      }
     }
 
     const fetchPromise = (async () => {
@@ -3368,7 +3373,7 @@ export class SharePointCERDataService implements ICERDataService {
       const payload: Record<string, any> = {
         Title: assignment.user_name,
         role: assignment.role,
-        sbu: assignment.sbu || "All",
+        sbu: assignment.sbu || "",
       };
 
       if (assignment.approval_level) {
@@ -3489,7 +3494,7 @@ export class SharePointCERDataService implements ICERDataService {
       const payload: Record<string, any> = {
         Title: assignment.user_name,
         role: assignment.role,
-        sbu: assignment.sbu || "All",
+        sbu: assignment.sbu || "",
       };
 
       if (assignment.approval_level) {

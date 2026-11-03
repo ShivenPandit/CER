@@ -159,7 +159,9 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
                 ? "Rejected"
                 : proposal.status === "Revised"
                 ? "Pending Initiator Rework"
-                : `Level ${proposal.current_level}: ${proposal.pending_with_role || "Approver"}`}
+                : (proposal.pending_with_role && proposal.pending_with_role.startsWith("L")
+                    ? proposal.pending_with_role
+                    : `Level ${proposal.current_level}: ${proposal.pending_with_role || "Approver"}`)}
             </p>
           </div>
 

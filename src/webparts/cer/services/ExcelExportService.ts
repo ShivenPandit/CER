@@ -1,6 +1,11 @@
 import * as XLSX from "xlsx";
 import { ICERProposal } from "../models/CERModel";
-import { calculateExactDays, getCurrentFiscalYearPhasingLabels } from "../utils/dateUtils";
+import {
+  calculateExactDays,
+  getCurrentFiscalYearPhasingLabels,
+  formatExcelDate,
+  formatExcelDateTime,
+} from "../utils/dateUtils";
 import { disarmFormulaInjection } from "../utils/sanitizationUtils";
 import { ICERDataService } from "./ICERDataService";
 
@@ -20,6 +25,20 @@ export class ExcelExportService {
    */
   public static sanitizeFormula(value: any): any {
     return disarmFormulaInjection(value);
+  }
+
+  /**
+   * Formats a date value for Excel display as DD-MMM-YYYY (e.g. 03-Nov-2026).
+   */
+  public static formatExcelDate(value?: string | Date): string {
+    return formatExcelDate(value);
+  }
+
+  /**
+   * Formats a date/timestamp for Excel display in local user timezone as DD-MMM-YYYY HH:mm:ss.
+   */
+  public static formatExcelDateTime(value?: string | Date): string {
+    return formatExcelDateTime(value);
   }
 
   /**
@@ -55,8 +74,8 @@ export class ExcelExportService {
         "Benefit NPV": p.benefitNpv !== undefined && p.benefitNpv !== null ? p.benefitNpv : p.ben_npv,
         "Benefit IRR": p.benefitIrr !== undefined && p.benefitIrr !== null ? p.benefitIrr : p.ben_irr,
         "Cost Assumptions": this.sanitizeFormula(p.costAssumptions || p.cost_assumptions),
-        "Start Date": this.sanitizeFormula(p.startDate || p.st_date),
-        "Completion Date": this.sanitizeFormula(p.completionDate || p.com_date),
+        "Start Date": this.sanitizeFormula(this.formatExcelDate(p.startDate || p.st_date)),
+        "Completion Date": this.sanitizeFormula(this.formatExcelDate(p.completionDate || p.com_date)),
         "Duration Months": p.durationMonths !== undefined && p.durationMonths !== null ? p.durationMonths : (p.duration_months !== undefined && p.duration_months !== null ? p.duration_months : calculateExactDays(p.startDate || p.st_date, p.completionDate || p.com_date)),
         "Current Budgeted?": this.sanitizeFormula(p.currentBudgeted || p.cbudget),
         "Current Budget Amount": p.currentBudgetAmount !== undefined && p.currentBudgetAmount !== null ? p.currentBudgetAmount : p.cb_amnt,
@@ -89,10 +108,10 @@ export class ExcelExportService {
         "Pending With Role": this.sanitizeFormula(p.pendingWithRole || p.pending_with_role),
         "Pending With Email": this.sanitizeFormula(p.pendingWithEmail || p.pending_with_email),
         "Revision Count": p.revisionCount !== undefined && p.revisionCount !== null ? p.revisionCount : (p.revision_count || 0),
-        "Request Date": p.request_date || p.RequestDate || "",
-        "Created Date": p.created_date || p.Created,
+        "Request Date": this.sanitizeFormula(this.formatExcelDate(p.request_date || p.RequestDate)),
+        "Created Date": this.formatExcelDateTime(p.created_date || p.Created),
         "Created By": this.sanitizeFormula(p.created_by || p.Author?.Title),
-        "Last Modified Date": p.modified_date || p.Modified,
+        "Last Modified Date": this.formatExcelDateTime(p.modified_date || p.Modified),
         "Last Modified By": this.sanitizeFormula(p.modified_by || p.Editor?.Title),
       },
     ];
@@ -130,14 +149,15 @@ export class ExcelExportService {
       "Joint Venture?": this.sanitizeFormula(raw.jointVenture || raw.jv),
       "JV Partner Amount": raw.jvAmount !== undefined && raw.jvAmount !== null ? raw.jvAmount : raw.jv_amnt,
       "Total Item Cost": raw.total,
-      "Start Date": this.sanitizeFormula(raw.startDate || raw.st_date),
-      "Completion Date": this.sanitizeFormula(raw.completionDate || raw.com_date),
+      "Start Date": this.sanitizeFormula(this.formatExcelDate(raw.startDate || raw.st_date)),
+      "Completion Date": this.sanitizeFormula(this.formatExcelDate(raw.completionDate || raw.com_date)),
       "Duration Months": raw.durationMonths !== undefined && raw.durationMonths !== null ? raw.durationMonths : (raw.duration_months !== undefined && raw.duration_months !== null ? raw.duration_months : calculateExactDays(raw.startDate || raw.st_date, raw.completionDate || raw.com_date)),
       "Current Approval Level": raw.currentLevel !== undefined && raw.currentLevel !== null ? raw.currentLevel : raw.current_level,
       "Pending With Role": this.sanitizeFormula(raw.pendingWithRole || raw.pending_with_role),
       "Pending With Email": this.sanitizeFormula(raw.pendingWithEmail || raw.pending_with_email),
-      "Request Date": (raw.request_date || raw.RequestDate) ? String(raw.request_date || raw.RequestDate).split("T")[0] : "",
-      "Created Date": (raw.created_date || raw.Created) ? String(raw.created_date || raw.Created).split("T")[0] : "",
+      "Request Date": this.sanitizeFormula(this.formatExcelDate(raw.request_date || raw.RequestDate)),
+      "Created Date": this.formatExcelDateTime(raw.created_date || raw.Created),
+      "Last Modified Date": this.formatExcelDateTime(raw.modified_date || raw.Modified),
     };
   }
 

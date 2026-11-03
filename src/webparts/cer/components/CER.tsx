@@ -206,12 +206,14 @@ const CER: React.FC<ICERProps> = (props) => {
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
 
-  const handleRefreshProposals = async (): Promise<void> => {
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+
+  const handleRefreshProposals = async (force: boolean = false): Promise<void> => {
     try {
       const [propsList, notifs, levels] = await Promise.all([
-        dataService.getAllProposals(),
+        dataService.getAllProposals(force),
         dataService.getNotificationLogs(),
-        dataService.getWorkflowLevels(),
+        dataService.getWorkflowLevels(undefined, force),
       ]);
       setProposals(propsList);
       setNotifications(notifs);
@@ -223,12 +225,59 @@ const CER: React.FC<ICERProps> = (props) => {
     }
   };
 
+  const handleGlobalSync = async (): Promise<void> => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      await handleRefreshProposals(true);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Window Focus, Tab Visibility (SWR Pattern), and 45s Silent Background Polling
+  useEffect(() => {
+    let lastSync = Date.now();
+    const handleAutoRevalidate = () => {
+      if (document.visibilityState === "visible") {
+        const now = Date.now();
+        // 15-second throttle prevents redundant network bursts when switching tabs frequently
+        if (now - lastSync > 15000 && currentView !== "create" && currentView !== "change") {
+          lastSync = now;
+          handleRefreshProposals(true).catch((e) => console.error(e));
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleAutoRevalidate);
+    window.addEventListener("focus", handleAutoRevalidate);
+
+    // 45s Heartbeat silent background check
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible" && currentView !== "create" && currentView !== "change") {
+        lastSync = Date.now();
+        handleRefreshProposals(true).catch((e) => console.error(e));
+      }
+    }, 45000);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleAutoRevalidate);
+      window.removeEventListener("focus", handleAutoRevalidate);
+      clearInterval(interval);
+    };
+  }, [currentView]);
+
   const handleNavigate = (
     view: NavView,
     proposalId?: string,
     isBackNavigation: boolean = false,
     replaceHistory: boolean = false
   ): void => {
+    // Revalidate data when navigating into queue or dashboard
+    if (view === "pending-approvals" || view === "dashboard") {
+      handleRefreshProposals(true).catch((e) => console.error(e));
+    }
+
     if (!isBackNavigation && !replaceHistory) {
       // Record previous screen into history stack if it's a new screen
       if (currentView !== view || activeProposalId !== proposalId) {
@@ -476,6 +525,8 @@ const CER: React.FC<ICERProps> = (props) => {
         onNavigate={handleNavigate}
         onGoBack={handleGoBack}
         canGoBack={historyStack.length > 0 || currentView !== "dashboard"}
+        onSync={handleGlobalSync}
+        isSyncing={isSyncing}
         onSelectUser={(u) => {
           setCurrentUser(u);
           if (u && u.is_active && Array.isArray(u.roles) && u.roles.length > 0) {
@@ -612,7 +663,7 @@ const CER: React.FC<ICERProps> = (props) => {
               initialProposals={proposals}
               initialWorkflowLevels={workflowLevels}
               onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
-              onRefreshProposals={handleRefreshProposals}
+              onRefreshProposals={() => handleRefreshProposals(true)}
               onCancel={handleGoBack}
             />
           ) : (
