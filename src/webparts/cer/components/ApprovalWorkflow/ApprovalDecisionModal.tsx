@@ -73,59 +73,59 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
           <div>
-            <span className="text-[11px] font-bold text-blue-600 uppercase tracking-wider">
+            <span className="text-xs sm:text-[13px] font-bold text-blue-600 uppercase tracking-wider">
               {currentLevelConfig ? currentLevelConfig.level_name : `Approval Level ${proposal.current_level}`}
             </span>
-            <h3 className="text-base font-bold text-slate-900">
+            <h3 className="text-lg sm:text-xl font-bold text-slate-900 mt-0.5">
               Review Proposal: {proposal.cerprno}
             </h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="p-6 overflow-y-auto space-y-5 text-xs">
+        <div className="p-6 overflow-y-auto space-y-5 text-sm">
           {/* Summary Box */}
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-3">
             <div className="flex items-start justify-between">
               <div>
-                <p className="font-bold text-sm text-slate-900">{proposal.pr_name}</p>
-                <div className="flex items-center gap-2 mt-1">
+                <p className="font-bold text-base sm:text-[17px] text-slate-900 leading-snug">{proposal.pr_name}</p>
+                <div className="flex items-center gap-2 mt-1.5">
                   <UserAvatar
                     name={proposal.owname}
                     email={proposal.owner_email}
                     size="xs"
                   />
-                  <p className="text-slate-500">
-                    Initiated by <strong className="text-slate-800">{proposal.owname}</strong>
+                  <p className="text-slate-600 text-xs sm:text-[13px]">
+                    Initiated by <strong className="text-slate-900 font-semibold">{proposal.owname}</strong>
                   </p>
                 </div>
               </div>
-              <div className="text-right">
-                <span className="text-[10px] uppercase font-bold text-slate-400">Amount</span>
-                <p className="text-base font-extrabold text-blue-700">
+              <div className="text-right shrink-0">
+                <span className="text-xs uppercase font-bold text-slate-500 tracking-wider">Amount</span>
+                <p className="text-xl sm:text-2xl font-extrabold text-blue-700 tracking-tight mt-0.5">
                   {proposal.currency} {proposal.amount.toLocaleString()}
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-200 text-slate-600">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2.5 border-t border-slate-200 text-slate-700 text-xs sm:text-[13px]">
               <div>
-                <span className="text-slate-400 font-medium">Category:</span>{" "}
-                <strong className="text-slate-800">{proposal.cat}</strong>
+                <span className="text-slate-500 font-medium">Category:</span>{" "}
+                <strong className="text-slate-900 font-semibold">{proposal.cat}</strong>
               </div>
               <div>
-                <span className="text-slate-400 font-medium">Payback:</span>{" "}
-                <strong className="text-slate-800">{proposal.payable}</strong>
+                <span className="text-slate-500 font-medium">Payback:</span>{" "}
+                <strong className="text-slate-900 font-semibold">{proposal.payable}</strong>
               </div>
               <div>
-                <span className="text-slate-400 font-medium">NPV / IRR:</span>{" "}
-                <strong className="text-slate-800">
+                <span className="text-slate-500 font-medium">NPV / IRR:</span>{" "}
+                <strong className="text-slate-900 font-semibold">
                   ${proposal.ben_npv}M / {proposal.ben_irr}%
                 </strong>
               </div>
@@ -134,7 +134,7 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
 
           {/* Authorization & Segregation of Duties Warning Banner */}
           {!authCheck.allowed && (
-            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-start gap-2.5">
+            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-sm flex items-start gap-2.5">
               <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold text-rose-900">Segregation of Duties Enforcement</p>
@@ -144,32 +144,32 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
           )}
 
           {/* Narrative Remarks Preview */}
-          <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
-            <p className="font-semibold text-slate-800 mb-1">Justification:</p>
-            <p className="text-slate-600 leading-relaxed max-h-32 overflow-y-auto pr-2">
+          <div className="p-4 rounded-xl border border-slate-200 bg-white">
+            <p className="font-semibold text-slate-900 text-sm mb-1.5">Justification:</p>
+            <p className="text-slate-700 text-sm leading-relaxed max-h-32 overflow-y-auto pr-2">
               {proposal.remarks || "No narrative remarks provided."}
             </p>
           </div>
 
           {/* Attachments Visibility During Approval (Doc §8 #14) */}
           <div>
-            <div className="flex items-center gap-1.5 font-semibold text-slate-800 mb-2">
+            <div className="flex items-center gap-1.5 font-semibold text-slate-900 text-sm mb-2">
               <Paperclip className="w-4 h-4 text-slate-500" />
               <span>Attachments ({attachments.length})</span>
             </div>
             {attachments.length === 0 ? (
-              <p className="text-slate-400 italic text-[11px]">No attachments.</p>
+              <p className="text-slate-500 italic text-xs">No attachments.</p>
             ) : (
               <div className="space-y-1.5">
                 {attachments.map((att) => (
                   <div
                     key={att.id}
-                    className="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50 flex items-center justify-between text-xs"
+                    className="p-3 rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-between text-sm"
                   >
                     <div className="flex items-center gap-2 truncate">
                       <FileText className="w-4 h-4 text-slate-500 shrink-0" />
-                      <span className="font-medium text-slate-800 truncate">{att.name}</span>
-                      <span className="text-slate-400 text-[10px]">
+                      <span className="font-medium text-slate-900 truncate">{att.name}</span>
+                      <span className="text-slate-500 text-xs">
                         ({(att.size / 1024).toFixed(0)} KB)
                       </span>
                     </div>
@@ -177,7 +177,7 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
                       <a
                         href={att.data_url}
                         download={att.name}
-                        className="text-blue-600 hover:underline font-semibold shrink-0 ml-2"
+                        className="text-blue-700 hover:underline font-semibold shrink-0 ml-2 text-sm"
                       >
                         Download
                       </a>
@@ -190,7 +190,7 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
 
           {/* Decision Selector */}
           <div>
-            <label className="block font-semibold text-slate-800 mb-2">
+            <label className="block font-semibold text-slate-900 text-sm mb-2">
               Approval Decision <span className="text-rose-500">*</span>
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -201,17 +201,17 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
                   setCommentError(null);
                   setError(null);
                 }}
-                className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition-all text-center ${
+                className={`p-3.5 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition-all text-center cursor-pointer ${
                   decision === "APPROVED"
-                    ? "bg-emerald-50 border-emerald-300 text-emerald-800 ring-2 ring-emerald-500/20 shadow-sm"
-                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    ? "bg-emerald-50 border-emerald-400 text-emerald-900 ring-2 ring-emerald-500/20 shadow-sm"
+                    : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                 }`}
               >
                 <div className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span className="text-xs">Approve</span>
+                  <span className="text-sm font-bold">Approve</span>
                 </div>
-                <span className="text-[10px] font-normal text-emerald-700">Advance to next level</span>
+                <span className="text-xs font-normal text-emerald-800">Advance to next level</span>
               </button>
 
               <button
@@ -221,17 +221,17 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
                   setCommentError(null);
                   setError(null);
                 }}
-                className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition-all text-center ${
+                className={`p-3.5 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition-all text-center cursor-pointer ${
                   decision === "SENT_BACK"
-                    ? "bg-amber-50 border-amber-300 text-amber-900 ring-2 ring-amber-500/20 shadow-sm"
-                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    ? "bg-amber-50 border-amber-400 text-amber-950 ring-2 ring-amber-500/20 shadow-sm"
+                    : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                 }`}
               >
                 <div className="flex items-center gap-1.5">
                   <RotateCcw className="w-4 h-4 text-amber-600" />
-                  <span className="text-xs">Send Back</span>
+                  <span className="text-sm font-bold">Send Back</span>
                 </div>
-                <span className="text-[10px] font-normal text-amber-700">Return for revision</span>
+                <span className="text-xs font-normal text-amber-800">Return for revision</span>
               </button>
 
               <button
@@ -241,32 +241,32 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
                   setCommentError(null);
                   setError(null);
                 }}
-                className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition-all text-center ${
+                className={`p-3.5 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition-all text-center cursor-pointer ${
                   decision === "REJECTED"
-                    ? "bg-rose-50 border-rose-300 text-rose-800 ring-2 ring-rose-500/20 shadow-sm"
-                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    ? "bg-rose-50 border-rose-400 text-rose-900 ring-2 ring-rose-500/20 shadow-sm"
+                    : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                 }`}
               >
                 <div className="flex items-center gap-1.5">
                   <XCircle className="w-4 h-4 text-rose-600" />
-                  <span className="text-xs">Reject</span>
+                  <span className="text-sm font-bold">Reject</span>
                 </div>
-                <span className="text-[10px] font-normal text-rose-700">Permanent rejection</span>
+                <span className="text-xs font-normal text-rose-800">Permanent rejection</span>
               </button>
             </div>
           </div>
 
           {/* Comments */}
           <div>
-            <label className="block font-semibold text-slate-800 mb-1.5">
+            <label className="block font-semibold text-slate-900 text-sm mb-1.5">
               Comments{" "}
               {decision === "REJECTED" && (
-                <span className="text-rose-600 font-medium ml-1">
+                <span className="text-rose-600 font-semibold ml-1">
                   (Required) <span className="text-rose-500 font-bold">*</span>
                 </span>
               )}
               {decision === "SENT_BACK" && (
-                <span className="text-amber-700 font-medium ml-1">
+                <span className="text-amber-700 font-semibold ml-1">
                   (Required) <span className="text-rose-500 font-bold">*</span>
                 </span>
               )}
@@ -287,7 +287,7 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
                   ? "State required revisions..."
                   : "State reason for rejection..."
               }
-              className={`w-full px-3.5 py-2.5 bg-white border rounded-xl focus:outline-none transition-all text-slate-900 placeholder:text-slate-400 resize-none text-xs ${
+              className={`w-full px-3.5 py-2.5 bg-white border rounded-xl focus:outline-none transition-all text-slate-900 placeholder:text-slate-400 resize-none text-sm ${
                 commentError
                   ? "border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20"
                   : "border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
@@ -305,7 +305,7 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
 
           {/* Error Notice */}
           {error && (
-            <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
@@ -314,9 +314,9 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
 
         {/* Footer */}
         <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0">
-          <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-            <User className="w-3.5 h-3.5 text-slate-400" />
-            <span>Signing as: <strong>{currentUser.name}</strong></span>
+          <div className="text-xs sm:text-[13px] text-slate-600 flex items-center gap-1.5">
+            <User className="w-4 h-4 text-slate-500" />
+            <span>Signing as: <strong className="text-slate-900 font-semibold">{currentUser.name}</strong></span>
           </div>
 
           <div className="flex items-center gap-2.5">
@@ -324,7 +324,7 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+              className="h-10 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
             >
               Cancel
             </button>
@@ -332,7 +332,7 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
               type="button"
               onClick={handleSubmit}
               disabled={isSubmitting || !authCheck.allowed}
-              className={`px-5 py-2 text-xs font-semibold rounded-lg shadow-sm transition-all ${
+              className={`h-10 px-5 text-sm font-semibold rounded-xl shadow-sm transition-all ${
                 !authCheck.allowed
                   ? "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300"
                   : decision === "APPROVED"

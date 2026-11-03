@@ -42,14 +42,14 @@ export const StatusBadge: React.FC<IStatusBadgeProps> = ({ status, size = "md" }
   };
 
   const sizeClasses = {
-    sm: "px-2 py-0.5 text-xs",
-    md: "px-2.5 py-1 text-xs",
-    lg: "px-3 py-1.5 text-sm",
+    sm: "px-2.5 py-0.5 text-xs sm:text-[13px]",
+    md: "px-3 py-1 text-xs sm:text-sm",
+    lg: "px-3.5 py-1.5 text-sm",
   }[size];
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 font-medium rounded-full border ring-1 ring-inset ${getStyles()} ${sizeClasses}`}
+      className={`inline-flex items-center gap-1.5 font-semibold rounded-full border ring-1 ring-inset ${getStyles()} ${sizeClasses}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${getDotColor()}`} />
       {status}

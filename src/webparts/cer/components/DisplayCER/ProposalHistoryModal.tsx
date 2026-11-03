@@ -247,7 +247,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
             <div className="p-2 rounded-xl bg-[#012964]/10 border border-[#012964]/20 text-[#012964] shrink-0">
               <History className="w-5 h-5 text-[#012964]" />
             </div>
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight truncate">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight truncate">
               Proposal History ({cerProposalId || "—"})
             </h2>
           </div>
@@ -285,11 +285,11 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
             <div className="px-4 py-3 bg-slate-100/80 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-[#012964]" />
-                <span className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+                <span className="font-bold text-slate-800 text-sm tracking-tight">
                   Proposal Versions
                 </span>
               </div>
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-white text-slate-700 border border-slate-200 shadow-2xs">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-white text-slate-700 border border-slate-200 shadow-2xs">
                 {sortedHistory.length} {sortedHistory.length === 1 ? "Version" : "Versions"}
               </span>
             </div>
@@ -297,15 +297,15 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
             {/* Version Cards Scrollable List */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
               {isLoading ? (
-                <div className="py-12 text-center text-slate-400 text-xs space-y-2">
+                <div className="py-12 text-center text-slate-500 text-sm space-y-2">
                   <div className="w-6 h-6 border-2 border-[#012964] border-t-transparent rounded-full animate-spin mx-auto" />
                   <p className="font-medium">Loading versions...</p>
                 </div>
               ) : sortedHistory.length === 0 ? (
                 <div className="p-6 text-center space-y-2 bg-white rounded-xl border border-slate-200/80">
                   <History className="w-8 h-8 text-slate-400 mx-auto" />
-                  <p className="font-bold text-slate-700 text-xs">No Prior Versions</p>
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                  <p className="font-bold text-slate-700 text-sm">No Prior Versions</p>
+                  <p className="text-xs text-slate-500 leading-relaxed">
                     No historical versions have been archived for this proposal yet.
                   </p>
                 </div>
@@ -323,7 +323,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                     <div
                       key={prop.id || `${effectiveNo}-${idx}`}
                       onClick={() => setSelectedProposal(prop)}
-                      className={`p-3 rounded-xl transition-all cursor-pointer relative ${
+                      className={`p-3.5 rounded-xl transition-all cursor-pointer relative ${
                         isSelected
                           ? "bg-white border-2 border-[#012964] shadow-xs ring-1 ring-[#012964]/10"
                           : "bg-white/90 hover:bg-white border border-slate-200/90 hover:border-slate-300 shadow-2xs"
@@ -333,7 +333,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                       <div className="flex items-center justify-between gap-2 mb-1.5">
                         <div className="flex items-center gap-1.5">
                           <span
-                            className={`text-xs font-bold px-2 py-0.5 rounded-md ${
+                            className={`text-xs sm:text-[13px] font-bold px-2.5 py-0.5 rounded-md ${
                               isSelected
                                 ? "bg-[#012964] text-white"
                                 : "bg-slate-100 text-slate-700 border border-slate-200"
@@ -341,7 +341,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                           >
                             Serial No. {serialNo}
                           </span>
-                          <span className="text-[11px] font-semibold text-slate-500">
+                          <span className="text-xs font-semibold text-slate-500">
                             v{revNum} Snapshot
                           </span>
                         </div>
@@ -350,18 +350,18 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
 
                       {/* Proposal No Reference */}
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono font-bold text-sm text-[#012964]">
+                        <span className="font-mono font-bold text-sm sm:text-[15px] text-[#012964]">
                           {effectiveNo}
                         </span>
                       </div>
 
                       {/* Metadata: Amount & Archive Date */}
-                      <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
+                      <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-xs sm:text-[13px] text-slate-600">
                         <span className="font-bold text-slate-900">
                           {prop.currency || "USD"} {Number(prop.amount || 0).toLocaleString()}
                         </span>
-                        <div className="flex items-center gap-1 text-slate-500 text-[11px]">
-                          <Calendar className="w-3 h-3 text-slate-400" />
+                        <div className="flex items-center gap-1 text-slate-500 text-xs">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
                           <span>{formatSnapshotDate(prop.modified_date || prop.created_date)}</span>
                         </div>
                       </div>
@@ -384,14 +384,14 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
             }}
           >
             {error && (
-              <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2">
+              <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-xl flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{error}</span>
               </div>
             )}
 
             {isLoading ? (
-              <div className="py-24 text-center text-slate-400 text-xs space-y-2">
+              <div className="py-24 text-center text-slate-500 text-sm space-y-2">
                 <div className="w-7 h-7 border-2 border-[#012964] border-t-transparent rounded-full animate-spin mx-auto" />
                 <p className="font-medium">Loading proposal snapshot...</p>
               </div>
@@ -402,7 +402,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                 </div>
                 <div>
                   <h4 className="font-bold text-slate-800 text-base">No Historical Snapshots Available</h4>
-                  <p className="text-xs text-slate-500 max-w-lg mx-auto mt-1 leading-relaxed">
+                  <p className="text-sm text-slate-500 max-w-lg mx-auto mt-1 leading-relaxed">
                     This proposal is currently in its initial cycle without previous approved versions. Historical versions are archived whenever post-approval amendments are processed.
                   </p>
                 </div>
@@ -413,12 +413,12 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                 <div className="p-4 sm:p-5 bg-white rounded-2xl border border-slate-200/80 shadow-subtle space-y-3">
                   <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                     <div>
-                      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                         Historical Snapshot Reference
                       </p>
                       <div className="flex items-center gap-2.5 flex-wrap">
                         <span
-                          className="text-lg sm:text-xl font-bold font-mono text-slate-900 tracking-tight"
+                          className="text-xl sm:text-2xl font-bold font-mono text-slate-900 tracking-tight"
                           title="System-generated CER Proposal ID"
                         >
                           {selectedProposal.cer_proposal_id || selectedProposal.cerprno}
@@ -427,7 +427,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                           selectedProposal.proposal_no !==
                             (selectedProposal.cer_proposal_id || selectedProposal.cerprno) && (
                             <span
-                              className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-bold bg-slate-100 text-slate-800 border border-slate-200"
+                              className="inline-flex items-center px-2.5 py-0.5 rounded text-xs sm:text-[13px] font-mono font-bold bg-slate-100 text-slate-800 border border-slate-200"
                               title="Business Reference Proposal Number"
                             >
                               No: {selectedProposal.proposal_no}
@@ -442,7 +442,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
 
                     {/* Sanction Amount */}
                     <div className="text-left md:text-right shrink-0">
-                      <p className="text-xs font-medium text-slate-500">Approved Sanction Amount</p>
+                      <p className="text-xs sm:text-[13px] font-semibold text-slate-500">Approved Sanction Amount</p>
                       <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-0.5">
                         {selectedProposal.currency} {Number(selectedProposal.amount || 0).toLocaleString()}
                       </p>
@@ -451,50 +451,50 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
 
                   {/* Project Title */}
                   <div className="pt-0.5 pb-1">
-                    <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 leading-snug">
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 leading-snug">
                       {selectedProposal.pr_name}
                     </h1>
                   </div>
 
                   {/* Metadata Row */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 py-2.5 border-y border-slate-100 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 py-3 border-y border-slate-100">
                     <div className="flex items-center gap-2.5">
                       <UserAvatar name={selectedProposal.owname} email={selectedProposal.owner_email} size="sm" />
                       <div className="min-w-0">
-                        <p className="text-[11px] text-slate-400 font-medium">Project Owner</p>
-                        <p className="font-semibold text-slate-800 truncate" title={selectedProposal.owname}>
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Project Owner</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] truncate" title={selectedProposal.owname}>
                           {selectedProposal.owname}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2.5 lg:border-l lg:border-slate-150 lg:pl-3.5">
-                      <div className="w-7 h-7 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-center shrink-0">
-                        <Layers className="w-3.5 h-3.5 text-slate-400" />
+                      <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-center shrink-0">
+                        <Layers className="w-4 h-4 text-slate-500" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-[11px] text-slate-400 font-medium">Block / SBU</p>
-                        <p className="font-semibold text-slate-800 truncate">{selectedProposal.sbu}</p>
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Block / SBU</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] truncate">{selectedProposal.sbu}</p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2.5 lg:border-l lg:border-slate-150 lg:pl-3.5">
-                      <div className="w-7 h-7 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-center shrink-0">
-                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                      <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-center shrink-0">
+                        <Calendar className="w-4 h-4 text-slate-500" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-[11px] text-slate-400 font-medium">Duration</p>
-                        <p className="font-semibold text-slate-800 truncate">{durationDisplay}</p>
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Duration</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] truncate">{durationDisplay}</p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2.5 lg:border-l lg:border-slate-150 lg:pl-3.5">
-                      <div className="w-7 h-7 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-center shrink-0">
-                        <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                      <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-center shrink-0">
+                        <Clock className="w-4 h-4 text-emerald-600" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-[11px] text-slate-400 font-medium">Archived Date</p>
-                        <p className="font-semibold text-slate-800 truncate">
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Archived Date</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] truncate">
                           {formatSnapshotDate(selectedProposal.modified_date || selectedProposal.created_date)}
                         </p>
                       </div>
@@ -506,70 +506,70 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Section A: Project Details */}
                   <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
-                    <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
-                      <FolderGit2 className="w-4 h-4 text-[#012964]" />
-                      <h3 className="font-bold text-slate-900 text-sm">
+                    <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
+                      <FolderGit2 className="w-5 h-5 text-[#012964]" />
+                      <h3 className="font-bold text-slate-900 text-lg">
                         Project Details
                       </h3>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="grid grid-cols-2 gap-3.5">
                       <div className="col-span-2">
-                        <p className="text-slate-400 font-medium">Name of Project</p>
-                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.pr_name}</p>
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Name of Project</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] mt-0.5">{selectedProposal.pr_name}</p>
                       </div>
                       <div>
-                        <p className="text-slate-400 font-medium">CER Proposal No.</p>
-                        <p className="font-mono font-bold text-slate-800 mt-0.5">
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">CER Proposal No.</p>
+                        <p className="font-mono font-bold text-slate-900 text-sm sm:text-[15px] mt-0.5">
                           {selectedProposal.proposal_no || selectedProposal.cerprno}
                         </p>
                       </div>
                       <div>
-                        <p className="text-slate-400 font-medium">CER Proposal ID</p>
-                        <p className="font-mono font-bold text-[#012964] mt-0.5">
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">CER Proposal ID</p>
+                        <p className="font-mono font-bold text-[#012964] text-sm sm:text-[15px] mt-0.5">
                           {selectedProposal.cer_proposal_id || selectedProposal.cerprno}
                         </p>
                       </div>
                       <div>
-                        <p className="text-slate-400 font-medium">CER Owner Name</p>
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">CER Owner Name</p>
                         <div className="flex items-center gap-2 mt-1">
                           <UserAvatar
                             name={selectedProposal.owname}
                             email={selectedProposal.owner_email}
                             size="xs"
                           />
-                          <span className="font-semibold text-slate-800">{selectedProposal.owname}</span>
+                          <span className="font-bold text-slate-900 text-sm sm:text-[15px]">{selectedProposal.owname}</span>
                         </div>
                       </div>
                       <div>
-                        <p className="text-slate-400 font-medium">Block/SBU/Field</p>
-                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.sbu}</p>
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Block/SBU/Field</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] mt-0.5">{selectedProposal.sbu}</p>
                       </div>
                       <div>
-                        <p className="text-slate-400 font-medium">Category</p>
-                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.cat}</p>
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Category</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] mt-0.5">{selectedProposal.cat}</p>
                       </div>
                       <div>
-                        <p className="text-slate-400 font-medium">Start Date of Project</p>
-                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.st_date || "—"}</p>
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Start Date of Project</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] mt-0.5">{selectedProposal.st_date || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-slate-400 font-medium">Completion Date of Project</p>
-                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.com_date || "—"}</p>
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Completion Date of Project</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] mt-0.5">{selectedProposal.com_date || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-slate-400 font-medium">Total Duration</p>
-                        <p className="font-semibold text-slate-800 mt-0.5">{durationDisplay}</p>
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Total Duration</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] mt-0.5">{durationDisplay}</p>
                       </div>
                       <div className="col-span-2">
-                        <p className="text-slate-400 font-medium">Owner Email</p>
-                        <p className="font-semibold text-slate-800 mt-0.5 truncate">
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Owner Email</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] mt-0.5 truncate">
                           {selectedProposal.owner_email || "—"}
                         </p>
                       </div>
                       <div className="col-span-2">
-                        <p className="text-slate-400 font-medium">Objectives of CER</p>
-                        <p className="font-medium text-slate-800 mt-0.5 bg-slate-50 p-2.5 rounded-xl border border-slate-100 whitespace-pre-wrap leading-relaxed">
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Objectives of CER</p>
+                        <p className="font-medium text-slate-800 text-sm mt-1 bg-slate-50 p-3 rounded-xl border border-slate-200/80 whitespace-pre-wrap leading-relaxed">
                           {selectedProposal.object || "N/A"}
                         </p>
                       </div>
@@ -578,49 +578,49 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
 
                   {/* Section B: Financials */}
                   <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
-                    <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
-                      <DollarSign className="w-4 h-4 text-emerald-600" />
-                      <h3 className="font-bold text-slate-900 text-sm">
+                    <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
+                      <DollarSign className="w-5 h-5 text-emerald-600" />
+                      <h3 className="font-bold text-slate-900 text-lg">
                         Financial Metrics
                       </h3>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="grid grid-cols-2 gap-3.5">
                       <div>
-                        <p className="text-slate-400 font-medium">Amount of CER</p>
-                        <p className="font-bold text-[#012964] mt-0.5 text-base">
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Amount of CER</p>
+                        <p className="font-extrabold text-[#012964] mt-0.5 text-lg sm:text-xl">
                           {selectedProposal.currency} {Number(selectedProposal.amount || 0).toLocaleString()}
                         </p>
                       </div>
                       <div>
-                        <p className="text-slate-400 font-medium">Payback / Non Payback</p>
-                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.payable || "—"}</p>
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Payback / Non Payback</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] mt-0.5">{selectedProposal.payable || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-slate-400 font-medium">Payback Period (Quarters)</p>
-                        <p className="font-semibold text-slate-800 mt-0.5">
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Payback Period (Quarters)</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] mt-0.5">
                           {selectedProposal.payback_quarters ? `${selectedProposal.payback_quarters} Quarters` : "N/A"}
                         </p>
                       </div>
                       <div>
-                        <p className="text-slate-400 font-medium">Financial Benefits – NPV ($mm)</p>
-                        <p className="font-bold text-[#012964] mt-0.5 text-sm">
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Financial Benefits – NPV ($mm)</p>
+                        <p className="font-bold text-[#012964] mt-0.5 text-base">
                           {selectedProposal.ben_npv ? `$${selectedProposal.ben_npv} mm` : "N/A"}
                         </p>
                       </div>
                       <div>
-                        <p className="text-slate-400 font-medium">Financial Benefit – IRR (%)</p>
-                        <p className="font-bold text-[#012964] mt-0.5 text-sm">
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Financial Benefit – IRR (%)</p>
+                        <p className="font-bold text-[#012964] mt-0.5 text-base">
                           {selectedProposal.ben_irr ? `${selectedProposal.ben_irr}%` : "N/A"}
                         </p>
                       </div>
                       <div>
-                        <p className="text-slate-400 font-medium">Revisions Count</p>
-                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.revision_count || 0}</p>
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Revisions Count</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] mt-0.5">{selectedProposal.revision_count || 0}</p>
                       </div>
                       <div className="col-span-2">
-                        <p className="text-slate-400 font-medium">Key Assumptions to Financial Benefit / Costs</p>
-                        <p className="font-medium text-slate-700 mt-0.5 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100 whitespace-pre-wrap leading-relaxed">
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Key Assumptions to Financial Benefit / Costs</p>
+                        <p className="font-medium text-slate-800 text-sm mt-1 bg-slate-50 p-3 rounded-xl border border-slate-200/80 whitespace-pre-wrap leading-relaxed">
                           {selectedProposal.cost_assumptions || "None recorded."}
                         </p>
                       </div>
@@ -631,34 +631,34 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                 {/* 3. Section C: Expenditure Phasing Matrix */}
                 <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
                   <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <BarChart2 className="w-4 h-4 text-[#012964]" />
-                      <h3 className="font-bold text-slate-900 text-sm">
+                    <div className="flex items-center gap-2.5">
+                      <BarChart2 className="w-5 h-5 text-[#012964]" />
+                      <h3 className="font-bold text-slate-900 text-lg">
                         Expenditure Phasing
                       </h3>
                     </div>
-                    <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                    <span className="text-xs sm:text-[13px] font-bold text-[#012964] bg-blue-50/80 px-3 py-1 rounded-full border border-blue-200">
                       Indian FY ({period2Display})
                     </span>
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-xs text-left border-collapse">
+                    <table className="w-full text-sm text-left border-collapse">
                       <thead>
-                        <tr className="border-b border-slate-200 text-slate-600 font-bold bg-slate-50">
-                          <th className="py-2.5 px-3">Expenditure Stream</th>
-                          <th className="py-2.5 px-3 text-right">{period1Display}</th>
-                          <th className="py-2.5 px-3 text-right">{period2Display}</th>
-                          <th className="py-2.5 px-3 text-right">{period3Display}</th>
-                          <th className="py-2.5 px-3 text-right font-bold text-slate-800">Total</th>
+                        <tr className="border-b border-slate-200 text-slate-700 font-bold bg-slate-100/80">
+                          <th className="py-3 px-4">Expenditure Stream</th>
+                          <th className="py-3 px-4 text-right">{period1Display}</th>
+                          <th className="py-3 px-4 text-right">{period2Display}</th>
+                          <th className="py-3 px-4 text-right">{period3Display}</th>
+                          <th className="py-3 px-4 text-right font-bold text-slate-900">Total</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        <tr>
-                          <td className="py-2.5 px-3 font-semibold text-slate-700">Production (in mmbbls)</td>
-                          <td className="py-2.5 px-3 text-right font-mono">{Number(selectedProposal.prod_till || 0).toLocaleString()}</td>
-                          <td className="py-2.5 px-3 text-right font-mono">{Number(selectedProposal.prod_fy || 0).toLocaleString()}</td>
-                          <td className="py-2.5 px-3 text-right font-mono">{Number(selectedProposal.prod_beyond || 0).toLocaleString()}</td>
-                          <td className="py-2.5 px-3 text-right font-bold font-mono">
+                        <tr className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-2.5 px-4 font-semibold text-slate-800">Production (in mmbbls)</td>
+                          <td className="py-2.5 px-4 text-right font-medium text-slate-700">{Number(selectedProposal.prod_till || 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-4 text-right font-medium text-slate-700">{Number(selectedProposal.prod_fy || 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-4 text-right font-medium text-slate-700">{Number(selectedProposal.prod_beyond || 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-4 text-right font-bold text-slate-900">
                             {(
                               Number(selectedProposal.prod_till || 0) +
                               Number(selectedProposal.prod_fy || 0) +
@@ -666,12 +666,12 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                             ).toLocaleString()}
                           </td>
                         </tr>
-                        <tr>
-                          <td className="py-2.5 px-3 font-semibold text-slate-700">Capex ($mm)</td>
-                          <td className="py-2.5 px-3 text-right font-mono">{Number(selectedProposal.capex_till || 0).toLocaleString()}</td>
-                          <td className="py-2.5 px-3 text-right font-mono">{Number(selectedProposal.capex_fy || 0).toLocaleString()}</td>
-                          <td className="py-2.5 px-3 text-right font-mono">{Number(selectedProposal.capex_beyond || 0).toLocaleString()}</td>
-                          <td className="py-2.5 px-3 text-right font-bold font-mono text-[#012964]">
+                        <tr className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-2.5 px-4 font-semibold text-slate-800">Capex ($mm)</td>
+                          <td className="py-2.5 px-4 text-right font-medium text-slate-700">{Number(selectedProposal.capex_till || 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-4 text-right font-medium text-slate-700">{Number(selectedProposal.capex_fy || 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-4 text-right font-medium text-slate-700">{Number(selectedProposal.capex_beyond || 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-4 text-right font-bold text-[#012964]">
                             {(
                               Number(selectedProposal.capex_till || 0) +
                               Number(selectedProposal.capex_fy || 0) +
@@ -679,12 +679,12 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                             ).toLocaleString()}
                           </td>
                         </tr>
-                        <tr>
-                          <td className="py-2.5 px-3 font-semibold text-slate-700">Opex ($mm)</td>
-                          <td className="py-2.5 px-3 text-right font-mono">{Number(selectedProposal.opex_till || 0).toLocaleString()}</td>
-                          <td className="py-2.5 px-3 text-right font-mono">{Number(selectedProposal.opex_fy || 0).toLocaleString()}</td>
-                          <td className="py-2.5 px-3 text-right font-mono">{Number(selectedProposal.opex_beyond || 0).toLocaleString()}</td>
-                          <td className="py-2.5 px-3 text-right font-bold font-mono">
+                        <tr className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-2.5 px-4 font-semibold text-slate-800">Opex ($mm)</td>
+                          <td className="py-2.5 px-4 text-right font-medium text-slate-700">{Number(selectedProposal.opex_till || 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-4 text-right font-medium text-slate-700">{Number(selectedProposal.opex_fy || 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-4 text-right font-medium text-slate-700">{Number(selectedProposal.opex_beyond || 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-4 text-right font-bold text-slate-900">
                             {(
                               Number(selectedProposal.opex_till || 0) +
                               Number(selectedProposal.opex_fy || 0) +
@@ -700,50 +700,50 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                 {/* 4. Section D: CAPEX Cost Estimates Basis */}
                 <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
                   <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <Calculator className="w-4 h-4 text-[#012964]" />
-                      <h3 className="font-bold text-slate-900 text-sm">
+                    <div className="flex items-center gap-2.5">
+                      <Calculator className="w-5 h-5 text-[#012964]" />
+                      <h3 className="font-bold text-slate-900 text-lg">
                         Cost Breakdown
                       </h3>
                     </div>
-                    <span className="text-xs font-medium text-slate-500">
+                    <span className="text-xs sm:text-[13px] font-semibold text-slate-500">
                       Values in {isINR ? "INR (₹)" : "USD ($mm)"}
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">
-                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-slate-400 block text-[11px] font-medium">Engineering</span>
-                      <span className="font-bold text-slate-900 mt-0.5 block font-mono">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-slate-500 font-semibold block text-xs sm:text-[13px]">Engineering</span>
+                      <span className="font-bold text-slate-900 mt-1 block text-sm sm:text-base font-mono">
                         {currSymbol}{Number(selectedProposal.engineer || 0).toLocaleString()}{currUnit}
                       </span>
                     </div>
-                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-slate-400 block text-[11px] font-medium">Surface Facilities</span>
-                      <span className="font-bold text-slate-900 mt-0.5 block font-mono">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-slate-500 font-semibold block text-xs sm:text-[13px]">Surface Facilities</span>
+                      <span className="font-bold text-slate-900 mt-1 block text-sm sm:text-base font-mono">
                         {currSymbol}{Number(selectedProposal.s_fac || 0).toLocaleString()}{currUnit}
                       </span>
                     </div>
-                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-slate-400 block text-[11px] font-medium">Commissioning</span>
-                      <span className="font-bold text-slate-900 mt-0.5 block font-mono">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-slate-500 font-semibold block text-xs sm:text-[13px]">Commissioning</span>
+                      <span className="font-bold text-slate-900 mt-1 block text-sm sm:text-base font-mono">
                         {currSymbol}{Number(selectedProposal.comis || 0).toLocaleString()}{currUnit}
                       </span>
                     </div>
-                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-slate-400 block text-[11px] font-medium">Pre Operations</span>
-                      <span className="font-bold text-slate-900 mt-0.5 block font-mono">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-slate-500 font-semibold block text-xs sm:text-[13px]">Pre Operations</span>
+                      <span className="font-bold text-slate-900 mt-1 block text-sm sm:text-base font-mono">
                         {currSymbol}{Number(selectedProposal.preop || 0).toLocaleString()}{currUnit}
                       </span>
                     </div>
-                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-slate-400 block text-[11px] font-medium">Others</span>
-                      <span className="font-bold text-slate-900 mt-0.5 block font-mono">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-slate-500 font-semibold block text-xs sm:text-[13px]">Others</span>
+                      <span className="font-bold text-slate-900 mt-1 block text-sm sm:text-base font-mono">
                         {currSymbol}{Number(selectedProposal.others || 0).toLocaleString()}{currUnit}
                       </span>
                     </div>
-                    <div className="p-2.5 bg-slate-100/90 rounded-xl border border-slate-200">
-                      <span className="text-slate-600 font-semibold block text-[11px]">Total Capex</span>
-                      <span className="font-bold text-[#012964] mt-0.5 block text-sm font-mono">
+                    <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-200">
+                      <span className="text-[#012964] font-bold block text-xs sm:text-[13px]">Total Capex</span>
+                      <span className="font-extrabold text-[#012964] mt-1 block text-base sm:text-lg font-mono">
                         {currSymbol}{Number(selectedProposal.total || 0).toLocaleString()}{currUnit}
                       </span>
                     </div>
@@ -754,26 +754,26 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Section E */}
                   <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
-                    <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
-                      <Landmark className="w-4 h-4 text-slate-700" />
-                      <h3 className="font-bold text-slate-900 text-sm">
+                    <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
+                      <Landmark className="w-5 h-5 text-slate-700" />
+                      <h3 className="font-bold text-slate-900 text-lg">
                         Corporate Budget
                       </h3>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="grid grid-cols-2 gap-3.5">
                       <div>
-                        <p className="text-slate-400 font-medium">Corporate Budget (Yes/No)</p>
-                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.cbudget || "—"}</p>
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Corporate Budget (Yes/No)</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] mt-0.5">{selectedProposal.cbudget || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-slate-400 font-medium">Corporate Budget Amount ($mm)</p>
-                        <p className="font-semibold text-slate-800 mt-0.5">
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Corporate Budget Amount ($mm)</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] mt-0.5">
                           ${Number(selectedProposal.cb_amnt || 0).toLocaleString()} mm
                         </p>
                       </div>
                       <div className="col-span-2">
-                        <p className="text-slate-400 font-medium">Reason if not / partially budgeted</p>
-                        <p className="font-medium text-slate-700 mt-0.5 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100 whitespace-pre-wrap leading-relaxed">
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Reason if not / partially budgeted</p>
+                        <p className="font-medium text-slate-800 text-sm mt-1 bg-slate-50 p-3 rounded-xl border border-slate-200/80 leading-relaxed">
                           {selectedProposal.reason || "Within standard budgetary envelope."}
                         </p>
                       </div>
@@ -782,34 +782,34 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
 
                   {/* Section F */}
                   <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
-                    <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
-                      <DollarSign className="w-4 h-4 text-slate-700" />
-                      <h3 className="font-bold text-slate-900 text-sm">
+                    <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
+                      <DollarSign className="w-5 h-5 text-slate-700" />
+                      <h3 className="font-bold text-slate-900 text-lg">
                         Joint Venture Details
                       </h3>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="grid grid-cols-2 gap-3.5">
                       <div>
-                        <p className="text-slate-400 font-medium">Aligned with JV</p>
-                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.jv || "—"}</p>
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Aligned with JV</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] mt-0.5">{selectedProposal.jv || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-slate-400 font-medium">JV Cost Recoverable</p>
-                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.jv_recoverable || "No"}</p>
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">JV Cost Recoverable</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] mt-0.5">{selectedProposal.jv_recoverable || "No"}</p>
                       </div>
                       <div>
-                        <p className="text-slate-400 font-medium">JV Budget</p>
-                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.jv_budget || "—"}</p>
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">JV Budget</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] mt-0.5">{selectedProposal.jv_budget || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-slate-400 font-medium">JV Budget Amount ($mm)</p>
-                        <p className="font-semibold text-slate-800 mt-0.5">
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">JV Budget Amount ($mm)</p>
+                        <p className="font-bold text-slate-900 text-sm sm:text-[15px] mt-0.5">
                           ${Number(selectedProposal.jv_amnt || 0).toLocaleString()} mm
                         </p>
                       </div>
                       <div className="col-span-2">
-                        <p className="text-slate-400 font-medium">Reason if not / partially budgeted</p>
-                        <p className="font-medium text-slate-700 mt-0.5 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100 whitespace-pre-wrap leading-relaxed">
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Reason if not / partially budgeted</p>
+                        <p className="font-medium text-slate-800 text-sm mt-1 bg-slate-50 p-3 rounded-xl border border-slate-200/80 leading-relaxed">
                           {selectedProposal.jv_reason || "Approved by Operating Committee / TCM."}
                         </p>
                       </div>
@@ -819,22 +819,22 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
 
                 {/* 6. Section G: Remarks and Justification */}
                 <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
-                  <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
-                    <MessageSquare className="w-4 h-4 text-[#012964]" />
-                    <h3 className="font-bold text-slate-900 text-sm">
+                  <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
+                    <MessageSquare className="w-5 h-5 text-[#012964]" />
+                    <h3 className="font-bold text-slate-900 text-lg">
                       Remarks & Justification
                     </h3>
                   </div>
-                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/60 text-xs text-slate-800 leading-relaxed space-y-2.5">
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 text-sm text-slate-800 leading-relaxed space-y-3">
                     <div>
-                      <p className="font-semibold text-slate-900 mb-1">
+                      <p className="font-bold text-slate-900 mb-1 text-sm">
                         Remarks (including justification for Non Payback expenditure, etc.):
                       </p>
                       <p className="whitespace-pre-wrap">{selectedProposal.remarks || "No narrative remarks provided."}</p>
                     </div>
                     {selectedProposal.remarks_jv && (
-                      <div className="pt-2.5 border-t border-slate-200">
-                        <p className="font-semibold text-slate-900 mb-1">
+                      <div className="pt-3 border-t border-slate-200">
+                        <p className="font-bold text-slate-900 mb-1 text-sm">
                           Remarks on JV Risk (including risk carrying period):
                         </p>
                         <p className="whitespace-pre-wrap">{selectedProposal.remarks_jv}</p>
@@ -846,35 +846,35 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                 {/* 7. Section H: Supporting Attachments */}
                 <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
                   <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <Paperclip className="w-4 h-4 text-slate-700" />
-                      <h3 className="font-bold text-slate-900 text-sm">
+                    <div className="flex items-center gap-2.5">
+                      <Paperclip className="w-5 h-5 text-slate-700" />
+                      <h3 className="font-bold text-slate-900 text-lg">
                         Attachments ({selectedAttachments.length})
                       </h3>
                     </div>
                     {isLoadingAttachments && (
-                      <span className="text-[11px] text-slate-400 font-medium animate-pulse">
+                      <span className="text-xs text-slate-400 font-medium animate-pulse">
                         Loading documents...
                       </span>
                     )}
                   </div>
 
                   {selectedAttachments.length === 0 ? (
-                    <p className="text-slate-400 text-xs py-2 italic">
+                    <p className="text-slate-500 text-sm py-2 italic font-medium">
                       No attachments.
                     </p>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {selectedAttachments.map((att) => (
                         <div
                           key={att.id}
                           className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3 hover:bg-slate-100/60 transition-colors"
                         >
                           <div className="truncate">
-                            <p className="font-semibold text-slate-900 truncate" title={att.name}>
+                            <p className="font-bold text-slate-900 truncate text-sm" title={att.name}>
                               {att.name}
                             </p>
-                            <p className="text-[11px] text-slate-400 mt-0.5">
+                            <p className="text-xs text-slate-500 font-medium mt-0.5">
                               {((att.size || 0) / 1024).toFixed(0)} KB • by {att.uploaded_by || "User"}
                             </p>
                           </div>
@@ -882,7 +882,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                             <a
                               href={att.data_url}
                               download={att.name}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#012964] bg-white border border-[#012964]/30 rounded-lg hover:bg-blue-50 transition-colors shrink-0 shadow-2xs"
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs sm:text-[13px] font-semibold text-[#012964] bg-white border border-[#012964]/30 rounded-lg hover:bg-blue-50 transition-colors shrink-0 shadow-2xs"
                             >
                               <Download className="w-3.5 h-3.5" />
                               <span>Download</span>

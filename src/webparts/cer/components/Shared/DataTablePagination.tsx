@@ -67,10 +67,10 @@ export const DataTablePagination: React.FC<IDataTablePaginationProps> = ({
   return (
     <div
       data-role="pagination-footer"
-      className="px-4 py-2 border-t border-slate-200/80 bg-slate-50/90 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs sm:text-sm select-none"
+      className="px-4 py-2.5 border-t border-slate-200/80 bg-slate-50/90 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-sm select-none"
     >
       {/* Left: Record Range Summary (e.g. Showing 1–9 of 364 records) */}
-      <div className="text-slate-600 font-medium text-center sm:text-left text-xs sm:text-sm">
+      <div className="text-slate-700 font-medium text-center sm:text-left text-sm">
         Showing{" "}
         <strong className="text-slate-900 font-bold">
           {totalItems > 0 ? startIndex + 1 : 0}

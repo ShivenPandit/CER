@@ -159,8 +159,8 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
             </button>
           )}
           <div>
-            <h2 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-blue-400 shrink-0" />
+            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+              <ShieldCheck className="w-6 h-6 text-blue-400 shrink-0" />
               <span>Audit Trail</span>
             </h2>
           </div>
@@ -198,29 +198,29 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
       {/* KPI Summary Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-subtle">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Changes</span>
-          <p className="font-extrabold text-slate-900 text-base mt-0.5">
+          <span className="text-xs sm:text-[13px] uppercase font-bold text-slate-500 block">Total Changes</span>
+          <p className="font-extrabold text-slate-900 text-lg mt-1">
             {auditRows.length} record{auditRows.length === 1 ? "" : "s"}
           </p>
         </div>
 
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-subtle">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block">Fields Modified</span>
-          <p className="font-extrabold text-blue-700 text-base mt-0.5">
+          <span className="text-xs sm:text-[13px] uppercase font-bold text-slate-500 block">Fields Modified</span>
+          <p className="font-extrabold text-blue-700 text-lg mt-1">
             {uniqueFields.length} distinct field{uniqueFields.length === 1 ? "" : "s"}
           </p>
         </div>
 
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-subtle">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block">Contributors</span>
-          <p className="font-extrabold text-slate-800 text-base mt-0.5">
+          <span className="text-xs sm:text-[13px] uppercase font-bold text-slate-500 block">Contributors</span>
+          <p className="font-extrabold text-slate-800 text-lg mt-1">
             {uniqueUsers.length} user{uniqueUsers.length === 1 ? "" : "s"}
           </p>
         </div>
 
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-subtle">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block">Scope Filter</span>
-          <p className="font-bold text-purple-700 truncate mt-0.5">
+          <span className="text-xs sm:text-[13px] uppercase font-bold text-slate-500 block">Scope Filter</span>
+          <p className="font-bold text-purple-700 truncate text-sm sm:text-base mt-1">
             {filterProposal ? filterProposal : "All Proposals Ledger"}
           </p>
         </div>
@@ -236,7 +236,7 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
           <div className="flex items-center gap-1">
             <button
               onClick={() => setActiveTab("cards")}
-              className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors flex items-center gap-2 ${
+              className={`px-4 py-2 text-sm font-bold rounded-t-lg border-b-2 transition-colors flex items-center gap-2 ${
                 activeTab === "cards"
                   ? "border-blue-600 text-blue-700 bg-blue-50/40"
                   : "border-transparent text-slate-500 hover:text-slate-800"
@@ -248,7 +248,7 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
 
             <button
               onClick={() => setActiveTab("table")}
-              className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors flex items-center gap-2 ${
+              className={`px-4 py-2 text-sm font-bold rounded-t-lg border-b-2 transition-colors flex items-center gap-2 ${
                 activeTab === "table"
                   ? "border-blue-600 text-blue-700 bg-blue-50/40"
                   : "border-transparent text-slate-500 hover:text-slate-800"
@@ -431,12 +431,12 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
           <div>
             {/* Desktop / Tablet Table */}
             <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse table-fixed">
+              <table className="w-full text-left text-sm border-collapse table-fixed">
                 <thead>
-              <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider select-none">
+              <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-700 font-bold uppercase text-xs sm:text-[13px] tracking-wider select-none">
                 <th
                   onClick={() => handleSort("cerprno")}
-                  className="py-2.5 px-3 w-[125px] cursor-pointer hover:text-slate-900"
+                  className="py-3 px-3.5 w-[135px] cursor-pointer hover:text-slate-900"
                 >
                   <div className="flex items-center gap-1">
                     <span>Proposal No</span>

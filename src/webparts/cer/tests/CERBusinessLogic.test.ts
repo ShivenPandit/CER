@@ -88,13 +88,13 @@ describe("CER Management System - Business Logic & Requirements Tests", () => {
     service = new LocalMockCERDataService();
     // Dynamic test level configuration for workflow progression tests
     await service.saveWorkflowLevels([
-      { level_id: 1, level_name: "Technical Review", role_title: "Technical Reviewer", sbu: "RJ North", is_active: true },
-      { level_id: 2, level_name: "Finance Review", role_title: "Finance Reviewer", sbu: "RJ North", is_active: true },
-      { level_id: 3, level_name: "Commercial & Contracts Review", role_title: "Commercial Reviewer", sbu: "RJ North", is_active: true },
-      { level_id: 4, level_name: "Corporate Finance Review", role_title: "Corporate Finance Reviewer", sbu: "RJ North", is_active: true },
-      { level_id: 5, level_name: "Executive Committee (ExCo) Review", role_title: "ExCo Reviewer", sbu: "RJ North", is_active: true },
-      { level_id: 6, level_name: "CEO Approval", role_title: "CEO", sbu: "RJ North", is_active: true },
-      { level_id: 7, level_name: "Board Approval", role_title: "Board of Directors", sbu: "RJ North", is_active: true },
+      { level_id: 1, level_name: "Technical Review", role_title: "Technical Reviewer", approver_name: "Rajesh Sharma", approver_email: "rajesh.sharma@vedanta.co.in", sbu: "RJ North", is_active: true },
+      { level_id: 2, level_name: "Finance Review", role_title: "Finance Reviewer", approver_name: "Sunil Verma", approver_email: "sunil.verma@vedanta.co.in", sbu: "RJ North", is_active: true },
+      { level_id: 3, level_name: "Commercial & Contracts Review", role_title: "Commercial Reviewer", approver_name: "Ananya Deshmukh", approver_email: "ananya.deshmukh@vedanta.co.in", sbu: "RJ North", is_active: true },
+      { level_id: 4, level_name: "Corporate Finance Review", role_title: "Corporate Finance Reviewer", approver_name: "Amit Saxena", approver_email: "amit.saxena@vedanta.co.in", sbu: "RJ North", is_active: true },
+      { level_id: 5, level_name: "Executive Committee (ExCo) Review", role_title: "ExCo Reviewer", approver_name: "Neha Kulkarni", approver_email: "neha.kulkarni@vedanta.co.in", sbu: "RJ North", is_active: true },
+      { level_id: 6, level_name: "CEO Approval", role_title: "CEO", approver_name: "Vikram Mehta", approver_email: "vikram.mehta@vedanta.co.in", sbu: "RJ North", is_active: true },
+      { level_id: 7, level_name: "Board Approval", role_title: "Board of Directors", approver_name: "Arun Kumar", approver_email: "arun.kumar@vedanta.co.in", sbu: "RJ North", is_active: true },
     ]);
   });
 

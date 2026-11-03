@@ -495,7 +495,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-lg sm:text-[19px] font-bold text-slate-900 tracking-tight whitespace-nowrap">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight whitespace-nowrap">
               Create CER
             </h2>
           </div>

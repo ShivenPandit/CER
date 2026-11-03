@@ -22,9 +22,10 @@ const JAVASCRIPT_PROTOCOL_REGEX = /javascript\s*:/gi;
 const VBSCRIPT_PROTOCOL_REGEX = /vbscript\s*:/gi;
 const DATA_HTML_PROTOCOL_REGEX = /data\s*:\s*text\/html/gi;
 const INLINE_EVENT_HANDLER_REGEX = /\bon\w+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)/gi;
-const TAG_WITH_EVENT_HANDLER_REGEX = /<[a-zA-Z0-9_\-]+(?:\s+[^>]*?)?\bon\w+\s*=[^>]*>/gi;
+const TAG_WITH_EVENT_HANDLER_REGEX = /<[-a-zA-Z0-9_]+(?:\s+[^>]*?)?\bon\w+\s*=[^>]*>/gi;
 
 // Control / Non-printable characters (excluding standard tabs and newlines)
+// eslint-disable-next-line no-control-regex
 const CONTROL_CHARS_REGEX = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
 
 /**

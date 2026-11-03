@@ -38,7 +38,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
       <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 sm:p-4 shadow-xs space-y-2.5 sm:space-y-3">
         <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
           <Landmark className="w-4 h-4 text-[#012964]" />
-          <h3 className="font-bold text-slate-800 text-sm sm:text-[15px] tracking-tight">
+          <h3 className="font-bold text-slate-900 text-base sm:text-[17px] tracking-tight">
             Corporate Budget
           </h3>
         </div>
@@ -47,7 +47,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
             {/* Corporate Budget (Yes/No) */}
             <div id="field-cbudget">
-              <label htmlFor="cbudget" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+              <label htmlFor="cbudget" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
                 Corporate Budget <span className="text-rose-500">*</span>
               </label>
               <select
@@ -56,7 +56,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 value={formData.cbudget}
                 onChange={(e) => onChange("cbudget", e.target.value)}
                 onBlur={() => onBlur && onBlur("cbudget")}
-                className="w-full h-9 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964] transition-colors text-sm font-medium text-slate-900"
+                className="w-full h-10 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964] transition-colors text-sm font-medium text-slate-900"
               >
                 {(fieldChoices?.cbudget && fieldChoices.cbudget.length > 0 ? fieldChoices.cbudget : ["Yes", "No"]).map((opt) => (
                   <option key={opt} value={opt}>
@@ -74,7 +74,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
 
             {/* Corporate Budget Amount ($mm) (Optional) */}
             <div id="field-cb_amnt">
-              <label htmlFor="cb_amnt" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+              <label htmlFor="cb_amnt" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
                 Budget Amount ($mm) <span className="text-xs font-normal text-slate-400">(Optional)</span>
               </label>
               <input
@@ -86,7 +86,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 value={formData.cb_amnt === 0 ? "" : formData.cb_amnt}
                 onChange={(e) => onChange("cb_amnt", e.target.value === "" ? 0 : Number(e.target.value))}
                 onBlur={() => onBlur && onBlur("cb_amnt")}
-                className={`w-full h-9 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none ${
+                className={`w-full h-10 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none ${
                   formData.cbudget === "No"
                     ? "bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed shadow-none"
                     : getFieldError("cb_amnt")
@@ -105,7 +105,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
 
           {/* Reason if not/partially budgeted (Optional) */}
           <div id="field-reason">
-            <label htmlFor="reason" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+            <label htmlFor="reason" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
               Reason if not budgeted <span className="text-xs font-normal text-slate-400">(Optional)</span>
             </label>
             <textarea
@@ -137,7 +137,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
       <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 sm:p-4 shadow-xs space-y-2.5 sm:space-y-3">
         <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
           <Users className="w-4 h-4 text-[#012964]" />
-          <h3 className="font-bold text-slate-800 text-sm sm:text-[15px] tracking-tight">
+          <h3 className="font-bold text-slate-900 text-base sm:text-[17px] tracking-tight">
             Joint Venture Details
           </h3>
         </div>
@@ -146,7 +146,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
             {/* Aligned with JV (Yes/No/Under Discussion) */}
             <div id="field-jv">
-              <label htmlFor="jv" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+              <label htmlFor="jv" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
                 Aligned with JV <span className="text-rose-500">*</span>
               </label>
               <select
@@ -155,7 +155,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 value={formData.jv}
                 onChange={(e) => onChange("jv", e.target.value)}
                 onBlur={() => onBlur && onBlur("jv")}
-                className="w-full h-9 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964] transition-colors text-sm font-medium text-slate-900"
+                className="w-full h-10 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964] transition-colors text-sm font-medium text-slate-900"
               >
                 {(fieldChoices?.jv && fieldChoices.jv.length > 0 ? fieldChoices.jv : ["Yes", "No", "Under Discussion"]).map((opt) => (
                   <option key={opt} value={opt}>
@@ -173,7 +173,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
 
             {/* JV Cost Recoverable (Yes/No) */}
             <div id="field-jv_recoverable">
-              <label htmlFor="jv_recoverable" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+              <label htmlFor="jv_recoverable" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
                 JV Cost Recoverable <span className="text-rose-500">*</span>
               </label>
               <select
@@ -182,7 +182,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 value={formData.jv_recoverable || "No"}
                 onChange={(e) => onChange("jv_recoverable", e.target.value)}
                 onBlur={() => onBlur && onBlur("jv_recoverable")}
-                className="w-full h-9 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964] transition-colors text-sm font-medium text-slate-900"
+                className="w-full h-10 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964] transition-colors text-sm font-medium text-slate-900"
               >
                 {(fieldChoices?.jv_recoverable && fieldChoices.jv_recoverable.length > 0 ? fieldChoices.jv_recoverable : ["Yes", "No"]).map((opt) => (
                   <option key={opt} value={opt}>
@@ -202,7 +202,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
             {/* JV Budget (Yes/No) */}
             <div id="field-jv_budget">
-              <label htmlFor="jv_budget" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+              <label htmlFor="jv_budget" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
                 JV Budget <span className="text-rose-500">*</span>
               </label>
               <select
@@ -211,7 +211,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 value={formData.jv_budget}
                 onChange={(e) => onChange("jv_budget", e.target.value)}
                 onBlur={() => onBlur && onBlur("jv_budget")}
-                className="w-full h-9 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964] transition-colors text-sm font-medium text-slate-900"
+                className="w-full h-10 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964] transition-colors text-sm font-medium text-slate-900"
               >
                 {(fieldChoices?.jv_budget && fieldChoices.jv_budget.length > 0 ? fieldChoices.jv_budget : ["Yes", "No"]).map((opt) => (
                   <option key={opt} value={opt}>
@@ -229,7 +229,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
 
             {/* JV Budget Amount ($mm) (Optional) */}
             <div id="field-jv_amnt">
-              <label htmlFor="jv_amnt" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+              <label htmlFor="jv_amnt" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
                 JV Budget Amount ($mm) <span className="text-xs font-normal text-slate-400">(Optional)</span>
               </label>
               <input
@@ -241,7 +241,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 value={formData.jv_amnt === 0 ? "" : formData.jv_amnt}
                 onChange={(e) => onChange("jv_amnt", e.target.value === "" ? 0 : Number(e.target.value))}
                 onBlur={() => onBlur && onBlur("jv_amnt")}
-                className={`w-full h-9 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none ${
+                className={`w-full h-10 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none ${
                   !isJvBudgeted
                     ? "bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed shadow-none"
                     : getFieldError("jv_amnt")
@@ -260,7 +260,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
 
           {/* Reason if not/partially budgeted (Optional) */}
           <div id="field-jv_reason">
-            <label htmlFor="jv_reason" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+            <label htmlFor="jv_reason" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
               Reason if not budgeted <span className="text-xs font-normal text-slate-400">(Optional)</span>
             </label>
             <input
@@ -270,7 +270,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
               value={formData.jv_reason}
               onChange={(e) => onChange("jv_reason", e.target.value)}
               onBlur={() => onBlur && onBlur("jv_reason")}
-              className={`w-full h-9 px-3 py-1.5 rounded-lg text-sm transition-colors text-slate-900 focus:outline-none ${
+              className={`w-full h-10 px-3 py-1.5 rounded-lg text-sm transition-colors text-slate-900 focus:outline-none ${
                 getFieldError("jv_reason")
                   ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                   : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"

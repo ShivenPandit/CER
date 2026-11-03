@@ -33,7 +33,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
       {/* Section Header */}
       <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
         <DollarSign className="w-4 h-4 text-[#012964]" />
-        <h3 className="font-bold text-slate-800 text-sm sm:text-[15px] tracking-tight">
+        <h3 className="font-bold text-slate-900 text-base sm:text-[17px] tracking-tight">
           Financial Metrics
         </h3>
       </div>
@@ -42,7 +42,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
         {/* Amount of CER (Auto-fetched from Section C Capex Phasing & Grayed out) */}
         <div id="field-amount">
           <div className="flex items-center justify-between mb-1">
-            <label htmlFor="amount" className="font-semibold text-slate-700 text-[13px] sm:text-sm flex items-center gap-1">
+            <label htmlFor="amount" className="font-semibold text-slate-800 text-sm font-semibold flex items-center gap-1">
               <span>Amount of CER</span>
               <span className="text-rose-500">*</span>
             </label>
@@ -55,7 +55,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
               disabled={isReadOnly}
               value={formData.currency}
               onChange={(e) => onChange("currency", e.target.value)}
-              className="h-9 px-2.5 bg-white border-r border-slate-200 font-bold text-slate-800 text-sm focus:outline-none transition-colors"
+              className="h-10 px-2.5 bg-white border-r border-slate-200 font-bold text-slate-800 text-sm focus:outline-none transition-colors"
             >
               {(fieldChoices?.currency && fieldChoices.currency.length > 0 ? fieldChoices.currency : ["USD", "INR"]).map((cur) => (
                 <option key={cur} value={cur}>
@@ -70,7 +70,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
               disabled
               tabIndex={-1}
               value={Number(formData.amount || 0).toLocaleString()}
-              className={`flex-1 h-9 px-3 font-mono font-bold text-sm bg-slate-50 text-slate-800 cursor-not-allowed focus:outline-none ${
+              className={`flex-1 h-10 px-3 font-mono font-bold text-sm bg-slate-50 text-slate-800 cursor-not-allowed focus:outline-none ${
                 getFieldError("amount") ? "text-rose-900 bg-rose-50/20" : ""
               }`}
               title="Auto-fetched total from Section C Capex ($mm). Read-only."
@@ -87,7 +87,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
 
         {/* Payback / Non Payback */}
         <div id="field-payable">
-          <label htmlFor="payable" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+          <label htmlFor="payable" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
             Payback / Non Payback <span className="text-rose-500">*</span>
           </label>
           <select
@@ -96,7 +96,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             value={formData.payable === "Non-Payback" ? "Non Payback" : formData.payable}
             onChange={(e) => onChange("payable", e.target.value as CERPayable)}
             onBlur={() => onBlur && onBlur("payable")}
-            className="w-full h-9 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964] transition-colors text-sm font-medium text-slate-900"
+            className="w-full h-10 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964] transition-colors text-sm font-medium text-slate-900"
           >
             {(fieldChoices?.payable && fieldChoices.payable.length > 0 ? fieldChoices.payable : ["Payback", "Non Payback"]).map((pay) => (
               <option key={pay} value={pay}>
@@ -114,7 +114,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
 
         {/* Payback Period (Quarters) */}
         <div id="field-payback_quarters">
-          <label htmlFor="payback_quarters" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+          <label htmlFor="payback_quarters" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
             Payback Period (Quarters) <span className="text-rose-500">*</span>
           </label>
           <input
@@ -132,7 +132,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
               }
             }}
             onBlur={() => onBlur && onBlur("payback_quarters")}
-            className={`w-full h-9 px-3 py-1.5 rounded-lg text-sm transition-colors font-medium text-slate-900 focus:outline-none ${
+            className={`w-full h-10 px-3 py-1.5 rounded-lg text-sm transition-colors font-medium text-slate-900 focus:outline-none ${
               getFieldError("payback_quarters")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                 : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
@@ -149,7 +149,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
 
         {/* Financial Benefits — NPV */}
         <div id="field-ben_npv">
-          <label htmlFor="ben_npv" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+          <label htmlFor="ben_npv" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
             Financial Benefits — NPV ($mm)
           </label>
           <input
@@ -160,7 +160,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             value={formData.ben_npv === 0 ? "" : formData.ben_npv}
             onChange={(e) => onChange("ben_npv", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("ben_npv")}
-            className={`w-full h-9 px-3 py-1.5 rounded-lg text-sm transition-colors font-medium text-slate-900 focus:outline-none ${
+            className={`w-full h-10 px-3 py-1.5 rounded-lg text-sm transition-colors font-medium text-slate-900 focus:outline-none ${
               getFieldError("ben_npv")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                 : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
@@ -176,7 +176,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
 
         {/* Financial Benefit — IRR */}
         <div id="field-ben_irr">
-          <label htmlFor="ben_irr" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+          <label htmlFor="ben_irr" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
             Financial Benefit — IRR (%)
           </label>
           <input
@@ -189,7 +189,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             value={formData.ben_irr === 0 ? "" : formData.ben_irr}
             onChange={(e) => onChange("ben_irr", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("ben_irr")}
-            className={`w-full h-9 px-3 py-1.5 rounded-lg text-sm transition-colors font-medium text-slate-900 focus:outline-none ${
+            className={`w-full h-10 px-3 py-1.5 rounded-lg text-sm transition-colors font-medium text-slate-900 focus:outline-none ${
               getFieldError("ben_irr")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                 : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
@@ -205,7 +205,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
 
         {/* Key Assumptions */}
         <div className="col-span-1 md:col-span-2 lg:col-span-1" id="field-cost_assumptions">
-          <label htmlFor="cost_assumptions" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+          <label htmlFor="cost_assumptions" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
             Key Assumptions <span className="text-xs font-normal text-slate-400">(Optional)</span>
           </label>
           <input
@@ -215,7 +215,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             value={formData.cost_assumptions}
             onChange={(e) => onChange("cost_assumptions", e.target.value)}
             onBlur={() => onBlur && onBlur("cost_assumptions")}
-            className={`w-full h-9 px-3 py-1.5 rounded-lg text-sm transition-colors text-slate-900 focus:outline-none ${
+            className={`w-full h-10 px-3 py-1.5 rounded-lg text-sm transition-colors text-slate-900 focus:outline-none ${
               getFieldError("cost_assumptions")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                 : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"

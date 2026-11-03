@@ -143,13 +143,13 @@ export const AuditTrailModal: React.FC<IAuditTrailModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono font-bold text-xs bg-slate-800 text-slate-200 px-2 py-0.5 rounded border border-slate-700">
+                <span className="font-mono font-bold text-xs sm:text-[13px] bg-slate-800 text-slate-200 px-2.5 py-0.5 rounded border border-slate-700">
                   {proposal.cerprno}
                 </span>
                 <CategoryBadge category={proposal.cat} />
                 <StatusBadge status={proposal.status} size="sm" />
               </div>
-              <h3 className="text-base font-bold text-white mt-1 leading-snug">
+              <h3 className="text-lg sm:text-xl font-bold text-white mt-1 leading-snug">
                 Audit Trail: {proposal.pr_name}
               </h3>
             </div>
@@ -168,29 +168,29 @@ export const AuditTrailModal: React.FC<IAuditTrailModalProps> = ({
         {/* KPI Summary Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-slate-50 border-b border-slate-200/80 text-xs shrink-0">
           <div className="bg-white p-3 rounded-xl border border-slate-200">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Changes Logged</span>
-            <p className="font-bold text-slate-900 mt-0.5">
+            <span className="text-xs sm:text-[13px] uppercase font-bold text-slate-500 block">Total Changes Logged</span>
+            <p className="font-extrabold text-slate-900 text-base mt-1">
               {auditRows.length} change record{auditRows.length === 1 ? "" : "s"}
             </p>
           </div>
 
           <div className="bg-white p-3 rounded-xl border border-slate-200">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">Fields Modified</span>
-            <p className="font-bold cer-text-blue mt-0.5">
+            <span className="text-xs sm:text-[13px] uppercase font-bold text-slate-500 block">Fields Modified</span>
+            <p className="font-extrabold cer-text-blue text-base mt-1">
               {uniqueFields.length} distinct field{uniqueFields.length === 1 ? "" : "s"}
             </p>
           </div>
 
           <div className="bg-white p-3 rounded-xl border border-slate-200">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">Contributors</span>
-            <p className="font-bold text-slate-800 mt-0.5">
+            <span className="text-xs sm:text-[13px] uppercase font-bold text-slate-500 block">Contributors</span>
+            <p className="font-extrabold text-slate-800 text-base mt-1">
               {uniqueUsers.length} user{uniqueUsers.length === 1 ? "" : "s"}
             </p>
           </div>
 
           <div className="bg-white p-3 rounded-xl border border-slate-200">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">Current Revisions</span>
-            <p className="font-bold text-purple-700 mt-0.5">
+            <span className="text-xs sm:text-[13px] uppercase font-bold text-slate-500 block">Current Revisions</span>
+            <p className="font-extrabold text-purple-700 text-base mt-1">
               Rev #{proposal.revision_count || 1}
             </p>
           </div>
@@ -383,9 +383,9 @@ export const AuditTrailModal: React.FC<IAuditTrailModalProps> = ({
           ) : (
             /* Tabular Ledger View */
             <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-2xs">
-              <table className="w-full text-left text-xs border-collapse table-fixed">
+              <table className="w-full text-left text-sm border-collapse table-fixed">
                 <thead>
-                  <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider select-none">
+                  <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-700 font-bold uppercase text-xs sm:text-[13px] tracking-wider select-none">
                     <th
                       onClick={() => handleSort("field_desc")}
                       className="py-2.5 px-3 w-[180px] cursor-pointer hover:text-slate-900"

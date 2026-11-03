@@ -58,11 +58,11 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
       <div className="flex items-center justify-between pb-2 border-b border-slate-100">
         <div className="flex items-center gap-2">
           <Calculator className="w-4 h-4 text-[#012964]" />
-          <h3 className="font-bold text-slate-800 text-sm sm:text-[15px] tracking-tight">
+          <h3 className="font-bold text-slate-900 text-base sm:text-[17px] tracking-tight">
             Cost Breakdown
           </h3>
         </div>
-        <span className="text-xs font-medium text-slate-500">
+        <span className="text-xs sm:text-[13px] font-semibold text-slate-500">
           Values in {isINR ? "INR (₹)" : "USD ($mm)"}
         </span>
       </div>
@@ -89,7 +89,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
         {/* Engineering */}
         <div id="field-engineer">
-          <label htmlFor="engineer" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+          <label htmlFor="engineer" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
             Engineering
           </label>
           <input
@@ -101,7 +101,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             value={formData.engineer === 0 ? "" : formData.engineer}
             onChange={(e) => onChange("engineer", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("engineer")}
-            className={`w-full h-9 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+            className={`w-full h-10 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("engineer")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                 : "bg-white border border-slate-200 hover:border-slate-300 focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964]"
@@ -117,7 +117,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
 
         {/* Surface Facilities */}
         <div id="field-s_fac">
-          <label htmlFor="s_fac" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+          <label htmlFor="s_fac" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
             Surface Facilities
           </label>
           <input
@@ -129,7 +129,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             value={formData.s_fac === 0 ? "" : formData.s_fac}
             onChange={(e) => onChange("s_fac", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("s_fac")}
-            className={`w-full h-9 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+            className={`w-full h-10 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("s_fac")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                 : "bg-white border border-slate-200 hover:border-slate-300 focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964]"
@@ -145,7 +145,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
 
         {/* Commissioning */}
         <div id="field-comis">
-          <label htmlFor="comis" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+          <label htmlFor="comis" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
             Commissioning
           </label>
           <input
@@ -157,7 +157,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             value={formData.comis === 0 ? "" : formData.comis}
             onChange={(e) => onChange("comis", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("comis")}
-            className={`w-full h-9 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+            className={`w-full h-10 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("comis")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                 : "bg-white border border-slate-200 hover:border-slate-300 focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964]"
@@ -173,7 +173,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
 
         {/* Pre Operations */}
         <div id="field-preop">
-          <label htmlFor="preop" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+          <label htmlFor="preop" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
             Pre Operations
           </label>
           <input
@@ -185,7 +185,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             value={formData.preop === 0 ? "" : formData.preop}
             onChange={(e) => onChange("preop", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("preop")}
-            className={`w-full h-9 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+            className={`w-full h-10 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("preop")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                 : "bg-white border border-slate-200 hover:border-slate-300 focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964]"
@@ -201,7 +201,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
 
         {/* Others */}
         <div id="field-others">
-          <label htmlFor="others" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+          <label htmlFor="others" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
             Others
           </label>
           <input
@@ -213,7 +213,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             value={formData.others === 0 ? "" : formData.others}
             onChange={(e) => onChange("others", e.target.value === "" ? 0 : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("others")}
-            className={`w-full h-9 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+            className={`w-full h-10 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("others")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                 : "bg-white border border-slate-200 hover:border-slate-300 focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964]"
@@ -229,11 +229,11 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
 
         {/* Total Capex — Read-Only Calculated Summary Value */}
         <div id="field-total">
-          <label className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+          <label className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
             Total Capex
           </label>
           <div
-            className={`w-full h-9 px-3 py-1.5 rounded-lg border flex items-center justify-between transition-colors ${
+            className={`w-full h-10 px-3 py-1.5 rounded-lg border flex items-center justify-between transition-colors ${
               hasMismatch
                 ? "bg-rose-50/20 border-rose-300"
                 : "bg-slate-50 border-slate-200"

@@ -31,7 +31,7 @@ export const RemarksSection: React.FC<IRemarksSectionProps> = ({
     <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 sm:p-4 shadow-xs space-y-2.5 sm:space-y-3" id="section-remarks">
       <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
         <MessageSquare className="w-4 h-4 text-[#012964]" />
-        <h3 className="font-bold text-slate-800 text-sm sm:text-[15px] tracking-tight">
+        <h3 className="font-bold text-slate-900 text-base sm:text-[17px] tracking-tight">
           Remarks & Justification
         </h3>
       </div>
@@ -40,7 +40,7 @@ export const RemarksSection: React.FC<IRemarksSectionProps> = ({
         {/* Remarks / Justification */}
         <div id="field-remarks" className="flex flex-col justify-between">
           <div>
-            <label htmlFor="remarks" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+            <label htmlFor="remarks" className="block font-bold text-slate-800 text-sm mb-1">
               Remarks / Justification <span className="text-xs font-normal text-slate-400">(Optional)</span>
             </label>
             <textarea
@@ -72,7 +72,7 @@ export const RemarksSection: React.FC<IRemarksSectionProps> = ({
         {/* Rationale for JV / Risk */}
         <div id="field-remarks_jv" className="flex flex-col justify-between">
           <div>
-            <label htmlFor="remarks_jv" className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+            <label htmlFor="remarks_jv" className="block font-bold text-slate-800 text-sm mb-1">
               Rationale for JV / Risk <span className="text-xs font-normal text-slate-400">(Optional)</span>
             </label>
             <textarea

@@ -247,7 +247,7 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
       <div className="flex items-center justify-between pb-2 border-b border-slate-100 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Paperclip className="w-4 h-4 text-[#012964]" />
-          <h3 className="font-bold text-slate-800 text-sm sm:text-[15px] tracking-tight">
+          <h3 className="font-bold text-slate-900 text-base sm:text-[17px] tracking-tight">
             Attachments
           </h3>
         </div>

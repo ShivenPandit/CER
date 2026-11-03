@@ -248,7 +248,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
             </button>
           )}
           <div>
-            <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
               Reports &amp; Analytics
             </h2>
           </div>
@@ -551,7 +551,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
               <col style={{ width: "175px" }} />
             </colgroup>
             <thead>
-              <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold uppercase text-xs tracking-wider select-none">
+              <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-700 font-bold uppercase text-xs sm:text-[13px] tracking-wider select-none">
                 <th
                   onClick={() => handleSort("cerprno")}
                   className="py-3.5 px-4 text-left cursor-pointer hover:text-slate-900 whitespace-nowrap"
@@ -664,7 +664,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                             const targetId = prop.cerprno || prop.proposal_no || prop.cer_proposal_id;
                             if (onNavigateToDisplay && targetId) onNavigateToDisplay(targetId);
                           }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-[#012964] bg-blue-50/80 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer border border-blue-200/60"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-[#012964] bg-blue-50/80 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer border border-blue-200/60 shadow-2xs"
                           title="View proposal details"
                         >
                           <Eye className="w-3.5 h-3.5" />
@@ -685,7 +685,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                                 onClick={() => {
                                   if (onNavigateToChange && targetId) onNavigateToChange(targetId);
                                 }}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer border border-amber-200"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer border border-amber-200 shadow-2xs"
                                 title="Edit draft proposal"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
@@ -701,7 +701,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                                 onClick={() => {
                                   if (onNavigateToChange && targetId) onNavigateToChange(targetId);
                                 }}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 rounded-lg transition-colors cursor-pointer border border-emerald-200/60 shadow-2xs"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 rounded-lg transition-colors cursor-pointer border border-emerald-200/60 shadow-2xs"
                                 title="Amend and resubmit approved proposal"
                               >
                                 <RotateCcw className="w-3.5 h-3.5" />
@@ -717,11 +717,11 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                                 onClick={() => {
                                   if (onNavigateToChange && targetId) onNavigateToChange(targetId);
                                 }}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer border border-amber-200"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer border border-amber-200 shadow-2xs"
                                 title="Edit and resubmit reworked proposal"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
-                                <span>Edit & Resubmit</span>
+                                <span>Edit</span>
                               </button>
                             );
                           }

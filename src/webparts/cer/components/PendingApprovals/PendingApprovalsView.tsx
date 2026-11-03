@@ -231,7 +231,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
             </button>
           )}
           <div>
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
               Pending Approvals
             </h2>
           </div>
@@ -239,7 +239,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
 
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="relative flex-1 sm:flex-initial">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchTerm}
@@ -248,7 +248,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
                 pagination.setCurrentPage(1);
               }}
               placeholder="Search queue..."
-              className="w-full sm:w-48 pl-8 pr-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
+              className="w-full sm:w-56 h-10 pl-9 pr-3.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
             />
           </div>
 
@@ -256,28 +256,28 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
             type="button"
             onClick={handleManualRefresh}
             disabled={isRefreshing}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400 rounded-xl text-xs font-semibold text-slate-700 hover:text-[#012964] transition-all shadow-2xs cursor-pointer disabled:opacity-60"
+            className="flex items-center gap-1.5 h-10 px-4 bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400 rounded-xl text-sm font-semibold text-slate-700 hover:text-[#012964] transition-all shadow-2xs cursor-pointer disabled:opacity-60"
             title="Check for new approval tasks immediately without reloading browser"
           >
-            <RotateCw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? "animate-spin text-[#012964]" : ""}`} />
+            <RotateCw className={`w-4 h-4 text-slate-500 ${isRefreshing ? "animate-spin text-[#012964]" : ""}`} />
             <span>{isRefreshing ? "Checking..." : "Refresh"}</span>
           </button>
 
-          <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+          <span className="flex items-center h-10 text-sm font-bold px-4 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 shrink-0 shadow-2xs">
             {pendingList.length} Pending
           </span>
         </div>
       </div>
 
       {feedbackNotice && (
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between animate-fade-in">
+        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center justify-between animate-fade-in">
           <div className="flex items-center gap-2.5">
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
             <span className="font-semibold">{feedbackNotice}</span>
           </div>
           <button
             onClick={() => setFeedbackNotice(null)}
-            className="text-xs font-bold text-emerald-700 hover:text-emerald-900"
+            className="text-sm font-bold text-emerald-700 hover:text-emerald-900 cursor-pointer"
           >
             Dismiss
           </button>
@@ -303,8 +303,8 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
           ) : visiblePendingList.length === 0 ? (
             <div className="py-12 text-center text-slate-400">
               <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-500 mb-2 opacity-80" />
-              <h3 className="font-bold text-slate-800 text-sm">No Pending Approvals</h3>
-              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+              <h3 className="font-bold text-slate-800 text-base">No Pending Approvals</h3>
+              <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto">
                 {searchTerm
                   ? "No matching tasks found."
                   : "No proposals pending your approval."}
@@ -320,63 +320,63 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
                   data-role="list-item"
                   className="bg-slate-50/50 hover:bg-slate-50 rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs hover:shadow-subtle transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
                 >
-                  <div className="space-y-2 min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                      <span className="font-mono font-bold text-xs text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200" title="CER Proposal ID">
+                  <div className="space-y-2.5 min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono font-bold text-xs sm:text-[13px] text-slate-900 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs" title="CER Proposal ID">
                         {prop.cer_proposal_id || prop.cerprno}
                       </span>
                       <CategoryBadge category={prop.cat} />
                       <StatusBadge status={prop.status} size="sm" />
-                      <span className="text-[11px] font-semibold text-[#012964] bg-[#012964]/10 px-2 py-0.5 rounded border border-[#012964]/20">
+                      <span className="text-xs sm:text-[13px] font-bold text-[#012964] bg-[#012964]/10 px-2.5 py-1 rounded-md border border-[#012964]/20">
                         {currentLevelCfg?.level_name || prop.pending_with_role || `Level ${prop.current_level}`}
                       </span>
                     </div>
 
-                    <h3 className="font-bold text-sm text-slate-900 leading-snug">
+                    <h3 className="font-bold text-[17px] sm:text-lg text-slate-900 leading-snug">
                       {prop.pr_name}
                     </h3>
 
-                    <p className="text-xs text-slate-500 flex flex-wrap gap-x-2 gap-y-0.5">
-                      <span>Owner: <strong className="text-slate-700">{prop.owname}</strong></span>
+                    <p className="text-sm text-slate-600 flex flex-wrap gap-x-2.5 gap-y-1 items-center">
+                      <span>Owner: <strong className="text-slate-800 font-semibold">{prop.owname}</strong></span>
                       <span>•</span>
-                      <span>SBU: <strong className="text-slate-700">{prop.sbu}</strong></span>
+                      <span>SBU: <strong className="text-slate-800 font-semibold">{prop.sbu}</strong></span>
                       <span>•</span>
-                      <span>Duration: {prop.period}</span>
+                      <span>Duration: <strong className="text-slate-800 font-semibold">{prop.period}</strong></span>
                     </p>
 
-                    <p className="text-xs text-slate-600 line-clamp-2 bg-white p-2.5 rounded-lg border border-slate-200/70 mt-1">
+                    <p className="text-sm text-slate-700 line-clamp-2 bg-white p-3 rounded-xl border border-slate-200/90 mt-1 leading-relaxed">
                       {prop.remarks || "No narrative remarks provided."}
                     </p>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row md:flex-col items-start sm:items-center md:items-end justify-between shrink-0 gap-3 border-t md:border-t-0 pt-3 md:pt-0 border-slate-200">
+                  <div className="flex flex-col sm:flex-row md:flex-col items-start sm:items-center md:items-end justify-between shrink-0 gap-3.5 border-t md:border-t-0 pt-3 md:pt-0 border-slate-200">
                     <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block md:text-right">
+                      <span className="text-xs sm:text-[13px] uppercase font-bold text-slate-500 block md:text-right tracking-wider">
                         Expenditure Amount
                       </span>
-                      <p className="text-lg sm:text-xl font-extrabold text-slate-900 md:text-right">
+                      <p className="text-xl sm:text-2xl font-extrabold text-slate-900 md:text-right tracking-tight mt-0.5">
                         {prop.currency} {prop.amount.toLocaleString()}
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="flex items-center gap-2.5 w-full sm:w-auto">
                       <button
                         onClick={() => onNavigateToDisplay(prop.cerprno)}
-                        className="flex-1 sm:flex-initial px-3 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                        className="flex-1 sm:flex-initial h-10 px-4 text-sm font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
                       >
-                        <Eye className="w-3.5 h-3.5" />
+                        <Eye className="w-4 h-4 text-slate-500" />
                         <span>Details</span>
                       </button>
 
                       <button
                         onClick={() => handleOpenDecision(prop)}
                         disabled={openingProposalId === prop.cerprno}
-                        className="flex-1 sm:flex-initial px-4 py-2 text-xs font-semibold text-white bg-[#012964] hover:bg-[#001f4d] rounded-xl shadow-md shadow-[#012964]/25 transition-all hover:scale-[1.02] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-75 disabled:pointer-events-none"
+                        className="flex-1 sm:flex-initial h-10 px-5 text-sm font-semibold text-white bg-[#012964] hover:bg-[#001f4d] rounded-xl shadow-md shadow-[#012964]/25 transition-all hover:scale-[1.02] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-75 disabled:pointer-events-none"
                       >
                         {openingProposalId === prop.cerprno ? (
-                          <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                          <RotateCw className="w-4 h-4 animate-spin" />
                         ) : (
-                          <CheckSquare className="w-3.5 h-3.5" />
+                          <CheckSquare className="w-4 h-4" />
                         )}
                         <span>{openingProposalId === prop.cerprno ? "Opening..." : "Review"}</span>
                       </button>

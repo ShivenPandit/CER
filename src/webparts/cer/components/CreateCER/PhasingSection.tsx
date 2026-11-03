@@ -70,11 +70,11 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
       <div className="flex items-center justify-between pb-2 border-b border-slate-100">
         <div className="flex items-center gap-2">
           <BarChart2 className="w-4 h-4 text-[#012964]" />
-          <h3 className="font-bold text-slate-800 text-sm sm:text-[15px] tracking-tight">
+          <h3 className="font-bold text-slate-900 text-base sm:text-[17px] tracking-tight">
             Expenditure Phasing
           </h3>
         </div>
-        <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+        <span className="text-xs sm:text-[13px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded border border-slate-200">
           Indian FY (Apr 1 – Mar 31)
         </span>
       </div>
@@ -91,12 +91,12 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
       <div className="overflow-x-auto -mx-1 sm:mx-0">
         <table className="w-full text-left border-collapse min-w-[560px]">
           <thead>
-            <tr className="border-b border-slate-200 text-slate-700 text-[12px] sm:text-[13px] font-semibold bg-slate-50/80">
-              <th className="py-2 px-2.5 w-48">Expenditure Stream</th>
-              <th className="py-2 px-2.5 text-right">{period1Label}</th>
-              <th className="py-2 px-2.5 text-right">{period2Label}</th>
-              <th className="py-2 px-2.5 text-right">{period3Label}</th>
-              <th className="py-2 px-2.5 text-right font-bold text-slate-800 w-32 bg-slate-50/90">Total</th>
+            <tr className="border-b border-slate-200 text-slate-700 text-xs sm:text-[13px] font-bold uppercase tracking-wider bg-slate-100/80">
+              <th className="py-2.5 px-3 w-48">Expenditure Stream</th>
+              <th className="py-2.5 px-3 text-right">{period1Label}</th>
+              <th className="py-2.5 px-3 text-right">{period2Label}</th>
+              <th className="py-2.5 px-3 text-right">{period3Label}</th>
+              <th className="py-2.5 px-3 text-right font-bold text-slate-800 w-32 bg-slate-100/90">Total</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">

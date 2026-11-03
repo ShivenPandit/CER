@@ -17,7 +17,7 @@ export const CategoryBadge: React.FC<ICategoryBadgeProps> = ({ category }) => {
   return (
     <span
       title={def.description}
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${def.tagClass}`}
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs sm:text-[13px] font-semibold border ${def.tagClass}`}
     >
       {def.label}
     </span>
