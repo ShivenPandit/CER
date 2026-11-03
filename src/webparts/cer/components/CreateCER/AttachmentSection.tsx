@@ -248,7 +248,7 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
         <div className="flex items-center gap-2">
           <Paperclip className="w-4 h-4 text-[#012964]" />
           <h3 className="font-bold text-slate-800 text-sm sm:text-[15px] tracking-tight">
-            Section H — Supporting Documents
+            Attachments
           </h3>
         </div>
 
@@ -330,10 +330,10 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
             </div>
             <div>
               <p className="text-[13px] sm:text-sm font-semibold text-slate-800">
-                {isProcessing ? "Processing attachments..." : "Drag & drop files or browse"}
+                {isProcessing ? "Processing attachments..." : "Upload files"}
               </p>
               <p className="text-xs text-slate-500">
-                Supports PDF, Word, Excel, and Images up to 10 MB per file
+                PDF, Word, Excel, and images up to 10 MB per file
               </p>
             </div>
           </div>
@@ -344,7 +344,7 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
             disabled={isProcessing || isReadOnly}
             className="px-3.5 py-1.5 text-[13px] sm:text-sm font-semibold text-[#012964] bg-white border border-slate-300 hover:border-[#012964] hover:bg-slate-50 rounded-lg transition-colors shrink-0 shadow-2xs cursor-pointer disabled:opacity-50"
           >
-            Browse Files
+            Browse
           </button>
         </div>
       )}
@@ -352,7 +352,7 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
       {/* Attached Files List */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-slate-600 font-semibold text-[13px] px-1">
-          <span>Attached Documents ({attachments.length})</span>
+          <span>Attached ({attachments.length})</span>
           {attachments.length > 0 && (
             <span className="text-xs text-slate-500 font-medium">Total: {formatBytes(currentTotalBytes)}</span>
           )}
@@ -360,7 +360,7 @@ export const AttachmentSection: React.FC<IAttachmentSectionProps> = ({
 
         {attachments.length === 0 ? (
           <div className="text-center py-3 px-3 rounded-lg border border-dashed border-slate-200 bg-slate-50/30 text-slate-400">
-            <p className="italic text-xs">No documents attached yet.</p>
+            <p className="italic text-xs">No attachments</p>
           </div>
         ) : (
           attachments.map((att) => (

@@ -496,7 +496,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
           </button>
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-lg sm:text-[19px] font-bold text-slate-900 tracking-tight whitespace-nowrap">
-              Create Capital Expenditure Request (CER)
+              Create CER
             </h2>
           </div>
         </div>

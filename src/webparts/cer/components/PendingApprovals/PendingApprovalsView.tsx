@@ -232,11 +232,8 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
           )}
           <div>
             <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-              Pending Approval Tasks & Decision Queue
+              Pending Approvals
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Form FR-05: Review proposal details, examine supporting attachments, and record formal decisions
-            </p>
           </div>
         </div>
 
@@ -263,11 +260,11 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
             title="Check for new approval tasks immediately without reloading browser"
           >
             <RotateCw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? "animate-spin text-[#012964]" : ""}`} />
-            <span>{isRefreshing ? "Checking..." : "Refresh Queue"}</span>
+            <span>{isRefreshing ? "Checking..." : "Refresh"}</span>
           </button>
 
           <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
-            {pendingList.length} Tasks Pending Review
+            {pendingList.length} Pending
           </span>
         </div>
       </div>
@@ -309,8 +306,8 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
               <h3 className="font-bold text-slate-800 text-sm">No Pending Approvals</h3>
               <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
                 {searchTerm
-                  ? "No tasks match your search filter."
-                  : "There are no CER proposals currently awaiting your approval level. New workflow items will appear here when submitted."}
+                  ? "No matching tasks found."
+                  : "No proposals pending your approval."}
               </p>
             </div>
           ) : (
@@ -381,7 +378,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
                         ) : (
                           <CheckSquare className="w-3.5 h-3.5" />
                         )}
-                        <span>{openingProposalId === prop.cerprno ? "Opening..." : "Review & Decide"}</span>
+                        <span>{openingProposalId === prop.cerprno ? "Opening..." : "Review"}</span>
                       </button>
                     </div>
                   </div>

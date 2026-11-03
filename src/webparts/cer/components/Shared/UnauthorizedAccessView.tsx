@@ -80,8 +80,7 @@ export const UnauthorizedAccessView: React.FC<IUnauthorizedAccessViewProps> = ({
                   Access Authorization Required
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
-                  You are signed in to SharePoint, but your account is not registered in the
-                  corporate <span className="font-semibold text-slate-700">CER Role Matrix</span> (<code className="text-[11px] font-mono bg-slate-100 px-1.5 py-0.5 rounded text-[#012964] font-semibold">CERRoleMatrix</code>).
+                  Your account is not registered for CER access.
                 </p>
               </div>
             </div>
@@ -91,7 +90,7 @@ export const UnauthorizedAccessView: React.FC<IUnauthorizedAccessViewProps> = ({
               <div className="flex items-center justify-between border-b border-slate-200/80 pb-2.5">
                 <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Employee Identity Context</span>
+                  <span>User Profile</span>
                 </span>
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">
                   🔴 Unregistered
@@ -141,7 +140,7 @@ export const UnauthorizedAccessView: React.FC<IUnauthorizedAccessViewProps> = ({
                 className="w-full h-12 flex items-center justify-center gap-2.5 px-6 rounded-2xl bg-[#012964] hover:bg-[#001e4d] active:scale-[0.99] text-white text-sm sm:text-base font-semibold shadow-sm hover:shadow transition-all cursor-pointer disabled:opacity-50"
               >
                 <RotateCw className={`w-4 h-4 sm:w-5 sm:h-5 shrink-0 ${isRechecking ? "animate-spin" : ""}`} />
-                <span>{isRechecking ? "Verifying Matrix Credentials..." : "Check Access Again"}</span>
+                <span>{isRechecking ? "Verifying..." : "Check Access Again"}</span>
               </button>
             </div>
           </div>
@@ -150,9 +149,7 @@ export const UnauthorizedAccessView: React.FC<IUnauthorizedAccessViewProps> = ({
 
       {/* Corporate Footer */}
       <footer className="w-full border-t border-slate-200 bg-white py-3 px-4 text-center text-[11px] sm:text-xs text-slate-500 font-medium shrink-0">
-        <span>
-          Capital Expenditure Request (CER) Management System &bull; Secure Enterprise Portal &bull; Enterprise RBAC Policy
-        </span>
+        <span>Capital Expenditure Request (CER)</span>
       </footer>
     </div>
   );

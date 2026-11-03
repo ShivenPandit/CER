@@ -81,13 +81,13 @@ export const Sidebar: React.FC<ISidebarProps> = ({
     },
     {
       id: "my-proposals",
-      label: "My CER Proposals",
+      label: "My Proposals",
       icon: FileText,
       visible: canViewMyProposals,
     },
     {
       id: "all-proposals",
-      label: "All CER Proposals",
+      label: "All Proposals",
       icon: Files,
       visible: true,
     },
@@ -112,7 +112,7 @@ export const Sidebar: React.FC<ISidebarProps> = ({
     },
     {
       id: "audit-trail",
-      label: "Field-Level Audit Trail",
+      label: "Audit Trail",
       icon: ShieldCheck,
       visible: true,
     },

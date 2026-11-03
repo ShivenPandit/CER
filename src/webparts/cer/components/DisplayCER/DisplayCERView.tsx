@@ -287,11 +287,8 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
           </button>
           <div>
             <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-              Display Capital Expenditure Request (CER)
+              Display CER
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Official read-only proposal record, approval stages, and export tools
-            </p>
           </div>
         </div>
 
@@ -307,7 +304,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                 title="Download Adobe/Vector CER PDF Form (FR-09)"
               >
                 <FileDown className="w-4 h-4 shrink-0 transition-transform group-hover:-translate-y-0.5" />
-                <span>PDF Form</span>
+                <span>Download PDF</span>
               </button>
 
               <button
@@ -317,7 +314,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                 title="Download Excel-Compatible Spreadsheet (FR-10)"
               >
                 <FileSpreadsheet className="w-4 h-4 shrink-0 transition-transform group-hover:-translate-y-0.5" />
-                <span>Excel Export</span>
+                <span>Download Excel</span>
               </button>
 
               <button
@@ -380,7 +377,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                 type="text"
                 value={proposalNumberInput}
                 onChange={(e) => setProposalNumberInput(e.target.value)}
-                placeholder="CER Proposal ID or No..."
+                placeholder="Search proposal..."
                 className="w-full pl-9 pr-3.5 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs font-mono font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none cer-input-focus transition-all"
               />
             </div>
@@ -540,7 +537,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
             <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
               <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
                 <FolderGit2 className="w-5 h-5 cer-text-blue" />
-                <h3 className="font-bold text-slate-900 text-sm">Section A — Project identification and scope</h3>
+                <h3 className="font-bold text-slate-900 text-sm">Project Details</h3>
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-xs">
@@ -608,7 +605,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
             <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
               <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
                 <DollarSign className="w-5 h-5 cer-text-green" />
-                <h3 className="font-bold text-slate-900 text-sm">Section B — Financial benefits and payback</h3>
+                <h3 className="font-bold text-slate-900 text-sm">Financial Metrics</h3>
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-xs">
@@ -659,7 +656,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
             <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <BarChart2 className="w-5 h-5 cer-text-blue" />
-                <h3 className="font-bold text-slate-900 text-sm">Section C — Expenditure phasing</h3>
+                <h3 className="font-bold text-slate-900 text-sm">Expenditure Phasing</h3>
               </div>
               <span className="text-[11px] font-medium cer-text-blue bg-white px-2.5 py-0.5 rounded-full border cer-border-blue">
                 Indian FY ({period2Display})
@@ -713,7 +710,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
           <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
             <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
               <Calculator className="w-5 h-5 text-slate-900" />
-              <h3 className="font-bold text-slate-900 text-sm">Section D — CAPEX cost estimates basis</h3>
+              <h3 className="font-bold text-slate-900 text-sm">Cost Breakdown</h3>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">
               {(() => {
@@ -768,7 +765,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
             <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
               <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
                 <Landmark className="w-5 h-5 text-slate-700" />
-                <h3 className="font-bold text-slate-900 text-sm">Section E — Corporate budget</h3>
+                <h3 className="font-bold text-slate-900 text-sm">Corporate Budget</h3>
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
@@ -793,7 +790,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
             <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
               <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
                 <DollarSign className="w-5 h-5 text-slate-700" />
-                <h3 className="font-bold text-slate-900 text-sm">Section F — Joint venture details</h3>
+                <h3 className="font-bold text-slate-900 text-sm">Joint Venture Details</h3>
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
@@ -828,7 +825,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
           <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
             <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
               <MessageSquare className="w-5 h-5 cer-text-blue" />
-              <h3 className="font-bold text-slate-900 text-sm">Section G — Remarks and justification</h3>
+              <h3 className="font-bold text-slate-900 text-sm">Remarks & Justification</h3>
             </div>
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/60 text-xs text-slate-800 leading-relaxed">
               <p className="font-semibold text-slate-900 mb-1">Remarks (including Justification for Non Payback expenditure, etc.):</p>
@@ -847,11 +844,11 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
             <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
               <Paperclip className="w-5 h-5 text-slate-700" />
               <h3 className="font-bold text-slate-900 text-sm">
-                Supporting Attachments ({attachments.length})
+                Attachments ({attachments.length})
               </h3>
             </div>
             {attachments.length === 0 ? (
-              <p className="text-slate-400 text-xs py-1.5 italic">No attachments for this proposal.</p>
+              <p className="text-slate-400 text-xs py-1.5 italic">No attachments.</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
                 {attachments.map((att) => (

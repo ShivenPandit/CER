@@ -148,7 +148,7 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
               onClick={onSync}
               disabled={isSyncing}
               className="p-1.5 sm:p-2 rounded-xl text-slate-500 hover:text-[#012964] hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
-              title={isSyncing ? "Synchronizing with SharePoint..." : "Sync latest data from SharePoint"}
+              title={isSyncing ? "Synchronizing..." : "Sync data"}
               aria-label="Synchronize data"
             >
               <RotateCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isSyncing ? "animate-spin text-[#012964]" : ""}`} />
@@ -174,7 +174,7 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
                   ? "bg-slate-100 border-slate-300 ring-2 ring-slate-200"
                   : "bg-white hover:bg-slate-50 border-slate-200/90 shadow-2xs"
               }`}
-              title="User Profile & Persona Switcher"
+              title="User Profile"
             >
               {/* User Profile Avatar */}
               <UserAvatar
@@ -261,7 +261,7 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
                 {/* Authenticated Footer */}
                 <div className="px-2 py-1.5 bg-slate-50/80 rounded-xl text-[10px] text-slate-500 flex items-center gap-1.5 border border-slate-100">
                   <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                  <span className="truncate">Authenticated via Microsoft SharePoint / Entra ID</span>
+                  <span className="truncate">Authenticated</span>
                 </div>
               </div>
             )}

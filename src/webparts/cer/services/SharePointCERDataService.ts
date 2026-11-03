@@ -1139,6 +1139,19 @@ export class SharePointCERDataService implements ICERDataService {
       }
     }
 
+    // Post-Approval Archival: If previous status was Approved, this is a post-approval resubmission (new version cycle)
+    const isApprovedOriginal = Boolean(
+      (originalProposal && originalProposal.status === "Approved") ||
+      (original && original.status === "Approved") ||
+      (existing && existing.status === "Approved")
+    );
+
+    // Only increment revision_count on post-approval resubmission of an already approved proposal.
+    // If a proposal is sent back and re-submitted within the same cycle, revision_count remains unchanged.
+    const newRevisionCount = isApprovedOriginal
+      ? (original.revision_count || 0) + 1
+      : (original.revision_count || 0);
+
     const updatedProposal: ICERProposal = {
       ...cleanProposal,
       proposal_no: effectiveProposalNo,
@@ -1151,7 +1164,7 @@ export class SharePointCERDataService implements ICERDataService {
       request_date: nextRequestDate,
       modified_date: now,
       modified_by: user.name,
-      revision_count: (original.revision_count || 0) + 1,
+      revision_count: newRevisionCount,
     };
 
     // Find SharePoint Item ID in CERProposals
@@ -1220,12 +1233,6 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     // Post-Approval Archival: If previous status was Approved, archive snapshot into CERProposalsHistory
-    const isApprovedOriginal = Boolean(
-      (originalProposal && originalProposal.status === "Approved") ||
-      (original && original.status === "Approved") ||
-      (existing && existing.status === "Approved")
-    );
-
     if (isApprovedOriginal) {
       const snapshotToArchive =
         (originalProposal && originalProposal.status === "Approved")
@@ -2068,7 +2075,7 @@ export class SharePointCERDataService implements ICERDataService {
           try {
             items = await this._sp.getListItems<Record<string, any>>(listName, {
               filter: `cerPrId eq '${cerprno}' or Title eq '${cerprno}'`,
-              select: "Id,Title,cerPrId,levelId,decision,remarks,decidedAt,Created,Author/Id,Author/Title,Author/EMail,approver/Id,approver/Title,approver/EMail",
+              select: "Id,Title,cerPrId,levelId,decision,remarks,decidedAt,Created,version,Version,Author/Id,Author/Title,Author/EMail,approver/Id,approver/Title,approver/EMail",
               expand: "Author,approver",
               top: 100,
               orderby: "Created desc",
@@ -2078,7 +2085,7 @@ export class SharePointCERDataService implements ICERDataService {
             try {
               items = await this._sp.getListItems<Record<string, any>>(listName, {
                 filter: `cerPrId eq '${cerprno}' or Title eq '${cerprno}'`,
-                select: "Id,Title,cerPrId,levelId,decision,remarks,decidedAt,Created,Author/Id,Author/Title,Author/EMail",
+                select: "Id,Title,cerPrId,levelId,decision,remarks,decidedAt,Created,version,Version,Author/Id,Author/Title,Author/EMail",
                 expand: "Author",
                 top: 100,
                 orderby: "Created desc",
@@ -2087,7 +2094,7 @@ export class SharePointCERDataService implements ICERDataService {
               // Tier 3: Fetch recent list items and match by cerPrId/Title in memory with Author expanded
               try {
                 const allItems = await this._sp.getListItems<Record<string, any>>(listName, {
-                  select: "Id,Title,cerPrId,levelId,decision,remarks,decidedAt,Created,Author/Id,Author/Title,Author/EMail",
+                  select: "Id,Title,cerPrId,levelId,decision,remarks,decidedAt,Created,version,Version,Author/Id,Author/Title,Author/EMail",
                   expand: "Author",
                   top: 100,
                   orderby: "Created desc",
@@ -2141,6 +2148,7 @@ export class SharePointCERDataService implements ICERDataService {
               comments: item.remarks || item.comments || "",
               decision_date: item.decidedAt || item.decision_date || item.Created || new Date().toISOString(),
               timestamp: item.decidedAt || item.decision_date || item.Created || new Date().toISOString(),
+              version: item.version || item.Version ? String(item.version || item.Version).trim().toUpperCase() : undefined,
             };
           });
 
@@ -2319,10 +2327,25 @@ export class SharePointCERDataService implements ICERDataService {
       priorEmails = priorDecisions.map((d) => (d.approver_email || "").trim()).filter(Boolean);
 
       // Concurrency / Idempotency check: prevent duplicate submissions at the same level
+      const sentBackDecs = priorDecisions.filter(
+        (d) => (d.decision || "").trim().toUpperCase() === "SENT_BACK"
+      );
+      const latestSendBackTime = sentBackDecs.length > 0
+        ? Math.max(...sentBackDecs.map((d) => new Date((d as any).decision_date || d.timestamp || 0).getTime()))
+        : 0;
+
+      const DOUBLE_SUBMISSION_DEBOUNCE_MS = 10000; // 10 seconds anti-double-click window
+
       const recentDuplicate = priorDecisions.find((d) => {
         if (d.level_id !== params.level_id) return false;
-        const decTime = new Date((d as any).decision_date || d.timestamp).getTime();
-        return !isNaN(decTime) && Date.now() - decTime < 180000;
+        const decTime = new Date((d as any).decision_date || d.timestamp || 0).getTime();
+        if (isNaN(decTime)) return false;
+
+        // Ignore decisions from prior iterations (recorded on or before the latest send-back)
+        if (latestSendBackTime > 0 && decTime <= latestSendBackTime) return false;
+
+        // Only flag if a duplicate decision was recorded within the rapid double-click window
+        return Date.now() - decTime < DOUBLE_SUBMISSION_DEBOUNCE_MS;
       });
       if (recentDuplicate) {
         throw new Error(
@@ -2354,6 +2377,18 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     // 4. Primary write 1: Post decision record to CERApprovalDecisions (with fallback)
+    // Version cycle must align with approved version count (Serial 1 = V1, Serial 2 = V2, etc.)
+    // Send-backs and re-triggers within a cycle must NEVER increment the version tag.
+    let versionIndex = 1;
+    try {
+      const cleanProposalId = (existingProposal.cer_proposal_id || existingProposal.cerprno || params.cerprno || "").split("-R")[0].trim();
+      const hist = await this.getProposalHistory(cleanProposalId);
+      versionIndex = (hist?.length || 0) + 1;
+    } catch {
+      versionIndex = Math.max(1, Number(existingProposal.revision_count || 0) + 1);
+    }
+    const versionTag = `V${versionIndex}`;
+
     const modernDecisionPayload: Record<string, any> = {
       Title: params.cerprno,
       cerPrId: params.cerprno,
@@ -2361,6 +2396,8 @@ export class SharePointCERDataService implements ICERDataService {
       decision: params.decision === "REJECTED" ? "Rejected" : params.decision === "SENT_BACK" ? "Sent Back" : "Approved",
       remarks: params.comments || "",
       decidedAt: now,
+      version: versionTag,
+      Version: versionTag,
     };
     if (approverUserId) {
       Object.assign(
@@ -2379,6 +2416,8 @@ export class SharePointCERDataService implements ICERDataService {
       decision: params.decision === "SENT_BACK" ? "Sent Back" : params.decision,
       comments: params.comments || "",
       decision_date: now,
+      version: versionTag,
+      Version: versionTag,
     };
 
     const candidateDecisionLists = [SP_LISTS.CER_APPROVAL_DECISIONS];

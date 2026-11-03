@@ -249,11 +249,8 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
           )}
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-              CER Proposal Reports &amp; Strategic Analytics
+              Reports &amp; Analytics
             </h2>
-            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              Enterprise reporting, multi-parameter query, and audit-grade data export
-            </p>
           </div>
         </div>
 
@@ -268,7 +265,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                 setSearchTerm(e.target.value);
                 pagination.setCurrentPage(1);
               }}
-              placeholder="Filter proposals..."
+              placeholder="Search proposals..."
               className="w-full sm:w-60 pl-9 pr-3.5 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
             />
           </div>
@@ -301,7 +298,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
           >
             <FileSpreadsheet className="w-4 h-4" />
             <span>
-              {isExporting ? (exportStatusText || "Exporting...") : `Export to Excel (${sortedProposals.length})`}
+              {isExporting ? (exportStatusText || "Exporting...") : `Export Excel (${sortedProposals.length})`}
             </span>
           </button>
         </div>
@@ -423,7 +420,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
           <div className="flex items-center justify-between text-xs font-semibold text-slate-800 pb-2 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 text-[#012964]" />
-              <span>Advanced Search &amp; Filter Criteria</span>
+              <span>Filters</span>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -594,7 +591,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
               {visibleProposals.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-400 text-sm">
-                    No proposals found matching the selected criteria.
+                    No proposals found.
                   </td>
                 </tr>
               ) : (

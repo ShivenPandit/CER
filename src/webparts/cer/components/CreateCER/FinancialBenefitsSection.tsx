@@ -34,7 +34,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
       <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
         <DollarSign className="w-4 h-4 text-[#012964]" />
         <h3 className="font-bold text-slate-800 text-sm sm:text-[15px] tracking-tight">
-          Section B — Financials
+          Financial Metrics
         </h3>
       </div>
 

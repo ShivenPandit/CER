@@ -39,7 +39,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
         <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
           <Landmark className="w-4 h-4 text-[#012964]" />
           <h3 className="font-bold text-slate-800 text-sm sm:text-[15px] tracking-tight">
-            Section E — Corporate Budget
+            Corporate Budget
           </h3>
         </div>
 
@@ -138,7 +138,7 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
         <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
           <Users className="w-4 h-4 text-[#012964]" />
           <h3 className="font-bold text-slate-800 text-sm sm:text-[15px] tracking-tight">
-            Section F — Joint Venture Details
+            Joint Venture Details
           </h3>
         </div>
 

@@ -32,7 +32,7 @@ export const RemarksSection: React.FC<IRemarksSectionProps> = ({
       <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
         <MessageSquare className="w-4 h-4 text-[#012964]" />
         <h3 className="font-bold text-slate-800 text-sm sm:text-[15px] tracking-tight">
-          Section G — Remarks & Justification
+          Remarks & Justification
         </h3>
       </div>
 

@@ -65,10 +65,10 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
   const cards = [
     {
       id: "create",
-      title: "Create CER Request",
+      title: "Create CER",
       description:
-        "Submit a new capital expenditure request with required details, attachments and justification.",
-      actionLabel: "Create Request",
+        "Initiate a new capital expenditure proposal with financials and justification.",
+      actionLabel: "Create",
       bgGradient: "from-[#EFF6FF] via-[#EBF4FE] to-[#DCEEFE]",
       borderClass: "border-[#BFDBFE] hover:border-[#93C5FD]",
       dotColor: "text-[#93C5FD]",
@@ -78,10 +78,10 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
     },
     {
       id: "my-proposals",
-      title: "My CER Request",
+      title: "My Proposals",
       description:
-        "View and track your submitted CER requests or proposals where you are the project owner.",
-      actionLabel: "View My Requests",
+        "Track submitted proposals and projects where you are designated owner.",
+      actionLabel: "View Proposals",
       bgGradient: "from-[#ECFDF5] via-[#E6F9F0] to-[#D4F5E6]",
       borderClass: "border-[#A7F3D0] hover:border-[#6EE7B7]",
       dotColor: "text-[#A7F3D0]",
@@ -91,10 +91,10 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
     },
     {
       id: "pending-approvals",
-      title: "My CER Approvals",
+      title: "Pending Approvals",
       description:
-        "Review and take action on pending CER approvals assigned to you.",
-      actionLabel: "View Pending Approvals",
+        "Review and decide on proposals assigned to your approval queue.",
+      actionLabel: "View Queue",
       bgGradient: "from-[#FFFBEB] via-[#FFF8E7] to-[#FEF2D6]",
       borderClass: "border-[#FDE68A] hover:border-[#FCD34D]",
       dotColor: "text-[#FCD34D]",
@@ -104,9 +104,9 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
     },
     {
       id: "Reports",
-      title: "Report and Dashboard",
+      title: "Reports & Analytics",
       description:
-        "View reports, analytics and key insights for better decision-making.",
+        "Access proposal reports, financial metrics, and export data.",
       actionLabel: "View Reports",
       bgGradient: "from-[#F5F3FF] via-[#F3EEFF] to-[#E9E1FC]",
       borderClass: "border-[#DDD6FE] hover:border-[#C4B5FD]",
@@ -119,8 +119,8 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
       id: "workflow-config",
       title: "Admin Console",
       description:
-        "Manage enterprise roles, approval hierarchy, master settings, and security audit log.",
-      actionLabel: "Open Admin Console",
+        "Manage user roles, workflow levels, and system administration.",
+      actionLabel: "Open Console",
       bgGradient: "from-[#FFF1F2] via-[#FEECEF] to-[#FDDDE3]",
       borderClass: "border-[#FECDD3] hover:border-[#FDA4AF]",
       dotColor: "text-[#FDA4AF]",
@@ -132,8 +132,8 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
       id: "manual",
       title: "User Manual",
       description:
-        "Access user guides, process flows and help documentation.",
-      actionLabel: "Read Guide",
+        "View process guidelines, instructions, and documentation.",
+      actionLabel: "View Guide",
       bgGradient: "from-[#ECFEFF] via-[#E6FCFD] to-[#D0F7F9]",
       borderClass: "border-[#A5F3FC] hover:border-[#67E8F9]",
       dotColor: "text-[#67E8F9]",

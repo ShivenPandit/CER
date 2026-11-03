@@ -509,7 +509,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                     <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
                       <FolderGit2 className="w-4 h-4 text-[#012964]" />
                       <h3 className="font-bold text-slate-900 text-sm">
-                        Section A — Project Details
+                        Project Details
                       </h3>
                     </div>
 
@@ -581,7 +581,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                     <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
                       <DollarSign className="w-4 h-4 text-emerald-600" />
                       <h3 className="font-bold text-slate-900 text-sm">
-                        Section B — Financial Benefits and Payback
+                        Financial Metrics
                       </h3>
                     </div>
 
@@ -634,7 +634,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                     <div className="flex items-center gap-2">
                       <BarChart2 className="w-4 h-4 text-[#012964]" />
                       <h3 className="font-bold text-slate-900 text-sm">
-                        Section C — Expenditure Phasing
+                        Expenditure Phasing
                       </h3>
                     </div>
                     <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
@@ -703,7 +703,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                     <div className="flex items-center gap-2">
                       <Calculator className="w-4 h-4 text-[#012964]" />
                       <h3 className="font-bold text-slate-900 text-sm">
-                        Section D — CAPEX Breakdown Basis
+                        Cost Breakdown
                       </h3>
                     </div>
                     <span className="text-xs font-medium text-slate-500">
@@ -757,7 +757,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                     <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
                       <Landmark className="w-4 h-4 text-slate-700" />
                       <h3 className="font-bold text-slate-900 text-sm">
-                        Section E — Corporate Budget
+                        Corporate Budget
                       </h3>
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-xs">
@@ -785,7 +785,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                     <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
                       <DollarSign className="w-4 h-4 text-slate-700" />
                       <h3 className="font-bold text-slate-900 text-sm">
-                        Section F — Joint Venture Details
+                        Joint Venture Details
                       </h3>
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-xs">
@@ -822,7 +822,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                   <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
                     <MessageSquare className="w-4 h-4 text-[#012964]" />
                     <h3 className="font-bold text-slate-900 text-sm">
-                      Section G — Remarks and Justification
+                      Remarks & Justification
                     </h3>
                   </div>
                   <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/60 text-xs text-slate-800 leading-relaxed space-y-2.5">
@@ -849,7 +849,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                     <div className="flex items-center gap-2">
                       <Paperclip className="w-4 h-4 text-slate-700" />
                       <h3 className="font-bold text-slate-900 text-sm">
-                        Section H — Supporting Documents ({selectedAttachments.length})
+                        Attachments ({selectedAttachments.length})
                       </h3>
                     </div>
                     {isLoadingAttachments && (
@@ -861,7 +861,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
 
                   {selectedAttachments.length === 0 ? (
                     <p className="text-slate-400 text-xs py-2 italic">
-                      No attachments recorded for this historical snapshot.
+                      No attachments.
                     </p>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">

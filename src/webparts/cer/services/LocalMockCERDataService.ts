@@ -973,6 +973,14 @@ export class LocalMockCERDataService implements ICERDataService {
       }
     }
 
+    const isApprovedOriginal = Boolean(
+      (originalProposal && originalProposal.status === "Approved") ||
+      (oldProposal && oldProposal.status === "Approved")
+    );
+    const newRevisionCount = isApprovedOriginal
+      ? (oldProposal.revision_count || 0) + 1
+      : (oldProposal.revision_count || 0);
+
     const savedProposal: ICERProposal = {
       ...updatedProposal,
       proposal_no: effectiveProposalNo,
@@ -986,13 +994,9 @@ export class LocalMockCERDataService implements ICERDataService {
       request_date: nextRequestDate,
       modified_date: now.toISOString(),
       modified_by: user.name,
-      revision_count: (oldProposal.revision_count || 0) + 1
+      revision_count: newRevisionCount
     };
 
-    const isApprovedOriginal = Boolean(
-      (originalProposal && originalProposal.status === "Approved") ||
-      (oldProposal && oldProposal.status === "Approved")
-    );
     if (isApprovedOriginal) {
       const snapshot = (originalProposal && originalProposal.status === "Approved") ? originalProposal : oldProposal;
       // Archive the previously approved proposal snapshot into CERProposalsHistory
@@ -1274,6 +1278,14 @@ export class LocalMockCERDataService implements ICERDataService {
 
     const now = new Date().toISOString();
     const levelName = currentLevelConfig ? currentLevelConfig.level_name : `Level ${params.level_id}`;
+    let versionIndex = 1;
+    try {
+      const hist = await this.getProposalHistory(proposal.cer_proposal_id || proposal.cerprno);
+      versionIndex = (hist?.length || 0) + 1;
+    } catch {
+      versionIndex = Math.max(1, Number(proposal.revision_count || 0) + 1);
+    }
+    const versionTag = `V${versionIndex}`;
 
     // Record decision - previous decisions are preserved for audit
     const decisionRecord: IApprovalDecision = {
@@ -1285,7 +1297,8 @@ export class LocalMockCERDataService implements ICERDataService {
       approver_email: params.approver_email,
       decision: params.decision,
       comments: params.comments,
-      timestamp: now
+      timestamp: now,
+      version: versionTag,
     };
 
     this._decisions.push(decisionRecord);

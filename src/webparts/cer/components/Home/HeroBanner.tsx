@@ -122,8 +122,7 @@ export const HeroBanner: React.FC<IHeroBannerProps> = ({ availableHeight, siteUr
             }}
             className="text-blue-100/90 leading-relaxed mt-1.5 sm:mt-2 max-w-xl lg:max-w-2xl 2xl:max-w-3xl 3xl:max-w-4xl"
           >
-            A centralized platform to manage Capital Expenditure Requests efficiently,
-            ensuring transparency, compliance and better decision-making.
+            Manage capital expenditure proposals, approvals, and governance.
           </p>
 
           {/* Mobile/Tablet Promotional Line (preserves message on narrow viewports) */}

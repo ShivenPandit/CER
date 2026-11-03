@@ -165,9 +165,6 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
                   {historyProposals.length}
                 </span>
               </div>
-              <span className="text-[11px] text-slate-500 hidden sm:inline">
-                Click on any <strong className="text-slate-700">row</strong> to load that snapshot
-              </span>
             </div>
 
             {historyProposals.length === 0 ? (
@@ -178,10 +175,10 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-800 text-sm">
-                    No Previous Proposals
+                    No Previous Versions
                   </h3>
                   <p className="text-xs text-slate-500 max-w-lg mx-auto mt-1 leading-relaxed">
-                    This proposal is currently in its initial submission (Proposal No. 01). Prior approved versions will appear here when amended in future cycles.
+                    Prior approved versions will appear here when amended.
                   </p>
                 </div>
               </div>

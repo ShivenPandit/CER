@@ -77,7 +77,7 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
               {currentLevelConfig ? currentLevelConfig.level_name : `Approval Level ${proposal.current_level}`}
             </span>
             <h3 className="text-base font-bold text-slate-900">
-              Review CER Proposal: {proposal.cerprno}
+              Review Proposal: {proposal.cerprno}
             </h3>
           </div>
           <button
@@ -145,7 +145,7 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
 
           {/* Narrative Remarks Preview */}
           <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
-            <p className="font-semibold text-slate-800 mb-1">Business Justification Remarks:</p>
+            <p className="font-semibold text-slate-800 mb-1">Justification:</p>
             <p className="text-slate-600 leading-relaxed max-h-32 overflow-y-auto pr-2">
               {proposal.remarks || "No narrative remarks provided."}
             </p>
@@ -155,10 +155,10 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
           <div>
             <div className="flex items-center gap-1.5 font-semibold text-slate-800 mb-2">
               <Paperclip className="w-4 h-4 text-slate-500" />
-              <span>Supporting Documents & Attachments ({attachments.length})</span>
+              <span>Attachments ({attachments.length})</span>
             </div>
             {attachments.length === 0 ? (
-              <p className="text-slate-400 italic text-[11px]">No supporting files attached.</p>
+              <p className="text-slate-400 italic text-[11px]">No attachments.</p>
             ) : (
               <div className="space-y-1.5">
                 {attachments.map((att) => (
@@ -209,9 +209,9 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
               >
                 <div className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span className="text-xs">Approve & Advance</span>
+                  <span className="text-xs">Approve</span>
                 </div>
-                <span className="text-[10px] font-normal text-emerald-700">Advance to next stage</span>
+                <span className="text-[10px] font-normal text-emerald-700">Advance to next level</span>
               </button>
 
               <button
@@ -229,9 +229,9 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
               >
                 <div className="flex items-center gap-1.5">
                   <RotateCcw className="w-4 h-4 text-amber-600" />
-                  <span className="text-xs">Send Back to Initiator</span>
+                  <span className="text-xs">Send Back</span>
                 </div>
-                <span className="text-[10px] font-normal text-amber-700">Allow initiator to edit & resubmit</span>
+                <span className="text-[10px] font-normal text-amber-700">Return for revision</span>
               </button>
 
               <button
@@ -249,9 +249,9 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
               >
                 <div className="flex items-center gap-1.5">
                   <XCircle className="w-4 h-4 text-rose-600" />
-                  <span className="text-xs">Reject Proposal</span>
+                  <span className="text-xs">Reject</span>
                 </div>
-                <span className="text-[10px] font-normal text-rose-700">Permanent rejection (no edits)</span>
+                <span className="text-[10px] font-normal text-rose-700">Permanent rejection</span>
               </button>
             </div>
           </div>
@@ -259,15 +259,15 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
           {/* Comments */}
           <div>
             <label className="block font-semibold text-slate-800 mb-1.5">
-              Reviewer Comments & Justification{" "}
+              Comments{" "}
               {decision === "REJECTED" && (
                 <span className="text-rose-600 font-medium ml-1">
-                  (Mandatory for rejection) <span className="text-rose-500 font-bold">*</span>
+                  (Required) <span className="text-rose-500 font-bold">*</span>
                 </span>
               )}
               {decision === "SENT_BACK" && (
                 <span className="text-amber-700 font-medium ml-1">
-                  (Mandatory for send back) <span className="text-rose-500 font-bold">*</span>
+                  (Required) <span className="text-rose-500 font-bold">*</span>
                 </span>
               )}
             </label>
@@ -282,10 +282,10 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
               }}
               placeholder={
                 decision === "APPROVED"
-                  ? "Enter optional endorsement notes or approval conditions..."
+                  ? "Enter optional comments..."
                   : decision === "SENT_BACK"
-                  ? "State specific changes, revisions, or missing documents required from the initiator..."
-                  : "State specific reason for permanent rejection..."
+                  ? "State required revisions..."
+                  : "State reason for rejection..."
               }
               className={`w-full px-3.5 py-2.5 bg-white border rounded-xl focus:outline-none transition-all text-slate-900 placeholder:text-slate-400 resize-none text-xs ${
                 commentError
@@ -343,12 +343,12 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
               }`}
             >
               {isSubmitting
-                ? "Submitting Decision..."
+                ? "Submitting..."
                 : decision === "APPROVED"
-                ? "Confirm Approval"
+                ? "Approve"
                 : decision === "SENT_BACK"
-                ? "Confirm Send Back"
-                : "Confirm Rejection"}
+                ? "Send Back"
+                : "Reject"}
             </button>
           </div>
         </div>

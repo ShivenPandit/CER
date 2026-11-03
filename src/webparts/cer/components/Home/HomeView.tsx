@@ -46,7 +46,7 @@ export const HomeView: React.FC<IHomeViewProps> = ({
         className="py-1.5 sm:py-2 px-4 text-center select-none shrink-0 mt-auto"
       >
         <div className="w-full max-w-[2560px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 3xl:px-16 flex items-center justify-center text-[11px] sm:text-xs xl:text-[12.5px] 2xl:text-sm text-slate-500 font-medium">
-          <span>Capital Expenditure Request (CER) Management System &bull; Secure Enterprise Portal</span>
+          <span>Capital Expenditure Request (CER)</span>
         </div>
       </footer>
     </div>

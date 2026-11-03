@@ -148,12 +148,9 @@ export const AuditTrailModal: React.FC<IAuditTrailModalProps> = ({
                 </span>
                 <CategoryBadge category={proposal.cat} />
                 <StatusBadge status={proposal.status} size="sm" />
-                <span className="text-[10px] font-semibold text-slate-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-700 flex items-center gap-1">
-                  <Lock className="w-3 h-3" /> Immutable Audit Ledger
-                </span>
               </div>
               <h3 className="text-base font-bold text-white mt-1 leading-snug">
-                Field-Level Audit Trail — {proposal.pr_name}
+                Audit Trail: {proposal.pr_name}
               </h3>
             </div>
           </div>
@@ -212,7 +209,7 @@ export const AuditTrailModal: React.FC<IAuditTrailModalProps> = ({
               style={activeTab === "cards" ? { borderColor: "var(--cer-brand-blue)", color: "var(--cer-brand-blue)" } : undefined}
             >
               <History className="w-4 h-4" />
-              <span>Change Cards Timeline ({filteredRows.length})</span>
+              <span>Timeline ({filteredRows.length})</span>
             </button>
 
             <button
@@ -225,7 +222,7 @@ export const AuditTrailModal: React.FC<IAuditTrailModalProps> = ({
               style={activeTab === "table" ? { borderColor: "var(--cer-brand-blue)", color: "var(--cer-brand-blue)" } : undefined}
             >
               <FileText className="w-4 h-4" />
-              <span>Tabular Ledger ({filteredRows.length})</span>
+              <span>Table ({filteredRows.length})</span>
             </button>
           </div>
 
@@ -485,15 +482,10 @@ export const AuditTrailModal: React.FC<IAuditTrailModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-100 bg-slate-50 shrink-0">
-          <p className="text-xs text-slate-400">
-            Immutable delta records in SharePoint list{" "}
-            <span className="font-mono text-slate-600">CERAuditTrail</span>
-          </p>
-
+        <div className="flex items-center justify-end px-6 py-3.5 border-t border-slate-100 bg-slate-50 shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs rounded-xl transition-colors"
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs rounded-xl transition-colors cursor-pointer"
           >
             Close
           </button>

@@ -59,7 +59,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
         <div className="flex items-center gap-2">
           <Calculator className="w-4 h-4 text-[#012964]" />
           <h3 className="font-bold text-slate-800 text-sm sm:text-[15px] tracking-tight">
-            Section D — CAPEX Breakdown
+            Cost Breakdown
           </h3>
         </div>
         <span className="text-xs font-medium text-slate-500">

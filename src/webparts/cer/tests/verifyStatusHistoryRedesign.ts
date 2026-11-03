@@ -13,6 +13,7 @@ import {
 } from "../components/ApprovalWorkflow/StatusHistoryModal";
 import { IApprovalDecision } from "../models/WorkflowModel";
 import { ICERProposal } from "../models/CERModel";
+import { LocalMockCERDataService } from "../services/LocalMockCERDataService";
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -152,8 +153,115 @@ async function runTests() {
   assert(priorRows[1].stage.level === 2 && priorRows[1].statusText === "Send Back", "3r. Lower table L2 is Send Back");
   assert(priorRows[2].stage.level === 3 && priorRows[2].statusText === "Not Started", "3s. Lower table L3 is Not Started");
 
+  // 4. Test Suite 4: Explicit 'version' Column Matching with IDENTICAL Proposal Numbers
+  console.log("\n--- Testing Explicit 'version' Column Partitioning ---");
+  const identicalVersionEntries: IProposalVersionEntry[] = [
+    {
+      id: "CURRENT",
+      serialNo: 2,
+      versionLabel: "v2 Active",
+      isCurrent: true,
+      proposalNo: "PR-2026/02", // IDENTICAL to Serial 1
+      status: "In Approval",
+      amount: 4000,
+      currency: "USD",
+      dateStr: "03 Nov 2026",
+      rawProposal: { ...version2Proposal, proposal_no: "PR-2026/02" },
+    },
+    {
+      id: "HIST_1",
+      serialNo: 1,
+      versionLabel: "v1 Snapshot",
+      isCurrent: false,
+      proposalNo: "PR-2026/02", // IDENTICAL to Serial 2
+      status: "Approved",
+      amount: 2000,
+      currency: "USD",
+      dateStr: "03 Nov 2026",
+      rawProposal: version1Proposal,
+    },
+  ];
+
+  const taggedDecisions: IApprovalDecision[] = [
+    { id: "t1", cerprno: "CER-2026-0002", level_id: 1, level_name: "Finance", decision: "APPROVED", approver_name: "Approver V1", approver_email: "v1@test.com", comments: "", timestamp: "2026-11-03T10:00:00Z", version: "V1" },
+    { id: "t2", cerprno: "CER-2026-0002", level_id: 2, level_name: "Project Owner", decision: "APPROVED", approver_name: "Approver V1", approver_email: "v1@test.com", comments: "", timestamp: "2026-11-03T10:05:00Z", version: "V1" },
+    { id: "t3", cerprno: "CER-2026-0002", level_id: 1, level_name: "Finance", decision: "APPROVED", approver_name: "Approver V2", approver_email: "v2@test.com", comments: "", timestamp: "2026-11-03T14:00:00Z", version: "V2" },
+  ];
+
+  const taggedPartitioned = partitionDecisionsByVersion(taggedDecisions, identicalVersionEntries);
+  assert(taggedPartitioned["HIST_1"].length === 2, `4a. HIST_1 (Serial 1) correctly received 2 decisions tagged V1 (got: ${taggedPartitioned["HIST_1"].length})`);
+  assert(taggedPartitioned["CURRENT"].length === 1, `4b. CURRENT (Serial 2) correctly received 1 decision tagged V2 (got: ${taggedPartitioned["CURRENT"].length})`);
+  assert(taggedPartitioned["HIST_1"][0].approver_name === "Approver V1", "4c. HIST_1 received V1 approver record");
+  assert(taggedPartitioned["CURRENT"][0].approver_name === "Approver V2", "4d. CURRENT received V2 approver record");
+
+  // 4e. Test resilient fallback when existing decision was tagged V3 during re-trigger in Serial 2
+  const retriggeredDecisionsWithV3: IApprovalDecision[] = [
+    { id: "v2-sb", cerprno: "CER-2026-0002", level_id: 3, level_name: "BU CFO", decision: "SENT_BACK", approver_name: "Approver L3", approver_email: "l3@test.com", comments: "testing", timestamp: "2026-11-03T15:15:00Z", version: "V2" },
+    { id: "v3-l1", cerprno: "CER-2026-0002", level_id: 1, level_name: "Finance", decision: "APPROVED", approver_name: "Approver L1", approver_email: "l1@test.com", comments: "", timestamp: "2026-11-03T15:24:00Z", version: "V3" },
+    { id: "v3-l2", cerprno: "CER-2026-0002", level_id: 2, level_name: "Project Owner", decision: "APPROVED", approver_name: "Approver L2", approver_email: "l2@test.com", comments: "", timestamp: "2026-11-03T15:26:00Z", version: "V3" },
+  ];
+  const retriggerPartitioned = partitionDecisionsByVersion(retriggeredDecisionsWithV3, identicalVersionEntries);
+  assert(retriggerPartitioned["CURRENT"].length === 3, `4e. All 3 decisions (V2 Send Back + retriggered approvals) map to CURRENT (Serial 2) (got: ${retriggerPartitioned["CURRENT"].length})`);
+
+  // 4f. Test dataService updateProposal: revision_count does NOT increment on send-back resubmit
+  const mockService = new LocalMockCERDataService();
+  const baseProp = await mockService.createProposal({
+    pr_name: "Test Version Lifecycle",
+    proposal_no: "PR-TEST-VER-01",
+    cerprno: "PR-TEST-VER-01",
+    owname: "Test Owner",
+    owner_email: "owner@test.com",
+    st_date: "2026-11-01",
+    sbu: "RJ North",
+    object: "Test objective",
+    amount: 1000,
+    cat: "Vital",
+    payable: "Non Payback",
+    cbudget: "Yes",
+    status: "In Approval",
+    current_level: 1,
+    pending_with_role: "Finance",
+    pending_with_email: "finance@test.com",
+    request_date: "2026-11-01",
+    currency: "USD",
+  } as any);
+  assert(baseProp.proposal.revision_count === 0, "4f. Initial proposal revision_count is 0");
+
+  // Send back proposal
+  await mockService.recordDecision({
+    cerprno: baseProp.proposal.cerprno,
+    level_id: 1,
+    approver_name: "Finance Reviewer",
+    approver_email: "finance.approver@example.com",
+    decision: "SENT_BACK",
+    comments: "Need rework",
+  });
+  const sentBackProp = await mockService.getProposalByNumber(baseProp.proposal.cerprno);
+  assert(sentBackProp?.status === "Revised", "4g. Status is Revised after send back");
+
+  // Initiator resubmits revised proposal
+  const retriggeredProp = await mockService.updateProposal({
+    ...sentBackProp!,
+    status: "In Approval",
+    current_level: 1,
+  }, { name: "Test Owner", email: "owner@test.com" });
+  assert(retriggeredProp.proposal.revision_count === 0, `4h. revision_count MUST remain 0 after send-back resubmit (got: ${retriggeredProp.proposal.revision_count})`);
+
+  // Approver approves re-triggered proposal
+  const decisionRes = await mockService.recordDecision({
+    cerprno: baseProp.proposal.cerprno,
+    level_id: 1,
+    approver_name: "Finance Reviewer",
+    approver_email: "finance.approver@example.com",
+    decision: "APPROVED",
+    comments: "Approved rework",
+  });
+  const allDecs = await mockService.getApprovalDecisions(baseProp.proposal.cerprno);
+  const latestDec = allDecs[allDecs.length - 1];
+  assert(latestDec.version === "V1", `4i. Decision on re-triggered workflow must stay V1, not advance to V2 (got: ${latestDec.version})`);
+
   console.log("\n==================================================");
-  console.log("  ALL REDESIGN VERIFICATIONS PASSED (20/20)       ");
+  console.log("  ALL REDESIGN VERIFICATIONS PASSED (29/29)       ");
   console.log("==================================================");
 }
 

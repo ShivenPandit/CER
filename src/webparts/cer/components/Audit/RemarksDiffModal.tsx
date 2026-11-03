@@ -40,7 +40,7 @@ export const RemarksDiffModal: React.FC<IRemarksDiffModalProps> = ({
             </div>
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Screen 0400: Historical Narrative Comparison
+                Remarks Comparison
               </span>
               <h3 className="text-base font-bold text-slate-900">
                 {cerprno} — {fieldDesc}
@@ -71,9 +71,6 @@ export const RemarksDiffModal: React.FC<IRemarksDiffModalProps> = ({
               </span>
             )}
           </div>
-          <span className="text-[11px] font-mono text-slate-400">
-            FR-07 / FR-08 Audit Detail
-          </span>
         </div>
 
         {/* Side-by-side comparison body */}
@@ -83,14 +80,14 @@ export const RemarksDiffModal: React.FC<IRemarksDiffModalProps> = ({
             <div>
               <div className="flex items-center justify-between pb-2 border-b border-rose-200/60 mb-2">
                 <span className="font-bold text-rose-900 uppercase text-[10px] tracking-wider">
-                  Previous Version (Old Value)
+                  Previous Version
                 </span>
                 <span className="text-rose-700 text-[11px] font-semibold">
                   {oldWordCount} words
                 </span>
               </div>
               <div className="text-slate-700 leading-relaxed whitespace-pre-wrap font-sans max-h-80 overflow-y-auto">
-                {oldValue || <span className="text-slate-400 italic">No prior remarks recorded.</span>}
+                {oldValue || <span className="text-slate-400 italic">No prior remarks.</span>}
               </div>
             </div>
           </div>
@@ -100,14 +97,14 @@ export const RemarksDiffModal: React.FC<IRemarksDiffModalProps> = ({
             <div>
               <div className="flex items-center justify-between pb-2 border-b border-emerald-200/60 mb-2">
                 <span className="font-bold text-emerald-900 uppercase text-[10px] tracking-wider">
-                  Updated Version (New Value)
+                  Updated Version
                 </span>
                 <span className="text-emerald-700 text-[11px] font-semibold">
                   {newWordCount} words
                 </span>
               </div>
               <div className="text-slate-900 leading-relaxed whitespace-pre-wrap font-sans max-h-80 overflow-y-auto">
-                {newValue || <span className="text-slate-400 italic">Remarks were cleared.</span>}
+                {newValue || <span className="text-slate-400 italic">Cleared.</span>}
               </div>
             </div>
           </div>
@@ -117,9 +114,9 @@ export const RemarksDiffModal: React.FC<IRemarksDiffModalProps> = ({
         <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors"
+            className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
           >
-            Close Comparison
+            Close
           </button>
         </div>
       </div>

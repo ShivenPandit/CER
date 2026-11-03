@@ -106,11 +106,8 @@ export const ApprovalProgressTracker: React.FC<IApprovalProgressTrackerProps> = 
       <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
         <div>
           <h3 className="font-bold text-slate-900 text-base tracking-tight">
-            Approval workflow
+            Approval Workflow
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Sequential approval stages
-          </p>
         </div>
 
         <span
@@ -127,14 +124,14 @@ export const ApprovalProgressTracker: React.FC<IApprovalProgressTrackerProps> = 
           }`}
         >
           {status === "Approved"
-            ? "Workflow Completed"
+            ? "Approved"
             : status === "Rejected"
-            ? "Workflow Rejected"
+            ? "Rejected"
             : status === "Draft"
-            ? "Draft — Not Submitted"
+            ? "Draft"
             : status === "Revised"
-            ? "Revised — Pending Resubmission"
-            : `Pending at Level ${currentLevel}`}
+            ? "Revised"
+            : `Level ${currentLevel} Pending`}
         </span>
       </div>
 

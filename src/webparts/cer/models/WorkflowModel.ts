@@ -71,6 +71,7 @@ export interface IApprovalDecision {
   decision: ApprovalDecisionType;
   comments: string;
   timestamp: string;
+  version?: string;
 }
 
 export interface INotificationLog {

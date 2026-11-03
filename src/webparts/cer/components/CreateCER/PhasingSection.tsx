@@ -71,7 +71,7 @@ export const PhasingSection: React.FC<IPhasingSectionProps> = ({
         <div className="flex items-center gap-2">
           <BarChart2 className="w-4 h-4 text-[#012964]" />
           <h3 className="font-bold text-slate-800 text-sm sm:text-[15px] tracking-tight">
-            Section C — Expenditure Phasing
+            Expenditure Phasing
           </h3>
         </div>
         <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">

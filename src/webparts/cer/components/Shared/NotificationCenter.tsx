@@ -26,8 +26,7 @@ export const NotificationCenter: React.FC<INotificationCenterProps> = ({
                 <Mail className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-semibold text-slate-900 text-sm">Workflow Email Audit Log</h3>
-                <p className="text-xs text-slate-500">Automated multi-party notifications log</p>
+                <h3 className="font-semibold text-slate-900 text-sm">Notifications</h3>
               </div>
             </div>
             <button
@@ -42,7 +41,7 @@ export const NotificationCenter: React.FC<INotificationCenterProps> = ({
           <div className="px-5 py-3 bg-blue-50/50 border-b border-blue-100 text-xs text-blue-800 flex items-start gap-2">
             <Users className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
             <span>
-              <strong>Visibility Rule:</strong> All workflow communications are marked to the <em>Creator</em>, <em>All Previous Approvers</em>, and the <em>Next Approver</em>.
+              Notifications are sent to the creator and workflow approvers.
             </span>
           </div>
 
@@ -50,7 +49,7 @@ export const NotificationCenter: React.FC<INotificationCenterProps> = ({
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {notifications.length === 0 ? (
               <div className="text-center py-12 text-slate-400 text-xs">
-                No workflow notifications generated yet.
+                No notifications.
               </div>
             ) : (
               notifications.map((notif) => (

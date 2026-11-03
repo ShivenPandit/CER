@@ -320,8 +320,9 @@ export function buildTableRowsForIteration(
 
 /**
  * Robustly partitions a master list of approval decisions across proposal versions.
- * Discovers whether decisions share the root permanentCerId or have distinct proposal numbers,
- * and splits them along version completion boundaries.
+ * 1. Primary: Uses explicit 'version' column (e.g. 'V1', 'V2') if present in SharePoint list.
+ * 2. Secondary: Matches explicit proposal numbers (e.g. 'PR-2026/02-R1' vs 'PR-2026/02').
+ * 3. Fallback: Uses chronological milestone boundary partitioning for legacy records.
  */
 export function partitionDecisionsByVersion(
   allDecisions: IApprovalDecision[],
@@ -341,7 +342,44 @@ export function partitionDecisionsByVersion(
     return tA - tB;
   });
 
-  // Check if decisions explicitly contain the version's proposalNo
+  // 1. Primary Path: Direct 'version' Column Matching (e.g. 'V1', 'V2', '1', '2')
+  const hasVersionTags = sorted.some((d) => Boolean((d as any).version || (d as any).Version));
+  if (hasVersionTags) {
+    sorted.forEach((d) => {
+      const rawV = String((d as any).version || (d as any).Version || "").trim().toUpperCase();
+      let matchedVer = versionEntries.find((v) => {
+        const vExpected = `V${v.serialNo}`.toUpperCase();
+        const vNumExpected = String(v.serialNo);
+        return rawV === vExpected || rawV === vNumExpected;
+      });
+
+      // Resilient fallback: if a decision tag exceeds highest available serial number (e.g. 'V3' recorded
+      // during previous live test while still in Serial No. 2), safely match it to the current active cycle
+      if (!matchedVer && rawV.startsWith("V")) {
+        const tagNum = parseInt(rawV.substring(1), 10);
+        const maxSerial = Math.max(...versionEntries.map((v) => v.serialNo), 1);
+        if (tagNum >= maxSerial) {
+          matchedVer = versionEntries.find((v) => v.isCurrent) || versionEntries[0];
+        }
+      }
+
+      if (matchedVer) {
+        result[matchedVer.id].push(d);
+      } else {
+        // If an untagged legacy decision exists alongside tagged ones, assign untagged earlier decision to Serial No. 1
+        if (!rawV && versionEntries.length > 0) {
+          const oldestVer = versionEntries.find((v) => v.serialNo === 1) || versionEntries[0];
+          result[oldestVer.id].push(d);
+        } else {
+          const currentVer = versionEntries.find((v) => v.isCurrent) || versionEntries[0];
+          result[currentVer.id].push(d);
+        }
+      }
+    });
+    return result;
+  }
+
+  // 2. Secondary Path: Check if decisions explicitly contain the version's proposalNo
   const hasExplicitMatching = sorted.some((d) => {
     const dNo = (d.cerprno || "").trim().toUpperCase();
     return versionEntries.some(
@@ -363,8 +401,7 @@ export function partitionDecisionsByVersion(
     return result;
   }
 
-  // If all decisions share the same root CER Proposal ID (e.g. CER-2026-0002):
-  // Boundary Partitioning:
+  // 3. Fallback: Sequential Milestone Boundary Partitioning (When proposal numbers are IDENTICAL):
   // Chronological order: [Historical 1, ..., Current]
   if (versionEntries.length === 1) {
     result[versionEntries[0].id] = sorted;
@@ -376,7 +413,6 @@ export function partitionDecisionsByVersion(
   const histVer = chronologicalVersions[0];
 
   // Find the boundary where Historical 1 ended:
-  // Historical 1 achieved full final approval (e.g. Level 6 Approved, or highest level approved before a post-approval amendment send-back)
   let boundaryIndex = -1;
   for (let i = 0; i < sorted.length; i++) {
     const dec = sorted[i];
@@ -518,6 +554,11 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
   const selectedVersion = useMemo(() => {
     return versionEntries.find((v) => v.id === selectedVersionId) || versionEntries[0];
   }, [versionEntries, selectedVersionId]);
+
+  // Check if version entries have distinct proposal numbers
+  const hasDistinctProposalNos = useMemo(() => {
+    return new Set(versionEntries.map((v) => (v.proposalNo || "").trim().toUpperCase())).size > 1;
+  }, [versionEntries]);
 
   // Unified decision loading across the entire CER lifecycle
   useEffect(() => {
@@ -927,7 +968,8 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-[#012964] shrink-0" />
                   <h3 className="font-bold text-xs text-slate-900 uppercase tracking-wider">
-                    Workflow Stages & Approval History ({selectedVersion.proposalNo})
+                    Workflow Stages & Approval History ({selectedVersion.proposalNo}
+                    {versionEntries.length > 1 && !hasDistinctProposalNos ? ` • Serial No. ${selectedVersion.serialNo}` : ""})
                   </h3>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1033,11 +1075,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="flex items-center justify-between px-5 py-3 border-t border-slate-200 bg-slate-50/80 shrink-0">
-          <p className="text-[11px] text-slate-500">
-            Records stored permanently in SharePoint list{" "}
-            <span className="font-mono font-medium text-slate-700">CERApprovalDecisions</span>
-          </p>
+        <div className="flex items-center justify-end px-5 py-3 border-t border-slate-200 bg-slate-50/80 shrink-0">
           <button
             onClick={onClose}
             className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-[#012964] hover:bg-[#001f4d] transition-colors shadow-2xs cursor-pointer"

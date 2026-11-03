@@ -318,7 +318,7 @@ export const DirectoryPeoplePicker: React.FC<IDirectoryPeoplePickerProps> = ({
           {isLoading && (
             <div className="px-4 py-3 flex items-center justify-center gap-2 text-slate-500">
               <Loader2 className="w-3.5 h-3.5 animate-spin text-[#012964]" />
-              <span className="font-medium text-xs">Searching authorized portal users...</span>
+              <span className="font-medium text-xs">Searching users...</span>
             </div>
           )}
 
@@ -327,7 +327,7 @@ export const DirectoryPeoplePicker: React.FC<IDirectoryPeoplePickerProps> = ({
             <div className="px-4 py-2.5 bg-rose-50/60 text-rose-800 flex items-start gap-2">
               <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-xs">Directory Search Notice</p>
+                <p className="font-semibold text-xs">Search Notice</p>
                 <p className="text-[11px] text-rose-700 mt-0.5">{searchError}</p>
               </div>
             </div>
@@ -337,9 +337,9 @@ export const DirectoryPeoplePicker: React.FC<IDirectoryPeoplePickerProps> = ({
           {!isLoading && !searchError && hasSearched && results.length === 0 && (
             <div className="px-4 py-6 text-center text-slate-500">
               <User className="w-6 h-6 mx-auto mb-1.5 text-slate-400 opacity-60" />
-              <p className="font-semibold text-xs text-slate-700">No portal users found</p>
+              <p className="font-semibold text-xs text-slate-700">No users found</p>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                No users with permission to this portal matched &ldquo;{inputValue}&rdquo;. Only users granted access to this portal are eligible.
+                No users match &ldquo;{inputValue}&rdquo;.
               </p>
             </div>
           )}
@@ -348,7 +348,7 @@ export const DirectoryPeoplePicker: React.FC<IDirectoryPeoplePickerProps> = ({
           {!isLoading && results.length > 0 && (
             <>
               <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-slate-400 bg-slate-50/80">
-                Authorized Portal Users ({results.length})
+                Users ({results.length})
               </div>
               {results.map((user, idx) => {
                 const isActive = idx === activeIndex;
@@ -397,7 +397,7 @@ export const DirectoryPeoplePicker: React.FC<IDirectoryPeoplePickerProps> = ({
                       <div className="flex items-center gap-1 text-[11px] text-slate-500 truncate mt-0.5">
                         <Mail className="w-3 h-3 shrink-0 text-slate-400" />
                         <span className="truncate">
-                          {email || <span className="text-amber-600 italic">No email address on record</span>}
+                          {email || <span className="text-amber-600 italic">No email</span>}
                         </span>
                       </div>
 

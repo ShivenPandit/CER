@@ -81,11 +81,8 @@ export const ApprovalHistoryView: React.FC<IApprovalHistoryViewProps> = ({
           )}
           <div>
             <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-              Workflow Decision History & Audit Trail
+              Approval History
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Immutable log of all reviewer approvals, endorsements, and rejections
-            </p>
           </div>
         </div>
 
@@ -98,7 +95,7 @@ export const ApprovalHistoryView: React.FC<IApprovalHistoryViewProps> = ({
               setSearchTerm(e.target.value);
               pagination.setCurrentPage(1);
             }}
-            placeholder="Search by proposal or reviewer..."
+            placeholder="Search proposals or approvers..."
             className="w-full sm:w-64 pl-8 pr-3 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
           />
         </div>
@@ -115,10 +112,10 @@ export const ApprovalHistoryView: React.FC<IApprovalHistoryViewProps> = ({
             <thead>
               <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider select-none">
                 <th className="py-2.5 px-3 w-[125px]">Proposal No</th>
-                <th className="py-2.5 px-3 w-[180px]">Stage / Approval Level</th>
-                <th className="py-2.5 px-2.5 w-[140px]">Approver Name</th>
+                <th className="py-2.5 px-3 w-[180px]">Approval Stage</th>
+                <th className="py-2.5 px-2.5 w-[140px]">Approver</th>
                 <th className="py-2.5 px-2 text-center w-[110px]">Decision</th>
-                <th className="py-2.5 px-3">Reviewer Comments</th>
+                <th className="py-2.5 px-3">Comments</th>
                 <th className="py-2.5 px-3 w-[145px]">Date & Time</th>
                 <th className="py-2.5 px-3 text-right w-[80px]">Action</th>
               </tr>
@@ -127,7 +124,7 @@ export const ApprovalHistoryView: React.FC<IApprovalHistoryViewProps> = ({
               {visibleDecisions.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
-                    {isLoading ? "Loading decision history..." : "No approval decisions recorded yet."}
+                    {isLoading ? "Loading decision history..." : "No approval decisions recorded."}
                   </td>
                 </tr>
               ) : (
@@ -209,7 +206,7 @@ export const ApprovalHistoryView: React.FC<IApprovalHistoryViewProps> = ({
         <div className="sm:hidden divide-y divide-slate-100">
           {visibleDecisions.length === 0 ? (
             <div className="py-12 text-center text-slate-400 text-xs px-4">
-              {isLoading ? "Loading decision history..." : "No approval decisions recorded yet."}
+              {isLoading ? "Loading decision history..." : "No approval decisions recorded."}
             </div>
           ) : (
             visibleDecisions.map((dec) => {

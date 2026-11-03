@@ -5,11 +5,8 @@ export const CategoryDefinitionSection: React.FC = () => {
     <div className="rounded-xl border border-slate-200/70 bg-slate-50/50 p-3.5 sm:p-4 space-y-2.5" id="section-category-definitions">
       <div className="pb-2 border-b border-slate-200/60">
         <h3 className="text-sm sm:text-[15px] font-bold text-slate-800 tracking-tight">
-          Category Definition
+          Classification Guide
         </h3>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Standard operational criteria for classifying capital expenditure proposals
-        </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">

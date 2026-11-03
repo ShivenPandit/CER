@@ -51,7 +51,7 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
     } catch (err: any) {
       console.error("[AdminConsoleView] Failed to load admin records:", err);
       setErrorMessage(
-        err?.message || "Failed to load administrative configuration from SharePoint."
+        err?.message || "Failed to load user roles."
       );
     } finally {
       setIsLoading(false);
@@ -70,7 +70,7 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
           <div className="flex items-start gap-2.5">
             <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
             <div>
-              <h4 className="font-bold">Error Loading Administrative Data</h4>
+              <h4 className="font-bold">Unable to load data</h4>
               <p className="mt-0.5 text-red-700">{errorMessage}</p>
             </div>
           </div>

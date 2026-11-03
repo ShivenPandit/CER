@@ -139,13 +139,8 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
           )}
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-              {mode === "my" ? "My CER Proposals" : "All Capital Expenditure Requests"}
+              {mode === "my" ? "My Proposals" : "All Proposals"}
             </h2>
-            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              {mode === "my"
-                ? "Proposals initiated by you or where you are designated as the Project Owner"
-                : "Enterprise-wide capital expenditure proposals across all Strategic Business Units"}
-            </p>
           </div>
         </div>
 
@@ -159,7 +154,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                 setSearchTerm(e.target.value);
                 pagination.setCurrentPage(1);
               }}
-              placeholder="Filter proposals..."
+              placeholder="Search proposals..."
               className="w-full sm:w-64 pl-9 pr-3.5 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
             />
           </div>
@@ -322,7 +317,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
               {visibleProposals.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-400 text-sm">
-                    No proposals found matching your filter criteria.
+                    No proposals found.
                   </td>
                 </tr>
               ) : (
@@ -452,7 +447,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                                 title="Edit and resubmit reworked proposal"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
-                                <span>Edit & Resubmit</span>
+                                <span>Edit</span>
                               </button>
                             );
                           }
@@ -472,7 +467,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
         <div className="sm:hidden divide-y divide-slate-100">
           {visibleProposals.length === 0 ? (
             <div className="py-12 text-center text-slate-400 text-sm px-4">
-              No proposals found matching your filter criteria.
+              No proposals found.
             </div>
           ) : (
             visibleProposals.map((prop) => (

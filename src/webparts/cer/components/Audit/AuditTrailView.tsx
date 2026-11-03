@@ -159,19 +159,10 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
             </button>
           )}
           <div>
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className="text-[10px] font-bold text-emerald-300 bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-700/60 flex items-center gap-1">
-                <Lock className="w-3 h-3 text-emerald-400" /> Immutable Audit Ledger
-              </span>
-              <span className="text-[11px] font-medium text-slate-400">FR-06 & FR-07 Compliant</span>
-            </div>
             <h2 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-blue-400 shrink-0" />
-              <span>Field-Level Audit Trail & Change History</span>
+              <span>Audit Trail</span>
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Immutable ledger capturing every proposal field delta, old value, new value, modifier, and timestamp
-            </p>
           </div>
         </div>
 
@@ -181,7 +172,7 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
             type="text"
             value={filterProposal}
             onChange={(e) => setFilterProposal(e.target.value)}
-            placeholder="Filter by CER Proposal No..."
+            placeholder="Search proposal..."
             className="w-full sm:w-56 px-3 py-1.5 sm:py-2 bg-slate-950/80 border border-slate-700 hover:border-slate-500 rounded-xl text-xs font-mono font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
           />
           <button
@@ -207,7 +198,7 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
       {/* KPI Summary Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-subtle">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Changes Logged</span>
+          <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Changes</span>
           <p className="font-extrabold text-slate-900 text-base mt-0.5">
             {auditRows.length} record{auditRows.length === 1 ? "" : "s"}
           </p>
@@ -252,7 +243,7 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
               }`}
             >
               <History className="w-4 h-4" />
-              <span>Change Cards Timeline ({filteredRows.length})</span>
+              <span>Timeline ({filteredRows.length})</span>
             </button>
 
             <button
@@ -264,7 +255,7 @@ export const AuditTrailView: React.FC<IAuditTrailViewProps> = ({
               }`}
             >
               <FileText className="w-4 h-4" />
-              <span>Tabular Ledger ({filteredRows.length})</span>
+              <span>Table ({filteredRows.length})</span>
             </button>
           </div>
 

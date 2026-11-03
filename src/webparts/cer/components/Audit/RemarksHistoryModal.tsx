@@ -53,11 +53,8 @@ export const RemarksHistoryModal: React.FC<IRemarksHistoryModalProps> = ({
               <History className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                FR-08 Remarks Version History
-              </span>
               <h3 className="text-base font-bold text-slate-900">
-                Remarks Revisions for {cerprno}
+                Remarks History: {cerprno}
               </h3>
             </div>
           </div>
@@ -74,13 +71,13 @@ export const RemarksHistoryModal: React.FC<IRemarksHistoryModalProps> = ({
           {/* Versions Sidebar */}
           <div className="border-r border-slate-200 p-4 overflow-y-auto space-y-2 bg-slate-50/50">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-              Revision Snapshots ({versions.length})
+              Revisions ({versions.length})
             </p>
 
             {isLoading ? (
               <p className="text-slate-400 text-xs py-4">Loading revision history...</p>
             ) : versions.length === 0 ? (
-              <p className="text-slate-400 text-xs py-4">No historical revisions recorded.</p>
+              <p className="text-slate-400 text-xs py-4">No revisions recorded.</p>
             ) : (
               versions.map((ver) => {
                 const isSelected = selectedVersion?.id === ver.id;
@@ -119,7 +116,7 @@ export const RemarksHistoryModal: React.FC<IRemarksHistoryModalProps> = ({
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div>
                     <h4 className="font-bold text-slate-900 text-sm">
-                      Remarks Content — Version {selectedVersion.version}
+                      Version {selectedVersion.version}
                     </h4>
                     <p className="text-xs text-slate-500 mt-0.5">
                       Logged by {selectedVersion.created_by} on{" "}
@@ -137,7 +134,7 @@ export const RemarksHistoryModal: React.FC<IRemarksHistoryModalProps> = ({
               </div>
             ) : (
               <div className="text-center py-12 text-slate-400 text-xs">
-                Select a version from the left panel to inspect.
+                Select a revision to view.
               </div>
             )}
           </div>

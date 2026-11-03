@@ -36,8 +36,7 @@ export const AccessDeniedView: React.FC<IAccessDeniedViewProps> = ({
         </h2>
 
         <p className="text-xs sm:text-sm text-slate-600 mb-6 leading-relaxed">
-          {customMessage ||
-            "You do not possess the required enterprise role or authorization level to access this section or perform this operation."}
+          {customMessage || "You do not have permission to access this section."}
         </p>
 
         {/* Security Context Summary Box */}
@@ -89,7 +88,7 @@ export const AccessDeniedView: React.FC<IAccessDeniedViewProps> = ({
 
         <p className="text-[10px] text-slate-400 mt-6 flex items-center justify-center gap-1">
           <Lock className="w-3 h-3 text-slate-400" />
-          <span>If you require access, please contact your System Administrator.</span>
+          <span>Contact your administrator for access.</span>
         </p>
       </div>
     </div>

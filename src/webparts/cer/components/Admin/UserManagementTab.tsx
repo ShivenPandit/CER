@@ -462,9 +462,6 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-tight">
                 User & Role Management
               </h2>
-              <p className="text-xs text-slate-500 hidden sm:block">
-                SBU-wise role matrix, designated stage approvers, and user access directory
-              </p>
             </div>
           </div>
         </div>
@@ -478,7 +475,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by employee name or email..."
+              placeholder="Search users..."
               className="w-full pl-11 pr-3.5 py-1.5 text-xs 2xl:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] focus:bg-white transition-all text-slate-900 placeholder:text-slate-400"
             />
           </div>
@@ -844,7 +841,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               {/* Directory Search & People Picker */}
               <div className="relative" ref={dropdownContainerRef}>
                 <label className="block font-semibold text-slate-800 mb-1">
-                  Employee Directory Search <span className="text-rose-500">*</span>
+                  Employee Directory <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -869,7 +866,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                         setIsDropdownOpen(true);
                       }
                     }}
-                    placeholder="Search employee by name or cairnindia email..."
+                    placeholder="Search directory..."
                     className={`w-full pl-9 pr-9 py-2 bg-slate-50 border rounded-xl text-xs focus:bg-white focus:outline-none transition-colors ${
                       hasAttemptedSubmit && !selectedDirectoryUser
                         ? "border-rose-500 bg-rose-50/20 focus:border-rose-600 focus:ring-2 focus:ring-rose-200 text-slate-900"
@@ -899,7 +896,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 {hasAttemptedSubmit && !selectedDirectoryUser && (
                   <p className="mt-1 text-xs text-rose-600 font-medium flex items-center gap-1 animate-fade-in">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                    <span>Please select a verified employee from the directory search.</span>
+                    <span>Select an employee from the directory.</span>
                   </p>
                 )}
 
@@ -967,9 +964,9 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 {/* No matching employees fallback */}
                 {isDropdownOpen && !isSearchingDirectory && directorySearchQuery.trim().length >= 1 && directoryResults.length === 0 && !selectedDirectoryUser && (
                   <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-elevated p-4 z-50 text-center">
-                    <p className="font-semibold text-slate-700 text-xs">No employees found</p>
+                    <p className="font-semibold text-slate-700 text-xs">No users found</p>
                     <p className="text-[11px] text-slate-400 mt-0.5">
-                      No directory records matching &ldquo;{directorySearchQuery.trim()}&rdquo;
+                      No matches for &ldquo;{directorySearchQuery.trim()}&rdquo;
                     </p>
                   </div>
                 )}
@@ -1030,9 +1027,9 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                   onChange={(e) => setSelectedRole(e.target.value as UserRole)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964]"
                 >
-                  <option value="Initiator">Initiator (Create & track proposals)</option>
-                  <option value="Approver">Approver (Review assigned stages)</option>
-                  <option value="Finance_Audit">Finance & Audit (Reporting & Compliance)</option>
+                  <option value="Initiator">Initiator</option>
+                  <option value="Approver">Approver</option>
+                  <option value="Finance_Audit">Finance & Audit</option>
                 </select>
               </div>
 
@@ -1068,7 +1065,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 {hasAttemptedSubmit && selectedRole === "Approver" && (!selectedSbu || !selectedSbu.trim() || selectedSbu === "All" || selectedSbu === "ALL") && (
                   <p className="mt-1 text-xs text-rose-600 font-medium flex items-center gap-1 animate-fade-in">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
-                    <span>Please select a Strategic Business Unit (SBU) for the Approver role.</span>
+                    <span>Select an SBU for this role.</span>
                   </p>
                 )}
               </div>
@@ -1077,7 +1074,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               {selectedRole === "Approver" && (
                 <div className="space-y-1.5">
                   <label className="block font-semibold text-slate-800 mb-1">
-                    Approval Level Stage <span className="text-rose-500">*</span>
+                    Approval Stage <span className="text-rose-500">*</span>
                   </label>
                   <select
                     value={approvalLevel}
@@ -1091,7 +1088,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                     <option value={6}>Stage L6 — VOGL CEO</option>
                   </select>
                   <p className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-200">
-                    ℹ️ <strong>Stage L2 (Project Owner)</strong> is resolved automatically from each CER Proposal and does not require matrix configuration.
+                    ℹ️ Stage L2 (Project Owner) is derived dynamically from each proposal.
                   </p>
                 </div>
               )}
@@ -1129,7 +1126,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                       <span>Assigning...</span>
                     </>
                   ) : (
-                    <span>Confirm Assignment</span>
+                    <span>Assign Role</span>
                   )}
                 </button>
               </div>
@@ -1147,7 +1144,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               <div className="flex items-center gap-2">
                 <Edit className="w-4 h-4 text-[#012964]" />
                 <h3 className="text-sm font-bold text-slate-900">
-                  Edit Role Assignment
+                  Edit Role
                 </h3>
               </div>
               <button
@@ -1195,9 +1192,9 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                   onChange={(e) => setEditRole(e.target.value as UserRole)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964]"
                 >
-                  <option value="Initiator">Initiator (Create & track proposals)</option>
-                  <option value="Approver">Approver (Review assigned stages)</option>
-                  <option value="Finance_Audit">Finance & Audit (Reporting & Compliance)</option>
+                  <option value="Initiator">Initiator</option>
+                  <option value="Approver">Approver</option>
+                  <option value="Finance_Audit">Finance & Audit</option>
                 </select>
               </div>
 
@@ -1233,7 +1230,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 {hasAttemptedEditSubmit && editRole === "Approver" && (!editSbu || !editSbu.trim() || editSbu === "All" || editSbu === "ALL") && (
                   <p className="mt-1 text-xs text-rose-600 font-medium flex items-center gap-1 animate-fade-in">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
-                    <span>Please select a Strategic Business Unit (SBU) for the Approver role.</span>
+                    <span>Select an SBU for this role.</span>
                   </p>
                 )}
               </div>
@@ -1242,7 +1239,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               {editRole === "Approver" && (
                 <div className="space-y-1.5">
                   <label className="block font-semibold text-slate-800 mb-1">
-                    Approval Level Stage <span className="text-rose-500">*</span>
+                    Approval Stage <span className="text-rose-500">*</span>
                   </label>
                   <select
                     value={editApprovalLevel}
@@ -1256,7 +1253,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                     <option value={6}>Stage L6 — VOGL CEO</option>
                   </select>
                   <p className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-200">
-                    ℹ️ <strong>Stage L2 (Project Owner)</strong> is resolved automatically from each CER Proposal.
+                    ℹ️ Stage L2 (Project Owner) is derived dynamically from each proposal.
                   </p>
                 </div>
               )}
@@ -1301,10 +1298,10 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               <AlertTriangle className="w-6 h-6" />
             </div>
             <h3 className="text-base font-bold text-slate-900">
-              Revoke Role Assignment?
+              Revoke Role?
             </h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Are you sure you want to revoke the <strong>{revokingAssignment.role}</strong> role from <strong>{revokingAssignment.user_name}</strong>? This action will be recorded in the security audit log.
+              Revoke <strong>{revokingAssignment.role}</strong> role from <strong>{revokingAssignment.user_name}</strong>?
             </p>
             <div className="flex items-center justify-center gap-3 pt-2">
               <button
@@ -1318,7 +1315,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 disabled={isSubmitting}
                 className="px-5 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-subtle cursor-pointer"
               >
-                {isSubmitting ? "Revoking..." : "Confirm Revocation"}
+                {isSubmitting ? "Revoking..." : "Revoke Role"}
               </button>
             </div>
           </div>

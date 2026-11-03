@@ -537,22 +537,22 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           <div className="flex items-center gap-2 flex-wrap min-w-0">
             <h2 className="text-lg sm:text-[19px] font-bold text-slate-900 tracking-tight whitespace-nowrap">
               {originalProposal?.status === "Approved"
-                ? "Resubmit Capital Expenditure Request"
+                ? "Resubmit CER"
                 : originalProposal?.status === "Revised"
-                ? "Revise & Resubmit CER Proposal"
-                : "Edit Capital Expenditure Request"}
+                ? "Revise CER"
+                : "Edit CER"}
             </h2>
             {originalProposal?.status === "Approved" ? (
               <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-100 text-[#012964] border border-blue-200">
-                Post-Approval Resubmit
+                Resubmission
               </span>
             ) : originalProposal?.status === "Revised" ? (
               <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
-                Rework Mode
+                Rework
               </span>
             ) : (
               <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                Draft Mode
+                Draft
               </span>
             )}
           </div>
@@ -763,10 +763,10 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
                     : isUploadingAttachments
                     ? "Processing..."
                     : originalProposal?.status === "Approved"
-                    ? "Resubmit for Approval"
+                    ? "Resubmit CER"
                     : formData.status === "Draft"
-                    ? "Submit for Approval"
-                    : "Save Changes & Re-trigger"}
+                    ? "Submit Proposal"
+                    : "Submit Changes"}
                 </span>
               </button>
             </div>

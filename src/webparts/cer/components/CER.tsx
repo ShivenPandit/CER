@@ -625,7 +625,7 @@ const CER: React.FC<ICERProps> = (props) => {
             <AccessDeniedView
               currentUser={currentUser}
               attemptedView="my-proposals"
-              customMessage="The My CER Requests view is reserved for Initiators, Administrators, and authorized CER Owners."
+              customMessage="This view is available to Initiators and Administrators."
               onGoHome={handleGoBack}
             />
           )
@@ -670,7 +670,7 @@ const CER: React.FC<ICERProps> = (props) => {
             <AccessDeniedView
               currentUser={currentUser}
               attemptedView="pending-approvals"
-              customMessage="You do not possess the required Approver or Admin privileges to view pending approval queues."
+              customMessage="This queue is available to Approvers and Administrators."
               onGoHome={handleGoBack}
             />
           )
@@ -701,7 +701,7 @@ const CER: React.FC<ICERProps> = (props) => {
             <AccessDeniedView
               currentUser={currentUser}
               attemptedView="reports"
-              customMessage="You do not possess the required Finance / Audit or Admin role to access reporting analytics."
+              customMessage="Reports are available to Finance, Audit, and Administrators."
               onGoHome={handleGoBack}
             />
           )
@@ -732,7 +732,7 @@ const CER: React.FC<ICERProps> = (props) => {
             <AccessDeniedView
               currentUser={currentUser}
               attemptedView="workflow-config"
-              customMessage="Access to the Enterprise Administration Console is restricted to authorized System Administrators."
+              customMessage="User management is restricted to Administrators."
               onGoHome={handleGoBack}
             />
           )
