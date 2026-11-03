@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   History,
   X,
@@ -6,60 +6,121 @@ import {
   XCircle,
   Clock,
   RotateCcw,
-  User,
+  FileText,
+  Layers,
   ShieldCheck,
-  Calendar,
+  Check,
   MessageSquare,
-  ChevronRight,
-  Filter,
-  Info,
 } from "lucide-react";
 import { ICERProposal } from "../../models/CERModel";
-import { IWorkflowLevel, IApprovalDecision, isProjectOwnerStage } from "../../models/WorkflowModel";
+import { IWorkflowLevel, IApprovalDecision } from "../../models/WorkflowModel";
 import { ICERDataService } from "../../services/ICERDataService";
 import { StatusBadge } from "../Shared/StatusBadge";
 import { CategoryBadge } from "../Shared/CategoryBadge";
-import { UserAvatar } from "../Common/UserAvatar";
 
-interface IStatusHistoryModalProps {
+export interface IStatusHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   proposal: ICERProposal;
-  levels: IWorkflowLevel[];
-  decisions: IApprovalDecision[];
+  levels?: IWorkflowLevel[];
+  decisions?: IApprovalDecision[];
   dataService: ICERDataService;
+  historyProposals?: ICERProposal[];
+}
+
+export interface IFixedApprovalStage {
+  level: number;
+  levelBadge: string;
+  name: string;
+}
+
+export const FIXED_APPROVAL_STAGES: readonly IFixedApprovalStage[] = [
+  { level: 1, levelBadge: "L1", name: "Finance" },
+  { level: 2, levelBadge: "L2", name: "Project Owner" },
+  { level: 3, levelBadge: "L3", name: "BU CFO" },
+  { level: 4, levelBadge: "L4", name: "BU Director" },
+  { level: 5, levelBadge: "L5", name: "VOGL CFO" },
+  { level: 6, levelBadge: "L6", name: "VOGL CEO" },
+] as const;
+
+export interface IProposalVersionEntry {
+  id: string;
+  serialNo: number;
+  versionLabel: string;
+  isCurrent: boolean;
+  proposalNo: string;
+  status: string;
+  amount: number;
+  currency: string;
+  dateStr: string;
+  rawProposal: ICERProposal;
+}
+
+export function formatDecisionDateTime(timestamp?: string | Date): string {
+  if (!timestamp) return "—";
+  let d: Date;
+  if (timestamp instanceof Date) {
+    d = timestamp;
+  } else {
+    let str = String(timestamp).trim();
+    if (!str) return "—";
+    if (str.includes("T") && !str.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(str)) {
+      str = str + "Z";
+    }
+    d = new Date(str);
+  }
+  if (isNaN(d.getTime())) return String(timestamp);
+  return (
+    d.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }) +
+    ", " +
+    d.toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+  );
+}
+
+export function formatVersionDate(timestamp?: string | Date): string {
+  if (!timestamp) return "—";
+  let d: Date;
+  if (timestamp instanceof Date) {
+    d = timestamp;
+  } else {
+    let str = String(timestamp).trim();
+    if (!str) return "—";
+    if (str.includes("T") && !str.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(str)) {
+      str = str + "Z";
+    }
+    d = new Date(str);
+  }
+  if (isNaN(d.getTime())) return String(timestamp);
+  return d.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
   isOpen,
   onClose,
   proposal,
-  levels,
   decisions: initialDecisions,
   dataService,
+  historyProposals: propHistoryProposals,
 }) => {
-  const [decisions, setDecisions] = useState<IApprovalDecision[]>(initialDecisions || []);
-  const [activeTab, setActiveTab] = useState<"stages" | "log">("stages");
-  const [isLoading, setIsLoading] = useState(false);
-  const [filterType, setFilterType] = useState<string>("ALL");
+  const [historyList, setHistoryList] = useState<ICERProposal[]>(propHistoryProposals || []);
+  const [selectedVersionId, setSelectedVersionId] = useState<string>("CURRENT");
+  const [versionDecisionsMap, setVersionDecisionsMap] = useState<Record<string, IApprovalDecision[]>>({});
+  const [isLoadingDecisions, setIsLoadingDecisions] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-  // Load fresh decisions from dataService when opened
-  useEffect(() => {
-    if (isOpen && proposal?.cerprno) {
-      setIsLoading(true);
-      const fetchFreshDecisions = async () => {
-        try {
-          const latest = await dataService.getApprovalDecisions(proposal.cerprno, true);
-          setDecisions(latest);
-        } catch (err) {
-          console.error("Error refreshing approval decisions:", err);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      fetchFreshDecisions().catch((e) => console.error(e));
-    }
-  }, [isOpen, proposal?.cerprno]);
+  const permanentCerId = proposal?.cer_proposal_id || proposal?.cerprno || "—";
 
   // Handle ESC key to close
   useEffect(() => {
@@ -72,440 +133,588 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Load historical proposal snapshots if not supplied via props
+  useEffect(() => {
+    if (!isOpen || !proposal) return;
+    if (propHistoryProposals && propHistoryProposals.length > 0) {
+      setHistoryList(propHistoryProposals);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchHistory = async () => {
+      setIsLoadingHistory(true);
+      try {
+        const hist = await dataService.getProposalHistory(permanentCerId);
+        if (isMounted) {
+          setHistoryList(hist || []);
+        }
+      } catch (err) {
+        console.warn("[StatusHistoryModal] Error fetching proposal history:", err);
+      } finally {
+        if (isMounted) setIsLoadingHistory(false);
+      }
+    };
+
+    fetchHistory().catch((e) => console.error(e));
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, proposal, permanentCerId, propHistoryProposals, dataService]);
+
+  // Initialize decisions for current proposal if passed in initialDecisions
+  useEffect(() => {
+    if (initialDecisions && initialDecisions.length > 0) {
+      setVersionDecisionsMap((prev) => ({
+        ...prev,
+        CURRENT: initialDecisions,
+      }));
+    }
+  }, [initialDecisions]);
+
+  // Build sorted version entries (Current + Historical Snapshots, newest first)
+  const versionEntries: IProposalVersionEntry[] = useMemo(() => {
+    if (!proposal) return [];
+
+    const sortedHist = [...historyList].sort((a, b) => {
+      const dateA = new Date(a.modified_date || a.created_date || 0).getTime();
+      const dateB = new Date(b.modified_date || b.created_date || 0).getTime();
+      return dateB - dateA;
+    });
+
+    const totalVersions = sortedHist.length + 1;
+    const entries: IProposalVersionEntry[] = [];
+
+    // Current version at top (Serial No. = totalVersions)
+    entries.push({
+      id: "CURRENT",
+      serialNo: totalVersions,
+      versionLabel: `v${totalVersions} Active`,
+      isCurrent: true,
+      proposalNo: proposal.proposal_no || proposal.cerprno,
+      status: proposal.status,
+      amount: proposal.amount || 0,
+      currency: proposal.currency || "USD",
+      dateStr: formatVersionDate(proposal.modified_date || proposal.created_date),
+      rawProposal: proposal,
+    });
+
+    // Historical versions
+    sortedHist.forEach((hp, idx) => {
+      const serialNo = totalVersions - 1 - idx;
+      const vId = `HIST_${hp.id || hp.proposal_no || hp.cerprno || idx}`;
+      entries.push({
+        id: vId,
+        serialNo,
+        versionLabel: `v${serialNo} Snapshot`,
+        isCurrent: false,
+        proposalNo: hp.proposal_no || hp.cerprno,
+        status: hp.status || "Approved",
+        amount: hp.amount || 0,
+        currency: hp.currency || "USD",
+        dateStr: formatVersionDate(hp.modified_date || hp.created_date),
+        rawProposal: hp,
+      });
+    });
+
+    return entries;
+  }, [proposal, historyList]);
+
+  // Active selected version entry
+  const selectedVersion = useMemo(() => {
+    return versionEntries.find((v) => v.id === selectedVersionId) || versionEntries[0];
+  }, [versionEntries, selectedVersionId]);
+
+  // Fetch approval decisions for the selected version if not already cached
+  useEffect(() => {
+    if (!isOpen || !selectedVersion) return;
+    const vId = selectedVersion.id;
+
+    if (versionDecisionsMap[vId]) {
+      return;
+    }
+
+    let isMounted = true;
+    const fetchDecisions = async () => {
+      setIsLoadingDecisions(true);
+      try {
+        const targetProposal = selectedVersion.rawProposal;
+        const queryKey = selectedVersion.isCurrent
+          ? targetProposal.cerprno
+          : targetProposal.proposal_no || targetProposal.cerprno;
+
+        let decs = await dataService.getApprovalDecisions(queryKey, true);
+
+        // If query by cerprno returned empty for current, also check proposal_no
+        if ((!decs || decs.length === 0) && targetProposal.proposal_no && targetProposal.proposal_no !== targetProposal.cerprno) {
+          decs = await dataService.getApprovalDecisions(targetProposal.proposal_no, true);
+        }
+
+        if (isMounted) {
+          setVersionDecisionsMap((prev) => ({
+            ...prev,
+            [vId]: decs || [],
+          }));
+        }
+      } catch (err) {
+        console.warn(`[StatusHistoryModal] Failed to load decisions for version ${vId}:`, err);
+        if (isMounted) {
+          setVersionDecisionsMap((prev) => ({ ...prev, [vId]: [] }));
+        }
+      } finally {
+        if (isMounted) setIsLoadingDecisions(false);
+      }
+    };
+
+    fetchDecisions().catch((e) => console.error(e));
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, selectedVersion, dataService, versionDecisionsMap]);
+
   if (!isOpen || !proposal) return null;
 
-  const sortedLevels = [...levels]
-    .filter((l) => l.is_active)
-    .sort((a, b) => a.level_id - b.level_id);
+  const currentDecisions = (selectedVersion && versionDecisionsMap[selectedVersion.id]) || [];
 
-  const sortedDecisions = [...decisions].sort((a, b) => {
-    const tA = new Date((a as any).decision_date || a.timestamp || 0).getTime();
-    const tB = new Date((b as any).decision_date || b.timestamp || 0).getTime();
-    return tB - tA;
+  // Table rows computation for exactly 6 fixed workflow levels
+  const tableRows = FIXED_APPROVAL_STAGES.map((stage) => {
+    const matchingDecs = currentDecisions
+      .filter((d) => d.level_id === stage.level || (d as any).levelId === stage.level)
+      .sort((a, b) => {
+        const tA = new Date((a as any).decision_date || (a as any).decidedAt || a.timestamp || (a as any).Created || 0).getTime();
+        const tB = new Date((b as any).decision_date || (b as any).decidedAt || b.timestamp || (b as any).Created || 0).getTime();
+        return tB - tA;
+      });
+
+    const latestDec = matchingDecs[0];
+
+    let statusText: "Approved" | "Send Back" | "Rejected" | "Pending" | "Not Started" = "Not Started";
+    let updatedBy = "—";
+    let dateTime = "—";
+    let remarks = "";
+
+    if (latestDec) {
+      const decUpper = (latestDec.decision || "").trim().toUpperCase();
+      if (decUpper === "APPROVED") {
+        statusText = "Approved";
+      } else if (decUpper === "SENT_BACK" || decUpper === "SENT BACK") {
+        statusText = "Send Back";
+      } else if (decUpper === "REJECTED") {
+        statusText = "Rejected";
+      }
+
+      updatedBy = latestDec.approver_name || latestDec.approver_email || "—";
+      dateTime = formatDecisionDateTime(
+        (latestDec as any).decision_date ||
+        (latestDec as any).decidedAt ||
+        latestDec.timestamp ||
+        (latestDec as any).Created
+      );
+      remarks = latestDec.comments || (latestDec as any).remarks || "";
+    } else {
+      // Determine pending vs not started if no decision recorded
+      if (selectedVersion.isCurrent) {
+        const propStatus = selectedVersion.status;
+        const currentLvl = selectedVersion.rawProposal.current_level || 1;
+
+        if (propStatus === "In Approval") {
+          if (stage.level === currentLvl) {
+            statusText = "Pending";
+          } else if (stage.level > currentLvl) {
+            statusText = "Not Started";
+          } else {
+            statusText = "Not Started";
+          }
+        } else if (propStatus === "Revised") {
+          if (stage.level === currentLvl) {
+            statusText = "Pending";
+          } else {
+            statusText = "Not Started";
+          }
+        } else {
+          statusText = "Not Started";
+        }
+      } else {
+        // Historical snapshots are completed prior approved proposals
+        statusText = "Not Started";
+      }
+    }
+
+    return {
+      stage,
+      statusText,
+      updatedBy,
+      dateTime,
+      remarks,
+    };
   });
 
-  const filteredDecisions = sortedDecisions.filter((d) => {
-    if (filterType === "ALL") return true;
-    return d.decision === filterType;
-  });
+  // Summary Metrics calculations
+  const totalLevels = 6;
+  const approvedLevelsCount = tableRows.filter((r) => r.statusText === "Approved").length;
 
-  const approvedCount = decisions.filter((d) => d.decision === "APPROVED").length;
-  const rejectedCount = decisions.filter((d) => d.decision === "REJECTED").length;
-  const sentBackCount = decisions.filter((d) => d.decision === "SENT_BACK").length;
+  let currentPendingStageText = "All Approved";
+  if (selectedVersion.isCurrent) {
+    const status = selectedVersion.status;
+    if (status === "In Approval") {
+      const currLvl = selectedVersion.rawProposal.current_level || 1;
+      const stageName = FIXED_APPROVAL_STAGES.find((s) => s.level === currLvl)?.name || "Approver";
+      currentPendingStageText = `L${currLvl} - ${stageName}`;
+    } else if (status === "Revised") {
+      currentPendingStageText = "Initiator (Rework)";
+    } else if (status === "Draft") {
+      currentPendingStageText = "Initiator (Draft)";
+    } else if (status === "Rejected") {
+      currentPendingStageText = "Rejected";
+    } else if (status === "Approved") {
+      currentPendingStageText = "All Approved";
+    }
+  }
 
-  const formatDecisionDate = (timestampStr?: string): string => {
-    if (!timestampStr) return "N/A";
-    const d = new Date(timestampStr);
-    if (isNaN(d.getTime())) return timestampStr;
-    return d.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+  const sanctionAmountFormatted = `${selectedVersion.currency} ${selectedVersion.amount.toLocaleString()}`;
 
   return (
     <div className="cer-display-scope fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-      <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-900 text-white shrink-0 gap-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-white/10 text-white border border-white/20">
-              <History className="w-5 h-5" />
+      <div className="relative w-full max-w-6xl 2xl:max-w-7xl bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] min-h-[580px]">
+        {/* Top Header - White Background matching Proposal History */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-white shrink-0 gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 rounded-xl bg-[#012964]/10 border border-[#012964]/20 text-[#012964] shrink-0">
+              <History className="w-5 h-5 text-[#012964]" />
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono font-bold text-xs bg-slate-800 text-slate-200 px-2 py-0.5 rounded border border-slate-700">
-                  {proposal.cerprno}
+            <div className="min-w-0 flex items-center flex-wrap gap-2.5">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight truncate">
+                Status & Approval History ({permanentCerId})
+              </h2>
+              {proposal.pr_name && (
+                <span className="text-sm font-semibold text-slate-600 truncate max-w-xs md:max-w-md hidden sm:inline">
+                  — {proposal.pr_name}
                 </span>
-                <CategoryBadge category={proposal.cat} />
-                <StatusBadge status={proposal.status} size="sm" />
-              </div>
-              <h3 className="text-base font-bold text-white mt-1 leading-snug">
-                Status & Approval History — {proposal.pr_name}
-              </h3>
+              )}
+              {proposal.cat && <CategoryBadge category={proposal.cat} />}
+              <StatusBadge status={proposal.status} size="sm" />
             </div>
           </div>
 
-          <div className="flex items-center gap-2 self-end sm:self-auto">
+          <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={onClose}
-              className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
-              title="Close"
-              aria-label="Close"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Close modal"
+              aria-label="Close modal"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* KPI Summary Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-slate-50 border-b border-slate-200/80 text-xs shrink-0">
-          <div className="bg-white p-3 rounded-xl border border-slate-200">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">SBU Workflow Path</span>
-            <p className="font-bold text-slate-800 mt-0.5 truncate">
-              {proposal.sbu || "Standard"} ({sortedLevels.length} Levels)
-            </p>
-          </div>
-
-          <div className="bg-white p-3 rounded-xl border border-slate-200">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">Current Stage</span>
-            <p className="font-bold cer-text-blue mt-0.5 truncate">
-              {proposal.status === "Approved"
-                ? "Completed"
-                : proposal.status === "Rejected"
-                ? "Rejected"
-                : proposal.status === "Revised"
-                ? "Pending Initiator Rework"
-                : (proposal.pending_with_role && proposal.pending_with_role.startsWith("L")
-                    ? proposal.pending_with_role
-                    : `Level ${proposal.current_level}: ${proposal.pending_with_role || "Approver"}`)}
-            </p>
-          </div>
-
-          <div className="bg-white p-3 rounded-xl border border-slate-200">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">Decisions Recorded</span>
-            <p className="font-bold text-slate-800 mt-0.5">
-              <span className="cer-text-blue font-bold">{approvedCount} Approved</span>
-              {rejectedCount > 0 && <span className="text-rose-600 ml-1.5">• {rejectedCount} Rejected</span>}
-              {sentBackCount > 0 && <span className="text-amber-600 ml-1.5">• {sentBackCount} Sent Back</span>}
-            </p>
-          </div>
-
-          <div className="bg-white p-3 rounded-xl border border-slate-200">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">Sanction Amount</span>
-            <p className="font-bold text-slate-900 mt-0.5">
-              {proposal.currency} {proposal.amount.toLocaleString()}
-            </p>
-          </div>
-        </div>
-
-        {/* Tab Selection */}
-        <div className="flex items-center justify-between px-5 pt-3 border-b border-slate-200 bg-white shrink-0">
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setActiveTab("stages")}
-              className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors flex items-center gap-2 ${
-                activeTab === "stages"
-                  ? "border-b-2 bg-slate-50 font-bold"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
-              style={activeTab === "stages" ? { borderColor: "var(--cer-brand-blue)", color: "var(--cer-brand-blue)" } : undefined}
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Workflow Stages Matrix ({sortedLevels.length})</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab("log")}
-              className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors flex items-center gap-2 ${
-                activeTab === "log"
-                  ? "border-b-2 bg-slate-50 font-bold"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
-              style={activeTab === "log" ? { borderColor: "var(--cer-brand-blue)", color: "var(--cer-brand-blue)" } : undefined}
-            >
-              <History className="w-4 h-4" />
-              <span>Chronological Decision Log ({decisions.length})</span>
-            </button>
-          </div>
-
-          {activeTab === "log" && (
-            <div className="flex items-center gap-1.5 pb-2">
-              <Filter className="w-3.5 h-3.5 text-slate-400" />
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-700 cer-input-focus"
-              >
-                <option value="ALL">All Outcomes</option>
-                <option value="APPROVED">Approved</option>
-                <option value="REJECTED">Rejected</option>
-                <option value="SENT_BACK">Sent Back</option>
-              </select>
+        {/* Master-Detail Two-Panel Container */}
+        <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
+          {/* ========================================================================================= */}
+          {/* LEFT PANEL (~30% width): Proposal Versions Selector */}
+          {/* ========================================================================================= */}
+          <div className="w-full md:w-[32%] lg:w-[30%] shrink-0 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50/70 flex flex-col overflow-hidden max-h-56 md:max-h-none">
+            {/* Sidebar Title */}
+            <div className="px-4 py-3 bg-slate-100/80 border-b border-slate-200 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#012964]" />
+                <span className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+                  Proposal Versions
+                </span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-white text-slate-700 border border-slate-200 shadow-2xs">
+                {versionEntries.length} {versionEntries.length === 1 ? "Version" : "Versions"}
+              </span>
             </div>
-          )}
-        </div>
 
-        {/* Tab Content Body */}
-        <div className="p-5 overflow-y-auto flex-1 space-y-4 bg-slate-50/40">
-          {isLoading && decisions.length === 0 ? (
-            <div className="py-12 text-center text-slate-400">
-              <Clock className="w-8 h-8 mx-auto cer-text-blue animate-spin mb-2" />
-              <p className="text-xs font-medium">Loading status and decision history...</p>
-            </div>
-          ) : activeTab === "stages" ? (
-            /* Workflow Stages Matrix */
-            <div className="space-y-3">
-              {sortedLevels.length === 0 ? (
-                <div className="p-6 text-center bg-white rounded-xl border border-slate-200 text-slate-500 text-xs">
-                  No workflow levels configured for SBU: {proposal.sbu}
+            {/* Version Cards Scrollable List */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+              {isLoadingHistory && versionEntries.length <= 1 ? (
+                <div className="py-8 text-center text-slate-400 text-xs space-y-2">
+                  <div className="w-5 h-5 border-2 border-[#012964] border-t-transparent rounded-full animate-spin mx-auto" />
+                  <p className="font-medium">Loading versions...</p>
                 </div>
-              ) : (
-                sortedLevels.map((lvl, index) => {
-                  const levelDecisions = decisions.filter((d) => d.level_id === lvl.level_id);
-                  const latestDecision = levelDecisions.length > 0
-                    ? [...levelDecisions].sort((a, b) => {
-                        const tA = new Date((a as any).decision_date || a.timestamp || 0).getTime();
-                        const tB = new Date((b as any).decision_date || b.timestamp || 0).getTime();
-                        return tB - tA;
-                      })[0]
-                    : null;
+              ) : null}
 
-                  const isCurrentPending =
-                    proposal.status === "In Approval" && proposal.current_level === lvl.level_id;
+              {versionEntries.map((ver) => {
+                const isSelected = selectedVersion.id === ver.id;
 
-                  const isPassed =
-                    (latestDecision && latestDecision.decision === "APPROVED") ||
-                    (proposal.status === "Approved") ||
-                    (proposal.status === "In Approval" && proposal.current_level > lvl.level_id);
-
-                  const isRejected = latestDecision && latestDecision.decision === "REJECTED";
-                  const isSentBack = latestDecision && latestDecision.decision === "SENT_BACK";
-                  const isUpcoming =
-                    proposal.status === "In Approval" && proposal.current_level < lvl.level_id;
-
-                  // Determine display state
-                  let stageBadge = (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                      <Clock className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Upcoming Stage</span>
-                    </span>
-                  );
-
-                  let cardBorder = "border-slate-200 bg-white";
-
-                  if (isPassed && !isRejected && !isSentBack) {
-                    cardBorder = "border-2 cer-border-green bg-white";
-                    stageBadge = (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-white border cer-border-green" style={{ color: "var(--cer-brand-blue)" }}>
-                        <CheckCircle2 className="w-3.5 h-3.5 cer-text-green" />
-                        <span>Level Approved</span>
-                      </span>
-                    );
-                  } else if (isRejected) {
-                    cardBorder = "border-rose-300 bg-rose-50/30 ring-1 ring-rose-400/20";
-                    stageBadge = (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300">
-                        <XCircle className="w-3.5 h-3.5 text-rose-600" />
-                        <span>Proposal Rejected</span>
-                      </span>
-                    );
-                  } else if (isSentBack) {
-                    cardBorder = "border-amber-300 bg-amber-50/30";
-                    stageBadge = (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                        <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Sent Back for Revision</span>
-                      </span>
-                    );
-                  } else if (isCurrentPending) {
-                    cardBorder = "border-2 cer-border-blue bg-white shadow-sm ring-1 ring-[#012964]/15";
-                    stageBadge = (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold cer-bg-blue">
-                        <Clock className="w-3.5 h-3.5 text-white" />
-                        <span>Currently Pending Review</span>
-                      </span>
-                    );
-                  }
-
-                  const isPOStage = isProjectOwnerStage(lvl);
-                  const configuredApproverName = isPOStage
-                    ? `${proposal.owname || "Project Owner"} (Project Owner)`
-                    : lvl.approver_name || lvl.role_title || "Assigned Level Approver";
-                  const configuredApproverEmail = isPOStage
-                    ? proposal.owner_email || ""
-                    : lvl.approver_email || "";
-
-                  return (
-                    <div
-                      key={lvl.level_id}
-                      className={`p-4 rounded-xl border transition-all ${cardBorder}`}
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-                        <div className="flex items-center gap-3">
-                          <span className="w-7 h-7 rounded-lg bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
-                            {lvl.level_id}
-                          </span>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-bold text-sm text-slate-900">
-                                {lvl.level_name}
-                              </h4>
-                              <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                                Role: {lvl.role_title}
-                              </span>
-                            </div>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                              Assigned: <strong className="text-slate-700">{configuredApproverName}</strong>
-                              {configuredApproverEmail && (
-                                <span className="text-slate-400"> ({configuredApproverEmail})</span>
-                              )}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="self-start sm:self-center shrink-0">
-                          {stageBadge}
-                        </div>
+                return (
+                  <div
+                    key={ver.id}
+                    onClick={() => setSelectedVersionId(ver.id)}
+                    className={`p-3 rounded-xl transition-all cursor-pointer relative ${
+                      isSelected
+                        ? "bg-white border-2 border-[#012964] shadow-xs ring-1 ring-[#012964]/10"
+                        : "bg-white/90 hover:bg-white border border-slate-200/90 hover:border-slate-300 shadow-2xs"
+                    }`}
+                  >
+                    {/* Top Header: Serial No, Version tag & Status */}
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span
+                          className={`text-xs font-bold px-2 py-0.5 rounded-md ${
+                            isSelected
+                              ? "bg-[#012964] text-white"
+                              : "bg-slate-100 text-slate-700 border border-slate-200"
+                          }`}
+                        >
+                          Serial No. {ver.serialNo}
+                        </span>
+                        <span
+                          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
+                            ver.isCurrent
+                              ? "bg-blue-50 text-blue-700 border-blue-200"
+                              : "bg-slate-100 text-slate-600 border-slate-200"
+                          }`}
+                        >
+                          {ver.isCurrent ? "Active Cycle" : "Archived"}
+                        </span>
                       </div>
+                      <StatusBadge status={ver.status} size="sm" />
+                    </div>
 
-                      {/* Decision Details if recorded */}
-                      {latestDecision ? (
-                        <div className="mt-3 pt-1 flex flex-col md:flex-row md:items-start justify-between gap-3 text-xs">
-                          <div className="space-y-1.5 flex-1">
-                            <div className="flex items-center gap-2 text-slate-600">
-                              <UserAvatar name={latestDecision.approver_name} size="xs" />
-                              <span>
-                                Action by:{" "}
-                                <strong className="text-slate-900">{latestDecision.approver_name}</strong>
-                                {latestDecision.approver_email && (
-                                  <span className="text-slate-400 ml-1">
-                                    &lt;{latestDecision.approver_email}&gt;
-                                  </span>
-                                )}
+                    {/* Proposal No Reference */}
+                    <div className="flex items-center justify-between gap-2 mt-1">
+                      <span className="font-mono font-bold text-sm text-[#012964]">
+                        {ver.proposalNo}
+                      </span>
+                      {isSelected && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#012964] bg-[#012964]/10 px-1.5 py-0.5 rounded">
+                          <Check className="w-3 h-3 text-[#012964]" />
+                          Selected
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Metadata: Amount & Date */}
+                    <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
+                      <span className="font-bold text-slate-900">
+                        {ver.currency} {ver.amount.toLocaleString()}
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        {ver.dateStr}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ========================================================================================= */}
+          {/* RIGHT PANEL (~70% width): Summary Cards & 6-Level Approval History Table */}
+          {/* ========================================================================================= */}
+          <div className="flex-1 flex flex-col overflow-y-auto bg-white p-5 lg:p-6 space-y-5 min-w-0">
+            {/* 4 Compact Summary Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
+              {/* Card 1: Total Approval Levels */}
+              <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-3 flex flex-col justify-between">
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                  Total Approval Levels
+                </span>
+                <div className="flex items-baseline gap-1.5 mt-1">
+                  <span className="text-xl font-extrabold text-slate-900 leading-none">
+                    {totalLevels}
+                  </span>
+                  <span className="text-[11px] font-semibold text-slate-500">
+                    Fixed Stages
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 2: Approved Levels */}
+              <div className="bg-emerald-50/50 border border-emerald-200/80 rounded-xl p-3 flex flex-col justify-between">
+                <span className="text-[10px] uppercase font-bold text-emerald-700/80 tracking-wider">
+                  Approved Levels
+                </span>
+                <div className="flex items-baseline gap-1.5 mt-1">
+                  <span className="text-xl font-extrabold text-emerald-700 leading-none">
+                    {approvedLevelsCount}
+                  </span>
+                  <span className="text-[11px] font-semibold text-emerald-600/90">
+                    of {totalLevels} Stages
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 3: Current / Pending Level */}
+              <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-3 flex flex-col justify-between min-w-0">
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                  Current / Pending Level
+                </span>
+                <div className="mt-1">
+                  <span className="text-sm font-bold text-[#012964] leading-tight block truncate" title={currentPendingStageText}>
+                    {currentPendingStageText}
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 4: Sanction Amount */}
+              <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-3 flex flex-col justify-between">
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                  Sanction Amount
+                </span>
+                <div className="mt-1">
+                  <span className="text-base lg:text-lg font-extrabold text-slate-900 leading-tight block truncate">
+                    {sanctionAmountFormatted}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Approval History Table Header Section */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col flex-1">
+              <div className="px-4 py-3 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#012964]" />
+                  <h3 className="font-bold text-xs text-slate-900 uppercase tracking-wider">
+                    Workflow Stages & Approval History ({selectedVersion.proposalNo})
+                  </h3>
+                </div>
+                {isLoadingDecisions && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                    <div className="w-3.5 h-3.5 border-2 border-[#012964] border-t-transparent rounded-full animate-spin" />
+                    <span>Updating...</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Table Container */}
+              <div className="overflow-x-auto flex-1">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-700 font-bold uppercase text-[11px] tracking-wider">
+                      <th className="py-2.5 px-3.5 w-16">Level</th>
+                      <th className="py-2.5 px-3.5 w-48">Level Name</th>
+                      <th className="py-2.5 px-3.5 w-36">Status</th>
+                      <th className="py-2.5 px-3.5">Status Updated By</th>
+                      <th className="py-2.5 px-3.5 w-44">Date & Time</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {tableRows.map((row) => {
+                      const { stage, statusText, updatedBy, dateTime, remarks } = row;
+
+                      // Professional Status Badges
+                      const renderStatusBadge = () => {
+                        switch (statusText) {
+                          case "Approved":
+                            return (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <span>Approved</span>
                               </span>
-                            </div>
+                            );
+                          case "Send Back":
+                            return (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 shadow-2xs">
+                                <RotateCcw className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <span>Send Back</span>
+                              </span>
+                            );
+                          case "Rejected":
+                            return (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs">
+                                <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                                <span>Rejected</span>
+                              </span>
+                            );
+                          case "Pending":
+                            return (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
+                                <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                <span>Pending</span>
+                              </span>
+                            );
+                          case "Not Started":
+                          default:
+                            return (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 shadow-2xs">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                <span>Not Started</span>
+                              </span>
+                            );
+                        }
+                      };
 
-                            {latestDecision.comments ? (
-                              <div className="bg-white p-3 rounded-lg border border-slate-200 text-slate-700 text-xs mt-1.5 shadow-2xs">
-                                <div className="flex items-center gap-1.5 font-semibold text-slate-500 mb-1">
-                                  <MessageSquare className="w-3 h-3 text-slate-400" />
-                                  <span>Approver Comments / Remarks:</span>
-                                </div>
-                                <p className="italic text-slate-800 whitespace-pre-wrap">
-                                  "{latestDecision.comments}"
-                                </p>
+                      return (
+                        <tr
+                          key={stage.level}
+                          className="hover:bg-slate-50/70 transition-colors"
+                        >
+                          {/* Column 1: Level */}
+                          <td className="py-3 px-3.5 font-bold">
+                            <span className="inline-block px-2 py-0.5 rounded-md font-mono text-xs font-bold bg-[#012964]/10 text-[#012964] border border-[#012964]/20">
+                              {stage.levelBadge}
+                            </span>
+                          </td>
+
+                          {/* Column 2: Level Name */}
+                          <td className="py-3 px-3.5">
+                            <span className="font-semibold text-slate-900 text-xs">
+                              {stage.name}
+                            </span>
+                          </td>
+
+                          {/* Column 3: Status */}
+                          <td className="py-3 px-3.5">
+                            {renderStatusBadge()}
+                          </td>
+
+                          {/* Column 4: Status Updated By */}
+                          <td className="py-3 px-3.5">
+                            {updatedBy !== "—" ? (
+                              <div>
+                                <span className="font-semibold text-slate-800 text-xs">
+                                  {updatedBy}
+                                </span>
+                                {remarks && (
+                                  <div
+                                    className="text-[11px] text-slate-500 italic mt-0.5 flex items-center gap-1 max-w-md truncate"
+                                    title={remarks}
+                                  >
+                                    <MessageSquare className="w-3 h-3 text-slate-400 shrink-0" />
+                                    <span className="truncate">"{remarks}"</span>
+                                  </div>
+                                )}
                               </div>
                             ) : (
-                              <p className="text-slate-400 italic text-[11px]">
-                                No additional comments provided by approver.
-                              </p>
+                              <span className="text-slate-400 font-medium">—</span>
                             )}
-                          </div>
+                          </td>
 
-                          <div className="flex items-center gap-1.5 text-slate-500 shrink-0 self-end md:self-start bg-slate-100 px-2.5 py-1 rounded-md text-[11px]">
-                            <Calendar className="w-3 h-3 text-slate-400" />
-                            <span>{formatDecisionDate(latestDecision.timestamp)}</span>
-                          </div>
-                        </div>
-                      ) : isCurrentPending ? (
-                        <div className="mt-3 bg-white p-3 rounded-lg border cer-border-blue cer-text-blue text-xs flex items-center gap-2.5">
-                          <Clock className="w-4 h-4 cer-text-blue shrink-0" />
-                          <span>
-                            Proposal is currently in review at this level. Pending decision from{" "}
-                            <strong>{configuredApproverName}</strong>.
-                          </span>
-                        </div>
-                      ) : isUpcoming ? (
-                        <div className="mt-2 text-slate-400 text-xs flex items-center gap-1.5">
-                          <Info className="w-3 h-3" />
-                          <span>Will be routed to this stage once prior levels are approved.</span>
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          ) : (
-            /* Chronological Decision Log */
-            <div className="space-y-3">
-              {filteredDecisions.length === 0 ? (
-                <div className="py-12 text-center bg-white rounded-xl border border-slate-200 text-slate-400">
-                  <History className="w-10 h-10 mx-auto text-slate-300 mb-2" />
-                  <p className="font-semibold text-sm text-slate-700">No Decision Records Found</p>
-                  <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                    {filterType !== "ALL"
-                      ? `No decisions match the filter '${filterType}'.`
-                      : "This proposal has not yet had any formal decisions recorded by approvers."}
-                  </p>
-                </div>
-              ) : (
-                filteredDecisions.map((dec, idx) => {
-                  const isApproved = dec.decision === "APPROVED";
-                  const isRejected = dec.decision === "REJECTED";
-                  const isSentBack = dec.decision === "SENT_BACK";
-
-                  return (
-                    <div
-                      key={dec.id || idx}
-                      className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100 text-xs">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${
-                              isApproved
-                                ? "bg-white cer-border-green"
-                                : isRejected
-                                ? "bg-rose-50 text-rose-800 border-rose-300"
-                                : isSentBack
-                                ? "bg-amber-50 text-amber-800 border-amber-300"
-                                : "bg-white cer-border-blue cer-text-blue"
-                            }`}
-                            style={isApproved ? { color: "var(--cer-brand-blue)" } : undefined}
-                          >
-                            {isApproved && <CheckCircle2 className="w-3.5 h-3.5 cer-text-green" />}
-                            {isRejected && <XCircle className="w-3.5 h-3.5 text-rose-600" />}
-                            {isSentBack && <RotateCcw className="w-3.5 h-3.5 text-amber-600" />}
-                            <span>{dec.decision}</span>
-                          </span>
-
-                          <span className="font-bold text-slate-800">
-                            Level {dec.level_id}: {dec.level_name || "Workflow Stage"}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 text-slate-500 text-[11px]">
-                          <Calendar className="w-3 h-3 text-slate-400" />
-                          <span>{formatDecisionDate(dec.timestamp)}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start gap-3">
-                        <UserAvatar name={dec.approver_name} size="sm" />
-                        <div className="space-y-1.5 flex-1 min-w-0 text-xs">
-                          <p className="font-semibold text-slate-800">
-                            {dec.approver_name}
-                            {dec.approver_email && (
-                              <span className="text-slate-400 font-normal ml-1">
-                                ({dec.approver_email})
+                          {/* Column 5: Date & Time */}
+                          <td className="py-3 px-3.5">
+                            {dateTime !== "—" ? (
+                              <span className="font-medium text-slate-700 text-xs whitespace-nowrap">
+                                {dateTime}
                               </span>
+                            ) : (
+                              <span className="text-slate-400 font-medium">—</span>
                             )}
-                          </p>
-
-                          {dec.comments ? (
-                            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80 text-slate-700 italic">
-                              "{dec.comments}"
-                            </div>
-                          ) : (
-                            <p className="text-slate-400 italic text-[11px]">
-                              No comments provided.
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-100 bg-slate-50 shrink-0">
-          <p className="text-xs text-slate-400">
+        {/* Modal Footer */}
+        <div className="flex items-center justify-between px-5 py-3 border-t border-slate-200 bg-slate-50/80 shrink-0">
+          <p className="text-[11px] text-slate-500">
             Records stored permanently in SharePoint list{" "}
-            <span className="font-mono text-slate-600">CERApprovalDecisions</span>
+            <span className="font-mono font-medium text-slate-700">CERApprovalDecisions</span>
           </p>
-
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs rounded-xl transition-colors"
+            className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-[#012964] hover:bg-[#001f4d] transition-colors shadow-2xs cursor-pointer"
           >
             Close
           </button>

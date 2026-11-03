@@ -890,6 +890,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
           levels={workflowLevels}
           decisions={decisions}
           dataService={dataService}
+          historyProposals={historyProposals}
         />
       )}
 
