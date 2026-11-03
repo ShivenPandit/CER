@@ -260,8 +260,130 @@ async function runTests() {
   const latestDec = allDecs[allDecs.length - 1];
   assert(latestDec.version === "V1", `4i. Decision on re-triggered workflow must stay V1, not advance to V2 (got: ${latestDec.version})`);
 
+  // 5. User Scenario: Untagged L1 Approval + Tagged V2 Rejection in Serial No. 2 (Image 3 fix)
+  console.log("\n--- Testing Level 1 Approval Retention on Rejected Proposals (Image 3) ---");
+  const rejectedScenarioVersions: IProposalVersionEntry[] = [
+    {
+      id: "CURRENT",
+      serialNo: 2,
+      versionLabel: "v2 Active",
+      isCurrent: true,
+      proposalNo: "PR-2026/02-R1",
+      status: "Rejected",
+      amount: 4000,
+      currency: "USD",
+      dateStr: "03 Nov 2026",
+      rawProposal: { current_level: 2, status: "Rejected", cer_proposal_id: "CER-2026-0002", proposal_no: "PR-2026/02-R1", modified_date: "2026-11-03T15:58:00Z" } as any,
+    },
+    {
+      id: "HIST_1",
+      serialNo: 1,
+      versionLabel: "v1 Snapshot",
+      isCurrent: false,
+      proposalNo: "PR-2026/02",
+      status: "Approved",
+      amount: 2000,
+      currency: "USD",
+      dateStr: "03 Nov 2026",
+      rawProposal: { current_level: 6, status: "Approved", cer_proposal_id: "CER-2026-0002", proposal_no: "PR-2026/02", modified_date: "2026-11-03T11:00:00Z" } as any,
+    },
+  ];
+
+  const mixedDecisions: IApprovalDecision[] = [
+    { id: "h1", cerprno: "CER-2026-0002", level_id: 1, level_name: "Finance", decision: "APPROVED", approver_name: "Priya Kalekar", approver_email: "priya@stl.com", comments: "", timestamp: "2026-11-03T10:00:00Z", version: "" },
+    { id: "h2", cerprno: "CER-2026-0002", level_id: 2, level_name: "Project Owner", decision: "APPROVED", approver_name: "Shiven Pandit", approver_email: "shiven@cairn.com", comments: "", timestamp: "2026-11-03T10:05:00Z", version: "" },
+    { id: "v2-l1", cerprno: "CER-2026-0002", level_id: 1, level_name: "Finance", decision: "APPROVED", approver_name: "Priya Kalekar (STL Digital)", approver_email: "priya@stl.com", comments: "Finance Approved", timestamp: "2026-11-03T15:24:00Z", version: "" },
+    { id: "v2-l2", cerprno: "CER-2026-0002", level_id: 2, level_name: "Project Owner", decision: "REJECTED", approver_name: "Shiven Pandit (Microlink)", approver_email: "shiven@cairn.com", comments: "Testing Rejection", timestamp: "2026-11-03T15:57:00Z", version: "V2" },
+  ];
+
+  const mixedPartitioned = partitionDecisionsByVersion(mixedDecisions, rejectedScenarioVersions);
+  assert(mixedPartitioned["CURRENT"].length === 2, `5a. CURRENT received exactly 2 decisions (got: ${mixedPartitioned["CURRENT"].length})`);
+  const currentL1Dec = mixedPartitioned["CURRENT"].find((d) => d.level_id === 1);
+  assert(currentL1Dec !== undefined, "5b. CURRENT has Level 1 decision");
+  assert(currentL1Dec?.approver_name === "Priya Kalekar (STL Digital)", `5c. L1 approver is Priya Kalekar (STL Digital) (got: ${currentL1Dec?.approver_name})`);
+  assert(currentL1Dec?.decision === "APPROVED", "5d. L1 decision is APPROVED");
+
+  const currentL2Dec = mixedPartitioned["CURRENT"].find((d) => d.level_id === 2);
+  assert(currentL2Dec?.decision === "REJECTED", "5e. L2 decision is REJECTED");
+
+  // Build table rows for rejected active iteration
+  const rejIteration = splitDecisionsIntoIterations(mixedPartitioned["CURRENT"], true, rejectedScenarioVersions[0].rawProposal)[0];
+  const rejRows = buildTableRowsForIteration(rejIteration, rejectedScenarioVersions[0]);
+  assert(rejRows[0].statusText === "Approved", `5f. Stage 1 (L1 Finance) statusText is Approved on rejected proposal (got: ${rejRows[0].statusText})`);
+  assert(rejRows[0].updatedBy === "Priya Kalekar (STL Digital)", "5g. Stage 1 updatedBy shows approver name");
+  assert(rejRows[1].statusText === "Rejected", `5h. Stage 2 (L2 Project Owner) statusText is Rejected (got: ${rejRows[1].statusText})`);
+  assert(rejRows[1].updatedBy === "Shiven Pandit (Microlink)", "5i. Stage 2 updatedBy shows rejector name");
+  assert(rejRows[1].remarks === "Testing Rejection", "5j. Stage 2 remarks captured");
+  assert(rejRows[2].statusText === "Not Started", "5k. Stage 3 (L3 BU CFO) statusText is Not Started");
+
+  // 6. Multi-Version Snapshot Isolation without Overwriting (Images 1, 2, 3 fix)
+  console.log("\n--- Testing Multi-Version CERProposalsHistory Isolation ---");
+  const multiHistService = new LocalMockCERDataService();
+  const initialApproved = await multiHistService.createProposal({
+    id: "prop-test-7",
+    pr_name: "Original Test Project 7",
+    proposal_no: "PR-2026/07",
+    cerprno: "CER-2026-0007",
+    cer_proposal_id: "CER-2026-0007",
+    owname: "Shiven Pandit (Microlink)",
+    owner_email: "shiven@cairn.com",
+    st_date: "2026-11-01",
+    sbu: "RJ North",
+    object: "Original Scope",
+    amount: 1500,
+    cat: "Vital",
+    payable: "Payback",
+    cbudget: "Yes",
+    status: "Approved",
+    current_level: 6,
+    currency: "USD",
+  } as any);
+
+  const testCerId = initialApproved.proposal.cer_proposal_id || initialApproved.proposal.cerprno;
+
+  // Submit first post-approval revision (Serial 2) -> archives Serial 1 (V1)
+  const res1 = await multiHistService.updateProposal({
+    ...initialApproved.proposal,
+    pr_name: "Test Project 7 testing post approval",
+    status: "In Approval",
+    current_level: 1,
+  }, { name: "Shiven Pandit (Microlink)", email: "shiven@cairn.com" });
+
+  const histAfterFirstPostApproval = await multiHistService.getProposalHistory(testCerId);
+  assert(histAfterFirstPostApproval.length === 1, `6a. Exactly 1 history snapshot archived after first post-approval (got: ${histAfterFirstPostApproval.length})`);
+  assert(histAfterFirstPostApproval[0].version === "V1", `6b. First snapshot tagged V1 (got: ${histAfterFirstPostApproval[0].version})`);
+  assert(histAfterFirstPostApproval[0].pr_name === "Original Test Project 7", `6c. First snapshot retains original project title (got: ${histAfterFirstPostApproval[0].pr_name})`);
+
+  // First post-approval gets fully approved across all 6 levels
+  const activePostApproval1 = await multiHistService.getProposalByNumber(testCerId);
+  activePostApproval1!.status = "Approved";
+  activePostApproval1!.current_level = 6;
+
+  // Submit second post-approval revision (Serial 3) -> archives Serial 2 (V2)
+  await multiHistService.updateProposal({
+    ...activePostApproval1!,
+    pr_name: "Test Project 7 testing post approval 2 time",
+    status: "In Approval",
+    current_level: 1,
+  }, { name: "Shiven Pandit (Microlink)", email: "shiven@cairn.com" }, activePostApproval1!);
+
+  const histAfterSecondPostApproval = await multiHistService.getProposalHistory(testCerId);
+  assert(histAfterSecondPostApproval.length === 2, `6d. Exactly 2 distinct snapshots in history without overwriting (got: ${histAfterSecondPostApproval.length})`);
+  const v1Snap = histAfterSecondPostApproval.find((h) => h.version === "V1");
+  const v2Snap = histAfterSecondPostApproval.find((h) => h.version === "V2");
+  assert(v1Snap !== undefined, "6e. Snapshot V1 exists");
+  assert(v1Snap?.pr_name === "Original Test Project 7", "6f. Snapshot V1 still preserves original title");
+  assert(v2Snap !== undefined, "6g. Snapshot V2 exists");
+  assert(v2Snap?.pr_name === "Test Project 7 testing post approval", "6h. Snapshot V2 preserves post-approval title");
+
+  // 7. Verify Reviewer Comments & 6th Column Data
+  console.log("\n--- Testing Reviewer Comments Column & Modal Payload ---");
+  assert(rejRows[1].remarks === "Testing Rejection", "7a. Remarks captured on rejected L2 row");
+  assert(rejRows[0].remarks === "Finance Approved", "7b. Remarks captured on approved L1 row");
+  assert(rejRows[2].remarks === "", "7c. Remarks empty for unstarted L3 row");
+
   console.log("\n==================================================");
-  console.log("  ALL REDESIGN VERIFICATIONS PASSED (29/29)       ");
+  console.log("  ALL REDESIGN VERIFICATIONS PASSED               ");
   console.log("==================================================");
 }
 

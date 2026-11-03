@@ -1343,7 +1343,8 @@ export class SharePointCERDataService implements ICERDataService {
   private _buildHistoryPayload(
     original: ICERProposal,
     ownerSpUserId: number | null,
-    availableFields: Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string; AllowMultipleValues?: boolean }>
+    availableFields: Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string; AllowMultipleValues?: boolean }>,
+    versionTag?: string
   ): Record<string, any> {
     const cerId = (original.cer_proposal_id || original.cerprno || "").trim();
     const propNo = (original.proposal_no || original.cerprno || cerId).trim();
@@ -1354,6 +1355,8 @@ export class SharePointCERDataService implements ICERDataService {
       return `${val}T00:00:00Z`;
     };
 
+    const effectiveVersion = versionTag || (original as any).version || (original as any).Version || "V1";
+
     const dataDict: Record<string, any> = {
       Title: propNo,
       cerPrId: cerId,
@@ -1362,6 +1365,8 @@ export class SharePointCERDataService implements ICERDataService {
       cerOwner: ownerSpUserId || original.owname || original.owner_email || "",
       sbu: original.sbu || "RJ North",
       status: "Approved",
+      version: effectiveVersion,
+      Version: effectiveVersion,
       object: original.object || "",
       amount: Number(original.amount || 0),
       currency: original.currency || "USD",
@@ -1486,6 +1491,8 @@ export class SharePointCERDataService implements ICERDataService {
     if (!hasField(["cerPrId", "CERProposalID"])) payload.cerPrId = cerId;
     if (!hasField(["proposalNo", "ProposalNo"])) payload.proposalNo = propNo;
     if (!hasField(["status", "Status", "OData__x0073_tatus"])) payload.status = "Approved";
+    payload.version = effectiveVersion;
+    payload.Version = effectiveVersion;
 
     return payload;
   }
@@ -1584,56 +1591,62 @@ export class SharePointCERDataService implements ICERDataService {
       }
     }
 
-    // 1. Discover list fields for CERProposalsHistory
-    const discoveredFields = await this.getHistoryListFields();
-    const payload = this._buildHistoryPayload(original, ownerSpUserId, discoveredFields);
-
-    // 2. Check for existing items with this proposal number to prevent duplicate rows
-    let existingItems: Array<{ Id: number }> = [];
-    const safePropNo = escapeODataString(propNo);
+    // 1. Determine existing snapshots for this proposal to compute accurate versionTag
+    let existingHistory: ICERProposal[] = [];
     try {
-      existingItems = await this._sp.getListItems<{ Id: number }>(SP_LISTS.CER_PROPOSALS_HISTORY, {
-        filter: `Title eq '${safePropNo}' or proposalNo eq '${safePropNo}'`,
-        select: "Id",
-        top: 10,
+      existingHistory = await this.getProposalHistory(cerId);
+    } catch {
+      existingHistory = [];
+    }
+
+    const versionIndex = (original as any).version
+      ? parseInt(String((original as any).version).replace(/\D/g, ""), 10) || (existingHistory.length + 1)
+      : (existingHistory.length + 1);
+    const versionTag = `V${versionIndex}`;
+
+    // 2. Discover list fields for CERProposalsHistory
+    const discoveredFields = await this.getHistoryListFields();
+    const payload = this._buildHistoryPayload(original, ownerSpUserId, discoveredFields, versionTag);
+
+    // 3. Check if a snapshot for THIS EXACT VERSION already exists to prevent duplicate writes on retry
+    let existingItems: Array<{ Id: number; version?: string; Version?: string }> = [];
+    const safePropNo = escapeODataString(propNo);
+    const safeCerId = escapeODataString(cerId);
+
+    try {
+      existingItems = await this._sp.getListItems<any>(SP_LISTS.CER_PROPOSALS_HISTORY, {
+        filter: `(cerPrId eq '${safeCerId}' or proposalNo eq '${safePropNo}' or Title eq '${safePropNo}') and (version eq '${versionTag}' or Version eq '${versionTag}')`,
+        select: "Id,Title,version,Version",
+        top: 5,
       });
     } catch {
       try {
-        existingItems = await this._sp.getListItems<{ Id: number }>(SP_LISTS.CER_PROPOSALS_HISTORY, {
-          filter: `Title eq '${safePropNo}'`,
-          select: "Id",
-          top: 10,
+        const allHist = await this._sp.getListItems<any>(SP_LISTS.CER_PROPOSALS_HISTORY, {
+          filter: `cerPrId eq '${safeCerId}' or proposalNo eq '${safePropNo}' or Title eq '${safePropNo}'`,
+          select: "Id,Title,version,Version",
+          top: 50,
         });
+        existingItems = allHist.filter(
+          (it: any) => String(it.version || it.Version || "").trim().toUpperCase() === versionTag
+        );
       } catch {
         existingItems = [];
       }
     }
 
     if (existingItems && existingItems.length > 0) {
-      // Update existing item instead of creating duplicate
+      // Update existing item for this exact same versionTag (idempotent write)
       const primaryId = existingItems[0].Id;
       await this._executeWithFieldFallback(
         (p) => this._sp.updateListItem(SP_LISTS.CER_PROPOSALS_HISTORY, primaryId, p),
         payload,
         25
       );
-
-      // Clean up any extraneous duplicate rows
-      if (existingItems.length > 1) {
-        for (let i = 1; i < existingItems.length; i++) {
-          try {
-            await this._sp.deleteListItem(SP_LISTS.CER_PROPOSALS_HISTORY, existingItems[i].Id);
-          } catch (delErr) {
-            console.warn("[SharePointCERDataService] Could not remove duplicate history item:", delErr);
-          }
-        }
-      }
-
       this._cachedSubmissionsByCerId.clear();
       return;
     }
 
-    // 3. Create new history item if not already existing
+    // 4. Create NEW history item for this version (never overwriting prior version snapshots!)
     await this._executeWithFieldFallback(
       (p) => this._sp.createListItem(SP_LISTS.CER_PROPOSALS_HISTORY, p),
       payload,
@@ -3027,6 +3040,7 @@ export class SharePointCERDataService implements ICERDataService {
       modified_date: item.Modified || new Date().toISOString(),
       modified_by: item.Editor?.Title || "System",
       revision_count: Number(item.revisionCount ?? item.revision_count ?? 0),
+      version: item.version || item.Version ? String(item.version || item.Version).trim().toUpperCase() : undefined,
       etag: item["odata.etag"] || item["@odata.etag"] || item.__metadata?.etag || undefined,
     };
   }

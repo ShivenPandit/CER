@@ -1001,8 +1001,20 @@ export class LocalMockCERDataService implements ICERDataService {
       const snapshot = (originalProposal && originalProposal.status === "Approved") ? originalProposal : oldProposal;
       // Archive the previously approved proposal snapshot into CERProposalsHistory
       const historySnapshot: ICERProposal = JSON.parse(JSON.stringify(snapshot));
+      const cerId = (historySnapshot.cer_proposal_id || historySnapshot.cerprno || "").trim().toUpperCase();
+      const existingHistory = this._proposalsHistory.filter((p) => {
+        const pCerId = (p.cer_proposal_id || p.cerPrId || p.cerprno || "").trim().toUpperCase();
+        return pCerId === cerId;
+      });
+      const versionIndex = (historySnapshot as any).version
+        ? parseInt(String((historySnapshot as any).version).replace(/\D/g, ""), 10) || (existingHistory.length + 1)
+        : (existingHistory.length + 1);
+      const versionTag = `V${versionIndex}`;
+      historySnapshot.version = versionTag;
+
       const existIdx = this._proposalsHistory.findIndex(
-        (h) => (h.proposal_no && h.proposal_no.toUpperCase() === (historySnapshot.proposal_no || "").toUpperCase())
+        (h) => (h.cer_proposal_id || h.cerprno || "").toUpperCase() === cerId &&
+               String((h as any).version || "").toUpperCase() === versionTag
       );
       if (existIdx !== -1) {
         this._proposalsHistory[existIdx] = historySnapshot;

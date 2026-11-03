@@ -292,6 +292,27 @@ export function buildTableRowsForIteration(
             }
           } else if (propStatus === "Approved") {
             statusText = "Approved";
+          } else if (propStatus === "Rejected") {
+            const rejLevel =
+              iteration.decisions.find(
+                (d) => (d.decision || "").trim().toUpperCase() === "REJECTED"
+              )?.level_id || currentLvl;
+            if (stage.level < rejLevel) {
+              statusText = "Approved";
+            } else if (stage.level === rejLevel) {
+              statusText = "Rejected";
+            } else {
+              statusText = "Not Started";
+            }
+          } else if (propStatus === "Sent Back") {
+            const sbLevel = iteration.sentBackLevel || currentLvl;
+            if (stage.level < sbLevel) {
+              statusText = "Approved";
+            } else if (stage.level === sbLevel) {
+              statusText = "Send Back";
+            } else {
+              statusText = "Not Started";
+            }
           } else {
             statusText = "Not Started";
           }
@@ -320,9 +341,10 @@ export function buildTableRowsForIteration(
 
 /**
  * Robustly partitions a master list of approval decisions across proposal versions.
- * 1. Primary: Uses explicit 'version' column (e.g. 'V1', 'V2') if present in SharePoint list.
- * 2. Secondary: Matches explicit proposal numbers (e.g. 'PR-2026/02-R1' vs 'PR-2026/02').
- * 3. Fallback: Uses chronological milestone boundary partitioning for legacy records.
+ * 1. Primary: Matches explicit proposal numbers if distinct (e.g. 'PR-2026/02-R1' vs 'PR-2026/02').
+ * 2. Secondary: Direct 'version' column matching (e.g. 'V1', 'V2').
+ * 3. Fallback: Chronological boundary against historical snapshot archive timestamps.
+ * 4. Workflow Continuity Safeguard: Reconciles preceding level approvals (e.g. L1) into active cycles.
  */
 export function partitionDecisionsByVersion(
   allDecisions: IApprovalDecision[],
@@ -342,107 +364,107 @@ export function partitionDecisionsByVersion(
     return tA - tB;
   });
 
-  // 1. Primary Path: Direct 'version' Column Matching (e.g. 'V1', 'V2', '1', '2')
-  const hasVersionTags = sorted.some((d) => Boolean((d as any).version || (d as any).Version));
-  if (hasVersionTags) {
-    sorted.forEach((d) => {
-      const rawV = String((d as any).version || (d as any).Version || "").trim().toUpperCase();
-      let matchedVer = versionEntries.find((v) => {
+  const currentVer = versionEntries.find((v) => v.isCurrent) || versionEntries[0];
+  const historicalVers = versionEntries.filter((v) => !v.isCurrent);
+
+  sorted.forEach((d) => {
+    const rawV = String((d as any).version || (d as any).Version || "").trim().toUpperCase();
+    const dNo = (d.cerprno || "").trim().toUpperCase();
+    const dTime = new Date((d as any).decision_date || (d as any).decidedAt || d.timestamp || (d as any).Created || 0).getTime();
+
+    // 1. Check exact proposal number match if versions have distinct proposal numbers
+    const explicitNoVer = versionEntries.find(
+      (v) => (v.proposalNo || "").trim().toUpperCase() === dNo && dNo !== (v.rawProposal.cer_proposal_id || "").trim().toUpperCase()
+    );
+    if (explicitNoVer) {
+      result[explicitNoVer.id].push(d);
+      return;
+    }
+
+    // 2. Direct 'version' Column Matching (e.g. 'V1', 'V2', '1', '2')
+    if (rawV) {
+      const matchedVer = versionEntries.find((v) => {
         const vExpected = `V${v.serialNo}`.toUpperCase();
         const vNumExpected = String(v.serialNo);
         return rawV === vExpected || rawV === vNumExpected;
       });
 
-      // Resilient fallback: if a decision tag exceeds highest available serial number (e.g. 'V3' recorded
-      // during previous live test while still in Serial No. 2), safely match it to the current active cycle
-      if (!matchedVer && rawV.startsWith("V")) {
+      if (matchedVer) {
+        result[matchedVer.id].push(d);
+        return;
+      }
+
+      if (rawV.startsWith("V")) {
         const tagNum = parseInt(rawV.substring(1), 10);
         const maxSerial = Math.max(...versionEntries.map((v) => v.serialNo), 1);
         if (tagNum >= maxSerial) {
-          matchedVer = versionEntries.find((v) => v.isCurrent) || versionEntries[0];
-        }
-      }
-
-      if (matchedVer) {
-        result[matchedVer.id].push(d);
-      } else {
-        // If an untagged legacy decision exists alongside tagged ones, assign untagged earlier decision to Serial No. 1
-        if (!rawV && versionEntries.length > 0) {
-          const oldestVer = versionEntries.find((v) => v.serialNo === 1) || versionEntries[0];
-          result[oldestVer.id].push(d);
-        } else {
-          const currentVer = versionEntries.find((v) => v.isCurrent) || versionEntries[0];
           result[currentVer.id].push(d);
+          return;
         }
       }
-    });
-    return result;
-  }
+    }
 
-  // 2. Secondary Path: Check if decisions explicitly contain the version's proposalNo
-  const hasExplicitMatching = sorted.some((d) => {
-    const dNo = (d.cerprno || "").trim().toUpperCase();
-    return versionEntries.some(
-      (v) => (v.proposalNo || "").trim().toUpperCase() === dNo && dNo !== (v.rawProposal.cer_proposal_id || "").trim().toUpperCase()
-    );
+    // 3. Fallback for untagged / unversioned decisions: Check chronological boundary against historical snapshots
+    let assigned = false;
+    for (const hist of historicalVers) {
+      const histDate = new Date(hist.rawProposal.modified_date || hist.rawProposal.created_date || 0).getTime();
+      if (histDate > 0 && dTime <= histDate) {
+        result[hist.id].push(d);
+        assigned = true;
+        break;
+      }
+    }
+
+    if (!assigned) {
+      result[currentVer.id].push(d);
+    }
   });
 
-  if (hasExplicitMatching) {
-    sorted.forEach((d) => {
-      const dNo = (d.cerprno || "").trim().toUpperCase();
-      const matchedVer = versionEntries.find((v) => (v.proposalNo || "").trim().toUpperCase() === dNo);
-      if (matchedVer) {
-        result[matchedVer.id].push(d);
-      } else {
-        const currentVer = versionEntries.find((v) => v.isCurrent) || versionEntries[0];
-        result[currentVer.id].push(d);
+  // 4. Workflow Continuity Safeguard:
+  // If active cycle (or any cycle) has higher level decisions (e.g. L2) but is missing L1,
+  // check if an L1 approval was placed in other partitions that chronologically belongs to this cycle
+  for (const v of versionEntries) {
+    const decs = result[v.id];
+    const hasL2Plus = decs.some((d) => d.level_id >= 2);
+    const hasL1 = decs.some((d) => d.level_id === 1);
+
+    if (hasL2Plus && !hasL1) {
+      for (const otherVer of versionEntries) {
+        if (otherVer.id === v.id) continue;
+        const otherDecs = result[otherVer.id];
+        const minVTime = Math.min(
+          ...decs.map((d) => new Date((d as any).decision_date || (d as any).decidedAt || d.timestamp || (d as any).Created || 0).getTime())
+        );
+        const candidateIdx = otherDecs.findIndex((d) => {
+          if (d.level_id !== 1 || (d.decision || "").trim().toUpperCase() !== "APPROVED") return false;
+          const t = new Date((d as any).decision_date || (d as any).decidedAt || d.timestamp || (d as any).Created || 0).getTime();
+          return t <= minVTime;
+        });
+
+        if (candidateIdx !== -1) {
+          const [migrated] = otherDecs.splice(candidateIdx, 1);
+          decs.push(migrated);
+          decs.sort((a, b) => {
+            const tA = new Date((a as any).decision_date || (a as any).decidedAt || a.timestamp || (a as any).Created || 0).getTime();
+            const tB = new Date((b as any).decision_date || (b as any).decidedAt || b.timestamp || (b as any).Created || 0).getTime();
+            return tA - tB;
+          });
+          break;
+        }
       }
-    });
-    return result;
-  }
-
-  // 3. Fallback: Sequential Milestone Boundary Partitioning (When proposal numbers are IDENTICAL):
-  // Chronological order: [Historical 1, ..., Current]
-  if (versionEntries.length === 1) {
-    result[versionEntries[0].id] = sorted;
-    return result;
-  }
-
-  const chronologicalVersions = [...versionEntries].reverse(); // e.g. [Historical 1, Current]
-  const currentVer = versionEntries.find((v) => v.isCurrent) || versionEntries[0];
-  const histVer = chronologicalVersions[0];
-
-  // Find the boundary where Historical 1 ended:
-  let boundaryIndex = -1;
-  for (let i = 0; i < sorted.length; i++) {
-    const dec = sorted[i];
-    const isL6Approved = dec.level_id === 6 && (dec.decision || "").trim().toUpperCase() === "APPROVED";
-    const isSendBack = (dec.decision || "").trim().toUpperCase() === "SENT_BACK" || (dec.decision || "").trim().toUpperCase() === "SENT BACK";
-
-    if (isL6Approved) {
-      boundaryIndex = i;
-      break;
-    }
-    if (isSendBack && i > 0) {
-      boundaryIndex = i - 1;
-      break;
-    }
-  }
-
-  if (boundaryIndex !== -1) {
-    result[histVer.id] = sorted.slice(0, boundaryIndex + 1);
-    result[currentVer.id] = sorted.slice(boundaryIndex + 1);
-  } else {
-    // If no clear boundary, assign all historical decisions to Historical 1 if it is Approved
-    if (histVer.status === "Approved") {
-      result[histVer.id] = sorted.filter((d) => (d.decision || "").trim().toUpperCase() === "APPROVED");
-      result[currentVer.id] = sorted;
-    } else {
-      result[currentVer.id] = sorted;
     }
   }
 
   return result;
+}
+
+export interface IViewingCommentsData {
+  stageName: string;
+  levelBadge: string;
+  statusText: string;
+  updatedBy: string;
+  dateTime: string;
+  remarks: string;
 }
 
 export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
@@ -458,19 +480,26 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
   const [versionDecisionsMap, setVersionDecisionsMap] = useState<Record<string, IApprovalDecision[]>>({});
   const [isLoadingDecisions, setIsLoadingDecisions] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [viewingComments, setViewingComments] = useState<IViewingCommentsData | null>(null);
 
   const permanentCerId = proposal?.cer_proposal_id || proposal?.cerprno || "—";
 
   // Handle ESC key to close
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        if (viewingComments) {
+          setViewingComments(null);
+        } else {
+          onClose();
+        }
+      }
     };
     if (isOpen) {
       window.addEventListener("keydown", handleKeyDown);
     }
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, viewingComments]);
 
   // Load historical proposal snapshots if not supplied via props
   useEffect(() => {
@@ -738,20 +767,9 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
         {/* Column 4: Status Updated By */}
         <td className="py-3 px-3.5">
           {updatedBy !== "—" ? (
-            <div>
-              <span className="font-semibold text-slate-800 text-sm">
-                {updatedBy}
-              </span>
-              {remarks && (
-                <div
-                  className="text-xs sm:text-[13px] text-slate-600 mt-1 flex items-center gap-1.5 max-w-md truncate"
-                  title={remarks}
-                >
-                  <MessageSquare className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span className="truncate">"{remarks}"</span>
-                </div>
-              )}
-            </div>
+            <span className="font-semibold text-slate-800 text-sm">
+              {updatedBy}
+            </span>
           ) : (
             <span className="text-slate-400 font-medium text-sm">—</span>
           )}
@@ -765,6 +783,32 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
             </span>
           ) : (
             <span className="text-slate-400 font-medium text-sm">—</span>
+          )}
+        </td>
+
+        {/* Column 6: Comments */}
+        <td className="py-3 px-3.5 text-center">
+          {remarks ? (
+            <button
+              type="button"
+              onClick={() =>
+                setViewingComments({
+                  stageName: stage.name,
+                  levelBadge: stage.levelBadge,
+                  statusText,
+                  updatedBy,
+                  dateTime,
+                  remarks,
+                })
+              }
+              className="inline-flex items-center justify-center p-2 rounded-lg text-[#012964] hover:bg-[#012964]/10 transition-colors border border-[#012964]/20 shadow-2xs group cursor-pointer"
+              title="View Reviewer Comments & Justification"
+              aria-label={`View comments from ${updatedBy}`}
+            >
+              <MessageSquare className="w-4 h-4 text-[#012964] group-hover:scale-110 transition-transform" />
+            </button>
+          ) : (
+            <span className="text-slate-300 font-medium text-sm select-none">—</span>
           )}
         </td>
       </tr>
@@ -1014,6 +1058,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
                       <th className="py-3 px-3.5 w-40">Status</th>
                       <th className="py-3 px-3.5">Status Updated By</th>
                       <th className="py-3 px-3.5 w-48">Date & Time</th>
+                      <th className="py-3 px-3.5 w-28 text-center">Comments</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1060,6 +1105,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
                             <th className="py-3 px-3.5 w-40">Status</th>
                             <th className="py-3 px-3.5">Status Updated By</th>
                             <th className="py-3 px-3.5 w-48">Date & Time</th>
+                            <th className="py-3 px-3.5 w-28 text-center">Comments</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -1084,6 +1130,98 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Reviewer Comments & Justification Modal Popup */}
+      {viewingComments && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+          onClick={() => setViewingComments(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reviewer-comments-title"
+        >
+          <div
+            className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2 rounded-xl bg-[#012964]/10 border border-[#012964]/20 text-[#012964] shrink-0">
+                  <MessageSquare className="w-5 h-5 text-[#012964]" />
+                </div>
+                <div className="min-w-0">
+                  <h3 id="reviewer-comments-title" className="text-base font-bold text-slate-900 leading-tight">
+                    Reviewer Comments & Justification
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5 font-medium">
+                    {viewingComments.levelBadge} • {viewingComments.stageName}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingComments(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Close"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4">
+              {/* Metadata Banner */}
+              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 text-xs">
+                <div>
+                  <span className="font-semibold text-slate-500 uppercase tracking-wider block mb-1">
+                    Decision Status
+                  </span>
+                  <div>{renderStatusBadge(viewingComments.statusText)}</div>
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-500 uppercase tracking-wider block mb-1">
+                    Date & Time
+                  </span>
+                  <span className="font-semibold text-slate-800 text-[13px]">
+                    {viewingComments.dateTime}
+                  </span>
+                </div>
+                <div className="col-span-2 pt-2 border-t border-slate-200/60">
+                  <span className="font-semibold text-slate-500 uppercase tracking-wider block mb-0.5">
+                    Status Updated By
+                  </span>
+                  <span className="font-bold text-slate-900 text-sm">
+                    {viewingComments.updatedBy}
+                  </span>
+                </div>
+              </div>
+
+              {/* Justification Text Area */}
+              <div>
+                <label className="text-xs uppercase font-bold text-slate-700 tracking-wider block mb-1.5">
+                  Comments & Justification
+                </label>
+                <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-4 text-slate-800 text-sm leading-relaxed whitespace-pre-wrap max-h-56 overflow-y-auto font-normal shadow-2xs">
+                  {viewingComments.remarks}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end px-5 py-3 border-t border-slate-200 bg-slate-50/80">
+              <button
+                type="button"
+                onClick={() => setViewingComments(null)}
+                className="px-4 py-2 text-sm font-semibold rounded-xl bg-[#012964] text-white hover:bg-[#001f4d] transition-colors shadow-2xs cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

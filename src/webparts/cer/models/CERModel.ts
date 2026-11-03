@@ -96,6 +96,7 @@ export interface ICERProposal {
   modified_by: string;
   revision_count: number;
   etag?: string; // SharePoint item ETag for optimistic concurrency (HTTP 412)
+  version?: string; // Workflow lifecycle version tag: e.g. V1, V2, V3
 }
 
 export const CATEGORY_DEFINITIONS: Record<CERCategory, { label: string; description: string; tagClass: string }> = {
