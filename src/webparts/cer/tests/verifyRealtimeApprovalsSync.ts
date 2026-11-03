@@ -3,6 +3,10 @@
  * Verifies SWR revalidation, cache busting with forceRefresh, and queue reactivity.
  */
 
+export {};
+
+declare const process: any;
+
 function assert(condition: boolean, message: string) {
   if (!condition) {
     console.error(`❌ [FAIL] ${message}`);

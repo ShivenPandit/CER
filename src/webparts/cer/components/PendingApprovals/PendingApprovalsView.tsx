@@ -45,15 +45,14 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
   const [selectedProposal, setSelectedProposal] = useState<ICERProposal | null>(null);
   const [selectedAttachments, setSelectedAttachments] = useState<ICERAttachment[]>([]);
   const [isDecisionModalOpen, setIsDecisionModalOpen] = useState(false);
+  const [openingProposalId, setOpeningProposalId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastSynced, setLastSynced] = useState<Date>(new Date());
   const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialProposals !== undefined) {
       setProposals(initialProposals);
       setIsLoading(false);
-      setLastSynced(new Date());
     }
   }, [initialProposals]);
 
@@ -69,14 +68,16 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
         setIsLoading(false);
         return;
       }
-      setIsLoading(true);
+      // Zero flicker: Only show skeleton loader if there is genuinely no data yet
+      if (proposals.length === 0 && (!initialProposals || initialProposals.length === 0)) {
+        setIsLoading(true);
+      }
       const [allProps, allLevels] = await Promise.all([
         dataService.getAllProposals(force),
         dataService.getWorkflowLevels(undefined, force),
       ]);
       setProposals(allProps);
       setLevels(allLevels);
-      setLastSynced(new Date());
     } catch (e) {
       console.error("Error loading pending approvals:", e);
     } finally {
@@ -85,14 +86,15 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
   };
 
   const handleManualRefresh = async (): Promise<void> => {
-    if (isRefreshing) return;
+    // Prevent background refresh during modal review or when button is already clicked
+    if (isRefreshing || isDecisionModalOpen || openingProposalId) return;
     setIsRefreshing(true);
     try {
-      await Promise.all([
-        loadData(true),
-        onRefreshProposals ? onRefreshProposals() : Promise.resolve(),
-      ]);
-      setLastSynced(new Date());
+      if (onRefreshProposals) {
+        await onRefreshProposals();
+      } else {
+        await loadData(true);
+      }
     } catch (e) {
       console.error("Error refreshing pending approvals queue:", e);
     } finally {
@@ -104,9 +106,10 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
   useEffect(() => {
     let lastCheck = Date.now();
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
+      // Pause revalidation while user is actively reviewing or deciding on a proposal
+      if (document.visibilityState === "visible" && !isDecisionModalOpen && !openingProposalId) {
         const now = Date.now();
-        if (now - lastCheck > 15000) {
+        if (now - lastCheck > 25000) {
           lastCheck = now;
           handleManualRefresh().catch((err) => console.error(err));
         }
@@ -119,15 +122,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", handleVisibilityChange);
     };
-  }, []);
-
-  const getLastSyncedText = (): string => {
-    const diffSec = Math.floor((Date.now() - lastSynced.getTime()) / 1000);
-    if (diffSec < 45) return "Just now";
-    if (diffSec < 120) return "1m ago";
-    const mins = Math.floor(diffSec / 60);
-    return `${mins}m ago`;
-  };
+  }, [isDecisionModalOpen, openingProposalId]);
 
   useEffect(() => {
     if (!initialProposals || initialProposals.length === 0 || !initialWorkflowLevels || initialWorkflowLevels.length === 0) {
@@ -180,10 +175,17 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
   const visiblePendingList = pagination.paginateItems(pendingList);
 
   const handleOpenDecision = async (prop: ICERProposal) => {
-    setSelectedProposal(prop);
-    const atts = await dataService.getAttachments(prop.cerprno);
-    setSelectedAttachments(atts);
-    setIsDecisionModalOpen(true);
+    try {
+      setOpeningProposalId(prop.cerprno);
+      setSelectedProposal(prop);
+      const atts = await dataService.getAttachments(prop.cerprno);
+      setSelectedAttachments(atts);
+      setIsDecisionModalOpen(true);
+    } catch (err) {
+      console.error("Error opening approval decision:", err);
+    } finally {
+      setOpeningProposalId(null);
+    }
   };
 
   const handleSubmitDecision = async (
@@ -264,10 +266,6 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
             <span>{isRefreshing ? "Checking..." : "Refresh Queue"}</span>
           </button>
 
-          <span className="text-[11px] text-slate-400 hidden xl:inline" title="Time since last synchronization">
-            Synced {getLastSyncedText()}
-          </span>
-
           <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
             {pendingList.length} Tasks Pending Review
           </span>
@@ -295,7 +293,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
         className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden flex flex-col"
       >
         <div className="p-4 sm:p-5 space-y-4">
-          {isLoading ? (
+          {isLoading && proposals.length === 0 ? (
             <div className="space-y-4">
               {[1, 2].map((idx) => (
                 <div key={idx} className="bg-slate-50/50 rounded-xl border border-slate-200 p-4 sm:p-5 animate-pulse">
@@ -375,10 +373,15 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
 
                       <button
                         onClick={() => handleOpenDecision(prop)}
-                        className="flex-1 sm:flex-initial px-4 py-2 text-xs font-semibold text-white bg-[#012964] hover:bg-[#001f4d] rounded-xl shadow-md shadow-[#012964]/25 transition-all hover:scale-[1.02] flex items-center justify-center gap-1.5 cursor-pointer"
+                        disabled={openingProposalId === prop.cerprno}
+                        className="flex-1 sm:flex-initial px-4 py-2 text-xs font-semibold text-white bg-[#012964] hover:bg-[#001f4d] rounded-xl shadow-md shadow-[#012964]/25 transition-all hover:scale-[1.02] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-75 disabled:pointer-events-none"
                       >
-                        <CheckSquare className="w-3.5 h-3.5" />
-                        <span>Review & Decide</span>
+                        {openingProposalId === prop.cerprno ? (
+                          <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <CheckSquare className="w-3.5 h-3.5" />
+                        )}
+                        <span>{openingProposalId === prop.cerprno ? "Opening..." : "Review & Decide"}</span>
                       </button>
                     </div>
                   </div>

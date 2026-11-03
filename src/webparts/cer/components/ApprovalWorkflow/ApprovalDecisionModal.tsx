@@ -102,7 +102,7 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
                     size="xs"
                   />
                   <p className="text-slate-500">
-                    Initiated by <strong className="text-slate-800">{proposal.owname}</strong> ({proposal.owner_email}) • SBU: {proposal.sbu}
+                    Initiated by <strong className="text-slate-800">{proposal.owname}</strong>
                   </p>
                 </div>
               </div>
