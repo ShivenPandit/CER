@@ -898,11 +898,8 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
           isOpen={isProposalHistoryOpen}
           onClose={() => setIsProposalHistoryOpen(false)}
           cerProposalId={proposal.cer_proposal_id || proposal.cerprno}
+          initialHistory={historyProposals}
           dataService={dataService}
-          onSelectProposal={(selectedNo) => {
-            setIsProposalHistoryOpen(false);
-            loadProposal(selectedNo).catch((e) => console.error(e));
-          }}
         />
       )}
 

@@ -190,6 +190,37 @@ async function runProposalsHistoryVerification(): Promise<void> {
   assert(submissionsAfterSecond.active?.proposal_no === "PR-AMENDMENT-03", "Active is now PR-AMENDMENT-03");
   assert(submissionsAfterSecond.history.length === 2, "History now holds 2 approved snapshots (PR-AMENDMENT-02 and PR-ORIGINAL-01)");
 
+  // ---------------------------------------------------------------------------
+  // TEST 5: Post-Approval Resubmission with Same Proposal Number (Requirement Update)
+  // ---------------------------------------------------------------------------
+  console.log("\n--- TEST 5: Post-Approval Resubmission with Same Proposal Number ---");
+  await service.recordDecision({
+    cerprno: allocatedCerId,
+    decision: "APPROVED",
+    comments: "Second amendment approved.",
+    approver_name: "Technical Approver",
+    approver_email: "approver1@vedanta.co.in",
+    level_id: 1,
+  });
+
+  const approvedV3 = await service.getProposalByNumber(allocatedCerId);
+  assert(approvedV3?.status === "Approved", "Amendment 03 transitioned to 'Approved'");
+
+  // Resubmit KEEPING the exact same Proposal No "PR-AMENDMENT-03"
+  const sameNoPayload = {
+    ...approvedV3!,
+    amount: 2000000,
+    status: "In Approval" as const,
+  };
+
+  const sameNoResult = await service.updateProposal(sameNoPayload, initiator);
+  assert(sameNoResult.success, "Post-approval update with same Proposal No succeeded without error");
+
+  const submissionsAfterSameNo = await service.getAllSubmissionsForCER(allocatedCerId);
+  assert(submissionsAfterSameNo.active?.proposal_no === "PR-AMENDMENT-03", "Active proposal retained same Proposal No PR-AMENDMENT-03");
+  assert(submissionsAfterSameNo.active?.amount === 2000000, "Active proposal amount was updated to 2,000,000");
+  assert(submissionsAfterSameNo.history.length >= 2, "History contains previous approved snapshots");
+
   console.log("\n================================================================================");
   console.log(` PROPOSALS HISTORY TEST SUMMARY: ${passed} PASSED | ${failed} FAILED | TOTAL: ${passed + failed}`);
   console.log("================================================================================");

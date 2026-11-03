@@ -3,6 +3,38 @@ import { containsMaliciousScript } from "./sanitizationUtils";
 
 export type FormErrors = Partial<Record<keyof ICERProposal | "phasing_mismatch" | "cost_mismatch", string>>;
 
+/**
+ * Checks whether the user has entered any values in Section D (CAPEX Breakdown).
+ * Fields: engineer, s_fac, comis, preop, others.
+ * Returns true if at least one field has been populated with a non-zero value or non-empty string.
+ */
+export function hasEnteredCostBreakdown(formData: Partial<ICERProposal>): boolean {
+  if (!formData) return false;
+  const fields: (keyof ICERProposal)[] = ["engineer", "s_fac", "comis", "preop", "others"];
+  const hasFieldEntry = fields.some((f) => {
+    const val = formData[f];
+    return val !== undefined && val !== null && val !== "" && Number(val) !== 0;
+  });
+  if (hasFieldEntry) return true;
+  const engineer = Number(formData.engineer || 0);
+  const s_fac = Number(formData.s_fac || 0);
+  const comis = Number(formData.comis || 0);
+  const preop = Number(formData.preop || 0);
+  const others = Number(formData.others || 0);
+  return (engineer + s_fac + comis + preop + others) > 0;
+}
+
+/**
+ * Formats difference between Total CAPEX and Amount of CER with sign (+ or -) and currency.
+ */
+export function formatCapexDifference(diff: number, currency?: string): string {
+  const isINR = currency === "INR";
+  const currSymbol = isINR ? "₹" : "$";
+  const currUnit = isINR ? "" : " mm";
+  const sign = diff > 0 ? "+" : "-";
+  return `${sign}${currSymbol}${Math.abs(diff).toLocaleString()}${currUnit}`;
+}
+
 // Exactly the 14 mandatory fields mandated by client requirements
 export const MANDATORY_CER_FIELDS: (keyof ICERProposal)[] = [
   "pr_name",           // 1. Name of the Project
@@ -373,6 +405,29 @@ export function validateField(
       return undefined;
     }
 
+    case "total": {
+      if (hasEnteredCostBreakdown(formData)) {
+        const cerAmount = Number(formData.amount || 0);
+        const engineer = Number(formData.engineer || 0);
+        const s_fac = Number(formData.s_fac || 0);
+        const comis = Number(formData.comis || 0);
+        const preop = Number(formData.preop || 0);
+        const others = Number(formData.others || 0);
+        const computedTotal = engineer + s_fac + comis + preop + others;
+        if (Math.abs(computedTotal - cerAmount) > 0.01) {
+          const diff = computedTotal - cerAmount;
+          const isINR = formData.currency === "INR";
+          const currSymbol = isINR ? "₹" : "$";
+          const currUnit = isINR ? "" : " mm";
+          const diffFormatted = `${diff > 0 ? "+" : "-"}${currSymbol}${Math.abs(diff).toLocaleString()}${currUnit}`;
+          const totalFormatted = `${currSymbol}${computedTotal.toLocaleString()}${currUnit}`;
+          const cerAmountFormatted = `${currSymbol}${cerAmount.toLocaleString()}${currUnit}`;
+          return `Total CAPEX (${totalFormatted}) must equal Amount of CER (${cerAmountFormatted}). Difference: ${diffFormatted}`;
+        }
+      }
+      return undefined;
+    }
+
     default:
       return undefined;
   }
@@ -448,6 +503,32 @@ export function validateAll(formData: ICERProposal, isDraft: boolean = false): {
         if (err) {
           errors[field] = err;
         }
+      }
+    }
+
+    // 3. Section D — CAPEX Breakdown validation
+    // Total Capex = Amount of CER. Only validate when user has entered values in Section D fields.
+    if (hasEnteredCostBreakdown(formData)) {
+      const cerAmount = Number(formData.amount || 0);
+      const engineer = Number(formData.engineer || 0);
+      const s_fac = Number(formData.s_fac || 0);
+      const comis = Number(formData.comis || 0);
+      const preop = Number(formData.preop || 0);
+      const others = Number(formData.others || 0);
+      const computedTotal = engineer + s_fac + comis + preop + others;
+
+      if (Math.abs(computedTotal - cerAmount) > 0.01) {
+        const diff = computedTotal - cerAmount;
+        const isINR = formData.currency === "INR";
+        const currSymbol = isINR ? "₹" : "$";
+        const currUnit = isINR ? "" : " mm";
+        const diffFormatted = `${diff > 0 ? "+" : "-"}${currSymbol}${Math.abs(diff).toLocaleString()}${currUnit}`;
+        const totalFormatted = `${currSymbol}${computedTotal.toLocaleString()}${currUnit}`;
+        const cerAmountFormatted = `${currSymbol}${cerAmount.toLocaleString()}${currUnit}`;
+
+        const diffMsg = `Total CAPEX (${totalFormatted}) must equal Amount of CER (${cerAmountFormatted}). Difference: ${diffFormatted}`;
+        errors.total = diffMsg;
+        errors.cost_mismatch = diffMsg;
       }
     }
   }

@@ -12,7 +12,7 @@ import { CostBreakdownSection } from "./CostBreakdownSection";
 import { RemarksSection } from "./RemarksSection";
 import { AttachmentSection } from "./AttachmentSection";
 import { CategoryDefinitionSection } from '../Shared/CategoryDefinitionSection';
-import { FormErrors, validateField, validateAll } from "../../utils/cerValidation";
+import { FormErrors, validateField, validateAll, hasEnteredCostBreakdown } from "../../utils/cerValidation";
 import { sanitizeSingleLineText, sanitizeMultiLineText, sanitizeProposalPayload } from "../../utils/sanitizationUtils";
 import { MAX_TOTAL_SIZE_BYTES, formatBytes } from "../../utils/attachmentValidation";
 import { getCurrentFiscalYearPhasingLabels } from "../../utils/dateUtils";
@@ -182,6 +182,26 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         });
       }
 
+      // Re-validate total (Section D) when Section D fields or capex phasing change
+      if (
+        ["engineer", "s_fac", "comis", "preop", "others", "capex_till", "capex_fy", "capex_beyond"].indexOf(field as string) !== -1
+      ) {
+        if (errors.total || errors.cost_mismatch || touched.total) {
+          const totalErr = validateField("total", updated.total, updated, false);
+          setErrors((prevErrors) => {
+            const newErrors = { ...prevErrors };
+            if (totalErr) {
+              newErrors.total = totalErr;
+              newErrors.cost_mismatch = totalErr;
+            } else {
+              delete newErrors.total;
+              delete newErrors.cost_mismatch;
+            }
+            return newErrors;
+          });
+        }
+      }
+
       return updated;
     });
 
@@ -246,6 +266,45 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         }
         return updated;
       });
+      if (hasEnteredCostBreakdown(formData)) {
+        const totalError = validateField("total", formData.total, formData, false);
+        setErrors((prev) => {
+          const updated = { ...prev };
+          if (totalError) {
+            updated.total = totalError;
+            updated.cost_mismatch = totalError;
+          } else {
+            delete updated.total;
+            delete updated.cost_mismatch;
+          }
+          return updated;
+        });
+      }
+    }
+
+    if (["engineer", "s_fac", "comis", "preop", "others"].indexOf(field as string) !== -1) {
+      if (hasEnteredCostBreakdown(updatedForm)) {
+        setTouched((prev) => ({ ...prev, total: true }));
+        const totalError = validateField("total", updatedForm.total, updatedForm, false);
+        setErrors((prev) => {
+          const updated = { ...prev };
+          if (totalError) {
+            updated.total = totalError;
+            updated.cost_mismatch = totalError;
+          } else {
+            delete updated.total;
+            delete updated.cost_mismatch;
+          }
+          return updated;
+        });
+      } else {
+        setErrors((prev) => {
+          const updated = { ...prev };
+          delete updated.total;
+          delete updated.cost_mismatch;
+          return updated;
+        });
+      }
     }
   };
 
@@ -259,7 +318,8 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
 
   const scrollToFirstError = (fieldKey: string) => {
     setTimeout(() => {
-      const targetElement = document.getElementById(`field-${fieldKey}`) || document.getElementById(fieldKey);
+      const key = fieldKey === "cost_mismatch" ? "total" : fieldKey;
+      const targetElement = document.getElementById(`field-${key}`) || document.getElementById(key);
       if (targetElement) {
         targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
         const focusable = targetElement.querySelector("input, select, textarea") as HTMLElement | null;

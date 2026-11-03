@@ -12,7 +12,7 @@ import { CostBreakdownSection } from '../CreateCER/CostBreakdownSection';
 import { RemarksSection } from '../CreateCER/RemarksSection';
 import { AttachmentSection } from '../CreateCER/AttachmentSection';
 import { CategoryDefinitionSection } from '../Shared/CategoryDefinitionSection';
-import { FormErrors, validateField, validateAll } from "../../utils/cerValidation";
+import { FormErrors, validateField, validateAll, hasEnteredCostBreakdown } from "../../utils/cerValidation";
 import { sanitizeSingleLineText, sanitizeMultiLineText, sanitizeProposalPayload } from "../../utils/sanitizationUtils";
 import { MAX_TOTAL_SIZE_BYTES, formatBytes } from "../../utils/attachmentValidation";
 import { PermissionService } from "../../services/PermissionService";
@@ -84,16 +84,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           found.created_date ? new Date(found.created_date) : new Date()
         );
 
-        let initialProposalNo = found.proposal_no || found.cerprno || "";
-        if (found.status === "Approved") {
-          const match = initialProposalNo.match(/-R(\d+)$/i);
-          if (match) {
-            const nextRev = parseInt(match[1], 10) + 1;
-            initialProposalNo = initialProposalNo.replace(/-R\d+$/i, `-R${nextRev}`);
-          } else {
-            initialProposalNo = `${initialProposalNo}-R1`;
-          }
-        }
+        const initialProposalNo = found.proposal_no || found.cerprno || "";
 
         const normalized: ICERProposal = {
           ...found,
@@ -213,6 +204,26 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         });
       }
 
+      // Re-validate total (Section D) when Section D fields or capex phasing change
+      if (
+        ["engineer", "s_fac", "comis", "preop", "others", "capex_till", "capex_fy", "capex_beyond"].indexOf(field as string) !== -1
+      ) {
+        if (errors.total || errors.cost_mismatch || touched.total) {
+          const totalErr = validateField("total", updated.total, updated, false);
+          setErrors((prevErrors) => {
+            const newErrors = { ...prevErrors };
+            if (totalErr) {
+              newErrors.total = totalErr;
+              newErrors.cost_mismatch = totalErr;
+            } else {
+              delete newErrors.total;
+              delete newErrors.cost_mismatch;
+            }
+            return newErrors;
+          });
+        }
+      }
+
       return updated;
     });
 
@@ -278,6 +289,45 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         }
         return updated;
       });
+      if (hasEnteredCostBreakdown(formData)) {
+        const totalError = validateField("total", formData.total, formData, false);
+        setErrors((prev) => {
+          const updated = { ...prev };
+          if (totalError) {
+            updated.total = totalError;
+            updated.cost_mismatch = totalError;
+          } else {
+            delete updated.total;
+            delete updated.cost_mismatch;
+          }
+          return updated;
+        });
+      }
+    }
+
+    if (["engineer", "s_fac", "comis", "preop", "others"].indexOf(field as string) !== -1) {
+      if (hasEnteredCostBreakdown(updatedForm)) {
+        setTouched((prev) => ({ ...prev, total: true }));
+        const totalError = validateField("total", updatedForm.total, updatedForm, false);
+        setErrors((prev) => {
+          const updated = { ...prev };
+          if (totalError) {
+            updated.total = totalError;
+            updated.cost_mismatch = totalError;
+          } else {
+            delete updated.total;
+            delete updated.cost_mismatch;
+          }
+          return updated;
+        });
+      } else {
+        setErrors((prev) => {
+          const updated = { ...prev };
+          delete updated.total;
+          delete updated.cost_mismatch;
+          return updated;
+        });
+      }
     }
   };
 
@@ -300,7 +350,8 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
 
   const scrollToFirstError = (fieldKey: string) => {
     setTimeout(() => {
-      const targetElement = document.getElementById(`field-${fieldKey}`) || document.getElementById(fieldKey);
+      const key = fieldKey === "cost_mismatch" ? "total" : fieldKey;
+      const targetElement = document.getElementById(`field-${key}`) || document.getElementById(key);
       if (targetElement) {
         targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
         const focusable = targetElement.querySelector("input, select, textarea") as HTMLElement | null;
@@ -364,19 +415,6 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
 
     const originalPropNo = (originalProposal?.proposal_no || originalProposal?.cerprno || "").trim().toUpperCase();
     const isApprovedOriginal = originalProposal?.status === "Approved";
-
-    if (isApprovedOriginal && trimmedNo.toUpperCase() === originalPropNo) {
-      const prevNo = originalProposal?.proposal_no || originalProposal?.cerprno;
-      const msg = `Every post-approval resubmission must have a new, distinct CER Proposal No. (different from previous '${prevNo}'). Please enter a new Proposal No. (e.g. ${prevNo}-R1).`;
-      setErrors((prev) => ({
-        ...prev,
-        proposal_no: msg,
-      }));
-      setTouched((prev) => ({ ...prev, proposal_no: true }));
-      setErrorMessage(msg);
-      scrollToFirstError("proposal_no");
-      return;
-    }
 
     if (trimmedNo.toUpperCase() !== originalPropNo) {
       try {
@@ -585,7 +623,6 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
                 </div>
                 <p className="text-slate-700 leading-relaxed">
                   This proposal was previously approved. You are submitting an amended version.
-                  Enter a new, distinct <strong>CER Proposal No.</strong> below (e.g. adding <code>-R1</code>).
                   Upon submission, the previous approved snapshot will be archived in <strong>Proposal History</strong>,
                   and this updated request will re-enter the sequential workflow at Level 1.
                 </p>

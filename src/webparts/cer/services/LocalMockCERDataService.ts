@@ -1109,6 +1109,10 @@ export class LocalMockCERDataService implements ICERDataService {
     }
 
     const targetSbu = sbu ? sbu.trim() : "";
+    const validSbus = ["RJ North", "RJ South", "CBOS", "RAVA", "ALL"];
+    if (targetSbu && validSbus.map(s => s.toLowerCase()).indexOf(targetSbu.toLowerCase()) === -1) {
+      return [];
+    }
     return FIXED_6_LEVEL_APPROVAL_STAGES.map((stage) => {
       const lid = stage.level;
       const isPO = stage.isProjectOwnerStage;

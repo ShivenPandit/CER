@@ -328,10 +328,12 @@ export class PersonFieldService {
     const flatId = rawItem[idKey];
 
     if (personObj && typeof personObj === "object") {
-      const id = Number(personObj.Id !== undefined ? personObj.Id : personObj.id);
-      const name = String(personObj.Title || personObj.title || personObj.LookupValue || "");
-      let email = String(personObj.EMail || personObj.Email || personObj.email || personObj.Mail || "");
-      let loginName = String(personObj.LoginName || personObj.loginName || personObj.Name || personObj.name || personObj.UserName || email);
+      const targetObj = Array.isArray(personObj) ? personObj[0] : personObj;
+      if (!targetObj) return null;
+      const id = Number(targetObj.Id !== undefined ? targetObj.Id : targetObj.id);
+      const name = String(targetObj.Title || targetObj.title || targetObj.LookupValue || "");
+      let email = String(targetObj.EMail || targetObj.Email || targetObj.email || targetObj.Mail || "");
+      let loginName = String(targetObj.LoginName || targetObj.loginName || targetObj.Name || targetObj.name || targetObj.UserName || email);
 
       // If email is empty (common for vendor/contractor accounts like 70007144@cairnindia.com), extract email from LoginName
       if (!email && loginName) {

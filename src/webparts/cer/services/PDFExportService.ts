@@ -255,40 +255,6 @@ export class PDFExportService {
         styles: { fontSize: 8, textColor: [15, 23, 42] },
       });
 
-      currentY = (doc as any).lastAutoTable.finalY + 6;
-
-      if (currentY > 215) {
-        doc.addPage();
-        currentY = 16;
-      }
-
-      // Section H: Approval Decisions Trail
-      const decisionRows = decisions.map((d) => [
-        `Level ${d.level_id}: ${d.level_name}`,
-        d.approver_name,
-        d.decision,
-        new Date(d.timestamp).toLocaleString("en-GB"),
-        d.comments || "-",
-      ]);
-
-      if (decisionRows.length === 0) {
-        decisionRows.push(["Level 1: Initiated", proposal.owname, "SUBMITTED", new Date(proposal.created_date).toLocaleString("en-GB"), "Initial Proposal Submission"]);
-      }
-
-      autoTable(doc, {
-        startY: currentY,
-        margin: { left: margin, right: margin },
-        head: [["APPROVAL LEVEL", "APPROVER", "DECISION", "DATE & TIME", "COMMENTS"]],
-        body: decisionRows,
-        theme: "grid",
-        headStyles: { fillColor: CORPORATE_NAVY, textColor: HEADER_TEXT_COLOR, fontStyle: "bold", fontSize: 8 },
-        styles: { fontSize: 7.5 },
-        columnStyles: {
-          0: { fontStyle: "bold" },
-          2: { fontStyle: "bold" },
-        },
-      });
-
       // Footer with page numbering
       const totalPages = doc.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {

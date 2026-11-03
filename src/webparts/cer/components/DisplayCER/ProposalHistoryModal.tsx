@@ -1,26 +1,40 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   X,
+  History,
+  Calendar,
   Clock,
   CheckCircle2,
   AlertCircle,
-  FileText,
+  FolderGit2,
+  DollarSign,
+  Landmark,
+  BarChart2,
+  Calculator,
+  MessageSquare,
+  Paperclip,
+  User,
+  Layers,
+  UserCheck,
+  Check,
   ChevronRight,
-  History,
-  Eye,
-  Calendar,
+  Download,
+  FileText,
 } from "lucide-react";
 import { ICERProposal } from "../../models/CERModel";
+import { ICERAttachment } from "../../models/AttachmentModel";
 import { ICERDataService } from "../../services/ICERDataService";
 import { StatusBadge } from "../Shared/StatusBadge";
 import { CategoryBadge } from "../Shared/CategoryBadge";
+import { UserAvatar } from "../Common/UserAvatar";
+import { calculateExactDays, getCurrentFiscalYearPhasingLabels } from "../../utils/dateUtils";
 
 interface IProposalHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   cerProposalId: string;
   dataService: ICERDataService;
-  onSelectProposal: (proposalNo: string) => void;
+  initialHistory?: ICERProposal[];
 }
 
 export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
@@ -28,30 +42,41 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
   onClose,
   cerProposalId,
   dataService,
-  onSelectProposal,
+  initialHistory,
 }) => {
-  const [activeProposal, setActiveProposal] = useState<ICERProposal | null>(null);
-  const [historyProposals, setHistoryProposals] = useState<ICERProposal[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [historyProposals, setHistoryProposals] = useState<ICERProposal[]>(initialHistory || []);
+  const [selectedProposal, setSelectedProposal] = useState<ICERProposal | null>(null);
+  const [selectedAttachments, setSelectedAttachments] = useState<ICERAttachment[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(!initialHistory?.length);
+  const [isLoadingAttachments, setIsLoadingAttachments] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Sync props when opening
+  useEffect(() => {
+    if (initialHistory && initialHistory.length > 0) {
+      setHistoryProposals(initialHistory);
+    }
+  }, [initialHistory]);
+
+  // Load historical snapshots strictly from CERProposalsHistory
   useEffect(() => {
     if (!isOpen || !cerProposalId) return;
 
     let isMounted = true;
-    const fetchSubmissions = async (): Promise<void> => {
-      setIsLoading(true);
+    const fetchHistory = async (): Promise<void> => {
+      if (!initialHistory || initialHistory.length === 0) {
+        setIsLoading(true);
+      }
       setError(null);
       try {
-        const { active, history } = await dataService.getAllSubmissionsForCER(cerProposalId);
+        const hist = await dataService.getProposalHistory(cerProposalId);
         if (isMounted) {
-          setActiveProposal(active);
-          setHistoryProposals(history || []);
+          setHistoryProposals(hist || []);
         }
       } catch (err: unknown) {
         if (isMounted) {
-          console.error("Failed to fetch submissions for CER Proposal ID:", err);
-          setError("Failed to load submission history for this proposal.");
+          console.error("Failed to fetch historical snapshots for CER Proposal ID:", err);
+          setError("Failed to load historical snapshots for this proposal.");
         }
       } finally {
         if (isMounted) {
@@ -60,11 +85,80 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
       }
     };
 
-    fetchSubmissions().catch((e) => console.error(e));
+    fetchHistory().catch((e) => console.error(e));
     return () => {
       isMounted = false;
     };
-  }, [isOpen, cerProposalId, dataService]);
+  }, [isOpen, cerProposalId, dataService, initialHistory]);
+
+  // Sort history proposals descending by date (newest first: Serial No. 3, 2, 1)
+  const sortedHistory = useMemo(() => {
+    return [...historyProposals].sort((a, b) => {
+      const dateA = new Date(a.modified_date || a.created_date || 0).getTime();
+      const dateB = new Date(b.modified_date || b.created_date || 0).getTime();
+      return dateB - dateA;
+    });
+  }, [historyProposals]);
+
+  // Selection logic:
+  // Strictly select only from historical snapshots (index 0 is latest historical approved version)
+  useEffect(() => {
+    if (sortedHistory.length > 0) {
+      setSelectedProposal((prev) => {
+        if (!prev) return sortedHistory[0];
+        const prevKey = (prev.proposal_no || prev.cerprno || "").trim().toUpperCase();
+        const found = sortedHistory.find(
+          (p) => (p.proposal_no || p.cerprno || "").trim().toUpperCase() === prevKey
+        );
+        return found || sortedHistory[0];
+      });
+    } else {
+      setSelectedProposal(null);
+    }
+  }, [sortedHistory]);
+
+  // Load attachments for the selected historical snapshot
+  useEffect(() => {
+    if (!selectedProposal) {
+      setSelectedAttachments([]);
+      return;
+    }
+
+    let isMounted = true;
+    const loadAtts = async (): Promise<void> => {
+      setIsLoadingAttachments(true);
+      try {
+        const targetId = (
+          selectedProposal.cerprno ||
+          selectedProposal.proposal_no ||
+          selectedProposal.cer_proposal_id ||
+          ""
+        ).trim();
+        if (!targetId) {
+          if (isMounted) setSelectedAttachments([]);
+          return;
+        }
+        const atts = await dataService.getAttachments(targetId);
+        if (isMounted) {
+          setSelectedAttachments(atts || []);
+        }
+      } catch (e) {
+        if (isMounted) {
+          console.warn("Failed to load attachments for historical snapshot:", e);
+          setSelectedAttachments([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingAttachments(false);
+        }
+      }
+    };
+
+    loadAtts().catch((e) => console.error(e));
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedProposal, dataService]);
 
   // Handle ESC key to close
   useEffect(() => {
@@ -80,25 +174,9 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
   if (!isOpen) return null;
 
   const projectName =
-    activeProposal?.pr_name || historyProposals[0]?.pr_name || "Capital Expenditure Request";
-
-  const getInitials = (name?: string): string => {
-    if (!name) return "U";
-    const clean = name
-      .replace(/\(.*?\)/g, "")
-      .replace(/\[.*?\]/g, "")
-      .replace(/[^a-zA-Z\s]/g, " ")
-      .trim();
-    const parts = clean.split(/\s+/).filter(Boolean);
-    if (parts.length === 0) {
-      const alphaOnly = name.replace(/[^a-zA-Z]/g, "");
-      return (alphaOnly.substring(0, 2) || "U").toUpperCase();
-    }
-    if (parts.length === 1) {
-      return parts[0].substring(0, Math.min(2, parts[0].length)).toUpperCase();
-    }
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  };
+    selectedProposal?.pr_name ||
+    historyProposals[0]?.pr_name ||
+    "Capital Expenditure Request";
 
   const formatSnapshotDate = (dateVal?: string): string => {
     if (!dateVal) return "—";
@@ -115,35 +193,78 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
     }
   };
 
+  const isINR = selectedProposal?.currency === "INR";
+  const currSymbol = isINR ? "₹" : "$";
+  const currUnit = isINR ? "" : " mm";
+
+  // Phasing periods for selected snapshot
+  const defaultPhasing = getCurrentFiscalYearPhasingLabels(
+    selectedProposal?.created_date ? new Date(selectedProposal.created_date) : new Date()
+  );
+  const period1Display = selectedProposal?.ph_till_label || defaultPhasing.ph_till_label;
+  const period2Display = selectedProposal?.ph_fy_label || defaultPhasing.ph_fy_label;
+  const period3Display = selectedProposal?.ph_beyond_label || defaultPhasing.ph_beyond_label;
+
+  const durationDisplay =
+    selectedProposal?.st_date && selectedProposal?.com_date
+      ? `${calculateExactDays(selectedProposal.st_date, selectedProposal.com_date)} Days`
+      : selectedProposal?.period || `${selectedProposal?.duration_months || 0} Months`;
+
   return (
-    <div className="cer-display-scope fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-      <div className="relative w-full max-w-5xl bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header matching enterprise dark banner */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-5 py-4 border-b border-slate-100 bg-[#012964] text-white shrink-0 gap-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-white/10 text-white border border-white/20 shrink-0">
-              <History className="w-5 h-5" />
+    <div
+      className="cer-display-scope fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-900/70 backdrop-blur-xs animate-fade-in"
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 99999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "16px",
+        boxSizing: "border-box",
+      }}
+    >
+      <div
+        className="relative w-full max-w-7xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
+        style={{
+          width: "100%",
+          maxWidth: "1380px",
+          height: "calc(100vh - 40px)",
+          maxHeight: "860px",
+          display: "flex",
+          flexDirection: "column",
+          borderRadius: "16px",
+          backgroundColor: "#ffffff",
+          overflow: "hidden",
+        }}
+      >
+        {/* Top Header matching Enterprise Branding */}
+        <div
+          className="flex items-center justify-between px-5 py-3.5 border-b border-blue-900 text-white shrink-0 gap-3"
+          style={{
+            backgroundColor: "#012964",
+            color: "#ffffff",
+          }}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className="p-2 rounded-xl shrink-0"
+              style={{
+                backgroundColor: "rgba(255, 255, 255, 0.12)",
+                border: "1px solid rgba(255, 255, 255, 0.2)",
+              }}
+            >
+              <History className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs uppercase tracking-wider text-blue-200 font-semibold">
-                  Permanent CER Proposal ID:
-                </span>
-                <span className="font-mono font-bold text-xs bg-white/20 text-white px-2 py-0.5 rounded border border-white/30">
-                  {cerProposalId}
-                </span>
-                <span className="text-xs text-blue-200">•</span>
-                <span className="text-xs text-blue-200 font-medium">
-                  Historical Snapshots: <strong className="text-white">{historyProposals.length}</strong>
-                </span>
-              </div>
-              <h2 className="text-base sm:text-lg font-bold text-white mt-0.5 truncate max-w-xl">
-                {projectName}
-              </h2>
-            </div>
+            <h2 className="text-base sm:text-lg font-bold text-white truncate">
+              Proposal History ({cerProposalId || "—"})
+            </h2>
           </div>
 
-          <div className="flex items-center gap-3 self-end sm:self-auto">
+          <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={onClose}
               className="p-1.5 rounded-lg text-blue-200 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
@@ -155,256 +276,641 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
           </div>
         </div>
 
-        {/* Subtitle / Tip Bar */}
-        <div className="px-5 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs text-slate-600 shrink-0">
-          <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-[#012964]" />
-            <span className="font-semibold text-slate-800 uppercase tracking-wider text-[11px]">
-              Proposal History
-            </span>
-          </div>
-          <span className="text-[11px] text-slate-500 hidden sm:inline">
-            Archived snapshots of previously approved proposals
-          </span>
-        </div>
-
-        {/* Modal Body */}
-        <div className="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 bg-slate-50/40 space-y-4">
-          {error && (
-            <div className="mb-4 p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
+        {/* Master-Detail Two-Panel Container */}
+        <div
+          className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden"
+          style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}
+        >
+          {/* ========================================================================================= */}
+          {/* LEFT SIDEBAR (~25% width on desktop): Proposal History Version Selector */}
+          {/* ========================================================================================= */}
+          <div
+            className="w-full md:w-80 lg:w-96 shrink-0 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50/70 flex flex-col overflow-hidden max-h-56 md:max-h-none"
+            style={{
+              flexShrink: 0,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            {/* Sidebar Title */}
+            <div className="px-4 py-3 bg-slate-100/80 border-b border-slate-200 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#012964]" />
+                <span className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+                  Proposal Versions
+                </span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-white text-slate-700 border border-slate-200 shadow-2xs">
+                {sortedHistory.length} {sortedHistory.length === 1 ? "Version" : "Versions"}
+              </span>
             </div>
-          )}
 
-          {isLoading ? (
-            <div className="py-20 text-center text-slate-400 text-xs space-y-2">
-              <div className="w-7 h-7 border-2 border-[#012964] border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="font-medium">Loading proposal history...</p>
-            </div>
-          ) : (
-            <>
-              {/* Historical Snapshots Table */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between px-1">
-                  <div className="flex items-center gap-2">
-                    <History className="w-4 h-4 text-[#012964]" />
-                    <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
-                      Prior Approved Proposals
-                    </h3>
-                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                      {historyProposals.length}
-                    </span>
-                  </div>
+            {/* Version Cards Scrollable List */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+              {isLoading ? (
+                <div className="py-12 text-center text-slate-400 text-xs space-y-2">
+                  <div className="w-6 h-6 border-2 border-[#012964] border-t-transparent rounded-full animate-spin mx-auto" />
+                  <p className="font-medium">Loading versions...</p>
                 </div>
+              ) : sortedHistory.length === 0 ? (
+                <div className="p-6 text-center space-y-2 bg-white rounded-xl border border-slate-200/80">
+                  <History className="w-8 h-8 text-slate-400 mx-auto" />
+                  <p className="font-bold text-slate-700 text-xs">No Prior Versions</p>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    No historical versions have been archived for this proposal yet.
+                  </p>
+                </div>
+              ) : (
+                sortedHistory.map((prop, idx) => {
+                  const serialNo = sortedHistory.length - idx;
+                  const revNum = sortedHistory.length - idx;
+                  const effectiveNo = prop.proposal_no || prop.cerprno;
+                  const isSelected =
+                    selectedProposal &&
+                    (selectedProposal.id === prop.id ||
+                      (selectedProposal.proposal_no || selectedProposal.cerprno) === effectiveNo);
 
-                {historyProposals.length === 0 ? (
-                  /* Informative Empty State for Initial Cycle Proposals */
-                  <div className="bg-white rounded-xl border border-slate-200/90 p-10 text-center space-y-3 shadow-2xs">
-                    <div className="w-12 h-12 rounded-full bg-blue-50 text-[#012964] border border-blue-200 flex items-center justify-center mx-auto">
-                      <History className="w-6 h-6 text-[#012964]" />
+                  return (
+                    <div
+                      key={prop.id || `${effectiveNo}-${idx}`}
+                      onClick={() => setSelectedProposal(prop)}
+                      className={`p-3 rounded-xl transition-all cursor-pointer relative ${
+                        isSelected
+                          ? "bg-white border-2 border-[#012964] shadow-xs ring-1 ring-[#012964]/10"
+                          : "bg-white/90 hover:bg-white border border-slate-200/90 hover:border-slate-300 shadow-2xs"
+                      }`}
+                    >
+                      {/* Top Header: Serial No & Status */}
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`text-xs font-bold px-2 py-0.5 rounded-md ${
+                              isSelected
+                                ? "bg-[#012964] text-white"
+                                : "bg-slate-100 text-slate-700 border border-slate-200"
+                            }`}
+                          >
+                            Serial No. {serialNo}
+                          </span>
+                          <span className="text-[11px] font-semibold text-slate-500">
+                            v{revNum} Snapshot
+                          </span>
+                        </div>
+                        <StatusBadge status="Approved" size="sm" />
+                      </div>
+
+                      {/* Proposal No Reference */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono font-bold text-sm text-[#012964]">
+                          {effectiveNo}
+                        </span>
+                      </div>
+
+                      {/* Metadata: Amount & Archive Date */}
+                      <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
+                        <span className="font-bold text-slate-900">
+                          {prop.currency || "USD"} {Number(prop.amount || 0).toLocaleString()}
+                        </span>
+                        <div className="flex items-center gap-1 text-slate-500 text-[11px]">
+                          <Calendar className="w-3 h-3 text-slate-400" />
+                          <span>{formatSnapshotDate(prop.modified_date || prop.created_date)}</span>
+                        </div>
+                      </div>
                     </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* ========================================================================================= */}
+          {/* RIGHT PANEL (~75% width on desktop): Complete Read-Only Proposal Data */}
+          {/* ========================================================================================= */}
+          <div
+            className="flex-1 min-w-0 overflow-y-auto bg-slate-50/40 p-4 sm:p-5 lg:p-6 space-y-4"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              overflowY: "auto",
+            }}
+          >
+            {error && (
+              <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {isLoading ? (
+              <div className="py-24 text-center text-slate-400 text-xs space-y-2">
+                <div className="w-7 h-7 border-2 border-[#012964] border-t-transparent rounded-full animate-spin mx-auto" />
+                <p className="font-medium">Loading proposal snapshot...</p>
+              </div>
+            ) : !selectedProposal ? (
+              <div className="bg-white rounded-2xl border border-slate-200/90 p-12 text-center space-y-3 shadow-2xs">
+                <div className="w-14 h-14 rounded-full bg-blue-50 text-[#012964] border border-blue-200 flex items-center justify-center mx-auto">
+                  <History className="w-7 h-7 text-[#012964]" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-800 text-base">No Historical Snapshots Available</h4>
+                  <p className="text-xs text-slate-500 max-w-lg mx-auto mt-1 leading-relaxed">
+                    This proposal is currently in its initial cycle without previous approved versions. Historical versions are archived whenever post-approval amendments are processed.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* 1. Executive Proposal Summary Card */}
+                <div className="p-4 sm:p-5 bg-white rounded-2xl border border-slate-200/80 shadow-subtle space-y-3">
+                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                     <div>
-                      <h4 className="font-bold text-slate-800 text-sm">
-                        No Previous Proposals
-                      </h4>
-                      <p className="text-xs text-slate-500 max-w-lg mx-auto mt-1 leading-relaxed">
-                        This proposal is currently in its initial submission (Proposal No. 01). Prior approved versions will appear here when amended in future cycles.
+                      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                        Historical Snapshot Reference
+                      </p>
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <span
+                          className="text-lg sm:text-xl font-bold font-mono text-slate-900 tracking-tight"
+                          title="System-generated CER Proposal ID"
+                        >
+                          {selectedProposal.cer_proposal_id || selectedProposal.cerprno}
+                        </span>
+                        {selectedProposal.proposal_no &&
+                          selectedProposal.proposal_no !==
+                            (selectedProposal.cer_proposal_id || selectedProposal.cerprno) && (
+                            <span
+                              className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-bold bg-slate-100 text-slate-800 border border-slate-200"
+                              title="Business Reference Proposal Number"
+                            >
+                              No: {selectedProposal.proposal_no}
+                            </span>
+                          )}
+                        <StatusBadge status="Approved" size="sm" />
+                        {selectedProposal.cat && (
+                          <CategoryBadge category={selectedProposal.cat} />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Sanction Amount */}
+                    <div className="text-left md:text-right shrink-0">
+                      <p className="text-xs font-medium text-slate-500">Approved Sanction Amount</p>
+                      <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-0.5">
+                        {selectedProposal.currency} {Number(selectedProposal.amount || 0).toLocaleString()}
                       </p>
                     </div>
                   </div>
-                ) : (
-                  /* Historical Snapshots Table */
-                  <div className="bg-white rounded-xl border border-slate-200/80 shadow-subtle overflow-hidden">
-                    {/* Mobile Cards */}
-                    <div className="block sm:hidden divide-y divide-slate-100">
-                      {historyProposals.map((prop, idx) => {
-                        const revNum = historyProposals.length - idx;
-                        const effectiveNo = prop.proposal_no || prop.cerprno;
 
-                        return (
-                          <div
-                            key={prop.id || `${effectiveNo}-${idx}`}
-                            onClick={() => onSelectProposal(effectiveNo)}
-                            className="p-4 space-y-2.5 hover:bg-slate-50/80 transition-colors cursor-pointer group"
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-mono font-bold text-sm text-[#012964] group-hover:underline">
-                                  {effectiveNo}
-                                </span>
-                                <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                                  Archived v{revNum}
-                                </span>
-                              </div>
-                              <StatusBadge status="Approved" size="sm" />
-                            </div>
+                  {/* Project Title */}
+                  <div className="pt-0.5 pb-1">
+                    <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 leading-snug">
+                      {selectedProposal.pr_name}
+                    </h1>
+                  </div>
 
-                            <div>
-                              <h4 className="font-semibold text-slate-900 text-xs leading-snug group-hover:text-[#012964] transition-colors">
-                                {prop.pr_name}
-                              </h4>
-                              <div className="flex items-center gap-2 text-xs text-slate-600 mt-1">
-                                <div className="w-5 h-5 rounded-full bg-blue-50 text-[#012964] font-bold text-[10px] flex items-center justify-center shrink-0">
-                                  {getInitials(prop.owname)}
-                                </div>
-                                <span className="truncate">{prop.owname}</span>
-                                <span>•</span>
-                                <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] font-semibold">
-                                  {prop.sbu}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                              <div>
-                                <span className="text-[10px] text-slate-400 uppercase font-semibold block">
-                                  Approved Amount
-                                </span>
-                                <span className="font-bold text-slate-900">
-                                  {prop.currency || "USD"} {Number(prop.amount || 0).toLocaleString()}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1 text-[#012964] font-semibold text-xs">
-                                <Eye className="w-3.5 h-3.5" />
-                                <span>View Snapshot</span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
+                  {/* Metadata Row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 py-2.5 border-y border-slate-100 text-xs">
+                    <div className="flex items-center gap-2.5">
+                      <UserAvatar name={selectedProposal.owname} email={selectedProposal.owner_email} size="sm" />
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400 font-medium">Project Owner</p>
+                        <p className="font-semibold text-slate-800 truncate" title={selectedProposal.owname}>
+                          {selectedProposal.owname}
+                        </p>
+                      </div>
                     </div>
 
-                    {/* Desktop & Tablet Table */}
-                    <div className="hidden sm:block overflow-x-auto">
-                      <table className="w-full text-left border-collapse table-fixed">
-                        <colgroup>
-                          <col style={{ width: "160px" }} />
-                          <col />
-                          <col style={{ width: "180px" }} />
-                          <col style={{ width: "130px" }} />
-                          <col style={{ width: "120px" }} />
-                          <col style={{ width: "90px" }} />
-                          <col style={{ width: "130px" }} />
-                        </colgroup>
-                        <thead>
-                          <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold uppercase text-xs tracking-wider select-none">
-                            <th className="py-3 px-4 whitespace-nowrap">Archived Version</th>
-                            <th className="py-3 px-4">Name of Project</th>
-                            <th className="py-3 px-4 whitespace-nowrap">Project Owner</th>
-                            <th className="py-3 px-4 text-right whitespace-nowrap">Approved Amount</th>
-                            <th className="py-3 px-4 whitespace-nowrap">Archived Date</th>
-                            <th className="py-3 px-3 text-center whitespace-nowrap">Status</th>
-                            <th className="py-3 px-3 text-center whitespace-nowrap">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {historyProposals.map((prop, idx) => {
-                            const revNum = historyProposals.length - idx;
-                            const effectiveNo = prop.proposal_no || prop.cerprno;
+                    <div className="flex items-center gap-2.5 lg:border-l lg:border-slate-150 lg:pl-3.5">
+                      <div className="w-7 h-7 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-center shrink-0">
+                        <Layers className="w-3.5 h-3.5 text-slate-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400 font-medium">Block / SBU</p>
+                        <p className="font-semibold text-slate-800 truncate">{selectedProposal.sbu}</p>
+                      </div>
+                    </div>
 
-                            return (
-                              <tr
-                                key={prop.id || `${effectiveNo}-${idx}`}
-                                onClick={() => onSelectProposal(effectiveNo)}
-                                className="hover:bg-blue-50/40 cursor-pointer transition-colors group select-none"
-                                title="Click to load historical snapshot into Display view"
-                              >
-                                {/* Version & Proposal No */}
-                                <td className="py-3.5 px-4 whitespace-nowrap">
-                                  <div className="flex flex-col items-start gap-0.5">
-                                    <span className="font-mono font-bold text-sm text-[#012964] group-hover:underline">
-                                      {effectiveNo}
-                                    </span>
-                                    <span className="text-[11px] font-semibold text-slate-500">
-                                      Archived Version (v{revNum})
-                                    </span>
-                                  </div>
-                                </td>
+                    <div className="flex items-center gap-2.5 lg:border-l lg:border-slate-150 lg:pl-3.5">
+                      <div className="w-7 h-7 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-center shrink-0">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400 font-medium">Duration</p>
+                        <p className="font-semibold text-slate-800 truncate">{durationDisplay}</p>
+                      </div>
+                    </div>
 
-                                {/* Project Name */}
-                                <td className="py-3.5 px-4 font-semibold text-sm text-slate-900 overflow-hidden">
-                                  <span className="block truncate group-hover:text-[#012964] transition-colors" title={prop.pr_name}>
-                                    {prop.pr_name}
-                                  </span>
-                                </td>
-
-                                {/* Project Owner & SBU */}
-                                <td className="py-3.5 px-4 overflow-hidden">
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <div className="w-6 h-6 rounded-full bg-blue-50 text-[#012964] font-bold text-[10px] leading-none flex items-center justify-center shrink-0 border border-blue-200 shadow-2xs">
-                                      {getInitials(prop.owname)}
-                                    </div>
-                                    <div className="min-w-0">
-                                      <span className="font-medium text-xs text-slate-800 block truncate" title={prop.owname}>
-                                        {prop.owname}
-                                      </span>
-                                      <span className="text-[10px] text-slate-400 font-medium block">
-                                        {prop.sbu}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </td>
-
-                                {/* Approved Amount */}
-                                <td className="py-3.5 px-4 text-right font-bold text-sm text-slate-900 whitespace-nowrap">
-                                  {prop.currency || "USD"} {Number(prop.amount || 0).toLocaleString()}
-                                </td>
-
-                                {/* Archived Date */}
-                                <td className="py-3.5 px-4 text-xs text-slate-600 whitespace-nowrap">
-                                  <div className="flex items-center gap-1.5">
-                                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                                    <span>{formatSnapshotDate(prop.modified_date || prop.created_date)}</span>
-                                  </div>
-                                </td>
-
-                                {/* Status */}
-                                <td className="py-3.5 px-3 text-center whitespace-nowrap">
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Approved
-                                  </span>
-                                </td>
-
-                                {/* Action */}
-                                <td className="py-3.5 px-3 text-center whitespace-nowrap">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onSelectProposal(effectiveNo);
-                                    }}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-[#012964] bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200/80 cursor-pointer"
-                                    title="View this historical snapshot"
-                                  >
-                                    <Eye className="w-3.5 h-3.5" />
-                                    <span>View</span>
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                    <div className="flex items-center gap-2.5 lg:border-l lg:border-slate-150 lg:pl-3.5">
+                      <div className="w-7 h-7 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-center shrink-0">
+                        <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400 font-medium">Archived Date</p>
+                        <p className="font-semibold text-slate-800 truncate">
+                          {formatSnapshotDate(selectedProposal.modified_date || selectedProposal.created_date)}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+                </div>
 
-        {/* Modal Footer */}
-        <div className="flex items-center justify-between px-5 py-3 border-t border-slate-200 bg-white shrink-0 text-xs text-slate-500">
-          <span>Clicking &ldquo;View&rdquo; or any snapshot row loads its historical snapshot into Display view.</span>
-          <button
-            onClick={onClose}
-            className="px-4 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100 font-medium text-slate-700 transition-colors cursor-pointer"
-          >
-            Close
-          </button>
+                {/* 2. Section A & B: Project Details & Financials */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Section A: Project Details */}
+                  <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
+                    <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
+                      <FolderGit2 className="w-4 h-4 text-[#012964]" />
+                      <h3 className="font-bold text-slate-900 text-sm">
+                        Section A — Project Details
+                      </h3>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className="col-span-2">
+                        <p className="text-slate-400 font-medium">Name of Project</p>
+                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.pr_name}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 font-medium">CER Proposal No.</p>
+                        <p className="font-mono font-bold text-slate-800 mt-0.5">
+                          {selectedProposal.proposal_no || selectedProposal.cerprno}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 font-medium">CER Proposal ID</p>
+                        <p className="font-mono font-bold text-[#012964] mt-0.5">
+                          {selectedProposal.cer_proposal_id || selectedProposal.cerprno}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 font-medium">CER Owner Name</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <UserAvatar
+                            name={selectedProposal.owname}
+                            email={selectedProposal.owner_email}
+                            size="xs"
+                          />
+                          <span className="font-semibold text-slate-800">{selectedProposal.owname}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 font-medium">Block/SBU/Field</p>
+                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.sbu}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 font-medium">Category</p>
+                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.cat}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 font-medium">Start Date of Project</p>
+                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.st_date || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 font-medium">Completion Date of Project</p>
+                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.com_date || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 font-medium">Total Duration</p>
+                        <p className="font-semibold text-slate-800 mt-0.5">{durationDisplay}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-slate-400 font-medium">Owner Email</p>
+                        <p className="font-semibold text-slate-800 mt-0.5 truncate">
+                          {selectedProposal.owner_email || "—"}
+                        </p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-slate-400 font-medium">Objectives of CER</p>
+                        <p className="font-medium text-slate-800 mt-0.5 bg-slate-50 p-2.5 rounded-xl border border-slate-100 whitespace-pre-wrap leading-relaxed">
+                          {selectedProposal.object || "N/A"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section B: Financials */}
+                  <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
+                    <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
+                      <DollarSign className="w-4 h-4 text-emerald-600" />
+                      <h3 className="font-bold text-slate-900 text-sm">
+                        Section B — Financial Benefits and Payback
+                      </h3>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <p className="text-slate-400 font-medium">Amount of CER</p>
+                        <p className="font-bold text-[#012964] mt-0.5 text-base">
+                          {selectedProposal.currency} {Number(selectedProposal.amount || 0).toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 font-medium">Payback / Non Payback</p>
+                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.payable || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 font-medium">Payback Period (Quarters)</p>
+                        <p className="font-semibold text-slate-800 mt-0.5">
+                          {selectedProposal.payback_quarters ? `${selectedProposal.payback_quarters} Quarters` : "N/A"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 font-medium">Financial Benefits – NPV ($mm)</p>
+                        <p className="font-bold text-[#012964] mt-0.5 text-sm">
+                          {selectedProposal.ben_npv ? `$${selectedProposal.ben_npv} mm` : "N/A"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 font-medium">Financial Benefit – IRR (%)</p>
+                        <p className="font-bold text-[#012964] mt-0.5 text-sm">
+                          {selectedProposal.ben_irr ? `${selectedProposal.ben_irr}%` : "N/A"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 font-medium">Revisions Count</p>
+                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.revision_count || 0}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-slate-400 font-medium">Key Assumptions to Financial Benefit / Costs</p>
+                        <p className="font-medium text-slate-700 mt-0.5 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100 whitespace-pre-wrap leading-relaxed">
+                          {selectedProposal.cost_assumptions || "None recorded."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Section C: Expenditure Phasing Matrix */}
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
+                  <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <BarChart2 className="w-4 h-4 text-[#012964]" />
+                      <h3 className="font-bold text-slate-900 text-sm">
+                        Section C — Expenditure Phasing
+                      </h3>
+                    </div>
+                    <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                      Indian FY ({period2Display})
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-slate-600 font-bold bg-slate-50">
+                          <th className="py-2.5 px-3">Expenditure Stream</th>
+                          <th className="py-2.5 px-3 text-right">{period1Display}</th>
+                          <th className="py-2.5 px-3 text-right">{period2Display}</th>
+                          <th className="py-2.5 px-3 text-right">{period3Display}</th>
+                          <th className="py-2.5 px-3 text-right font-bold text-slate-800">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        <tr>
+                          <td className="py-2.5 px-3 font-semibold text-slate-700">Production (in mmbbls)</td>
+                          <td className="py-2.5 px-3 text-right font-mono">{Number(selectedProposal.prod_till || 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-3 text-right font-mono">{Number(selectedProposal.prod_fy || 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-3 text-right font-mono">{Number(selectedProposal.prod_beyond || 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-3 text-right font-bold font-mono">
+                            {(
+                              Number(selectedProposal.prod_till || 0) +
+                              Number(selectedProposal.prod_fy || 0) +
+                              Number(selectedProposal.prod_beyond || 0)
+                            ).toLocaleString()}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-2.5 px-3 font-semibold text-slate-700">Capex ($mm)</td>
+                          <td className="py-2.5 px-3 text-right font-mono">{Number(selectedProposal.capex_till || 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-3 text-right font-mono">{Number(selectedProposal.capex_fy || 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-3 text-right font-mono">{Number(selectedProposal.capex_beyond || 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-3 text-right font-bold font-mono text-[#012964]">
+                            {(
+                              Number(selectedProposal.capex_till || 0) +
+                              Number(selectedProposal.capex_fy || 0) +
+                              Number(selectedProposal.capex_beyond || 0)
+                            ).toLocaleString()}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-2.5 px-3 font-semibold text-slate-700">Opex ($mm)</td>
+                          <td className="py-2.5 px-3 text-right font-mono">{Number(selectedProposal.opex_till || 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-3 text-right font-mono">{Number(selectedProposal.opex_fy || 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-3 text-right font-mono">{Number(selectedProposal.opex_beyond || 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-3 text-right font-bold font-mono">
+                            {(
+                              Number(selectedProposal.opex_till || 0) +
+                              Number(selectedProposal.opex_fy || 0) +
+                              Number(selectedProposal.opex_beyond || 0)
+                            ).toLocaleString()}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* 4. Section D: CAPEX Cost Estimates Basis */}
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
+                  <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <Calculator className="w-4 h-4 text-[#012964]" />
+                      <h3 className="font-bold text-slate-900 text-sm">
+                        Section D — CAPEX Breakdown Basis
+                      </h3>
+                    </div>
+                    <span className="text-xs font-medium text-slate-500">
+                      Values in {isINR ? "INR (₹)" : "USD ($mm)"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[11px] font-medium">Engineering</span>
+                      <span className="font-bold text-slate-900 mt-0.5 block font-mono">
+                        {currSymbol}{Number(selectedProposal.engineer || 0).toLocaleString()}{currUnit}
+                      </span>
+                    </div>
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[11px] font-medium">Surface Facilities</span>
+                      <span className="font-bold text-slate-900 mt-0.5 block font-mono">
+                        {currSymbol}{Number(selectedProposal.s_fac || 0).toLocaleString()}{currUnit}
+                      </span>
+                    </div>
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[11px] font-medium">Commissioning</span>
+                      <span className="font-bold text-slate-900 mt-0.5 block font-mono">
+                        {currSymbol}{Number(selectedProposal.comis || 0).toLocaleString()}{currUnit}
+                      </span>
+                    </div>
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[11px] font-medium">Pre Operations</span>
+                      <span className="font-bold text-slate-900 mt-0.5 block font-mono">
+                        {currSymbol}{Number(selectedProposal.preop || 0).toLocaleString()}{currUnit}
+                      </span>
+                    </div>
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[11px] font-medium">Others</span>
+                      <span className="font-bold text-slate-900 mt-0.5 block font-mono">
+                        {currSymbol}{Number(selectedProposal.others || 0).toLocaleString()}{currUnit}
+                      </span>
+                    </div>
+                    <div className="p-2.5 bg-slate-100/90 rounded-xl border border-slate-200">
+                      <span className="text-slate-600 font-semibold block text-[11px]">Total Capex</span>
+                      <span className="font-bold text-[#012964] mt-0.5 block text-sm font-mono">
+                        {currSymbol}{Number(selectedProposal.total || 0).toLocaleString()}{currUnit}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Section E & F: Corporate Budget & Joint Venture */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Section E */}
+                  <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
+                    <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
+                      <Landmark className="w-4 h-4 text-slate-700" />
+                      <h3 className="font-bold text-slate-900 text-sm">
+                        Section E — Corporate Budget
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <p className="text-slate-400 font-medium">Corporate Budget (Yes/No)</p>
+                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.cbudget || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 font-medium">Corporate Budget Amount ($mm)</p>
+                        <p className="font-semibold text-slate-800 mt-0.5">
+                          ${Number(selectedProposal.cb_amnt || 0).toLocaleString()} mm
+                        </p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-slate-400 font-medium">Reason if not / partially budgeted</p>
+                        <p className="font-medium text-slate-700 mt-0.5 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100 whitespace-pre-wrap leading-relaxed">
+                          {selectedProposal.reason || "Within standard budgetary envelope."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section F */}
+                  <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
+                    <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
+                      <DollarSign className="w-4 h-4 text-slate-700" />
+                      <h3 className="font-bold text-slate-900 text-sm">
+                        Section F — Joint Venture Details
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <p className="text-slate-400 font-medium">Aligned with JV</p>
+                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.jv || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 font-medium">JV Cost Recoverable</p>
+                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.jv_recoverable || "No"}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 font-medium">JV Budget</p>
+                        <p className="font-semibold text-slate-800 mt-0.5">{selectedProposal.jv_budget || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 font-medium">JV Budget Amount ($mm)</p>
+                        <p className="font-semibold text-slate-800 mt-0.5">
+                          ${Number(selectedProposal.jv_amnt || 0).toLocaleString()} mm
+                        </p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-slate-400 font-medium">Reason if not / partially budgeted</p>
+                        <p className="font-medium text-slate-700 mt-0.5 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100 whitespace-pre-wrap leading-relaxed">
+                          {selectedProposal.jv_reason || "Approved by Operating Committee / TCM."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 6. Section G: Remarks and Justification */}
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
+                  <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
+                    <MessageSquare className="w-4 h-4 text-[#012964]" />
+                    <h3 className="font-bold text-slate-900 text-sm">
+                      Section G — Remarks and Justification
+                    </h3>
+                  </div>
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/60 text-xs text-slate-800 leading-relaxed space-y-2.5">
+                    <div>
+                      <p className="font-semibold text-slate-900 mb-1">
+                        Remarks (including justification for Non Payback expenditure, etc.):
+                      </p>
+                      <p className="whitespace-pre-wrap">{selectedProposal.remarks || "No narrative remarks provided."}</p>
+                    </div>
+                    {selectedProposal.remarks_jv && (
+                      <div className="pt-2.5 border-t border-slate-200">
+                        <p className="font-semibold text-slate-900 mb-1">
+                          Remarks on JV Risk (including risk carrying period):
+                        </p>
+                        <p className="whitespace-pre-wrap">{selectedProposal.remarks_jv}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 7. Section H: Supporting Attachments */}
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-3">
+                  <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <Paperclip className="w-4 h-4 text-slate-700" />
+                      <h3 className="font-bold text-slate-900 text-sm">
+                        Section H — Supporting Documents ({selectedAttachments.length})
+                      </h3>
+                    </div>
+                    {isLoadingAttachments && (
+                      <span className="text-[11px] text-slate-400 font-medium animate-pulse">
+                        Loading documents...
+                      </span>
+                    )}
+                  </div>
+
+                  {selectedAttachments.length === 0 ? (
+                    <p className="text-slate-400 text-xs py-2 italic">
+                      No attachments recorded for this historical snapshot.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
+                      {selectedAttachments.map((att) => (
+                        <div
+                          key={att.id}
+                          className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3 hover:bg-slate-100/60 transition-colors"
+                        >
+                          <div className="truncate">
+                            <p className="font-semibold text-slate-900 truncate" title={att.name}>
+                              {att.name}
+                            </p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              {((att.size || 0) / 1024).toFixed(0)} KB • by {att.uploaded_by || "User"}
+                            </p>
+                          </div>
+                          {att.data_url && (
+                            <a
+                              href={att.data_url}
+                              download={att.name}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#012964] bg-white border border-[#012964]/30 rounded-lg hover:bg-blue-50 transition-colors shrink-0 shadow-2xs"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>Download</span>
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 };
+export default ProposalHistoryModal;

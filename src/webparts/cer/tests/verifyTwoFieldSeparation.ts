@@ -523,6 +523,25 @@ async function runTwoFieldSeparationVerification(): Promise<void> {
   assert(capturedPayloads[1].unknownField === undefined, "Second attempt cleanly stripped non-existent property");
   assert(capturedPayloads[1].Title === "CER-2026-0001", "Second attempt preserved legitimate fields");
 
+  // Verify OData Multi-Value Array Reconciliation (StartArray expected error)
+  let multiAttemptCount = 0;
+  const capturedMultiPayloads: Record<string, any>[] = [];
+  await fallbackHelper._executeWithFieldFallback(
+    async (payload) => {
+      multiAttemptCount++;
+      capturedMultiPayloads.push({ ...payload });
+      if (typeof payload.cerOwnerId === "number") {
+        throw new Error("[SPOperations] POST failed (400): {\"error\":{\"code\":\"-1, Microsoft.SharePoint.Client.InvalidClientQueryException\",\"message\":\"An unexpected 'PrimitiveValue' node was found when reading from the JSON reader. A 'StartArray' node was expected.\"}}");
+      }
+      return true;
+    },
+    { Title: "PR-2026/01", cerOwnerId: 15 }
+  );
+
+  assert(multiAttemptCount === 2, `_executeWithFieldFallback retried after StartArray mismatch (Attempts: ${multiAttemptCount})`);
+  assert(capturedMultiPayloads[0].cerOwnerId === 15, "First attempt sent scalar number ID");
+  assert(Array.isArray(capturedMultiPayloads[1].cerOwnerId) && capturedMultiPayloads[1].cerOwnerId[0] === 15, "Second attempt converted cerOwnerId to array [15]");
+
   // ===========================================================================
   // SUMMARY
   // ===========================================================================

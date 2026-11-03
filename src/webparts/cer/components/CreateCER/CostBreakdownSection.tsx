@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
-import { Calculator, CheckCircle2, AlertCircle } from "lucide-react";
+import { Calculator, AlertCircle } from "lucide-react";
 import { ICERProposal } from "../../models/CERModel";
-import { FormErrors } from "../../utils/cerValidation";
+import { FormErrors, hasEnteredCostBreakdown } from "../../utils/cerValidation";
 
 interface ICostBreakdownSectionProps {
   formData: ICERProposal;
@@ -34,11 +34,19 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
   }, [computedTotal]);
 
   const cerAmount = Number(formData.amount || 0);
+  const hasUserEnteredSectionD = hasEnteredCostBreakdown(formData) || computedTotal > 0;
   const isBalanced = cerAmount > 0 && Math.abs(cerAmount - computedTotal) <= 0.01;
 
+  const diff = computedTotal - cerAmount;
   const isINR = formData.currency === "INR";
   const currSymbol = isINR ? "₹" : "$";
   const currUnit = isINR ? "" : " mm";
+  const diffSign = diff > 0 ? "+" : "-";
+  const diffFormatted = `${diffSign}${currSymbol}${Math.abs(diff).toLocaleString()}${currUnit}`;
+  const totalFormatted = `${currSymbol}${computedTotal.toLocaleString()}${currUnit}`;
+  const cerAmountFormatted = `${currSymbol}${cerAmount.toLocaleString()}${currUnit}`;
+
+  const hasMismatch = (hasUserEnteredSectionD || Boolean(errors.total || errors.cost_mismatch)) && !isBalanced;
 
   const getFieldError = (field: keyof ICERProposal): string | undefined => {
     return touched[field] || errors[field] ? errors[field] : undefined;
@@ -58,6 +66,25 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
           Values in {isINR ? "INR (₹)" : "USD ($mm)"}
         </span>
       </div>
+
+      {/* Section D CAPEX Mismatch Alert Banner */}
+      {hasMismatch && (
+        <div
+          id="field-cost_mismatch"
+          className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-xs sm:text-[13px] flex items-start sm:items-center justify-between gap-3 transition-all"
+          role="alert"
+        >
+          <div className="flex items-start sm:items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5 sm:mt-0" />
+            <span className="leading-snug">
+              <strong className="font-semibold text-rose-950">CAPEX Breakdown Mismatch:</strong> Total Capex ({totalFormatted}) must equal Amount of CER ({cerAmountFormatted}).
+            </span>
+          </div>
+          <span className="font-mono font-semibold text-rose-700 whitespace-nowrap bg-rose-100/80 px-2.5 py-0.5 rounded border border-rose-300/80 text-xs shrink-0">
+            Difference: {diffFormatted}
+          </span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
         {/* Engineering */}
@@ -202,22 +229,27 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
 
         {/* Total Capex — Read-Only Calculated Summary Value */}
         <div id="field-total">
-          <div className="flex items-center justify-between mb-1">
-            <label className="block font-semibold text-slate-700 text-[13px] sm:text-sm">
-              Total Capex
-            </label>
-            {cerAmount > 0 && isBalanced ? (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#012964] bg-[#66CC33]/15 px-2 py-0.5 rounded border border-[#66CC33]/30">
-                <CheckCircle2 className="w-3 h-3 text-[#387a15]" /> Reconciled
-              </span>
-            ) : null}
-          </div>
-          <div className="w-full h-9 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between">
+          <label className="block font-semibold text-slate-700 text-[13px] sm:text-sm mb-1">
+            Total Capex
+          </label>
+          <div
+            className={`w-full h-9 px-3 py-1.5 rounded-lg border flex items-center justify-between transition-colors ${
+              hasMismatch
+                ? "bg-rose-50/20 border-rose-300"
+                : "bg-slate-50 border-slate-200"
+            }`}
+          >
             <span className="font-mono font-bold text-slate-900 text-sm">
               {currSymbol}{computedTotal.toLocaleString()}{currUnit}
             </span>
-            <span className="text-xs text-slate-400 font-medium">
-              Calculated sum
+            <span
+              className={`text-xs font-medium ${
+                hasMismatch
+                  ? "text-rose-600 font-semibold font-mono"
+                  : "text-slate-400"
+              }`}
+            >
+              {hasMismatch ? `Diff: ${diffFormatted}` : "Calculated sum"}
             </span>
           </div>
         </div>

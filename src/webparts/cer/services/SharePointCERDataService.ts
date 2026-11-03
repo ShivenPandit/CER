@@ -58,7 +58,8 @@ export class SharePointCERDataService implements ICERDataService {
   private _inFlightNotificationLogs: Map<string, Promise<INotificationLog[]>> = new Map();
 
   private _cachedSubmissionsByCerId: Map<string, { data: { active: ICERProposal | null; history: ICERProposal[] }; timestamp: number }> = new Map();
-  private _cachedHistoryFields: Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string }> | null = null;
+  private _cachedHistoryFields: Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string; AllowMultipleValues?: boolean }> | null = null;
+  private _lastAllocatedSequenceMap: Map<number, number> = new Map();
 
   public clearCache(): void {
     this._cachedHistoryFields = null;
@@ -480,7 +481,8 @@ export class SharePointCERDataService implements ICERDataService {
 
         let counterItem = counterItems && counterItems.length > 0 ? counterItems[0] : null;
 
-        // 2. Bootstrap counter item if it does not exist yet
+        // 2. If no counter item exists, allocate next sequence directly from real proposals in CERProposals
+        // This ensures CERProposals is never polluted with dummy counter records and avoids SharePoint 'Required info' warnings
         if (!counterItem) {
           let highest = 0;
           try {
@@ -511,47 +513,10 @@ export class SharePointCERDataService implements ICERDataService {
             console.warn("[SharePointCERDataService] Warning scanning baseline sequence:", scanErr);
           }
 
-          try {
-            const created = await this._sp.createListItem<{ Id: number }>(
-              listName,
-              {
-                Title: counterIdentifier,
-                cerPrId: counterIdentifier,
-                amount: highest,
-                status: "SystemCounter",
-                sbu: "System",
-                object: `Atomic Sequence Counter for ${year}`,
-              },
-              { isIdempotent: false },
-            );
-
-            // Re-fetch counter item to acquire assigned ETag
-            try {
-              counterItems = await this._sp.getListItems(listName, {
-                filter: `cerPrId eq '${counterIdentifier}' or Title eq '${counterIdentifier}'`,
-                select: "Id,Title,cerPrId,amount",
-                top: 1,
-              });
-            } catch {
-              counterItems = await this._sp.getListItems(listName, {
-                filter: `Title eq '${counterIdentifier}'`,
-                select: "Id,Title,amount",
-                top: 1,
-              });
-            }
-            counterItem =
-              counterItems && counterItems.length > 0
-                ? counterItems[0]
-                : { Id: created.Id, amount: highest };
-          } catch (createErr) {
-            // Another concurrent request may have bootstrapped the counter record at the same time
-            console.warn(
-              `[SharePointCERDataService] Counter bootstrap collision on attempt ${attempt}:`,
-              createErr,
-            );
-            await new Promise((resolve) => setTimeout(resolve, 50 + Math.random() * 100));
-            continue;
-          }
+          const inMemoryHighest = this._lastAllocatedSequenceMap.get(year) || 0;
+          const nextSeq = Math.max(highest, inMemoryHighest) + 1;
+          this._lastAllocatedSequenceMap.set(year, nextSeq);
+          return `${prefix}${("0000" + nextSeq).slice(-4)}`;
         }
 
         // 3. Extract current sequence and ETag for Compare-and-Swap
@@ -642,6 +607,8 @@ export class SharePointCERDataService implements ICERDataService {
         attempts++;
         const errMsg = String(err?.message || "");
 
+        this._cachedHistoryFields = null;
+
         // Concurrency conflicts (HTTP 412) must never be swallowed or retried with stripped fields
         if (errMsg.indexOf("HTTP 412") !== -1 || errMsg.indexOf("Concurrency conflict") !== -1 || errMsg.indexOf("412") !== -1) {
           throw err;
@@ -680,6 +647,66 @@ export class SharePointCERDataService implements ICERDataService {
           }
 
           if (attempts <= maxRetries) {
+            continue;
+          }
+        }
+
+        // Handle SharePoint OData array/primitive type mismatches (e.g. multi-user vs single-user, multi-choice vs single-choice)
+        const isStartArrayExpected =
+          errMsg.indexOf("StartArray") !== -1 ||
+          /PrimitiveValue.*StartArray/i.test(errMsg) ||
+          /A 'StartArray' node was expected/i.test(errMsg);
+
+        if (isStartArrayExpected) {
+          console.warn("[SharePointCERDataService] SharePoint expected an array (multi-value field). Converting candidate scalar fields to arrays and retrying...");
+          let modified = false;
+
+          // 1. Any Person/Lookup ID field provided as a primitive number
+          for (const key of Object.keys(payload)) {
+            if ((key.endsWith("Id") || key === "cerOwnerId") && typeof payload[key] === "number") {
+              payload[key] = [payload[key]];
+              modified = true;
+            }
+          }
+
+          // 2. If already arrays or no *Id numbers found, candidate choice/text fields
+          if (!modified) {
+            const candidateMultiKeys = ["category", "Category", "sbu", "SBU", "payable", "Payable", "jointVenture", "JointVenture", "status", "Status"];
+            for (const key of candidateMultiKeys) {
+              if (typeof payload[key] === "string" && payload[key].trim() !== "") {
+                payload[key] = [payload[key]];
+                modified = true;
+              }
+            }
+          }
+
+          // 3. If still failing after converting, remove person/choice fields that might be invalid
+          if (!modified) {
+            if (payload.cerOwnerId !== undefined) {
+              delete payload.cerOwnerId;
+              modified = true;
+            }
+          }
+
+          if (modified && attempts <= maxRetries) {
+            continue;
+          }
+        }
+
+        const isPrimitiveExpected =
+          errMsg.indexOf("PrimitiveValue") !== -1 &&
+          /StartArray.*PrimitiveValue/i.test(errMsg);
+
+        if (isPrimitiveExpected) {
+          console.warn("[SharePointCERDataService] SharePoint expected a primitive value. Converting array fields to scalars and retrying...");
+          let modified = false;
+          for (const key of Object.keys(payload)) {
+            if (Array.isArray(payload[key])) {
+              payload[key] = payload[key].length > 0 ? payload[key][0] : null;
+              modified = true;
+            }
+          }
+          if (modified && attempts <= maxRetries) {
             continue;
           }
         }
@@ -1274,18 +1301,26 @@ export class SharePointCERDataService implements ICERDataService {
     };
   }
 
-  public async getHistoryListFields(): Promise<Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string }>> {
+  public async getHistoryListFields(): Promise<Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string; AllowMultipleValues?: boolean }>> {
     if (this._cachedHistoryFields && this._cachedHistoryFields.length > 0) {
       return this._cachedHistoryFields;
     }
     try {
-      const fields = await this._sp.getListFields<any>(SP_LISTS.CER_PROPOSALS_HISTORY, {
-        filter: "Hidden eq false and ReadOnlyField eq false",
-        select: "InternalName,Title,TypeAsString,EntityPropertyName",
-      });
-      if (fields && fields.length > 0) {
-        this._cachedHistoryFields = fields;
-        return fields;
+      let rawFields: any[] = [];
+      try {
+        rawFields = await this._sp.getListFields<any>(SP_LISTS.CER_PROPOSALS_HISTORY, {
+          select: "InternalName,Title,TypeAsString,EntityPropertyName,Hidden,ReadOnlyField,AllowMultipleValues",
+        });
+      } catch {
+        rawFields = await this._sp.getListFields<any>(SP_LISTS.CER_PROPOSALS_HISTORY, {
+          select: "InternalName,Title,TypeAsString,EntityPropertyName,Hidden,ReadOnlyField",
+        });
+      }
+      if (rawFields && rawFields.length > 0) {
+        const fields = rawFields.filter((f) => !f.Hidden && !f.ReadOnlyField);
+        console.log(`[SharePointCERDataService] CERProposalsHistory schema discovery: ${fields.length} writable fields found`);
+        this._cachedHistoryFields = fields.length > 0 ? fields : rawFields;
+        return this._cachedHistoryFields;
       }
     } catch (err) {
       console.warn("[SharePointCERDataService] Querying fields for CERProposalsHistory returned warning:", err);
@@ -1296,7 +1331,7 @@ export class SharePointCERDataService implements ICERDataService {
   private _buildHistoryPayload(
     original: ICERProposal,
     ownerSpUserId: number | null,
-    availableFields: Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string }>
+    availableFields: Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string; AllowMultipleValues?: boolean }>
   ): Record<string, any> {
     const cerId = (original.cer_proposal_id || original.cerprno || "").trim();
     const propNo = (original.proposal_no || original.cerprno || cerId).trim();
@@ -1388,39 +1423,57 @@ export class SharePointCERDataService implements ICERDataService {
           }
         }
 
+        const isMulti = Boolean(
+          (field as any).AllowMultipleValues === true ||
+          type.indexOf("multi") !== -1 ||
+          type === "usermulti" ||
+          type === "multichoice" ||
+          type === "lookupmulti"
+        );
+
+        const payloadKey = entityProp || intName;
+
         if (matchedKey !== undefined) {
           const rawVal = dataDict[matchedKey];
           if (matchedKey === "cerOwner") {
+            const targetIdKey = entityProp ? (entityProp.endsWith("Id") ? entityProp : `${entityProp}Id`) : `${intName}Id`;
             if (type.indexOf("user") !== -1 || type.indexOf("person") !== -1) {
               if (ownerSpUserId) {
-                payload[`${intName}Id`] = ownerSpUserId;
+                payload[targetIdKey] = isMulti ? [ownerSpUserId] : ownerSpUserId;
               }
             } else {
-              payload[intName] = original.owname || original.owner_email || "";
+              payload[payloadKey] = isMulti ? (original.owname || original.owner_email ? [original.owname || original.owner_email] : []) : (original.owname || original.owner_email || "");
+            }
+          } else if (isMulti) {
+            if (rawVal !== null && rawVal !== undefined && String(rawVal).trim() !== "") {
+              payload[payloadKey] = Array.isArray(rawVal) ? rawVal : [String(rawVal)];
+            } else {
+              payload[payloadKey] = [];
             }
           } else if (type.indexOf("number") !== -1 || type.indexOf("currency") !== -1) {
-            payload[intName] = rawVal !== null && rawVal !== undefined && !isNaN(Number(rawVal)) ? Number(rawVal) : null;
+            payload[payloadKey] = rawVal !== null && rawVal !== undefined && !isNaN(Number(rawVal)) ? Number(rawVal) : null;
           } else if (type.indexOf("date") !== -1) {
-            payload[intName] = rawVal || null;
+            payload[payloadKey] = rawVal || null;
           } else if (type.indexOf("note") !== -1 || type.indexOf("text") !== -1 || type.indexOf("choice") !== -1) {
-            payload[intName] = rawVal !== null && rawVal !== undefined ? String(rawVal) : "";
+            payload[payloadKey] = rawVal !== null && rawVal !== undefined ? String(rawVal) : "";
           } else {
-            payload[intName] = rawVal;
+            payload[payloadKey] = rawVal;
           }
         }
       }
     } else {
-      Object.assign(payload, dataDict);
+      const modern = this._mapProposalToModernSharePointItem(original);
+      Object.assign(payload, modern);
       if (ownerSpUserId) {
         payload.cerOwnerId = ownerSpUserId;
       }
-      delete payload.cerOwner;
     }
 
     payload.Title = propNo;
-    if (!payload.cerPrId && !payload.CERProposalID) payload.cerPrId = cerId;
-    if (!payload.proposalNo && !payload.ProposalNo) payload.proposalNo = propNo;
-    if (!payload.status && !payload.Status) payload.status = "Approved";
+    const hasField = (names: string[]) => names.some((n) => payload[n] !== undefined);
+    if (!hasField(["cerPrId", "CERProposalID"])) payload.cerPrId = cerId;
+    if (!hasField(["proposalNo", "ProposalNo"])) payload.proposalNo = propNo;
+    if (!hasField(["status", "Status", "OData__x0073_tatus"])) payload.status = "Approved";
 
     return payload;
   }
@@ -1550,7 +1603,7 @@ export class SharePointCERDataService implements ICERDataService {
       await this._executeWithFieldFallback(
         (p) => this._sp.updateListItem(SP_LISTS.CER_PROPOSALS_HISTORY, primaryId, p),
         payload,
-        5
+        25
       );
 
       // Clean up any extraneous duplicate rows
@@ -1572,7 +1625,7 @@ export class SharePointCERDataService implements ICERDataService {
     await this._executeWithFieldFallback(
       (p) => this._sp.createListItem(SP_LISTS.CER_PROPOSALS_HISTORY, p),
       payload,
-      5
+      25
     );
     this._cachedSubmissionsByCerId.clear();
   }
@@ -1597,12 +1650,36 @@ export class SharePointCERDataService implements ICERDataService {
     const parentCerId = active?.cer_proposal_id || active?.cerprno || cleanId;
     let history = await this.getProposalHistory(parentCerId);
 
-    // If history query by parentCerId returned nothing, but active has a proposal_no (e.g. PR-2026/01-R1):
-    // Also try querying history by base proposal number (e.g. PR-2026/01)
+    // If history query by parentCerId returned nothing, also try querying by active.proposal_no
     if (history.length === 0 && active?.proposal_no) {
-      const baseNo = active.proposal_no.replace(/-R\d+$/i, "").trim();
-      if (baseNo && baseNo !== active.proposal_no) {
-        history = await this.getProposalHistory(baseNo);
+      history = await this.getProposalHistory(active.proposal_no);
+      if (history.length === 0) {
+        const baseNo = active.proposal_no.replace(/-R\d+$/i, "").trim();
+        if (baseNo && baseNo !== active.proposal_no) {
+          history = await this.getProposalHistory(baseNo);
+        }
+      }
+    }
+
+    // Comprehensive fallback: If still empty, fetch ALL history items and match in-memory
+    if (history.length === 0) {
+      try {
+        const allHistory = await this.getProposalHistory("ALL");
+        const cleanParent = parentCerId.trim().toUpperCase();
+        const cleanProp = (active?.proposal_no || cleanId).trim().toUpperCase();
+        const baseProp = cleanProp.replace(/-R\d+$/i, "");
+        history = allHistory.filter((h) => {
+          const hCerId = (h.cer_proposal_id || h.cerprno || "").trim().toUpperCase();
+          const hPropNo = (h.proposal_no || h.cerprno || "").trim().toUpperCase();
+          const hTitle = ((h as any).Title || (h as any).title || h.proposal_no || "").trim().toUpperCase();
+          return (
+            (hCerId && (hCerId === cleanParent || hCerId === cleanProp)) ||
+            (hPropNo && (hPropNo === cleanProp || hPropNo === baseProp || hPropNo === cleanParent)) ||
+            (hTitle && (hTitle === cleanProp || hTitle === baseProp || hTitle === cleanParent))
+          );
+        });
+      } catch (fallbackErr) {
+        console.warn("[SharePointCERDataService] Fallback getProposalHistory('ALL') error:", fallbackErr);
       }
     }
 

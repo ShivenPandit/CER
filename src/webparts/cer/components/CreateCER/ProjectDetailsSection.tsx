@@ -159,17 +159,6 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
               </div>
             )}
           </div>
-          {isResubmitMode && previousProposalNo && (
-            <div className="flex items-center gap-1.5 flex-wrap text-xs text-slate-500 mt-1.5">
-              <span className="font-medium text-slate-600">Previous Approved No:</span>
-              <span className="font-mono font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                {previousProposalNo}
-              </span>
-              <span className="text-amber-700 font-semibold text-[11px]">
-                (Must be different from previous approved number)
-              </span>
-            </div>
-          )}
           {(getFieldError("proposal_no") || getFieldError("cerprno")) && (
             <p id="proposal_no-error" className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
