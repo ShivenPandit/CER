@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Search, Save, Send, ArrowLeft, CheckCircle2, AlertCircle, ShieldAlert, RotateCcw, Lock, History } from "lucide-react";
+import { Search, Save, Send, ArrowLeft, CheckCircle2, AlertCircle, ShieldAlert, RotateCcw, Lock, History, Loader2 } from "lucide-react";
 import { ICERProposal, IFieldChoices } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
 import { ICERAttachment } from "../../models/AttachmentModel";
 import { ICERDataService } from "../../services/ICERDataService";
+import { formatUserFriendlySharePointError } from "../../services/SharePointCERDataService";
 import { ProjectDetailsSection } from '../CreateCER/ProjectDetailsSection';
 import { FinancialBenefitsSection } from '../CreateCER/FinancialBenefitsSection';
 import { BudgetJVSection } from '../CreateCER/BudgetJVSection';
@@ -45,7 +46,9 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [secondaryWarning, setSecondaryWarning] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
+  const [submitStageText, setSubmitStageText] = useState<string>("");
   const [isCheckingCerNo, setIsCheckingCerNo] = useState(false);
   const cerNoDebounceTimer = React.useRef<any>(null);
 
@@ -110,12 +113,31 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           ? 0
           : found.total;
 
+        const prodTotalRaw = Number(found.prod_till || 0) + Number(found.prod_fy || 0) + Number(found.prod_beyond || 0);
+        const opexTotalRaw = Number(found.opex_till || 0) + Number(found.opex_fy || 0) + Number(found.opex_beyond || 0);
+
         const normalized: ICERProposal = {
           ...found,
-          others: cleanOthers,
-          total: cleanTotal,
+          currency: "USD",
+          cb_currency: "USD",
+          engineer: cleanTotal > 0 ? rawEngineer : ("" as any),
+          s_fac: cleanTotal > 0 ? rawSfac : ("" as any),
+          comis: cleanTotal > 0 ? rawComis : ("" as any),
+          preop: cleanTotal > 0 ? rawPreop : ("" as any),
+          others: cleanTotal > 0 ? cleanOthers : ("" as any),
+          total: cleanTotal > 0 ? cleanTotal : ("" as any),
+          prod_till: prodTotalRaw > 0 ? found.prod_till : ("" as any),
+          prod_fy: prodTotalRaw > 0 ? found.prod_fy : ("" as any),
+          prod_beyond: prodTotalRaw > 0 ? found.prod_beyond : ("" as any),
+          opex_till: opexTotalRaw > 0 ? found.opex_till : ("" as any),
+          opex_fy: opexTotalRaw > 0 ? found.opex_fy : ("" as any),
+          opex_beyond: opexTotalRaw > 0 ? found.opex_beyond : ("" as any),
+          ben_npv: found.ben_npv !== undefined && found.ben_npv !== null && Number(found.ben_npv) !== 0 ? found.ben_npv : ("" as any),
+          ben_irr: found.ben_irr !== undefined && found.ben_irr !== null && Number(found.ben_irr) !== 0 ? found.ben_irr : ("" as any),
+          cb_amnt: found.cb_amnt !== undefined && found.cb_amnt !== null && Number(found.cb_amnt) !== 0 ? found.cb_amnt : ("" as any),
+          jv_amnt: found.jv_amnt !== undefined && found.jv_amnt !== null && Number(found.jv_amnt) !== 0 ? found.jv_amnt : ("" as any),
           proposal_no: initialProposalNo,
-          payback_quarters: found.payback_quarters !== undefined && found.payback_quarters !== null ? found.payback_quarters : 0,
+          payback_quarters: found.payback_quarters !== undefined && found.payback_quarters !== null && Number(found.payback_quarters) > 0 ? found.payback_quarters : ("" as any),
           jv_recoverable: found.jv_recoverable || "No",
           ph_till_label: found.ph_till_label || defaultPhasing.ph_till_label,
           ph_fy_label: found.ph_fy_label || defaultPhasing.ph_fy_label,
@@ -196,11 +218,17 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
 
       // Auto-fetch total Capex ($mm) into Amount of CER
       if (field === "capex_till" || field === "capex_fy" || field === "capex_beyond") {
-        const cTill = Number(field === "capex_till" ? value : prev.capex_till || 0);
-        const cFy = Number(field === "capex_fy" ? value : prev.capex_fy || 0);
-        const cBeyond = Number(field === "capex_beyond" ? value : prev.capex_beyond || 0);
+        const cTillVal = field === "capex_till" ? value : prev.capex_till;
+        const cFyVal = field === "capex_fy" ? value : prev.capex_fy;
+        const cBeyondVal = field === "capex_beyond" ? value : prev.capex_beyond;
+        const hasAnyCapex = (cTillVal !== "" && cTillVal !== undefined && cTillVal !== null) ||
+                            (cFyVal !== "" && cFyVal !== undefined && cFyVal !== null) ||
+                            (cBeyondVal !== "" && cBeyondVal !== undefined && cBeyondVal !== null);
+        const cTill = Number(cTillVal || 0);
+        const cFy = Number(cFyVal || 0);
+        const cBeyond = Number(cBeyondVal || 0);
         const capexTotal = Math.round((cTill + cFy + cBeyond) * 10000) / 10000;
-        updated.amount = capexTotal;
+        updated.amount = hasAnyCapex ? capexTotal : ("" as any);
       }
 
       if (touched[field] || errors[field]) {
@@ -461,6 +489,9 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
     }
 
     setIsSubmitting(true);
+    setSubmitStageText("Saving proposal to SharePoint...");
+    setErrorMessage(null);
+    setSecondaryWarning(null);
     try {
       const updatedPayload: ICERProposal = {
         ...sanitizedData,
@@ -485,11 +516,17 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         (att) => att.data_url && att.data_url.startsWith("data:") && (!att.id || att.id.startsWith("att-"))
       );
       if (pendingAttachments.length > 0) {
+        setSubmitStageText("Uploading attachments...");
         await Promise.all(
           pendingAttachments.map((att) =>
             dataService.addAttachment({ ...att, cerprno: formData.cerprno })
           )
         );
+      }
+
+      setSubmitStageText("Completed!");
+      if (result.warnings && result.warnings.length > 0) {
+        setSecondaryWarning(result.warnings.join(" "));
       }
 
       setSuccessNotice(
@@ -501,16 +538,18 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
       );
       setTimeout(() => {
         onSuccess(formData.cerprno);
-      }, 1500);
+      }, 200);
     } catch (err: any) {
-      setErrorMessage(err.message || "Failed to update proposal.");
+      setSubmitStageText("");
+      const userMsg = formatUserFriendlySharePointError(err, "Failed to update proposal in SharePoint.");
+      setErrorMessage(userMsg);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="cer-change-scope space-y-2.5 sm:space-y-3 pb-28">
+    <>
       {/* Page-Scoped Brand Colour Tokens & Compact Enterprise Style */}
       <style>{`
         .cer-change-scope {
@@ -548,6 +587,8 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           opacity: 0 !important;
         }
       `}</style>
+
+      <div className="cer-change-scope space-y-2.5 sm:space-y-3 pb-12 sm:pb-14">
 
       {/* Compact Sticky Header with Title and Proposal Lookup */}
       <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 bg-white/95 backdrop-blur-md px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl border border-slate-200/90 shadow-xs">
@@ -633,6 +674,13 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         <div className="p-3 sm:p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5">
           <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
           <span className="font-semibold">{successNotice}</span>
+        </div>
+      )}
+
+      {secondaryWarning && (
+        <div className="p-3 sm:p-3.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2.5">
+          <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+          <span className="font-semibold">{secondaryWarning}</span>
         </div>
       )}
 
@@ -751,54 +799,67 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
 
           {/* Sticky Bottom Actions Bar */}
           <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-3 sm:px-5 lg:px-6 2xl:px-8 py-2 sm:py-2.5 z-30 shadow-xs">
-            <div className="w-full flex items-center justify-end gap-2 sm:gap-2.5 flex-wrap">
-              <button
-                type="button"
-                onClick={onCancel}
-                disabled={isSubmitting || isUploadingAttachments}
-                className="px-4 py-2 text-[13px] sm:text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
-              >
-                Cancel
-              </button>
+            <div className="w-full flex items-center justify-between gap-2 sm:gap-2.5 flex-wrap">
+              {/* Submission progress indicator */}
+              <div className="flex items-center gap-2 min-h-[24px]">
+                {isSubmitting && submitStageText && (
+                  <div className="flex items-center gap-2 text-xs font-semibold text-[#012964] animate-pulse">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>{submitStageText}</span>
+                  </div>
+                )}
+              </div>
 
-              {/* Save Draft button for Draft OR Post-Approval Resubmit */}
-              {(formData.status === "Draft" || originalProposal?.status === "Approved") && (
+              <div className="flex items-center gap-2 sm:gap-2.5 ml-auto">
                 <button
                   type="button"
-                  onClick={() => handleSaveChange(true)}
+                  onClick={onCancel}
                   disabled={isSubmitting || isUploadingAttachments}
-                  className="flex items-center gap-1.5 px-4 py-2 text-[13px] sm:text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-2 text-[13px] sm:text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
                 >
-                  <Save className="w-4 h-4" />
-                  <span>{isSubmitting ? "Saving Draft..." : "Save Draft"}</span>
+                  Cancel
                 </button>
-              )}
 
-              {/* Primary action button */}
-              <button
-                type="button"
-                onClick={() => handleSaveChange(false)}
-                disabled={isSubmitting || isUploadingAttachments}
-                className="flex items-center gap-2 px-5 py-2 text-[13px] sm:text-sm font-semibold text-white rounded-lg shadow-xs transition-all hover:opacity-95 disabled:opacity-50 cer-btn-primary cursor-pointer"
-                style={{ backgroundColor: '#012964' }}
-              >
-                <Send className="w-4 h-4" />
-                <span>
-                  {isSubmitting
-                    ? "Submitting..."
-                    : isUploadingAttachments
-                    ? "Processing..."
-                    : originalProposal?.status === "Approved"
-                    ? "Resubmit CER"
-                    : formData.status === "Draft"
-                    ? "Submit Proposal"
-                    : "Submit Changes"}
-                </span>
-              </button>
+                {/* Save Draft button for Draft OR Post-Approval Resubmit */}
+                {(formData.status === "Draft" || originalProposal?.status === "Approved") && (
+                  <button
+                    type="button"
+                    onClick={() => handleSaveChange(true)}
+                    disabled={isSubmitting || isUploadingAttachments}
+                    className="flex items-center gap-1.5 px-4 py-2 text-[13px] sm:text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{isSubmitting ? "Saving Draft..." : "Save Draft"}</span>
+                  </button>
+                )}
+
+                {/* Primary action button */}
+                <button
+                  type="button"
+                  onClick={() => handleSaveChange(false)}
+                  disabled={isSubmitting || isUploadingAttachments}
+                  className="flex items-center gap-2 px-5 py-2 text-[13px] sm:text-sm font-semibold text-white rounded-lg shadow-xs transition-all hover:opacity-95 disabled:opacity-50 cer-btn-primary cursor-pointer"
+                  style={{ backgroundColor: '#012964' }}
+                >
+                  <Send className="w-4 h-4" />
+                  <span>
+                    {isSubmitting
+                      ? "Submitting..."
+                      : isUploadingAttachments
+                      ? "Processing..."
+                      : originalProposal?.status === "Approved"
+                      ? "Resubmit CER"
+                      : formData.status === "Draft"
+                      ? "Submit Proposal"
+                      : "Submit Changes"}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </>
       )}
     </div>
-  );
+  </>
+);
 };

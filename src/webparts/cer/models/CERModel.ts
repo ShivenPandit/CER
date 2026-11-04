@@ -140,10 +140,10 @@ export interface IFieldChoices {
 export const DEFAULT_FIELD_CHOICES: IFieldChoices = {
   sbu: ["CBOS", "RAVA", "RJ North", "RJ South"],
   cat: ["Essential", "Vital", "Desirable"],
-  currency: ["USD", "INR"],
+  currency: ["USD"],
   payable: ["Payback", "Non Payback"],
   cbudget: ["Yes", "No"],
-  cb_currency: ["USD", "INR"],
+  cb_currency: ["USD"],
   jv: ["Yes", "No", "Under Discussion"],
   jv_recoverable: ["Yes", "No"],
   jv_budget: ["Yes", "No"],

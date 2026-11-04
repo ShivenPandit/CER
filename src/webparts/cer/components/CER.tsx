@@ -542,7 +542,9 @@ const CER: React.FC<ICERProps> = (props) => {
         id="cer-main-scroll"
         style={{ backgroundColor: "#F8FAFC" }}
         className={`w-full max-w-none min-w-0 flex-1 flex flex-col ${
-          currentView === "dashboard" ? "p-0 min-h-0 h-full overflow-hidden" : "p-3 sm:p-5 lg:p-6 2xl:p-8"
+          currentView === "dashboard"
+            ? "p-0 min-h-0 h-full overflow-hidden"
+            : "pt-2 sm:pt-2.5 lg:pt-3 px-3 sm:px-5 lg:px-6 2xl:px-8 pb-3 sm:pb-4"
         }`}
       >
         {/* Active View Router */}

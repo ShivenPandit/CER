@@ -83,8 +83,8 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 disabled={isReadOnly || formData.cbudget === "No"}
                 min="0"
                 step="any"
-                value={formData.cb_amnt === 0 ? "" : formData.cb_amnt}
-                onChange={(e) => onChange("cb_amnt", e.target.value === "" ? 0 : Number(e.target.value))}
+                value={formData.cb_amnt === undefined || formData.cb_amnt === null ? "" : formData.cb_amnt}
+                onChange={(e) => onChange("cb_amnt", e.target.value === "" ? "" : Number(e.target.value))}
                 onBlur={() => onBlur && onBlur("cb_amnt")}
                 className={`w-full h-10 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none ${
                   formData.cbudget === "No"
@@ -238,8 +238,8 @@ export const BudgetJVSection: React.FC<IBudgetJVSectionProps> = ({
                 disabled={isReadOnly || !isJvBudgeted}
                 min="0"
                 step="any"
-                value={formData.jv_amnt === 0 ? "" : formData.jv_amnt}
-                onChange={(e) => onChange("jv_amnt", e.target.value === "" ? 0 : Number(e.target.value))}
+                value={formData.jv_amnt === undefined || formData.jv_amnt === null ? "" : formData.jv_amnt}
+                onChange={(e) => onChange("jv_amnt", e.target.value === "" ? "" : Number(e.target.value))}
                 onBlur={() => onBlur && onBlur("jv_amnt")}
                 className={`w-full h-10 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none ${
                   !isJvBudgeted

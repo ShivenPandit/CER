@@ -26,6 +26,13 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
     return touched[field] || errors[field] ? errors[field] : undefined;
   };
 
+  // Fixed Currency Requirement: Always force USD
+  React.useEffect(() => {
+    if (!isReadOnly && formData.currency !== "USD") {
+      onChange("currency", "USD");
+    }
+  }, [formData.currency, isReadOnly, onChange]);
+
 
 
   return (
@@ -51,18 +58,9 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             </span>
           </div>
           <div className="flex items-center rounded-lg border border-slate-200 overflow-hidden bg-slate-50 focus-within:ring-1 focus-within:ring-[#012964]/20 focus-within:border-[#012964]">
-            <select
-              disabled={isReadOnly}
-              value={formData.currency}
-              onChange={(e) => onChange("currency", e.target.value)}
-              className="h-10 px-2.5 bg-white border-r border-slate-200 font-bold text-slate-800 text-sm focus:outline-none transition-colors"
-            >
-              {(fieldChoices?.currency && fieldChoices.currency.length > 0 ? fieldChoices.currency : ["USD", "INR"]).map((cur) => (
-                <option key={cur} value={cur}>
-                  {cur === "USD" ? "USD ($)" : cur === "INR" ? "INR (₹)" : cur}
-                </option>
-              ))}
-            </select>
+            <span className="h-10 px-3 flex items-center bg-slate-100 border-r border-slate-200 font-bold text-slate-700 text-sm select-none shrink-0" title="Fixed currency: USD">
+              USD ($)
+            </span>
             <input
               id="amount"
               type="text"
@@ -123,11 +121,11 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             disabled={isReadOnly}
             min="1"
             step="1"
-            value={formData.payback_quarters || ""}
+            value={formData.payback_quarters === undefined || formData.payback_quarters === null ? "" : formData.payback_quarters}
             onChange={(e) => {
-              const q = e.target.value === "" ? 0 : parseInt(e.target.value, 10);
+              const q = e.target.value === "" ? "" : parseInt(e.target.value, 10);
               onChange("payback_quarters", q);
-              if (q > 0) {
+              if (typeof q === "number" && q > 0) {
                 onChange("period", `${q} ${q === 1 ? "Quarter" : "Quarters"}`);
               }
             }}
@@ -157,8 +155,8 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             type="number"
             disabled={isReadOnly}
             step="any"
-            value={formData.ben_npv === 0 ? "" : formData.ben_npv}
-            onChange={(e) => onChange("ben_npv", e.target.value === "" ? 0 : Number(e.target.value))}
+            value={formData.ben_npv === undefined || formData.ben_npv === null ? "" : formData.ben_npv}
+            onChange={(e) => onChange("ben_npv", e.target.value === "" ? "" : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("ben_npv")}
             className={`w-full h-10 px-3 py-1.5 rounded-lg text-sm transition-colors font-medium text-slate-900 focus:outline-none ${
               getFieldError("ben_npv")
@@ -186,8 +184,8 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
             min="0"
             max="100"
             step="0.1"
-            value={formData.ben_irr === 0 ? "" : formData.ben_irr}
-            onChange={(e) => onChange("ben_irr", e.target.value === "" ? 0 : Number(e.target.value))}
+            value={formData.ben_irr === undefined || formData.ben_irr === null ? "" : formData.ben_irr}
+            onChange={(e) => onChange("ben_irr", e.target.value === "" ? "" : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("ben_irr")}
             className={`w-full h-10 px-3 py-1.5 rounded-lg text-sm transition-colors font-medium text-slate-900 focus:outline-none ${
               getFieldError("ben_irr")

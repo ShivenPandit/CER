@@ -184,7 +184,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
   const period3Display = proposal?.ph_beyond_label || defaultPhasingLabels.ph_beyond_label;
 
   return (
-    <div className="cer-display-scope space-y-4 pb-8">
+    <>
       {/* Page-Scoped Brand Colour Tokens & Accessibility Style */}
       <style>{`
         .cer-display-scope {
@@ -273,6 +273,8 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
           height: auto !important;
         }
       `}</style>
+
+      <div className="cer-display-scope space-y-4 pb-8">
 
       {/* Top Bar with Lookup & Actions */}
       <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-3.5 print:hidden">
@@ -670,7 +672,6 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                     <th className="py-3 px-4 text-right">{period1Display}</th>
                     <th className="py-3 px-4 text-right">{period2Display}</th>
                     <th className="py-3 px-4 text-right">{period3Display}</th>
-                    <th className="py-3 px-4 text-right font-bold text-slate-900">Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -679,27 +680,18 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                     <td className="py-2.5 px-4 text-right font-medium text-slate-700">{proposal.prod_till.toLocaleString()}</td>
                     <td className="py-2.5 px-4 text-right font-medium text-slate-700">{proposal.prod_fy.toLocaleString()}</td>
                     <td className="py-2.5 px-4 text-right font-medium text-slate-700">{proposal.prod_beyond.toLocaleString()}</td>
-                    <td className="py-2.5 px-4 text-right font-bold text-slate-900">
-                      {(proposal.prod_till + proposal.prod_fy + proposal.prod_beyond).toLocaleString()}
-                    </td>
                   </tr>
                   <tr className="hover:bg-slate-50/50 transition-colors">
                     <td className="py-2.5 px-4 font-semibold text-slate-800">Capex ($mm)</td>
                     <td className="py-2.5 px-4 text-right font-medium text-slate-700">{proposal.capex_till.toLocaleString()}</td>
                     <td className="py-2.5 px-4 text-right font-medium text-slate-700">{proposal.capex_fy.toLocaleString()}</td>
                     <td className="py-2.5 px-4 text-right font-medium text-slate-700">{proposal.capex_beyond.toLocaleString()}</td>
-                    <td className="py-2.5 px-4 text-right font-bold text-slate-900">
-                      {(proposal.capex_till + proposal.capex_fy + proposal.capex_beyond).toLocaleString()}
-                    </td>
                   </tr>
                   <tr className="hover:bg-slate-50/50 transition-colors">
                     <td className="py-2.5 px-4 font-semibold text-slate-800">Opex ($mm)</td>
                     <td className="py-2.5 px-4 text-right font-medium text-slate-700">{proposal.opex_till.toLocaleString()}</td>
                     <td className="py-2.5 px-4 text-right font-medium text-slate-700">{proposal.opex_fy.toLocaleString()}</td>
                     <td className="py-2.5 px-4 text-right font-medium text-slate-700">{proposal.opex_beyond.toLocaleString()}</td>
-                    <td className="py-2.5 px-4 text-right font-bold text-slate-900">
-                      {(proposal.opex_till + proposal.opex_fy + proposal.opex_beyond).toLocaleString()}
-                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -911,6 +903,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
           dataService={dataService}
         />
       )}
-    </div>
+      </div>
+    </>
   );
 };

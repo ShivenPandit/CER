@@ -28,12 +28,24 @@ export interface ICERDataService {
   // Proposals
   getAllProposals(forceRefresh?: boolean): Promise<ICERProposal[]>;
   getProposalByNumber(cerprno: string, forceRefresh?: boolean): Promise<ICERProposal | null>;
-  createProposal(proposal: ICERProposal): Promise<{ success: boolean; message: string; proposal: ICERProposal }>;
+  createProposal(proposal: ICERProposal): Promise<{ success: boolean; message: string; proposal: ICERProposal; warnings?: string[] }>;
   updateProposal(
     proposal: ICERProposal,
     user: { name: string; email: string },
     originalProposal?: ICERProposal,
-  ): Promise<{ success: boolean; message: string; proposal: ICERProposal; auditRowsCount: number }>;
+  ): Promise<{
+    success: boolean;
+    message: string;
+    proposal: ICERProposal;
+    auditRowsCount: number;
+    warnings?: string[];
+    secondaryFailures?: {
+      auditFailedCount: number;
+      failedAuditFields: string[];
+      notificationFailed: boolean;
+      notificationError?: string;
+    };
+  }>;
   generateProposalNumber(): Promise<string>;
 
   // Proposal History & Submissions (CERProposalsHistory)

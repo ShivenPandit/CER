@@ -28,7 +28,7 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
   const computedTotal = engineer + s_fac + comis + preop + others;
 
   useEffect(() => {
-    if (computedTotal !== formData.total) {
+    if (computedTotal > 0 || (Number(formData.total || 0) > 0 && computedTotal !== formData.total)) {
       onChange("total", computedTotal);
     }
   }, [computedTotal]);
@@ -98,8 +98,8 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             disabled={isReadOnly}
             min="0"
             step="any"
-            value={formData.engineer === 0 ? "" : formData.engineer}
-            onChange={(e) => onChange("engineer", e.target.value === "" ? 0 : Number(e.target.value))}
+            value={formData.engineer === undefined || formData.engineer === null ? "" : formData.engineer}
+            onChange={(e) => onChange("engineer", e.target.value === "" ? "" : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("engineer")}
             className={`w-full h-10 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("engineer")
@@ -126,8 +126,8 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             disabled={isReadOnly}
             min="0"
             step="any"
-            value={formData.s_fac === 0 ? "" : formData.s_fac}
-            onChange={(e) => onChange("s_fac", e.target.value === "" ? 0 : Number(e.target.value))}
+            value={formData.s_fac === undefined || formData.s_fac === null ? "" : formData.s_fac}
+            onChange={(e) => onChange("s_fac", e.target.value === "" ? "" : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("s_fac")}
             className={`w-full h-10 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("s_fac")
@@ -154,8 +154,8 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             disabled={isReadOnly}
             min="0"
             step="any"
-            value={formData.comis === 0 ? "" : formData.comis}
-            onChange={(e) => onChange("comis", e.target.value === "" ? 0 : Number(e.target.value))}
+            value={formData.comis === undefined || formData.comis === null ? "" : formData.comis}
+            onChange={(e) => onChange("comis", e.target.value === "" ? "" : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("comis")}
             className={`w-full h-10 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("comis")
@@ -182,8 +182,8 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             disabled={isReadOnly}
             min="0"
             step="any"
-            value={formData.preop === 0 ? "" : formData.preop}
-            onChange={(e) => onChange("preop", e.target.value === "" ? 0 : Number(e.target.value))}
+            value={formData.preop === undefined || formData.preop === null ? "" : formData.preop}
+            onChange={(e) => onChange("preop", e.target.value === "" ? "" : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("preop")}
             className={`w-full h-10 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("preop")
@@ -210,8 +210,8 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
             disabled={isReadOnly}
             min="0"
             step="any"
-            value={formData.others === 0 ? "" : formData.others}
-            onChange={(e) => onChange("others", e.target.value === "" ? 0 : Number(e.target.value))}
+            value={formData.others === undefined || formData.others === null ? "" : formData.others}
+            onChange={(e) => onChange("others", e.target.value === "" ? "" : Number(e.target.value))}
             onBlur={() => onBlur && onBlur("others")}
             className={`w-full h-10 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
               getFieldError("others")

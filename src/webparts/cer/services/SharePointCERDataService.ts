@@ -26,6 +26,43 @@ import { PersonFieldService } from "./PersonFieldService";
 import { SP_LISTS, FIXED_6_LEVEL_APPROVAL_STAGES } from "../constants";
 import { sanitizeProposalPayload, escapeODataString } from "../utils/sanitizationUtils";
 
+/**
+ * Sanitizes and formats raw SharePoint REST / OData / Network errors into
+ * clean, concise, human-friendly business messages suitable for user-facing UI.
+ */
+export function formatUserFriendlySharePointError(error: any, defaultContext: string = "An error occurred while communicating with SharePoint."): string {
+  const errMsg = String(error?.message || error || "");
+  const lower = errMsg.toLowerCase();
+
+  if (lower.indexOf("412") !== -1 || lower.indexOf("concurrency") !== -1 || lower.indexOf("etag") !== -1) {
+    return "Concurrency conflict: This proposal was modified by another user or session. Please refresh the proposal to review the latest changes before saving.";
+  }
+  if (lower.indexOf("403") !== -1 || lower.indexOf("access denied") !== -1 || lower.indexOf("unauthorized") !== -1) {
+    return "Permission Denied: You do not have permission to perform this update in SharePoint. Please verify your role assignments.";
+  }
+  if (lower.indexOf("already exists") !== -1 || lower.indexOf("duplicate") !== -1) {
+    return errMsg.indexOf("already exists") !== -1
+      ? errMsg
+      : "A record with this identifier already exists in SharePoint. Please ensure proposal numbers are unique.";
+  }
+  if (lower.indexOf("429") !== -1 || lower.indexOf("throttled") !== -1) {
+    return "SharePoint service is experiencing high load (throttled). Please wait a few moments before retrying.";
+  }
+  if (lower.indexOf("503") !== -1 || lower.indexOf("service unavailable") !== -1 || lower.indexOf("network") !== -1) {
+    return "Unable to connect to SharePoint service. Please verify your network connection and retry.";
+  }
+  if (lower.indexOf("timeout") !== -1) {
+    return "The request to SharePoint timed out. Please check your network connection and retry.";
+  }
+
+  const cleaned = errMsg
+    .replace(/^\[.*?\]\s*/g, "")
+    .replace(/^(Error:\s*)+/gi, "")
+    .trim();
+
+  return cleaned || defaultContext;
+}
+
 export class SharePointCERDataService implements ICERDataService {
   private _spHttpClient: SPHttpClient;
   private _siteUrl: string;
@@ -612,7 +649,9 @@ export class SharePointCERDataService implements ICERDataService {
         attempts++;
         const errMsg = String(err?.message || "");
 
-        this._cachedHistoryFields = null;
+        if (errMsg.toLowerCase().indexOf("history") !== -1) {
+          this._cachedHistoryFields = null;
+        }
 
         // Concurrency conflicts (HTTP 412) must never be swallowed or retried with stripped fields
         if (errMsg.indexOf("HTTP 412") !== -1 || errMsg.indexOf("Concurrency conflict") !== -1 || errMsg.indexOf("412") !== -1) {
@@ -751,7 +790,7 @@ export class SharePointCERDataService implements ICERDataService {
 
   public async createProposal(
     proposal: ICERProposal,
-  ): Promise<{ success: boolean; message: string; proposal: ICERProposal }> {
+  ): Promise<{ success: boolean; message: string; proposal: ICERProposal; warnings?: string[] }> {
     // Defense-in-depth: Deeply sanitize all fields on write
     const cleanProposal = sanitizeProposalPayload(proposal);
     const now = new Date().toISOString();
@@ -918,6 +957,7 @@ export class SharePointCERDataService implements ICERDataService {
       }
 
       // Secondary write: Notification dispatch
+      const secondaryWarnings: string[] = [];
       if (!isDraft) {
         try {
           await this._createNotificationRecord(
@@ -929,6 +969,7 @@ export class SharePointCERDataService implements ICERDataService {
           );
         } catch (notifErr) {
           console.warn("[SharePointCERDataService] Secondary notification write warning:", notifErr);
+          secondaryWarnings.push("Notification queue item could not be created.");
         }
       }
 
@@ -941,6 +982,7 @@ export class SharePointCERDataService implements ICERDataService {
           ? "CER Proposal draft saved successfully"
           : "CER Proposal No. has been created and sent for approval",
         proposal: { ...newProposal, id: assignedProposalId },
+        warnings: secondaryWarnings.length > 0 ? secondaryWarnings : undefined,
       };
     }
 
@@ -988,6 +1030,7 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     // Secondary write: Workflow dispatch notification into CERNotifications
+    const secondaryWarnings: string[] = [];
     if (!isDraft) {
       try {
         await this._createNotificationRecord(
@@ -999,6 +1042,7 @@ export class SharePointCERDataService implements ICERDataService {
         );
       } catch (notifErr) {
         console.warn("[SharePointCERDataService] Secondary notification write warning:", notifErr);
+        secondaryWarnings.push("Notification queue item could not be created.");
       }
     }
 
@@ -1011,6 +1055,7 @@ export class SharePointCERDataService implements ICERDataService {
         ? "CER Proposal draft saved successfully"
         : "CER Proposal No. has been created and sent for approval",
       proposal: { ...newProposal, id: assignedProposalId },
+      warnings: secondaryWarnings.length > 0 ? secondaryWarnings : undefined,
     };
   }
 
@@ -1023,11 +1068,26 @@ export class SharePointCERDataService implements ICERDataService {
     message: string;
     proposal: ICERProposal;
     auditRowsCount: number;
+    warnings?: string[];
+    secondaryFailures?: {
+      auditFailedCount: number;
+      failedAuditFields: string[];
+      notificationFailed: boolean;
+      notificationError?: string;
+    };
   }> {
     // Defense-in-depth: Deeply sanitize all fields on update
     const cleanProposal = sanitizeProposalPayload(proposal);
     const now = new Date().toISOString();
-    const existing = await this.getProposalByNumber(cleanProposal.cerprno, true);
+
+    // Performance Optimization: Reuse originalProposal if supplied and valid, avoiding redundant SharePoint round-trip
+    const isOriginalSupplied = Boolean(
+      originalProposal &&
+        (originalProposal.cerprno === cleanProposal.cerprno ||
+          originalProposal.cer_proposal_id === cleanProposal.cer_proposal_id ||
+          (originalProposal.id && cleanProposal.id && String(originalProposal.id) === String(cleanProposal.id)))
+    );
+    const existing = isOriginalSupplied ? originalProposal : await this.getProposalByNumber(cleanProposal.cerprno, true);
     const original = originalProposal || existing || cleanProposal;
 
     // Enterprise RBAC: Only designated CER Owner or Administrator can edit proposals
@@ -1169,11 +1229,11 @@ export class SharePointCERDataService implements ICERDataService {
 
     // Find SharePoint Item ID in CERProposals
     let spItemId: number = 0;
-    const candidateId = existing?.id || cleanProposal.id;
+    const candidateId = existing?.id || cleanProposal.id || original?.id;
     const targetListName: string = SP_LISTS.CER_PROPOSALS;
 
-    if (candidateId && /^\d+$/.test(candidateId)) {
-      spItemId = parseInt(candidateId, 10);
+    if (candidateId && /^\d+$/.test(String(candidateId))) {
+      spItemId = parseInt(String(candidateId), 10);
     } else {
       let existingItems: Array<{ Id: number }> = [];
       const safeCerprno = escapeODataString(cleanProposal.cerprno);
@@ -1267,41 +1327,60 @@ export class SharePointCERDataService implements ICERDataService {
       );
     }
 
-    // Secondary write: Write each delta row to CERAuditTrail
-    for (const record of auditRecords) {
-      try {
-        await this._createAuditRecord(record);
-      } catch (auditErr) {
-        console.warn(`[SharePointCERDataService] Secondary audit write warning for ${record.field_name}:`, auditErr);
-      }
-    }
+    // Secondary writes: execute audit records batch (concurrency 5) and notification queue dispatch concurrently
+    const secondaryWarnings: string[] = [];
+    let failedAuditFields: string[] = [];
+    let auditFailedCount = 0;
+    let notificationFailed = false;
+    let notificationError: string | undefined;
 
-    // Secondary write: Write notification to CERNotifications
-    try {
-      if (nextStatus === "In Approval") {
-        await this._createNotificationRecord(
-          proposal.cerprno,
-          [proposal.owner_email, nextEmail].filter(Boolean),
-          `[CER Action Required] Proposal ${proposal.cerprno} Submitted for Approval`,
-          `Proposal ${proposal.cerprno} (${proposal.pr_name}) has been submitted/re-triggered by ${user.name} and is awaiting Level 1 approval (${nextRole}).`,
-          0,
-        );
-      } else {
-        await this._createNotificationRecord(
-          proposal.cerprno,
-          [proposal.owner_email].filter(Boolean),
-          `[CER Update] Proposal ${proposal.cerprno} - Revision ${updatedProposal.revision_count}`,
-          `Proposal ${proposal.cerprno} has been revised by ${user.name} with ${auditRecords.length} updated fields.`,
-          0,
-        );
+    const notificationPromise = (async () => {
+      try {
+        if (nextStatus === "In Approval") {
+          await this._createNotificationRecord(
+            proposal.cerprno,
+            [proposal.owner_email, nextEmail].filter(Boolean),
+            `[CER Action Required] Proposal ${proposal.cerprno} Submitted for Approval`,
+            `Proposal ${proposal.cerprno} (${proposal.pr_name}) has been submitted/re-triggered by ${user.name} and is awaiting Level 1 approval (${nextRole}).`,
+            0,
+          );
+        } else {
+          await this._createNotificationRecord(
+            proposal.cerprno,
+            [proposal.owner_email].filter(Boolean),
+            `[CER Update] Proposal ${proposal.cerprno} - Revision ${updatedProposal.revision_count}`,
+            `Proposal ${proposal.cerprno} has been revised by ${user.name} with ${auditRecords.length} updated fields.`,
+            0,
+          );
+        }
+      } catch (notifErr: any) {
+        notificationFailed = true;
+        notificationError = notifErr instanceof Error ? notifErr.message : String(notifErr);
+        console.warn("[SharePointCERDataService] Secondary notification write warning:", notifErr);
+        secondaryWarnings.push("Notification queue item could not be created.");
       }
-    } catch (notifErr) {
-      console.warn("[SharePointCERDataService] Secondary notification write warning:", notifErr);
-    }
+    })();
+
+    const auditPromise = (async () => {
+      if (auditRecords.length > 0) {
+        const batchResult = await this._createAuditRecordsBatch(auditRecords, 5);
+        if (batchResult.failedRecords.length > 0) {
+          auditFailedCount = batchResult.failedRecords.length;
+          failedAuditFields = batchResult.failedRecords.map((r) => r.field_name);
+          secondaryWarnings.push(
+            `${auditFailedCount} audit log record(s) failed to save (${failedAuditFields.join(", ")}).`
+          );
+        }
+      }
+    })();
+
+    await Promise.all([notificationPromise, auditPromise]);
 
     this._cachedProposals = null;
     this._cachedProposalByNumber.delete(proposal.cerprno.toUpperCase());
     this._cachedSubmissionsByCerId.clear();
+
+    const hasSecondaryFailures = auditFailedCount > 0 || notificationFailed;
 
     return {
       success: true,
@@ -1309,7 +1388,16 @@ export class SharePointCERDataService implements ICERDataService {
         ? "Proposal draft updated successfully"
         : "Proposal updated and workflow re-triggered successfully",
       proposal: updatedProposal,
-      auditRowsCount: auditRecords.length,
+      auditRowsCount: auditRecords.length - auditFailedCount,
+      warnings: secondaryWarnings.length > 0 ? secondaryWarnings : undefined,
+      secondaryFailures: hasSecondaryFailures
+        ? {
+            auditFailedCount,
+            failedAuditFields,
+            notificationFailed,
+            notificationError,
+          }
+        : undefined,
     };
   }
 
@@ -1421,7 +1509,7 @@ export class SharePointCERDataService implements ICERDataService {
 
     if (availableFields && availableFields.length > 0) {
       for (const field of availableFields) {
-        const intName = field.InternalName;
+        const intName = field.InternalName || "";
         const dispName = field.Title || "";
         const entityProp = field.EntityPropertyName || "";
         const type = (field.TypeAsString || "").toLowerCase();
@@ -1592,16 +1680,26 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     // 1. Determine existing snapshots for this proposal to compute accurate versionTag
-    let existingHistory: ICERProposal[] = [];
-    try {
-      existingHistory = await this.getProposalHistory(cerId);
-    } catch {
-      existingHistory = [];
+    let versionIndex = 1;
+    if ((original as any).version) {
+      versionIndex = parseInt(String((original as any).version).replace(/\D/g, ""), 10) || 1;
+    } else if (typeof original.revision_count === "number" && original.revision_count > 0) {
+      versionIndex = original.revision_count;
+    } else {
+      try {
+        const historyCountItems = await this._sp.getListItems<{ Id: number; version?: string; Version?: string }>(
+          SP_LISTS.CER_PROPOSALS_HISTORY,
+          {
+            filter: `cerPrId eq '${escapeODataString(cerId)}' or proposalNo eq '${escapeODataString(propNo)}' or Title eq '${escapeODataString(propNo)}'`,
+            select: "Id,version,Version",
+            top: 50,
+          }
+        );
+        versionIndex = (historyCountItems?.length || 0) + 1;
+      } catch {
+        versionIndex = 1;
+      }
     }
-
-    const versionIndex = (original as any).version
-      ? parseInt(String((original as any).version).replace(/\D/g, ""), 10) || (existingHistory.length + 1)
-      : (existingHistory.length + 1);
     const versionTag = `V${versionIndex}`;
 
     // 2. Discover list fields for CERProposalsHistory
@@ -1902,6 +2000,7 @@ export class SharePointCERDataService implements ICERDataService {
       is_long_text: record.is_long_text,
     };
 
+    let lastAuditErr: any = null;
     for (const listName of candidateLists) {
       try {
         try {
@@ -1912,9 +2011,54 @@ export class SharePointCERDataService implements ICERDataService {
           return;
         }
       } catch (e) {
-        // try next
+        lastAuditErr = e;
       }
     }
+    if (lastAuditErr) {
+      throw lastAuditErr;
+    }
+  }
+
+  /**
+   * Concurrently processes audit records in bounded parallel batches (maxConcurrency: 5)
+   * to maximize throughput while avoiding reverse-proxy / SharePoint 429 throttling.
+   * Tracks and returns all failures without silently ignoring them.
+   */
+  private async _createAuditRecordsBatch(
+    records: ICERAuditRecord[],
+    maxConcurrency: number = 5
+  ): Promise<{ succeededCount: number; failedRecords: ICERAuditRecord[] }> {
+    if (!records || records.length === 0) {
+      return { succeededCount: 0, failedRecords: [] };
+    }
+
+    const failedRecords: ICERAuditRecord[] = [];
+    let succeededCount = 0;
+
+    for (let i = 0; i < records.length; i += maxConcurrency) {
+      const chunk = records.slice(i, i + maxConcurrency);
+      const results = await Promise.all(
+        chunk.map((rec) =>
+          this._createAuditRecord(rec)
+            .then(() => ({ isSuccess: true as const, rec, error: null }))
+            .catch((err: any) => ({ isSuccess: false as const, rec, error: err }))
+        )
+      );
+
+      for (const res of results) {
+        if (res.isSuccess) {
+          succeededCount++;
+        } else {
+          failedRecords.push(res.rec);
+          console.error(
+            `[SharePointCERDataService] Audit record write failed for '${res.rec.field_name}':`,
+            res.error
+          );
+        }
+      }
+    }
+
+    return { succeededCount, failedRecords };
   }
 
   // ---------------------------------------------------------------------------
@@ -2935,6 +3079,7 @@ export class SharePointCERDataService implements ICERDataService {
       status: "SENT",
     };
 
+    let lastError: any = null;
     const candidateLists = [SP_LISTS.CER_NOTIFICATIONS];
     for (const listName of candidateLists) {
       try {
@@ -2942,14 +3087,18 @@ export class SharePointCERDataService implements ICERDataService {
           await this._sp.createListItem(listName, modernPayload);
           this._cachedNotificationLogs.clear();
           return;
-        } catch {
+        } catch (firstErr) {
+          lastError = firstErr;
           await this._sp.createListItem(listName, legacyPayload);
           this._cachedNotificationLogs.clear();
           return;
         }
-      } catch {
-        // try next candidate
+      } catch (secondErr) {
+        lastError = secondErr;
       }
+    }
+    if (lastError) {
+      throw lastError;
     }
   }
 

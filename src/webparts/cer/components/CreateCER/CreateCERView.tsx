@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Send, Save, ArrowLeft, CheckCircle2, AlertCircle, Lock } from "lucide-react";
+import { Send, Save, ArrowLeft, CheckCircle2, AlertCircle, Lock, Loader2 } from "lucide-react";
 import { ICERProposal, IFieldChoices } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
 import { ICERAttachment } from "../../models/AttachmentModel";
 import { ICERDataService } from "../../services/ICERDataService";
+import { formatUserFriendlySharePointError } from "../../services/SharePointCERDataService";
 import { ProjectDetailsSection } from "./ProjectDetailsSection";
 import { FinancialBenefitsSection } from "./FinancialBenefitsSection";
 import { BudgetJVSection } from "./BudgetJVSection";
@@ -45,46 +46,46 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     sbu: "RJ North",
     status: "Draft",
     object: "",
-    amount: 0,
+    amount: "" as any,
     currency: "USD",
     cat: "Vital",
     payable: "Payback",
     period: "",
-    payback_quarters: 0,
-    ben_npv: 0,
-    ben_irr: 0,
+    payback_quarters: "" as any,
+    ben_npv: "" as any,
+    ben_irr: "" as any,
     cost_assumptions: "",
     st_date: "",
     com_date: "",
     duration_months: 0,
     cbudget: "Yes",
-    cb_amnt: 0,
+    cb_amnt: "" as any,
     cb_currency: "USD",
     reason: "",
     jv: "No",
     jv_recoverable: "No",
-    jv_cost: 0,
+    jv_cost: "" as any,
     jv_budget: "No",
-    jv_amnt: 0,
+    jv_amnt: "" as any,
     jv_reason: "",
     ph_till_label: defaultPhasing.ph_till_label,
     ph_fy_label: defaultPhasing.ph_fy_label,
     ph_beyond_label: defaultPhasing.ph_beyond_label,
-    prod_till: 0,
-    prod_fy: 0,
-    prod_beyond: 0,
-    capex_till: 0,
-    capex_fy: 0,
-    capex_beyond: 0,
-    opex_till: 0,
-    opex_fy: 0,
-    opex_beyond: 0,
-    engineer: 0,
-    s_fac: 0,
-    comis: 0,
-    preop: 0,
-    others: 0,
-    total: 0,
+    prod_till: "" as any,
+    prod_fy: "" as any,
+    prod_beyond: "" as any,
+    capex_till: "" as any,
+    capex_fy: "" as any,
+    capex_beyond: "" as any,
+    opex_till: "" as any,
+    opex_fy: "" as any,
+    opex_beyond: "" as any,
+    engineer: "" as any,
+    s_fac: "" as any,
+    comis: "" as any,
+    preop: "" as any,
+    others: "" as any,
+    total: "" as any,
     remarks: "",
     remarks_jv: "",
     current_level: 1,
@@ -102,7 +103,9 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStageText, setSubmitStageText] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [secondaryWarning, setSecondaryWarning] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [isCheckingCerNo, setIsCheckingCerNo] = useState(false);
   const cerNoDebounceTimer = React.useRef<any>(null);
@@ -148,11 +151,17 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
       }
       // Auto-fetch total Capex ($mm) into Amount of CER
       if (field === "capex_till" || field === "capex_fy" || field === "capex_beyond") {
-        const cTill = Number(field === "capex_till" ? value : prev.capex_till || 0);
-        const cFy = Number(field === "capex_fy" ? value : prev.capex_fy || 0);
-        const cBeyond = Number(field === "capex_beyond" ? value : prev.capex_beyond || 0);
+        const cTillVal = field === "capex_till" ? value : prev.capex_till;
+        const cFyVal = field === "capex_fy" ? value : prev.capex_fy;
+        const cBeyondVal = field === "capex_beyond" ? value : prev.capex_beyond;
+        const hasAnyCapex = (cTillVal !== "" && cTillVal !== undefined && cTillVal !== null) ||
+                            (cFyVal !== "" && cFyVal !== undefined && cFyVal !== null) ||
+                            (cBeyondVal !== "" && cBeyondVal !== undefined && cBeyondVal !== null);
+        const cTill = Number(cTillVal || 0);
+        const cFy = Number(cFyVal || 0);
+        const cBeyond = Number(cBeyondVal || 0);
         const capexTotal = Math.round((cTill + cFy + cBeyond) * 10000) / 10000;
-        updated.amount = capexTotal;
+        updated.amount = hasAnyCapex ? capexTotal : ("" as any);
       }
 
       if (touched[field] || errors[field]) {
@@ -399,6 +408,9 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     }
 
     setIsSubmitting(true);
+    setSubmitStageText("Saving proposal to SharePoint...");
+    setErrorMessage(null);
+    setSecondaryWarning(null);
     try {
       const payload: ICERProposal = {
         ...sanitizedData,
@@ -410,6 +422,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
 
       // Save attachments linked to proposal in parallel (faster performance)
       if (attachments.length > 0) {
+        setSubmitStageText("Uploading attachments...");
         await Promise.all(
           attachments.map((att) =>
             dataService.addAttachment({ ...att, cerprno: finalCerprno })
@@ -417,18 +430,26 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         );
       }
 
+      setSubmitStageText("Completed!");
+      if (result.warnings && result.warnings.length > 0) {
+        setSecondaryWarning(result.warnings.join(" "));
+      }
+
       setSuccessNotice(result.message);
       setTimeout(() => {
         onSuccess(finalCerprno);
-      }, 1200);
+      }, 200);
     } catch (err: any) {
-      setErrorMessage(err.message || "An error occurred while creating the proposal.");
+      setSubmitStageText("");
+      const userMsg = formatUserFriendlySharePointError(err, "An error occurred while creating the proposal in SharePoint.");
+      setErrorMessage(userMsg);
+    } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="cer-create-scope space-y-2.5 sm:space-y-3 pb-28">
+    <>
       {/* Page-Scoped Brand Colour Tokens & Compact Enterprise Style */}
       <style>{`
         .cer-create-scope {
@@ -483,6 +504,8 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         }
       `}</style>
 
+      <div className="cer-create-scope space-y-2.5 sm:space-y-3 pb-12 sm:pb-14">
+
       {/* Compact Sticky Header */}
       <div className="sticky top-0 z-20 flex items-center justify-between gap-3 bg-white/95 backdrop-blur-md px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl border border-slate-200/90 shadow-xs">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -527,6 +550,13 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-[13px] flex items-center gap-2.5">
           <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
           <span className="font-semibold">{successNotice}</span>
+        </div>
+      )}
+
+      {secondaryWarning && (
+        <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs sm:text-[13px] flex items-center gap-2.5">
+          <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+          <span className="font-semibold">{secondaryWarning}</span>
         </div>
       )}
 
@@ -605,44 +635,57 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
 
       {/* Compact Sticky Bottom Actions Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-elevated z-30 py-2 sm:py-2.5 px-3 sm:px-5 lg:px-6 2xl:px-8">
-        <div className="w-full flex items-center justify-end gap-2 sm:gap-2.5 flex-wrap">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isSubmitting || isUploadingAttachments}
-            className="px-4 py-2 text-[13px] sm:text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
-          >
-            Cancel
-          </button>
+        <div className="w-full flex items-center justify-between gap-2 sm:gap-2.5 flex-wrap">
+          {/* Submission progress indicator */}
+          <div className="flex items-center gap-2 min-h-[24px]">
+            {isSubmitting && submitStageText && (
+              <div className="flex items-center gap-2 text-xs font-semibold text-[#012964] animate-pulse">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>{submitStageText}</span>
+              </div>
+            )}
+          </div>
 
-          <button
-            type="button"
-            onClick={() => handleSubmit(true)}
-            disabled={isSubmitting || isUploadingAttachments}
-            className="flex items-center gap-1.5 px-4 py-2 text-[13px] sm:text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
-          >
-            <Save className="w-4 h-4" />
-            <span>Save Draft</span>
-          </button>
+          <div className="flex items-center gap-2 sm:gap-2.5 ml-auto">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isSubmitting || isUploadingAttachments}
+              className="px-4 py-2 text-[13px] sm:text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              Cancel
+            </button>
 
-          <button
-            type="button"
-            onClick={() => handleSubmit(false)}
-            disabled={isSubmitting || isUploadingAttachments}
-            className="flex items-center gap-2 px-5 py-2 text-[13px] sm:text-sm font-semibold text-white rounded-lg shadow-xs transition-all hover:opacity-95 disabled:opacity-50 cer-btn-primary cursor-pointer"
-            style={{ backgroundColor: '#012964' }}
-          >
-            <Send className="w-4 h-4" />
-            <span>
-              {isSubmitting
-                ? "Submitting..."
-                : isUploadingAttachments
-                ? "Processing..."
-                : "Submit for Approval"}
-            </span>
-          </button>
+            <button
+              type="button"
+              onClick={() => handleSubmit(true)}
+              disabled={isSubmitting || isUploadingAttachments}
+              className="flex items-center gap-1.5 px-4 py-2 text-[13px] sm:text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              <Save className="w-4 h-4" />
+              <span>{isSubmitting ? "Saving Draft..." : "Save Draft"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSubmit(false)}
+              disabled={isSubmitting || isUploadingAttachments}
+              className="flex items-center gap-2 px-5 py-2 text-[13px] sm:text-sm font-semibold text-white rounded-lg shadow-xs transition-all hover:opacity-95 disabled:opacity-50 cer-btn-primary cursor-pointer"
+              style={{ backgroundColor: '#012964' }}
+            >
+              <Send className="w-4 h-4" />
+              <span>
+                {isSubmitting
+                  ? "Submitting..."
+                  : isUploadingAttachments
+                  ? "Processing..."
+                  : "Submit for Approval"}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  );
+  </>
+);
 };
