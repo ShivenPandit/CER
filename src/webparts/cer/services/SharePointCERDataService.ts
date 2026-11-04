@@ -18,7 +18,7 @@ import {
   ApproverAssignmentType,
   isValidEmail,
 } from "../models/WorkflowModel";
-import { ICERAttachment } from "../models/AttachmentModel";
+import { ICERAttachment, ICERAttachmentManifestEntry } from "../models/AttachmentModel";
 import { IDirectoryUser, IUserRoleAssignment, IAdminAuditRecord } from "../models/UserModel";
 import { validateAttachment } from "../utils/attachmentValidation";
 import { getCurrentFiscalYearPhasingLabels, formatLocalDate, formatLocalTime, getLocalComponents } from "../utils/dateUtils";
@@ -1363,7 +1363,8 @@ export class SharePointCERDataService implements ICERDataService {
     original: ICERProposal,
     ownerSpUserId: number | null,
     availableFields: Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string; AllowMultipleValues?: boolean }>,
-    versionTag?: string
+    versionTag?: string,
+    manifestJson?: string
   ): Record<string, any> {
     const cerId = (original.cer_proposal_id || original.cerprno || "").trim();
     const propNo = (original.proposal_no || original.cerprno || cerId).trim();
@@ -1427,8 +1428,17 @@ export class SharePointCERDataService implements ICERDataService {
       preoperativeCost: Number(original.preop || 0),
       otherCosts: Number(original.others || 0),
       total: Number(original.total || 0),
-      remarks: original.remarks || "",
+      remarks: manifestJson && manifestJson !== "[]"
+        ? (String(original.remarks || "").replace(/\s*<!--\s*CER_ATTACHMENTS_MANIFEST:[\s\S]*?-->/gi, "").trim()
+          ? `${String(original.remarks || "").replace(/\s*<!--\s*CER_ATTACHMENTS_MANIFEST:[\s\S]*?-->/gi, "").trim()}\n\n<!-- CER_ATTACHMENTS_MANIFEST:${manifestJson} -->`
+          : `<!-- CER_ATTACHMENTS_MANIFEST:${manifestJson} -->`)
+        : String(original.remarks || "").replace(/\s*<!--\s*CER_ATTACHMENTS_MANIFEST:[\s\S]*?-->/gi, "").trim(),
       remarksJv: original.remarks_jv || "",
+      attachments: manifestJson || "",
+      attachments_manifest: manifestJson || "",
+      attachmentsManifest: manifestJson || "",
+      attachmentJson: manifestJson || "",
+      manifest: manifestJson || "",
       currentLevel: Number(original.current_level || 6),
       pendingWithRole: original.pending_with_role || "Approved",
       pendingWithEmail: original.pending_with_email || "",
@@ -1635,7 +1645,29 @@ export class SharePointCERDataService implements ICERDataService {
 
     // 2. Discover list fields for CERProposalsHistory
     const discoveredFields = await this.getHistoryListFields();
-    const payload = this._buildHistoryPayload(original, ownerSpUserId, discoveredFields, versionTag);
+
+    // 2b. Snapshot current active attachments for this version manifest
+    let currentAtts: ICERAttachment[] = [];
+    try {
+      currentAtts = await this.getAttachments(cerId, true);
+    } catch (attErr) {
+      console.warn("[SharePointCERDataService] Warning loading attachments for history snapshot:", attErr);
+    }
+    const manifest = currentAtts.map((a) => ({
+      id: a.id,
+      name: a.name,
+      size: a.size,
+      type: a.type,
+      server_relative_url: a.server_relative_url || a.data_url || "",
+      data_url: a.server_relative_url || a.data_url || "",
+      uploaded_by: a.uploaded_by,
+      uploaded_date: a.uploaded_date,
+      version_tag: versionTag,
+      proposal_no: propNo,
+    }));
+    const manifestJson = JSON.stringify(manifest);
+
+    const payload = this._buildHistoryPayload(original, ownerSpUserId, discoveredFields, versionTag, manifestJson);
 
     // 3. Check if a snapshot for THIS EXACT VERSION already exists to prevent duplicate writes on retry
     let existingItems: Array<{ Id: number; version?: string; Version?: string }> = [];
@@ -2644,10 +2676,49 @@ export class SharePointCERDataService implements ICERDataService {
   // 6. CERAttachments Operations (Document Library)
   // ---------------------------------------------------------------------------
 
-  public async getAttachments(cerprno: string, forceRefresh: boolean = false): Promise<ICERAttachment[]> {
+  public async getAttachments(
+    cerprno: string,
+    options: boolean | { forceRefresh?: boolean; versionTag?: string; proposalNo?: string } = false
+  ): Promise<ICERAttachment[]> {
     const key = (cerprno || "").trim().toUpperCase();
     const now = Date.now();
     const CACHE_TTL_MS = 25000;
+    const forceRefresh = typeof options === "boolean" ? options : Boolean(options?.forceRefresh);
+    const versionTag = typeof options === "object" ? options?.versionTag : undefined;
+    const proposalNo = typeof options === "object" ? options?.proposalNo : undefined;
+
+    // If a specific historical version is requested, resolve its immutable snapshot manifest
+    if (versionTag || proposalNo) {
+      try {
+        const history = await this.getProposalHistory(cerprno);
+        const matched = history.find((h) => {
+          const vMatch = versionTag && String(h.version || (h as any).Version || "").toUpperCase() === versionTag.toUpperCase();
+          const pMatch = proposalNo && String(h.proposal_no || "").toUpperCase() === proposalNo.toUpperCase();
+          return vMatch || pMatch;
+        });
+        if (matched) {
+          const manifest = this._extractAttachmentManifest(matched);
+          if (manifest && manifest.length > 0) {
+            return manifest.map((m: any) => ({
+              id: String(m.id || ""),
+              cerprno: cerprno,
+              name: m.name || "document",
+              size: Number(m.size || 0),
+              type: m.type || "application/octet-stream",
+              data_url: m.server_relative_url || m.data_url || "",
+              server_relative_url: m.server_relative_url || m.data_url || "",
+              sp_file_id: String(m.id || ""),
+              uploaded_by: m.uploaded_by || "User",
+              uploaded_date: m.uploaded_date || new Date().toISOString(),
+              version_tag: m.version_tag || versionTag,
+              proposal_no: m.proposal_no || proposalNo,
+            }));
+          }
+        }
+      } catch (mErr) {
+        console.warn("[SharePointCERDataService] getAttachments version manifest check warning:", mErr);
+      }
+    }
 
     const cached = this._cachedAttachments.get(key);
     if (!forceRefresh && cached && now - cached.timestamp < CACHE_TTL_MS) {
@@ -2671,7 +2742,7 @@ export class SharePointCERDataService implements ICERDataService {
           try {
             items = await this._sp.getListItems<Record<string, any>>(libName, {
               filter: `cerPrId eq '${cerprno}'`,
-              select: "Id,FileLeafRef,FileRef,cerPrId,category,uploadDate,Created,File/ServerRelativeUrl,File/Length,uploadedBy/Id,uploadedBy/Title,uploadedBy/EMail",
+              select: "Id,Title,FileLeafRef,FileRef,cerPrId,category,uploadDate,Created,File/ServerRelativeUrl,File/Length,uploadedBy/Id,uploadedBy/Title,uploadedBy/EMail",
               expand: "File,uploadedBy",
               top: 100,
             });
@@ -2680,7 +2751,7 @@ export class SharePointCERDataService implements ICERDataService {
             try {
               items = await this._sp.getListItems<Record<string, any>>(libName, {
                 filter: `cerPrId eq '${cerprno}'`,
-                select: "Id,FileLeafRef,FileRef,cerPrId,category,uploadDate,Created,File/ServerRelativeUrl,File/Length",
+                select: "Id,Title,FileLeafRef,FileRef,cerPrId,category,uploadDate,Created,File/ServerRelativeUrl,File/Length",
                 expand: "File",
                 top: 100,
               });
@@ -2688,7 +2759,7 @@ export class SharePointCERDataService implements ICERDataService {
               // Tier 3: Query without filter if column isn't indexed or configured, filter in memory
               try {
                 items = await this._sp.getListItems<Record<string, any>>(libName, {
-                  select: "Id,FileLeafRef,FileRef,Created,File/ServerRelativeUrl,File/Length",
+                  select: "Id,Title,FileLeafRef,FileRef,Created,File/ServerRelativeUrl,File/Length",
                   expand: "File",
                   top: 200,
                 });
@@ -2716,14 +2787,20 @@ export class SharePointCERDataService implements ICERDataService {
             const uploaderName = uploaderPerson?.name || item.uploaded_by || (typeof item.uploadedBy === "string" ? item.uploadedBy : "") || "User";
             const uploadDate = item.uploadDate || item.Created || new Date().toISOString();
             const fileSize = Number(item.File?.Length || item.file_size || 0);
+            const serverRelUrl = item.File?.ServerRelativeUrl || item.FileRef || "";
+            const rawLeaf = String(item.FileLeafRef || item.File?.Name || "document");
+            // Prefer stored Title, or strip CER-YYYY-NNNN_(timestamp_)?(hash_)?
+            const displayName = String(item.Title || "").trim() || rawLeaf.replace(/^CER-\d{4}-\d{4}_(?:\d+_)?(?:[a-z0-9]+_)?/i, "");
 
             return {
               id: String(item.Id || item.id),
               cerprno: item.cerPrId || item.cerPrNo || item.cerprno || cerprno,
-              name: item.FileLeafRef || item.File?.Name || "document",
+              name: displayName,
               size: fileSize,
-              type: item.file_type || (item.FileLeafRef && item.FileLeafRef.endsWith(".pdf") ? "application/pdf" : "application/octet-stream"),
-              data_url: item.File?.ServerRelativeUrl || item.FileRef || "",
+              type: item.file_type || (rawLeaf.endsWith(".pdf") ? "application/pdf" : "application/octet-stream"),
+              data_url: serverRelUrl,
+              server_relative_url: serverRelUrl,
+              sp_file_id: String(item.Id || item.id),
               uploaded_by: uploaderName,
               uploaded_date: uploadDate,
             };
@@ -2754,33 +2831,21 @@ export class SharePointCERDataService implements ICERDataService {
     }
   }
 
-  public async addAttachment(attachment: ICERAttachment): Promise<void> {
+  public async addAttachment(
+    attachment: ICERAttachment,
+    options?: { versionTag?: string; proposalNo?: string; overwrite?: boolean }
+  ): Promise<void> {
     const rawName = (attachment.name || "document").trim();
     // Normalize file name: strip any legacy or previously generated proposal prefixes
-    const cleanOriginalName = rawName.replace(/^CER-\d{4}-\d{4}_(?:\d+_)?/i, "");
+    const cleanOriginalName = rawName.replace(/^CER-\d{4}-\d{4}_(?:\d+_)?(?:[a-z0-9]+_)?/i, "");
 
     const existing = await this.getAttachments(attachment.cerprno);
-
-    // Idempotency check: if this document (by original name) was already saved to this CER, skip re-uploading
-    const alreadySaved = existing.some((a) => {
-      const existingClean = (a.name || "").replace(/^CER-\d{4}-\d{4}_(?:\d+_)?/i, "");
-      return (
-        existingClean.toLowerCase() === cleanOriginalName.toLowerCase() ||
-        (a.name || "").toLowerCase() === rawName.toLowerCase()
-      );
-    });
-
-    if (alreadySaved) {
-      console.log(`[SharePointCERDataService] Document '${cleanOriginalName}' is already saved to SharePoint for '${attachment.cerprno}'. Skipping duplicate upload.`);
-      return;
-    }
-
     const existingSize = existing.reduce((sum, a) => sum + (a.size || 0), 0);
 
     const validation = validateAttachment(
       attachment,
       existingSize,
-      existing.map((a) => (a.name || "").replace(/^CER-\d{4}-\d{4}_(?:\d+_)?/i, ""))
+      existing.map((a) => (a.name || "").replace(/^CER-\d{4}-\d{4}_(?:\d+_)?(?:[a-z0-9]+_)?/i, ""))
     );
     if (!validation.isValid) {
       throw new Error(`[SharePoint Attachment Policy Violation] ${validation.error}`);
@@ -2803,6 +2868,7 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     const modernMetadata: Record<string, any> = {
+      Title: cleanOriginalName,
       cerPrId: attachment.cerprno,
       category: (attachment.type && attachment.type.indexOf("pdf") !== -1) ? "Technical" : "Other",
       uploadDate: new Date().toISOString(),
@@ -2815,9 +2881,11 @@ export class SharePointCERDataService implements ICERDataService {
 
     if (attachment.data_url && attachment.data_url.indexOf("data:") === 0) {
       const buffer = this._base64ToArrayBuffer(attachment.data_url);
-      // Clean, deterministic filename: CER-YYYY-NNNN_originalFilename.ext
-      // With overwrite=true on files/add, SharePoint updates in place and will NEVER duplicate the row.
-      const fileName = `${attachment.cerprno}_${cleanOriginalName}`;
+      // Clean, unique physical filename: CER-YYYY-NNNN_{timestamp}_{unique}_{originalFilename}.ext
+      // Preserves original display filename while guaranteeing zero physical overwriting in SharePoint
+      const timestamp = Date.now();
+      const safeUniqueSuffix = Math.random().toString(36).substring(2, 6);
+      const fileName = `${attachment.cerprno}_${timestamp}_${safeUniqueSuffix}_${cleanOriginalName}`;
 
       for (const libName of candidateLibraries) {
         try {
@@ -2839,7 +2907,60 @@ export class SharePointCERDataService implements ICERDataService {
     }
   }
 
-  public async deleteAttachment(id: string): Promise<void> {
+  public async deleteAttachment(
+    id: string,
+    options?: { cerprno?: string; force?: boolean; serverRelativeUrl?: string }
+  ): Promise<void> {
+    const cerprno = options?.cerprno;
+    if (!options?.force && cerprno) {
+      // 1. Check if parent proposal is currently Approved
+      try {
+        const activeProp = await this.getProposalByNumber(cerprno);
+        if (activeProp && activeProp.status === "Approved") {
+          throw new Error(
+            `[Protected Historical File] Deletion blocked: File belongs to an Approved proposal and cannot be deleted.`
+          );
+        }
+      } catch (err: any) {
+        if (err.message && err.message.includes("[Protected Historical File]")) {
+          throw err;
+        }
+      }
+
+      // 2. Check if this file is referenced in ANY approved historical version manifest
+      try {
+        const history = await this.getProposalHistory(cerprno);
+        for (const h of history) {
+          if (h.status === "Approved" || (h as any).is_archived || (h as any).version) {
+            const manifest = this._extractAttachmentManifest(h);
+            const isRef = manifest.some((m) => {
+              const mId = String(m.id || "").trim();
+              const targetId = String(id).trim();
+              const mUrl = String(m.server_relative_url || m.data_url || "").toLowerCase();
+              const targetUrl = String(options?.serverRelativeUrl || "").toLowerCase();
+
+              return (
+                (mId && mId === targetId) ||
+                (targetUrl && mUrl && (mUrl === targetUrl || mUrl.endsWith(targetUrl) || targetUrl.endsWith(mUrl))) ||
+                (mUrl && targetId && (mUrl.endsWith(`_${targetId}`) || mUrl.includes(`/${targetId}`)))
+              );
+            });
+            if (isRef) {
+              const vLabel = h.proposal_no || (h as any).version || "Approved Historical Version";
+              throw new Error(
+                `[Protected Historical File] Deletion blocked: File (ID: ${id}) is referenced by approved historical version '${vLabel}' and cannot be deleted.`
+              );
+            }
+          }
+        }
+      } catch (err: any) {
+        if (err.message && err.message.includes("[Protected Historical File]")) {
+          throw err;
+        }
+        console.warn("[SharePointCERDataService] Warning checking historical manifests during delete:", err);
+      }
+    }
+
     const candidateLibraries = [SP_LISTS.CER_ATTACHMENTS];
     let deleted = false;
     let lastErr: any = null;
@@ -2863,6 +2984,28 @@ export class SharePointCERDataService implements ICERDataService {
         `Unable to delete attachment with ID '${id}' from SharePoint CERAttachments library: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`
       );
     }
+  }
+
+  private _extractAttachmentManifest(itemOrProposal: any): ICERAttachmentManifestEntry[] {
+    if (!itemOrProposal) return [];
+    const direct = itemOrProposal.attachments_manifest || itemOrProposal.attachments || itemOrProposal.attachmentsManifest || itemOrProposal.attachmentJson;
+    if (typeof direct === "string" && direct.trim().startsWith("[")) {
+      try {
+        const parsed = JSON.parse(direct.trim());
+        if (Array.isArray(parsed)) return parsed;
+      } catch { /* continue */ }
+    } else if (Array.isArray(direct)) {
+      return direct;
+    }
+    const remarksText = String(itemOrProposal.remarks || itemOrProposal.Remarks || itemOrProposal.comments || "");
+    const match = remarksText.match(/<!--\s*CER_ATTACHMENTS_MANIFEST:([\s\S]*?)-->/i);
+    if (match && match[1]) {
+      try {
+        const parsed = JSON.parse(match[1].trim());
+        if (Array.isArray(parsed)) return parsed;
+      } catch { /* continue */ }
+    }
+    return [];
   }
 
   public async getNotificationLogs(_cerprno?: string, _forceRefresh: boolean = false): Promise<INotificationLog[]> {
@@ -2907,6 +3050,19 @@ export class SharePointCERDataService implements ICERDataService {
       (totalCost === 0 || Math.abs(totalCost - proposalAmount) > 0.01)
     ) {
       otherCost = 0;
+    }
+
+    const rawRemarks = String(item.remarks || item.Remarks || "");
+    const cleanRemarks = rawRemarks.replace(/\s*<!--\s*CER_ATTACHMENTS_MANIFEST:[\s\S]*?-->/gi, "").trim();
+    let manifestStr: string | undefined = undefined;
+    const directManifest = item.attachments_manifest || item.attachments || item.attachmentsManifest || item.attachmentJson;
+    if (typeof directManifest === "string" && directManifest.trim().startsWith("[")) {
+      manifestStr = directManifest.trim();
+    } else {
+      const match = rawRemarks.match(/<!--\s*CER_ATTACHMENTS_MANIFEST:([\s\S]*?)-->/i);
+      if (match && match[1]) {
+        manifestStr = match[1].trim();
+      }
     }
 
     return {
@@ -2968,7 +3124,8 @@ export class SharePointCERDataService implements ICERDataService {
       preop: preopCost,
       others: otherCost,
       total: (otherCost === 0 && engineerCost === 0 && surfaceCost === 0 && comisCost === 0 && preopCost === 0) ? 0 : totalCost,
-      remarks: item.remarks || "",
+      remarks: cleanRemarks,
+      attachments_manifest: manifestStr,
       remarks_jv: item.remarksJv || item.remarks_jv || "",
       current_level: Number(item.currentLevel ?? item.current_level ?? 1),
       pending_with_role: item.pendingWithRole || item.pending_with_role || "L1 - Technical Review",

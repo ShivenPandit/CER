@@ -40,6 +40,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
   const [formData, setFormData] = useState<ICERProposal | null>(null);
   const [originalProposal, setOriginalProposal] = useState<ICERProposal | null>(null);
   const [attachments, setAttachments] = useState<ICERAttachment[]>([]);
+  const [stagedDeletions, setStagedDeletions] = useState<ICERAttachment[]>([]);
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -385,20 +386,17 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
     }
   };
 
-  const handleAddAttachment = async (att: ICERAttachment) => {
-    if (!formData) return;
-    try {
-      await dataService.addAttachment({ ...att, cerprno: formData.cerprno });
-      const refreshed = await dataService.getAttachments(formData.cerprno, true);
-      setAttachments(refreshed);
-    } catch (e: any) {
-      console.error("[ChangeCERView] Failed to add attachment:", e);
-      setAttachments((prev) => [...prev, att]);
-    }
+  const handleAddAttachment = (att: ICERAttachment) => {
+    // Additive upload rule: always append new document, never auto-replace existing
+    setAttachments((prev) => [...prev, att]);
   };
 
-  const handleDeleteAttachment = async (id: string) => {
-    await dataService.deleteAttachment(id);
+  const handleDeleteAttachment = (id: string) => {
+    // Stage deletion: do not physically delete from SharePoint until after save succeeds
+    const target = attachments.find((a) => a.id === id);
+    if (target) {
+      setStagedDeletions((prev) => [...prev, target]);
+    }
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   };
 
@@ -522,6 +520,37 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
             dataService.addAttachment({ ...att, cerprno: formData.cerprno })
           )
         );
+      }
+
+      // Execute staged deletions strictly after successful save for Draft & Send Back proposals
+      const isDraftOrSendBack = isDraft || (originalProposal && (
+        originalProposal.status === "Draft" ||
+        originalProposal.status === "Send Back" ||
+        originalProposal.status === "Revised" ||
+        originalProposal.status === "Sent Back"
+      ));
+
+      if (isDraftOrSendBack && stagedDeletions.length > 0) {
+        setSubmitStageText("Cleaning up obsolete attachments...");
+        const deletionErrors: string[] = [];
+        for (const del of stagedDeletions) {
+          if (del.id && !del.id.startsWith("att-")) {
+            try {
+              await dataService.deleteAttachment(del.id, {
+                cerprno: formData.cerprno,
+                serverRelativeUrl: del.server_relative_url || del.data_url,
+              });
+            } catch (delErr: any) {
+              console.warn("[ChangeCERView] Deletion error for obsolete attachment:", delErr);
+              deletionErrors.push(del.name || "document");
+            }
+          }
+        }
+        if (deletionErrors.length > 0) {
+          setSecondaryWarning(
+            `Proposal saved successfully, but cleanup of obsolete attachments requires attention: ${deletionErrors.join(", ")}`
+          );
+        }
       }
 
       setSubmitStageText("Completed!");

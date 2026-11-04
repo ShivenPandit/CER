@@ -2,7 +2,7 @@ import { ICERDataService } from "./ICERDataService";
 import { ICERProposal, IFieldChoices, DEFAULT_FIELD_CHOICES } from "../models/CERModel";
 import { ICERAuditRecord, ICERRemarksVersion, AUDIT_FIELD_DESCRIPTIONS, EXCLUDED_AUDIT_FIELDS } from "../models/AuditModel";
 import { IWorkflowLevel, IApprovalDecision, INotificationLog, isProjectOwnerStage, ApproverAssignmentType, isValidEmail } from "../models/WorkflowModel";
-import { ICERAttachment } from "../models/AttachmentModel";
+import { ICERAttachment, ICERAttachmentManifestEntry } from "../models/AttachmentModel";
 import { IDirectoryUser, MOCK_DIRECTORY_USERS, IUserRoleAssignment, IAdminAuditRecord } from "../models/UserModel";
 import { validateAttachment } from "../utils/attachmentValidation";
 import { getCurrentFiscalYearPhasingLabels, getLocalComponents } from "../utils/dateUtils";
@@ -1012,6 +1012,26 @@ export class LocalMockCERDataService implements ICERDataService {
       const versionTag = `V${versionIndex}`;
       historySnapshot.version = versionTag;
 
+      // Snapshot current active attachments into the history manifest
+      const currentAtts = this._attachments.filter(
+        (a) =>
+          a.cerprno.toUpperCase() === cerId ||
+          a.cerprno.toUpperCase() === (oldProposal.proposal_no || "").toUpperCase()
+      );
+      const manifest = currentAtts.map((a) => ({
+        id: a.id,
+        name: a.name,
+        size: a.size,
+        type: a.type,
+        server_relative_url: a.server_relative_url || a.data_url || `/sites/CER/CERAttachments/${cerId}_${a.name}`,
+        data_url: a.server_relative_url || a.data_url || `/sites/CER/CERAttachments/${cerId}_${a.name}`,
+        uploaded_by: a.uploaded_by,
+        uploaded_date: a.uploaded_date,
+        version_tag: versionTag,
+        proposal_no: historySnapshot.proposal_no || historySnapshot.cerprno,
+      }));
+      historySnapshot.attachments_manifest = JSON.stringify(manifest);
+
       const existIdx = this._proposalsHistory.findIndex(
         (h) => (h.cer_proposal_id || h.cerprno || "").toUpperCase() === cerId &&
                String((h as any).version || "").toUpperCase() === versionTag
@@ -1447,7 +1467,10 @@ export class LocalMockCERDataService implements ICERDataService {
     };
   }
 
-  public async getAttachments(cerprno: string): Promise<ICERAttachment[]> {
+  public async getAttachments(
+    cerprno: string,
+    options?: boolean | { forceRefresh?: boolean; versionTag?: string; proposalNo?: string }
+  ): Promise<ICERAttachment[]> {
     const trimmed = cerprno.trim().toUpperCase();
     const resolved = this._proposals.find(p =>
       p.cerprno.toUpperCase() === trimmed ||
@@ -1455,31 +1478,58 @@ export class LocalMockCERDataService implements ICERDataService {
       (p.cer_proposal_id && p.cer_proposal_id.toUpperCase() === trimmed)
     );
     const target = resolved ? resolved.cerprno.toUpperCase() : trimmed;
+
+    // If options specifies versionTag or proposalNo, return the historical manifest for that version
+    const versionTag = typeof options === "object" ? options.versionTag : undefined;
+    const propNo = typeof options === "object" ? options.proposalNo : undefined;
+
+    if (versionTag || propNo) {
+      const hist = this._proposalsHistory.find(h => {
+        const hCer = (h.cer_proposal_id || h.cerprno || "").toUpperCase();
+        const matchesCer = hCer === target || hCer === trimmed;
+        const matchesVer = versionTag ? (String((h as any).version || "").toUpperCase() === versionTag.toUpperCase()) : false;
+        const matchesProp = propNo ? ((h.proposal_no || "").toUpperCase() === propNo.toUpperCase()) : false;
+        return matchesCer && (matchesVer || matchesProp);
+      });
+      if (hist && hist.attachments_manifest) {
+        try {
+          const manifest = JSON.parse(hist.attachments_manifest);
+          if (Array.isArray(manifest)) {
+            return manifest.map((m: any) => ({
+              id: String(m.id || ""),
+              cerprno: target,
+              name: m.name || "document",
+              size: Number(m.size || 0),
+              type: m.type || "application/octet-stream",
+              server_relative_url: m.server_relative_url || m.data_url,
+              data_url: m.data_url || m.server_relative_url,
+              sp_file_id: String(m.id || ""),
+              uploaded_by: m.uploaded_by || "User",
+              uploaded_date: m.uploaded_date || new Date().toISOString(),
+              version_tag: m.version_tag || versionTag,
+              proposal_no: m.proposal_no || propNo,
+            }));
+          }
+        } catch { /* fallback to normal filtering */ }
+      }
+    }
+
     return this._attachments.filter(a => a.cerprno.toUpperCase() === target || a.cerprno.toUpperCase() === trimmed);
   }
 
-  public async addAttachment(attachment: ICERAttachment): Promise<void> {
+  public async addAttachment(
+    attachment: ICERAttachment,
+    options?: { versionTag?: string; proposalNo?: string; overwrite?: boolean }
+  ): Promise<void> {
     const resolved = this._proposals.find(p =>
       p.cerprno.toUpperCase() === attachment.cerprno.toUpperCase() ||
       (p.proposal_no && p.proposal_no.toUpperCase() === attachment.cerprno.toUpperCase()) ||
       (p.cer_proposal_id && p.cer_proposal_id.toUpperCase() === attachment.cerprno.toUpperCase())
     );
     const targetCerId = resolved ? resolved.cerprno : attachment.cerprno;
+    const cleanOriginalName = (attachment.name || "document").replace(/^CER-\d{4}-\d{4}_(?:\d+_)?(?:[a-z0-9]+_)?/i, "").trim();
+
     const existing = await this.getAttachments(targetCerId);
-
-    const cleanOriginalName = (attachment.name || "document").replace(/^CER-\d{4}-\d{4}_(?:\d+_)?/i, "");
-    const alreadySaved = existing.some((a) => {
-      const existingClean = (a.name || "").replace(/^CER-\d{4}-\d{4}_(?:\d+_)?/i, "");
-      return (
-        existingClean.toLowerCase() === cleanOriginalName.toLowerCase() ||
-        (a.name || "").toLowerCase() === (attachment.name || "").toLowerCase()
-      );
-    });
-
-    if (alreadySaved) {
-      return;
-    }
-
     const existingSize = existing.reduce((sum, a) => sum + (a.size || 0), 0);
 
     const validation = validateAttachment(
@@ -1491,14 +1541,72 @@ export class LocalMockCERDataService implements ICERDataService {
       throw new Error(`[Attachment Policy Violation] ${validation.error}`);
     }
 
+    const uniqueId = attachment.id && !attachment.id.startsWith("att-")
+      ? attachment.id
+      : `att-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const uniqueUrl = attachment.server_relative_url || `/sites/CER/CERAttachments/${targetCerId}_${Date.now()}_${cleanOriginalName}`;
+
     this._attachments.push({
       ...attachment,
+      id: uniqueId,
+      name: cleanOriginalName,
       cerprno: targetCerId,
+      server_relative_url: uniqueUrl,
+      data_url: attachment.data_url || uniqueUrl,
+      sp_file_id: uniqueId,
+      version_tag: options?.versionTag || attachment.version_tag || "V1",
+      proposal_no: options?.proposalNo || attachment.proposal_no,
     });
     this._saveToStorage(STORAGE_KEYS.ATTACHMENTS, this._attachments);
   }
 
-  public async deleteAttachment(id: string): Promise<void> {
+  public async deleteAttachment(
+    id: string,
+    options?: { cerprno?: string; force?: boolean; serverRelativeUrl?: string }
+  ): Promise<void> {
+    const cerprno = options?.cerprno;
+    if (!options?.force && cerprno) {
+      const cleanCer = cerprno.trim().toUpperCase();
+      // Check 1: Active proposal approved?
+      const prop = this._proposals.find(p => (p.cerprno || "").toUpperCase() === cleanCer || (p.proposal_no || "").toUpperCase() === cleanCer);
+      if (prop && prop.status === "Approved") {
+        throw new Error(`[Protected Historical File] Deletion blocked: File belongs to an Approved proposal and cannot be deleted.`);
+      }
+
+      // Check 2: Referenced in any approved historical snapshot in _proposalsHistory?
+      for (const h of this._proposalsHistory) {
+        const hCer = (h.cer_proposal_id || h.cerprno || "").toUpperCase();
+        if (hCer === cleanCer || (h.proposal_no || "").toUpperCase() === cleanCer) {
+          const manifestRaw = h.attachments_manifest || "";
+          if (manifestRaw) {
+            try {
+              const manifest: any[] = JSON.parse(manifestRaw);
+              const isRef = manifest.some((m) => {
+                const mId = String(m.id || "").trim();
+                const targetId = String(id).trim();
+                const mUrl = String(m.server_relative_url || m.data_url || "").toLowerCase();
+                const targetUrl = String(options?.serverRelativeUrl || "").toLowerCase();
+
+                return (
+                  (mId && mId === targetId) ||
+                  (targetUrl && mUrl && (mUrl === targetUrl || mUrl.endsWith(targetUrl) || targetUrl.endsWith(mUrl))) ||
+                  (mUrl && targetId && (mUrl.endsWith(`_${targetId}`) || mUrl.includes(`/${targetId}`)))
+                );
+              });
+              if (isRef) {
+                const vLabel = h.proposal_no || h.version || "Approved Historical Version";
+                throw new Error(`[Protected Historical File] Deletion blocked: File (ID: ${id}) is referenced by approved historical version '${vLabel}' and cannot be deleted.`);
+              }
+            } catch (err: any) {
+              if (err.message && err.message.includes("[Protected Historical File]")) {
+                throw err;
+              }
+            }
+          }
+        }
+      }
+    }
+
     this._attachments = this._attachments.filter(a => a.id !== id);
     this._saveToStorage(STORAGE_KEYS.ATTACHMENTS, this._attachments);
   }

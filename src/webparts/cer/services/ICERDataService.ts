@@ -70,9 +70,18 @@ export interface ICERDataService {
   }): Promise<{ success: boolean; newStatus: string; nextLevel: number }>;
 
   // Attachments
-  getAttachments(cerprno: string, forceRefresh?: boolean): Promise<ICERAttachment[]>;
-  addAttachment(attachment: ICERAttachment): Promise<void>;
-  deleteAttachment(id: string): Promise<void>;
+  getAttachments(
+    cerprno: string,
+    options?: boolean | { forceRefresh?: boolean; versionTag?: string; proposalNo?: string }
+  ): Promise<ICERAttachment[]>;
+  addAttachment(
+    attachment: ICERAttachment,
+    options?: { versionTag?: string; proposalNo?: string; overwrite?: boolean }
+  ): Promise<void>;
+  deleteAttachment(
+    id: string,
+    options?: { cerprno?: string; force?: boolean; serverRelativeUrl?: string }
+  ): Promise<void>;
 
   // Notifications
   getNotificationLogs(cerprno?: string, forceRefresh?: boolean): Promise<INotificationLog[]>;

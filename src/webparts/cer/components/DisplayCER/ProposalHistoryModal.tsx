@@ -129,6 +129,37 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
     const loadAtts = async (): Promise<void> => {
       setIsLoadingAttachments(true);
       try {
+        // 1. Check if selectedProposal has direct attachments_manifest
+        const manifestRaw = (selectedProposal as any).attachments_manifest || (selectedProposal as any).attachments;
+        if (manifestRaw) {
+          try {
+            const parsed = typeof manifestRaw === "string" ? JSON.parse(manifestRaw) : manifestRaw;
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              if (isMounted) {
+                setSelectedAttachments(parsed);
+                setIsLoadingAttachments(false);
+              }
+              return;
+            }
+          } catch { /* fallback to getAttachments */ }
+        }
+
+        // 2. Check if embedded inside remarks as a manifest marker
+        const remarksText = String(selectedProposal.remarks || "");
+        const match = remarksText.match(/<!--\s*CER_ATTACHMENTS_MANIFEST:([\s\S]*?)-->/i);
+        if (match && match[1]) {
+          try {
+            const parsed = JSON.parse(match[1].trim());
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              if (isMounted) {
+                setSelectedAttachments(parsed);
+                setIsLoadingAttachments(false);
+              }
+              return;
+            }
+          } catch { /* fallback */ }
+        }
+
         const targetId = (
           selectedProposal.cerprno ||
           selectedProposal.proposal_no ||
@@ -139,7 +170,11 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
           if (isMounted) setSelectedAttachments([]);
           return;
         }
-        const atts = await dataService.getAttachments(targetId);
+        const vTag = (selectedProposal as any).version || undefined;
+        const atts = await dataService.getAttachments(targetId, {
+          versionTag: vTag,
+          proposalNo: selectedProposal.proposal_no,
+        });
         if (isMounted) {
           setSelectedAttachments(atts || []);
         }
@@ -865,10 +900,12 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                               {((att.size || 0) / 1024).toFixed(0)} KB • by {att.uploaded_by || "User"}
                             </p>
                           </div>
-                          {att.data_url && (
+                          {(att.server_relative_url || att.data_url) && (
                             <a
-                              href={att.data_url}
+                              href={att.server_relative_url || att.data_url}
                               download={att.name}
+                              target="_blank"
+                              rel="noopener noreferrer"
                               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs sm:text-[13px] font-semibold text-[#012964] bg-white border border-[#012964]/30 rounded-lg hover:bg-blue-50 transition-colors shrink-0 shadow-2xs"
                             >
                               <Download className="w-3.5 h-3.5" />
