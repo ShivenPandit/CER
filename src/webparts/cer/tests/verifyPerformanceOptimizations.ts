@@ -125,8 +125,8 @@ export async function runPerformanceOptimizationTests(): Promise<void> {
         return { ok: true, status: 204, json: async () => ({}) };
       }
 
-      // Audit or Notification
-      if (url.includes("CERAuditTrail") || url.includes("CERNotifications")) {
+      // Audit
+      if (url.includes("CERAuditTrail")) {
         return { ok: true, status: 201, json: async () => ({ Id: 101 }) };
       }
 
@@ -208,10 +208,6 @@ export async function runPerformanceOptimizationTests(): Promise<void> {
         // Simulate 40ms SharePoint write latency per audit record
         await new Promise((resolve) => setTimeout(resolve, 40));
         return { ok: true, status: 201, json: async () => ({ Id: Math.floor(Math.random() * 1000) }) };
-      }
-
-      if (url.includes("CERNotifications")) {
-        return { ok: true, status: 201, json: async () => ({ Id: 201 }) };
       }
 
       return { ok: true, status: 200, json: async () => ({ value: [] }) };
@@ -389,7 +385,6 @@ export async function runPerformanceOptimizationTests(): Promise<void> {
   console.log("\n--- Test Suite 5: Reliable Save Error Handling (Zero False Success) ---");
   {
     let secondaryAuditAttempted = false;
-    let secondaryNotifAttempted = false;
 
     const failingHandler: MockRouteHandler = async (url, options) => {
       const method = options?.headers?.["X-HTTP-Method"] || (options?.body ? "POST" : "GET");
@@ -401,9 +396,6 @@ export async function runPerformanceOptimizationTests(): Promise<void> {
 
       if (url.includes("CERAuditTrail")) {
         secondaryAuditAttempted = true;
-      }
-      if (url.includes("CERNotifications")) {
-        secondaryNotifAttempted = true;
       }
 
       return { ok: true, status: 200, json: async () => ({ value: [] }) };
@@ -454,7 +446,6 @@ export async function runPerformanceOptimizationTests(): Promise<void> {
     assert(didThrow === true, "Operation threw on primary write failure (no false success)");
     assert(String(caughtError?.message).includes("Unable to save the CER to SharePoint"), "Meaningful error message surfaced to caller");
     assert(secondaryAuditAttempted === false, "Secondary audit write was NOT attempted after primary write failed");
-    assert(secondaryNotifAttempted === false, "Secondary notification write was NOT attempted after primary write failed");
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -539,11 +530,6 @@ export async function runPerformanceOptimizationTests(): Promise<void> {
         return { ok: false, status: 500, text: async () => "CERAuditTrail service temporarily unavailable" };
       }
 
-      // Secondary notification write fails
-      if (url.includes("CERNotifications")) {
-        return { ok: false, status: 500, text: async () => "CERNotifications list throttled" };
-      }
-
       return { ok: true, status: 200, json: async () => ({ value: [] }) };
     };
 
@@ -584,7 +570,6 @@ export async function runPerformanceOptimizationTests(): Promise<void> {
     assert(result.success === true, "Primary proposal write succeeded and was not failed by secondary error");
     assert(result.secondaryFailures !== undefined, "Secondary failures object is present (not silently ignored)");
     assert(result.secondaryFailures?.auditFailedCount === 1, "Audit failure count accurately recorded (1 failed audit record)");
-    assert(result.secondaryFailures?.notificationFailed === true, "Notification failure accurately recorded");
     assert(result.warnings !== undefined && result.warnings.length > 0, "Human-readable warnings surfaced in return payload");
   }
 

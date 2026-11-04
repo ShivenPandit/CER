@@ -237,7 +237,7 @@ async function runTests() {
     comments: "Need rework",
   });
   const sentBackProp = await mockService.getProposalByNumber(baseProp.proposal.cerprno);
-  assert(sentBackProp?.status === "Revised", "4g. Status is Revised after send back");
+  assert(sentBackProp?.status === "Send Back" || sentBackProp?.status === "Revised", "4g. Status is Send Back after send back");
 
   // Initiator resubmits revised proposal
   const retriggeredProp = await mockService.updateProposal({

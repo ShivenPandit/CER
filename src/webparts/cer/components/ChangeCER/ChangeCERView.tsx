@@ -605,7 +605,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight whitespace-nowrap">
               {originalProposal?.status === "Approved"
                 ? "Resubmit CER"
-                : originalProposal?.status === "Revised"
+                : (originalProposal?.status === "Send Back" || originalProposal?.status === "Revised" || originalProposal?.status === "Sent Back")
                 ? "Revise CER"
                 : "Edit CER"}
             </h2>
@@ -613,7 +613,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
               <span className="text-xs sm:text-[13px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-100 text-[#012964] border border-blue-200">
                 Resubmission
               </span>
-            ) : originalProposal?.status === "Revised" ? (
+            ) : (originalProposal?.status === "Send Back" || originalProposal?.status === "Revised" || originalProposal?.status === "Sent Back") ? (
               <span className="text-xs sm:text-[13px] font-semibold px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
                 Rework
               </span>
@@ -705,7 +705,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           )}
 
           {/* Sent Back for Revision Banner */}
-          {originalProposal?.status === "Revised" && (
+          {(originalProposal?.status === "Send Back" || originalProposal?.status === "Revised" || originalProposal?.status === "Sent Back") && (
             <div className="p-4 rounded-xl bg-purple-50/80 border border-purple-200/90 text-purple-950 text-xs sm:text-[13px] flex items-start gap-3 shadow-2xs">
               <RotateCcw className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
               <div className="space-y-1">

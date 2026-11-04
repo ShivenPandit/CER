@@ -5,6 +5,7 @@ export type CERStatus =
   | "In Approval"
   | "Approved"
   | "Rejected"
+  | "Send Back"
   | "Revised"
   | string;
 

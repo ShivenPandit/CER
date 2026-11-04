@@ -71,7 +71,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
         ["Pending Approval", "In Approval", "Submitted"].indexOf(p.status) !== -1
       ).length,
       approved: nonDraftProposals.filter((p) => p.status === "Approved").length,
-      revised: nonDraftProposals.filter((p) => p.status === "Revised").length,
+      revised: nonDraftProposals.filter((p) => p.status === "Send Back" || p.status === "Revised" || p.status === "Sent Back").length,
     };
   }, [nonDraftProposals]);
 
@@ -626,7 +626,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                         <span className="text-emerald-700 font-semibold">Approved</span>
                       ) : prop.status === "Rejected" ? (
                         <span className="text-rose-700 font-semibold">Rejected</span>
-                      ) : prop.status === "Revised" ? (
+                      ) : (prop.status === "Send Back" || prop.status === "Revised" || prop.status === "Sent Back") ? (
                         <span className="text-amber-700 font-semibold">Initiator (Rework)</span>
                       ) : prop.status === "Draft" ? (
                         <span className="text-slate-600 font-semibold">Draft</span>
@@ -717,7 +717,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                         ? "Approved"
                         : prop.status === "Rejected"
                         ? "Rejected"
-                        : prop.status === "Revised"
+                        : (prop.status === "Send Back" || prop.status === "Revised" || prop.status === "Sent Back")
                         ? "Initiator (Rework)"
                         : prop.status === "Draft"
                         ? "Draft"

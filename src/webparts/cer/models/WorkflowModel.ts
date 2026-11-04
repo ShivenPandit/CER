@@ -59,7 +59,7 @@ export function isProjectOwnerStage(
   return false;
 }
 
-export type ApprovalDecisionType = "PENDING" | "APPROVED" | "REJECTED" | "REVISED" | "SENT_BACK";
+export type ApprovalDecisionType = "PENDING" | "APPROVED" | "REJECTED" | "REVISED" | "SENT_BACK" | "SEND_BACK";
 
 export interface IApprovalDecision {
   id: string;

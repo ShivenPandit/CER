@@ -302,7 +302,9 @@ export class PermissionService {
     // Editable status constraint (FR-02 allows change on Draft, Revised, or Approved to create a revision)
     const isEditableStatus =
       proposal.status === "Draft" ||
+      proposal.status === "Send Back" ||
       proposal.status === "Revised" ||
+      proposal.status === "Sent Back" ||
       proposal.status === "Approved";
     if (!isEditableStatus) {
       const reason =

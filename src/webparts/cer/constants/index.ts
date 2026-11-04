@@ -18,12 +18,10 @@ export const SP_LISTS = {
   CER_REMARKS_HISTORY: "CERRemarksHistory",
   CER_APPROVAL_DECISIONS: "CERApprovalDecisions",
   CER_ATTACHMENTS: "CERAttachments",
-  CER_NOTIFICATIONS: "CERNotifications",
   // Legacy compatibility aliases
   CER_MASTER: "CERProposals",
   CER_WORKFLOW_HISTORY: "CERApprovalDecisions",
   CER_AUDIT_LOG: "CERAuditTrail",
-  CER_NOTIFICATION_LOG: "CERNotifications",
   CER_DOCUMENTS: "CERAttachments",
 } as const;
 

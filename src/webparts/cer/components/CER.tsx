@@ -3,7 +3,7 @@ import { RotateCw } from "lucide-react";
 import { ICERProps } from "./ICERProps";
 import { ICERProposal, IFieldChoices, DEFAULT_FIELD_CHOICES } from "../models/CERModel";
 import { IAppUser } from "../models/UserModel";
-import { INotificationLog, IWorkflowLevel } from "../models/WorkflowModel";
+import { IWorkflowLevel } from "../models/WorkflowModel";
 import { DataServiceFactory } from "../services/DataServiceFactory";
 import { ICERDataService } from "../services/ICERDataService";
 import { AuthService } from "../services/AuthService";
@@ -152,9 +152,6 @@ const CER: React.FC<ICERProps> = (props) => {
     dataService,
   ]);
 
-  // Notifications
-  const [notifications, setNotifications] = useState<INotificationLog[]>([]);
-
   // User Manual Modal
   const [isUserManualOpen, setIsUserManualOpen] = useState(false);
 
@@ -163,14 +160,12 @@ const CER: React.FC<ICERProps> = (props) => {
 
   const loadInitialData = async (): Promise<void> => {
     try {
-      const [propsList, notifs, choices, levels] = await Promise.all([
+      const [propsList, choices, levels] = await Promise.all([
         dataService.getAllProposals(),
-        dataService.getNotificationLogs(),
         dataService.getFieldChoices(),
         dataService.getWorkflowLevels(),
       ]);
       setProposals(propsList);
-      setNotifications(notifs);
       if (choices) {
         setFieldChoices(choices);
       }
@@ -210,13 +205,11 @@ const CER: React.FC<ICERProps> = (props) => {
 
   const handleRefreshProposals = async (force: boolean = false): Promise<void> => {
     try {
-      const [propsList, notifs, levels] = await Promise.all([
+      const [propsList, levels] = await Promise.all([
         dataService.getAllProposals(force),
-        dataService.getNotificationLogs(),
         dataService.getWorkflowLevels(undefined, force),
       ]);
       setProposals(propsList);
-      setNotifications(notifs);
       if (levels) {
         setWorkflowLevels(levels);
       }

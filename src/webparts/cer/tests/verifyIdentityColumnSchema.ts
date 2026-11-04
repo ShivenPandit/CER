@@ -198,16 +198,7 @@ async function runIdentityColumnSchemaTests() {
   };
   assert(typeof mockAttachment.uploaded_by === "string", "CER_Attachments: uploaded_by is text uploader string");
 
-  // 7. CER_Notifications
-  const mockNotification = {
-    cerprno: "CER-2026-0001",
-    recipients: ["sunil.verma@vedanta.co.in", "approver2@vedanta.co.in"],
-    subject: "Action Required",
-  };
-  const serializedRecipients = mockNotification.recipients.join("; ");
-  assert(typeof serializedRecipients === "string" && serializedRecipients.includes(";"), "CER_Notifications: recipients serialize cleanly as semicolon-delimited text");
-
-  // 8. CER_UserRoles
+  // 7. CER_UserRoles
   const mockUserRole: IUserRoleAssignment = {
     id: "50",
     user_name: "Priya Kalekar (STL Digital)",
@@ -272,6 +263,14 @@ async function runIdentityColumnSchemaTests() {
         user_email: "70007144@cairnindia.com",
         login_name: "70007144@cairnindia.com",
         role: "Admin",
+        is_active: true,
+      },
+      {
+        id: "2",
+        user_name: "Ordinary User",
+        user_email: "ordinary@cairnindia.com",
+        login_name: "ordinary@cairnindia.com",
+        role: "Initiator",
         is_active: true,
       },
     ],

@@ -964,7 +964,7 @@ export class LocalMockCERDataService implements ICERDataService {
       if (oldProposal.status === "Approved") {
         // Requirement: On Resubmit of 'Approved CER' update the request date with current date.
         nextRequestDate = todayDate;
-      } else if (oldProposal.status === "Revised") {
+      } else if (oldProposal.status === "Send Back" || oldProposal.status === "Revised" || oldProposal.status === "Sent Back") {
         // Requirement: Do not update if editing 'Sendback CER'.
         nextRequestDate = oldProposal.request_date || updatedProposal.request_date;
       } else if (oldProposal.status === "Draft") {
@@ -1210,7 +1210,7 @@ export class LocalMockCERDataService implements ICERDataService {
     level_id: number;
     approver_name: string;
     approver_email: string;
-    decision: "APPROVED" | "REJECTED" | "SENT_BACK";
+    decision: "APPROVED" | "REJECTED" | "SENT_BACK" | "SEND_BACK";
     comments: string;
   }): Promise<{ success: boolean; newStatus: string; nextLevel: number }> {
     const propIndex = this._proposals.findIndex(p =>
@@ -1395,13 +1395,13 @@ export class LocalMockCERDataService implements ICERDataService {
           console.warn("Notification error:", notifErr);
         }
       }
-    } else if (params.decision === "SENT_BACK") {
+    } else if (params.decision === "SENT_BACK" || (params.decision as any) === "SEND_BACK") {
       // SENT BACK TO INITIATOR (Allows Initiator to edit and re-trigger workflow)
-      proposal.status = "Revised";
+      proposal.status = "Send Back";
       proposal.pending_with_role = "Initiator (Rework)";
       proposal.pending_with_email = proposal.owner_email;
       proposal.current_level = 1;
-      newStatus = "Revised";
+      newStatus = "Send Back";
       nextLevelId = 1;
 
       try {

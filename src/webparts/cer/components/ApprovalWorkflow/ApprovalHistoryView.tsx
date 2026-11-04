@@ -267,7 +267,7 @@ export const ApprovalHistoryView: React.FC<IApprovalHistoryViewProps> = ({
                       className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg flex items-center gap-1.5 text-xs transition-colors"
                     >
                       <Eye className="w-3.5 h-3.5" />
-                      <span>Display CER</span>
+                      <span>View CER</span>
                     </button>
                   </div>
                 </div>

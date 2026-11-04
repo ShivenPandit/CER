@@ -7,7 +7,6 @@ import {
   Building2,
   Mail,
   Shield,
-  RotateCw,
 } from "lucide-react";
 import { IAppUser, UserRole } from "../../models/UserModel";
 import { NavView } from "./Sidebar";
@@ -140,20 +139,6 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
             <CalendarIcon className="w-3.5 h-3.5 text-slate-400" />
             <span className="whitespace-nowrap">{formattedDate}</span>
           </div>
-
-          {/* Global Synchronize Action */}
-          {onSync && (
-            <button
-              type="button"
-              onClick={onSync}
-              disabled={isSyncing}
-              className="p-1.5 sm:p-2 rounded-xl text-slate-500 hover:text-[#012964] hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
-              title={isSyncing ? "Synchronizing..." : "Sync data"}
-              aria-label="Synchronize data"
-            >
-              <RotateCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isSyncing ? "animate-spin text-[#012964]" : ""}`} />
-            </button>
-          )}
 
           {/* Separator */}
           <div className="h-3.5 sm:h-4 w-px bg-slate-200 mx-0.5 hidden lg:block" />

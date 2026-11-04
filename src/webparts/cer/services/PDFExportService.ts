@@ -92,6 +92,7 @@ export class PDFExportService {
           ["CER Proposal ID", proposal.cer_proposal_id || (proposal as any).cerPrNo || proposal.cerprno],
           ["CER Proposal No", proposal.proposal_no || (proposal as any).proposalNo || proposal.cerprno],
           ["CER Owner", `${(proposal as any).cerOwner || proposal.owname} (${(proposal as any).ownerEmail || proposal.owner_email})`],
+          ["Initiated By", proposal.created_by || proposal.owname],
           ["SBU", proposal.sbu],
           ["Category", (proposal as any).category || proposal.cat],
           ["Proposal Object", proposal.object || "N/A"],

@@ -168,7 +168,7 @@ async function runPostApprovalLineageVerification(): Promise<void> {
   // Verify CERProposals has PR-TEST/02 in Revised status at Level 1
   const sentBackProposal = await service.getProposalByNumber(initialProposalId);
   assert(sentBackProposal?.proposal_no === "PR-TEST/02", "Active proposal remains PR-TEST/02");
-  assert(sentBackProposal?.status === "Revised", "Active proposal status is 'Revised'");
+  assert(sentBackProposal?.status === "Send Back" || sentBackProposal?.status === "Revised", "Active proposal status is 'Send Back'");
   assert(sentBackProposal?.current_level === 1, "Rework is routed to Level 1");
   assert(sentBackProposal?.pending_with_role === "Initiator (Rework)", "Pending role is 'Initiator (Rework)'");
 

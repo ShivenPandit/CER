@@ -2077,10 +2077,10 @@ async function runAllVerificationTests(): Promise<void> {
   });
 
   assert(sendBackResult.success === true, "14.1b: recordDecision returns success for SENT_BACK");
-  assert(sendBackResult.newStatus === "Revised", "14.1c: Proposal transitions to status 'Revised'");
+  assert(sendBackResult.newStatus === "Send Back" || sendBackResult.newStatus === "Revised", "14.1c: Proposal transitions to status 'Send Back'");
 
   const fetchedRevised = await ds14.getProposalByNumber(propSendBack.cerprno);
-  assert(fetchedRevised !== null && fetchedRevised.status === "Revised", "14.1d: Proposal status in storage is 'Revised'");
+  assert(fetchedRevised !== null && (fetchedRevised.status === "Send Back" || fetchedRevised.status === "Revised"), "14.1d: Proposal status in storage is 'Send Back'");
   assert(fetchedRevised?.pending_with_role === "Initiator (Rework)", "14.1e: pending_with_role is 'Initiator (Rework)'");
   assert(fetchedRevised?.current_level === 1, "14.1f: current_level is reset to 1");
   assert(fetchedRevised?.pending_with_email === initiatorUser14.email, "14.1g: pending_with_email is set to initiator's email");

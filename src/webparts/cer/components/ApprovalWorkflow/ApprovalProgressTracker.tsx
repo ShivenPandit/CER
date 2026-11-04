@@ -118,7 +118,7 @@ export const ApprovalProgressTracker: React.FC<IApprovalProgressTrackerProps> = 
               ? "bg-rose-50 text-rose-700 border-rose-200"
               : status === "Draft"
               ? "bg-slate-100 text-slate-700 border-slate-200"
-              : status === "Revised"
+              : (status === "Revised" || status === "Send Back" || status === "Sent Back")
               ? "bg-amber-50 text-amber-700 border-amber-200"
               : "bg-white cer-border-blue cer-text-blue"
           }`}
@@ -129,7 +129,7 @@ export const ApprovalProgressTracker: React.FC<IApprovalProgressTrackerProps> = 
             ? "Rejected"
             : status === "Draft"
             ? "Draft"
-            : status === "Revised"
+            : (status === "Revised" || status === "Send Back" || status === "Sent Back")
             ? "Send Back"
             : `Level ${currentLevel} Pending`}
         </span>
@@ -261,7 +261,7 @@ export const ApprovalProgressTracker: React.FC<IApprovalProgressTrackerProps> = 
                         ) : isSentBack ? (
                           <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full shrink-0">
                             <RotateCcw className="w-3 h-3 text-amber-600" />
-                            <span>Sent Back</span>
+                            <span>Send Back</span>
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full shrink-0">

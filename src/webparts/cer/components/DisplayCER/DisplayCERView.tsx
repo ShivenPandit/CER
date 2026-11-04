@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   Clock,
   User,
+  Send,
   Layers,
   Calendar,
   UserCheck,
@@ -289,7 +290,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
           </button>
           <div>
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-              Display CER
+              View CER
             </h2>
           </div>
         </div>
@@ -351,7 +352,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                   ? "bg-rose-50 text-rose-700 border-rose-200"
                   : proposal.status === "Draft"
                   ? "bg-slate-100 text-slate-700 border-slate-200"
-                  : proposal.status === "Revised"
+                  : (proposal.status === "Send Back" || proposal.status === "Revised" || proposal.status === "Sent Back")
                   ? "bg-amber-50 text-amber-700 border-amber-200"
                   : "bg-white cer-border-blue cer-text-blue"
               }`}
@@ -367,7 +368,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                       : "var(--cer-brand-blue)",
                 }}
               />
-              <span>{proposal.status === "Revised" ? "Send Back" : proposal.status}</span>
+              <span>{(proposal.status === "Send Back" || proposal.status === "Revised" || proposal.status === "Sent Back") ? "Send Back" : proposal.status}</span>
             </span>
           </div>
         ) : (
@@ -468,7 +469,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
             </div>
 
             {/* Third Row: Metadata Grid with subtle dividers */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-3.5 border-y border-slate-100">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 py-3.5 border-y border-slate-100">
               {/* Project Owner */}
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200/90 flex items-center justify-center shrink-0">
@@ -482,8 +483,21 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                 </div>
               </div>
 
+              {/* Initiated by */}
+              <div className="flex items-center gap-3 sm:border-l sm:border-slate-200 sm:pl-4">
+                <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200/90 flex items-center justify-center shrink-0">
+                  <Send className="w-4 h-4 text-slate-500" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Initiated by</p>
+                  <p className="text-sm sm:text-[15px] font-bold text-slate-900 truncate mt-0.5" title={proposal.created_by || proposal.owname}>
+                    {proposal.created_by || proposal.owname}
+                  </p>
+                </div>
+              </div>
+
               {/* SBU */}
-              <div className="flex items-center gap-3 lg:border-l lg:border-slate-200 lg:pl-4">
+              <div className="flex items-center gap-3 md:border-l md:border-slate-200 md:pl-4">
                 <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200/90 flex items-center justify-center shrink-0">
                   <Layers className="w-4 h-4 text-slate-500" />
                 </div>
@@ -524,7 +538,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                       ? "Proposal Rejected"
                       : proposal.status === "Draft"
                       ? "Draft"
-                      : proposal.status === "Revised"
+                      : (proposal.status === "Send Back" || proposal.status === "Revised" || proposal.status === "Sent Back")
                       ? "Send Back"
                       : proposal.status}
                   </p>
@@ -564,6 +578,19 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                       size="xs"
                     />
                     <span className="font-bold text-slate-900 text-sm sm:text-[15px]">{proposal.owname}</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Initiated by</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <UserAvatar
+                      name={proposal.created_by || proposal.owname}
+                      email={(proposal as any).created_by_email || proposal.owner_email}
+                      size="xs"
+                    />
+                    <span className="font-bold text-slate-900 text-sm sm:text-[15px]">
+                      {proposal.created_by || proposal.owname}
+                    </span>
                   </div>
                 </div>
                 <div>

@@ -335,8 +335,7 @@ The application communicates exclusively with 7 lists in clean CamelCase (no und
 | 3 | **`CERAuditTrail`** | Custom List | Granular field-level delta change history for compliance and auditing. |
 | 4 | **`CERApprovalDecisions`** | Custom List | Formal sign-off records (Approved / Rejected) with timestamps. |
 | 5 | **`CERAttachments`** | Document Library | Associated technical and financial PDF/Excel documentation. |
-| 6 | **`CERNotifications`** | Custom List | Email notification dispatch records and recipient logs. |
-| 7 | **`CERRoleMatrix`** | Custom List | Modern SBU-wise Role-Based Access Control (RBAC) and Fixed 6-Level Approval Matrix. |
+| 6 | **`CERRoleMatrix`** | Custom List | Modern SBU-wise Role-Based Access Control (RBAC) and Fixed 6-Level Approval Matrix. |
 
 > For the complete schema specification, field types, and step-by-step manual creation instructions, refer to [SHAREPOINT_LISTS_AND_COLUMNS_SETUP.md](file:///d:/Git/CER/docs/SHAREPOINT_LISTS_AND_COLUMNS_SETUP.md).
 

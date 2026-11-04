@@ -42,7 +42,7 @@ export interface ICERDataService {
     secondaryFailures?: {
       auditFailedCount: number;
       failedAuditFields: string[];
-      notificationFailed: boolean;
+      notificationFailed?: boolean;
       notificationError?: string;
     };
   }>;
@@ -65,7 +65,7 @@ export interface ICERDataService {
     level_id: number;
     approver_name: string;
     approver_email: string;
-    decision: "APPROVED" | "REJECTED" | "SENT_BACK";
+    decision: "APPROVED" | "REJECTED" | "SENT_BACK" | "SEND_BACK";
     comments: string;
   }): Promise<{ success: boolean; newStatus: string; nextLevel: number }>;
 

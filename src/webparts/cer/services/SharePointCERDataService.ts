@@ -12,6 +12,7 @@ import {
 import {
   IWorkflowLevel,
   IApprovalDecision,
+  ApprovalDecisionType,
   INotificationLog,
   isProjectOwnerStage,
   ApproverAssignmentType,
@@ -91,9 +92,6 @@ export class SharePointCERDataService implements ICERDataService {
   private _cachedAttachments: Map<string, { data: ICERAttachment[]; timestamp: number }> = new Map();
   private _inFlightAttachments: Map<string, Promise<ICERAttachment[]>> = new Map();
 
-  private _cachedNotificationLogs: Map<string, { data: INotificationLog[]; timestamp: number }> = new Map();
-  private _inFlightNotificationLogs: Map<string, Promise<INotificationLog[]>> = new Map();
-
   private _cachedSubmissionsByCerId: Map<string, { data: { active: ICERProposal | null; history: ICERProposal[] }; timestamp: number }> = new Map();
   private _cachedHistoryFields: Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string; AllowMultipleValues?: boolean }> | null = null;
   private _lastAllocatedSequenceMap: Map<number, number> = new Map();
@@ -114,8 +112,6 @@ export class SharePointCERDataService implements ICERDataService {
     this._inFlightApprovalDecisions.clear();
     this._cachedAttachments.clear();
     this._inFlightAttachments.clear();
-    this._cachedNotificationLogs.clear();
-    this._inFlightNotificationLogs.clear();
   }
 
   constructor(spHttpClient: SPHttpClient, siteUrl: string, context?: WebPartContext) {
@@ -168,7 +164,7 @@ export class SharePointCERDataService implements ICERDataService {
             new Set(
               (choicesMap.status && choicesMap.status.length > 0 ? choicesMap.status : DEFAULT_FIELD_CHOICES.status)
                 .map((s: string) => (s === "Approval" ? "In Approval" : s.trim()))
-                .concat(["In Approval", "Approved", "Draft", "Rejected", "Revised"])
+                .concat(["In Approval", "Approved", "Draft", "Rejected", "Send Back"])
                 .filter(Boolean)
             )
           ),
@@ -956,22 +952,7 @@ export class SharePointCERDataService implements ICERDataService {
         }
       }
 
-      // Secondary write: Notification dispatch
       const secondaryWarnings: string[] = [];
-      if (!isDraft) {
-        try {
-          await this._createNotificationRecord(
-            newProposal.cerprno,
-            [newProposal.owner_email, newProposal.pending_with_email].filter(Boolean),
-            `[CER Action Required] New Proposal ${newProposal.cerprno} - ${newProposal.pr_name}`,
-            `CER Proposal ${newProposal.cerprno} (${newProposal.pr_name}) for ${newProposal.currency} ${Number(newProposal.amount || 0).toLocaleString()} has been submitted and is awaiting Level 1 approval (${newProposal.pending_with_role}).`,
-            0,
-          );
-        } catch (notifErr) {
-          console.warn("[SharePointCERDataService] Secondary notification write warning:", notifErr);
-          secondaryWarnings.push("Notification queue item could not be created.");
-        }
-      }
 
       this._cachedProposals = null;
       this._cachedProposalByNumber.delete(newProposal.cerprno.toUpperCase());
@@ -1029,22 +1010,7 @@ export class SharePointCERDataService implements ICERDataService {
       );
     }
 
-    // Secondary write: Workflow dispatch notification into CERNotifications
     const secondaryWarnings: string[] = [];
-    if (!isDraft) {
-      try {
-        await this._createNotificationRecord(
-          newProposal.cerprno,
-          [newProposal.owner_email, newProposal.pending_with_email].filter(Boolean),
-          `[CER Action Required] New Proposal ${newProposal.cerprno} - ${newProposal.pr_name}`,
-          `CER Proposal ${newProposal.cerprno} (${newProposal.pr_name}) for ${newProposal.currency} ${Number(newProposal.amount || 0).toLocaleString()} has been submitted and is awaiting Level 1 approval (${newProposal.pending_with_role}).`,
-          0,
-        );
-      } catch (notifErr) {
-        console.warn("[SharePointCERDataService] Secondary notification write warning:", notifErr);
-        secondaryWarnings.push("Notification queue item could not be created.");
-      }
-    }
 
     this._cachedProposals = null;
     this._cachedProposalByNumber.delete(newProposal.cerprno.toUpperCase());
@@ -1072,7 +1038,7 @@ export class SharePointCERDataService implements ICERDataService {
     secondaryFailures?: {
       auditFailedCount: number;
       failedAuditFields: string[];
-      notificationFailed: boolean;
+      notificationFailed?: boolean;
       notificationError?: string;
     };
   }> {
@@ -1190,7 +1156,7 @@ export class SharePointCERDataService implements ICERDataService {
       if (original.status === "Approved") {
         // Requirement: On Resubmit of 'Approved CER' update the request date with current date.
         nextRequestDate = todayDate;
-      } else if (original.status === "Revised") {
+      } else if (original.status === "Send Back" || original.status === "Revised" || original.status === "Sent Back") {
         // Requirement: Do not update if editing 'Sendback CER'.
         nextRequestDate = original.request_date || cleanProposal.request_date;
       } else if (original.status === "Draft") {
@@ -1327,60 +1293,27 @@ export class SharePointCERDataService implements ICERDataService {
       );
     }
 
-    // Secondary writes: execute audit records batch (concurrency 5) and notification queue dispatch concurrently
+    // Secondary writes: execute audit records batch (concurrency 5)
     const secondaryWarnings: string[] = [];
     let failedAuditFields: string[] = [];
     let auditFailedCount = 0;
-    let notificationFailed = false;
-    let notificationError: string | undefined;
 
-    const notificationPromise = (async () => {
-      try {
-        if (nextStatus === "In Approval") {
-          await this._createNotificationRecord(
-            proposal.cerprno,
-            [proposal.owner_email, nextEmail].filter(Boolean),
-            `[CER Action Required] Proposal ${proposal.cerprno} Submitted for Approval`,
-            `Proposal ${proposal.cerprno} (${proposal.pr_name}) has been submitted/re-triggered by ${user.name} and is awaiting Level 1 approval (${nextRole}).`,
-            0,
-          );
-        } else {
-          await this._createNotificationRecord(
-            proposal.cerprno,
-            [proposal.owner_email].filter(Boolean),
-            `[CER Update] Proposal ${proposal.cerprno} - Revision ${updatedProposal.revision_count}`,
-            `Proposal ${proposal.cerprno} has been revised by ${user.name} with ${auditRecords.length} updated fields.`,
-            0,
-          );
-        }
-      } catch (notifErr: any) {
-        notificationFailed = true;
-        notificationError = notifErr instanceof Error ? notifErr.message : String(notifErr);
-        console.warn("[SharePointCERDataService] Secondary notification write warning:", notifErr);
-        secondaryWarnings.push("Notification queue item could not be created.");
+    if (auditRecords.length > 0) {
+      const batchResult = await this._createAuditRecordsBatch(auditRecords, 5);
+      if (batchResult.failedRecords.length > 0) {
+        auditFailedCount = batchResult.failedRecords.length;
+        failedAuditFields = batchResult.failedRecords.map((r) => r.field_name);
+        secondaryWarnings.push(
+          `${auditFailedCount} audit log record(s) failed to save (${failedAuditFields.join(", ")}).`
+        );
       }
-    })();
-
-    const auditPromise = (async () => {
-      if (auditRecords.length > 0) {
-        const batchResult = await this._createAuditRecordsBatch(auditRecords, 5);
-        if (batchResult.failedRecords.length > 0) {
-          auditFailedCount = batchResult.failedRecords.length;
-          failedAuditFields = batchResult.failedRecords.map((r) => r.field_name);
-          secondaryWarnings.push(
-            `${auditFailedCount} audit log record(s) failed to save (${failedAuditFields.join(", ")}).`
-          );
-        }
-      }
-    })();
-
-    await Promise.all([notificationPromise, auditPromise]);
+    }
 
     this._cachedProposals = null;
     this._cachedProposalByNumber.delete(proposal.cerprno.toUpperCase());
     this._cachedSubmissionsByCerId.clear();
 
-    const hasSecondaryFailures = auditFailedCount > 0 || notificationFailed;
+    const hasSecondaryFailures = auditFailedCount > 0;
 
     return {
       success: true,
@@ -1394,8 +1327,6 @@ export class SharePointCERDataService implements ICERDataService {
         ? {
             auditFailedCount,
             failedAuditFields,
-            notificationFailed,
-            notificationError,
           }
         : undefined,
     };
@@ -2294,6 +2225,14 @@ export class SharePointCERDataService implements ICERDataService {
               "";
             const levelId = Number(item.levelId ?? item.level_id ?? 1);
 
+            const rawDec = item.decision ? String(item.decision).toUpperCase().trim() : "APPROVED";
+            const mappedDecision: ApprovalDecisionType =
+              rawDec === "REJECTED"
+                ? "REJECTED"
+                : rawDec === "SENT_BACK" || rawDec === "SEND_BACK" || rawDec === "REVISED" || rawDec === "SEND BACK" || rawDec === "SENT BACK"
+                ? "SENT_BACK"
+                : "APPROVED";
+
             return {
               id: String(item.Id || item.id),
               cerprno: item.cerPrId || item.cerPrNo || item.cerprno || item.Title,
@@ -2301,7 +2240,7 @@ export class SharePointCERDataService implements ICERDataService {
               level_name: item.level_name || `Level ${levelId}`,
               approver_name: approverName,
               approver_email: approverEmail,
-              decision: (item.decision ? String(item.decision).toUpperCase() : "APPROVED") as "APPROVED" | "REJECTED",
+              decision: mappedDecision,
               comments: item.remarks || item.comments || "",
               decision_date: item.decidedAt || item.decision_date || item.Created || new Date().toISOString(),
               timestamp: item.decidedAt || item.decision_date || item.Created || new Date().toISOString(),
@@ -2316,7 +2255,7 @@ export class SharePointCERDataService implements ICERDataService {
         }
       }
 
-      if (lastErr && (String(lastErr?.message || lastErr).indexOf("404") !== -1 || String(lastErr?.message || lastErr).indexOf("does not exist") !== -1)) {
+      if (lastErr && (String(lastErr?.message || lastErr).indexOf("404") !== -1 || String(lastErr?.message || lastErr).indexOf("does not exist") !== -1 || String(lastErr?.message || lastErr).indexOf("List not found") !== -1)) {
         console.warn("[SharePointCERDataService] CERApprovalDecisions list not found on site, defaulting to empty decisions list:", lastErr);
         return [];
       }
@@ -2339,7 +2278,7 @@ export class SharePointCERDataService implements ICERDataService {
     level_id: number;
     approver_name: string;
     approver_email: string;
-    decision: "APPROVED" | "REJECTED" | "SENT_BACK";
+    decision: "APPROVED" | "REJECTED" | "SENT_BACK" | "SEND_BACK";
     comments: string;
   }): Promise<{ success: boolean; newStatus: string; nextLevel: number }> {
     const now = new Date().toISOString();
@@ -2550,7 +2489,7 @@ export class SharePointCERDataService implements ICERDataService {
       Title: params.cerprno,
       cerPrId: params.cerprno,
       levelId: params.level_id,
-      decision: params.decision === "REJECTED" ? "Rejected" : params.decision === "SENT_BACK" ? "Sent Back" : "Approved",
+      decision: params.decision === "REJECTED" ? "Rejected" : (params.decision === "SENT_BACK" || params.decision === "SEND_BACK") ? "Send Back" : "Approved",
       remarks: params.comments || "",
       decidedAt: now,
       version: versionTag,
@@ -2570,7 +2509,7 @@ export class SharePointCERDataService implements ICERDataService {
       level_name: `Level ${params.level_id}`,
       approver_name: params.approver_name,
       approver_email: params.approver_email,
-      decision: params.decision === "SENT_BACK" ? "Sent Back" : params.decision,
+      decision: (params.decision === "SENT_BACK" || params.decision === "SEND_BACK") ? "Send Back" : params.decision === "REJECTED" ? "Rejected" : "Approved",
       comments: params.comments || "",
       decision_date: now,
       version: versionTag,
@@ -2646,8 +2585,8 @@ export class SharePointCERDataService implements ICERDataService {
       newStatus = "Rejected";
       nextRole = "Rejected";
       nextEmail = "";
-    } else if (params.decision === "SENT_BACK") {
-      newStatus = "Revised";
+    } else if (params.decision === "SENT_BACK" || params.decision === "SEND_BACK") {
+      newStatus = "Send Back";
       nextLevel = 1;
       nextRole = "Initiator (Rework)";
       nextEmail = existingProposal.owner_email || creatorEmail;
@@ -2681,52 +2620,6 @@ export class SharePointCERDataService implements ICERDataService {
       throw new Error(
         `Approval decision was recorded, but updating proposal status failed in SharePoint. The decision has been logged (Level ${params.level_id}). Please do not re-submit your approval; contact your CER Administrator or refresh the proposal to reconcile. (Details: ${updateErr instanceof Error ? updateErr.message : String(updateErr)})`
       );
-    }
-
-    // 7. Gather attachments for email notification summary (secondary write)
-    let attachmentsCount = 0;
-    let attachmentsSummary = "No attachments included.";
-    try {
-      const atts = await this.getAttachments(params.cerprno);
-      attachmentsCount = atts.length;
-      if (atts.length > 0) {
-        attachmentsSummary = `\n\nAttachments Included (${atts.length}):\n` +
-          atts.map((a) => `• ${a.name} (${Math.round((a.size || 0) / 1024)} KB)`).join("\n");
-      }
-    } catch (attErr) {
-      console.warn("Attachment summary warning:", attErr);
-    }
-
-    // 8. Deduplicate recipients: (1) Creator, (2) Previous Approvers, (3) Next Approver
-    const rawRecipients = [creatorEmail, ...priorEmails, params.approver_email, nextEmail].filter(Boolean);
-    const notificationRecipients = Array.from(new Set(rawRecipients.map((e) => e.trim().toLowerCase())));
-
-    const subject = params.decision === "APPROVED"
-      ? (newStatus === "Approved"
-          ? `[CER Final Sanction] Proposal ${params.cerprno} Approved at Final Level ${params.level_id}`
-          : `[CER Approved Level ${params.level_id}] Proposal ${params.cerprno} Advanced to Level ${nextLevel}`)
-      : params.decision === "SENT_BACK"
-      ? `[CER Revision Requested] Proposal ${params.cerprno} Sent Back to Initiator by Level ${params.level_id}`
-      : `[CER Rejected] Proposal ${params.cerprno} Rejected at Level ${params.level_id}`;
-
-    const bodyText = params.decision === "APPROVED"
-      ? (newStatus === "Approved"
-          ? `Proposal ${params.cerprno} has received final executive sanction by ${params.approver_name}. Decision: ${params.decision}. Comments: "${params.comments}".${attachmentsSummary}`
-          : `Proposal ${params.cerprno} approved at Level ${params.level_id} by ${params.approver_name}. Comments: "${params.comments}". Proposal is now pending action from ${nextRole} (${nextEmail}).${attachmentsSummary}`)
-      : params.decision === "SENT_BACK"
-      ? `Proposal ${params.cerprno} was sent back to initiator for rework/revision by ${params.approver_name} at Level ${params.level_id}. Required changes / notes: "${params.comments}". The initiator can edit and resubmit to restart approval.${attachmentsSummary}`
-      : `Proposal ${params.cerprno} was rejected at Level ${params.level_id} by ${params.approver_name}. Reason / Comments: "${params.comments}".`;
-
-    try {
-      await this._createNotificationRecord(
-        params.cerprno,
-        notificationRecipients,
-        subject,
-        bodyText,
-        attachmentsCount
-      );
-    } catch (notifErr) {
-      console.warn("[SharePointCERDataService] Secondary notification write warning:", notifErr);
     }
 
     this._cachedProposals = null;
@@ -2837,7 +2730,7 @@ export class SharePointCERDataService implements ICERDataService {
         }
       }
 
-      if (lastErr && (String(lastErr?.message || lastErr).indexOf("404") !== -1 || String(lastErr?.message || lastErr).indexOf("does not exist") !== -1)) {
+      if (lastErr && (String(lastErr?.message || lastErr).indexOf("404") !== -1 || String(lastErr?.message || lastErr).indexOf("does not exist") !== -1 || String(lastErr?.message || lastErr).indexOf("List not found") !== -1)) {
         console.warn(`[SharePointCERDataService] CERAttachments library not found on site for CER '${cerprno}', defaulting to empty list:`, lastErr);
         return [];
       }
@@ -2966,140 +2859,8 @@ export class SharePointCERDataService implements ICERDataService {
     }
   }
 
-  public async getNotificationLogs(cerprno?: string, forceRefresh: boolean = false): Promise<INotificationLog[]> {
-    const key = (cerprno || "ALL").trim().toUpperCase();
-    const now = Date.now();
-    const CACHE_TTL_MS = 25000;
-
-    const cached = this._cachedNotificationLogs.get(key);
-    if (!forceRefresh && cached && now - cached.timestamp < CACHE_TTL_MS) {
-      return cached.data.map((l) => ({ ...l }));
-    }
-
-    const inFlight = this._inFlightNotificationLogs.get(key);
-    if (!forceRefresh && inFlight) {
-      const res = await inFlight;
-      return res.map((l) => ({ ...l }));
-    }
-
-    const fetchPromise = (async () => {
-      const candidateLists = [SP_LISTS.CER_NOTIFICATIONS];
-      let lastErr: any = null;
-
-      for (const listName of candidateLists) {
-        try {
-          let items: Record<string, any>[] = [];
-          if (cerprno) {
-            try {
-              items = await this._sp.getListItems<Record<string, any>>(listName, {
-                filter: `cerPrId eq '${cerprno}' or Title eq '${cerprno}'`,
-                top: 100,
-                orderby: "Created desc",
-              });
-            } catch {
-              const allItems = await this._sp.getListItems<Record<string, any>>(listName, {
-                top: 100,
-                orderby: "Created desc",
-              });
-              items = allItems.filter((it: any) => (it.cerPrId && it.cerPrId === cerprno) || (it.cerPrNo && it.cerPrNo === cerprno) || it.Title === cerprno);
-            }
-          } else {
-            items = await this._sp.getListItems<Record<string, any>>(listName, {
-              top: 100,
-              orderby: "Created desc",
-            });
-          }
-
-          const result: INotificationLog[] = items.map((item) => ({
-            id: String(item.Id || item.id),
-            cerprno: item.cerPrId || item.cerPrNo || item.cerprno || item.Title,
-            recipients: item.recipients ? item.recipients.split(";").map((s: string) => s.trim()) : [],
-            subject: item.subject || "",
-            body: item.bodyPreview || item.body || "",
-            attachments_count: Number(item.attachments_count || 0),
-            timestamp: item.Created || item.dispatch_timestamp || item.timestamp || new Date().toISOString(),
-            status: (item.status as "SENT" | "PENDING" | "FAILED") || "SENT",
-          }));
-
-          this._cachedNotificationLogs.set(key, { data: result, timestamp: Date.now() });
-          return result;
-        } catch (e) {
-          lastErr = e;
-        }
-      }
-
-      if (lastErr && (String(lastErr?.message || lastErr).indexOf("404") !== -1 || String(lastErr?.message || lastErr).indexOf("does not exist") !== -1)) {
-        console.warn("[SharePointCERDataService] CERNotifications list not found on site, defaulting to empty list:", lastErr);
-        this._cachedNotificationLogs.set(key, { data: [], timestamp: Date.now() });
-        return [];
-      }
-
-      console.error("[SharePointCERDataService] Error querying CERNotifications from SharePoint:", lastErr);
-      throw new Error(
-        `Unable to load notification logs from SharePoint: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`
-      );
-    })();
-
-    this._inFlightNotificationLogs.set(key, fetchPromise);
-    try {
-      return await fetchPromise;
-    } finally {
-      this._inFlightNotificationLogs.delete(key);
-    }
-  }
-
-  private async _createNotificationRecord(
-    cerprno: string,
-    recipients: string[],
-    subject: string,
-    body: string,
-    attachmentsCount: number,
-  ): Promise<void> {
-    const triggerEvent = subject.indexOf("Rejected") !== -1
-      ? "REJECT"
-      : (subject.indexOf("Sanction") !== -1 || subject.indexOf("Final") !== -1 || subject.indexOf("Approved") !== -1 ? "APPROVE" : "SUBMIT");
-
-    const modernPayload: any = {
-      Title: cerprno,
-      cerPrId: cerprno,
-      recipients: recipients.join("; "),
-      subject: subject,
-      bodyPreview: body,
-      triggerEvent: triggerEvent,
-    };
-
-    const legacyPayload = {
-      Title: cerprno,
-      cerPrId: cerprno,
-      recipients: recipients.join("; "),
-      subject: subject,
-      body: body,
-      attachments_count: attachmentsCount,
-      dispatch_timestamp: new Date().toISOString(),
-      status: "SENT",
-    };
-
-    let lastError: any = null;
-    const candidateLists = [SP_LISTS.CER_NOTIFICATIONS];
-    for (const listName of candidateLists) {
-      try {
-        try {
-          await this._sp.createListItem(listName, modernPayload);
-          this._cachedNotificationLogs.clear();
-          return;
-        } catch (firstErr) {
-          lastError = firstErr;
-          await this._sp.createListItem(listName, legacyPayload);
-          this._cachedNotificationLogs.clear();
-          return;
-        }
-      } catch (secondErr) {
-        lastError = secondErr;
-      }
-    }
-    if (lastError) {
-      throw lastError;
-    }
+  public async getNotificationLogs(_cerprno?: string, _forceRefresh: boolean = false): Promise<INotificationLog[]> {
+    return [];
   }
 
   // Helper / Conversion Methods
@@ -3152,7 +2913,10 @@ export class SharePointCERDataService implements ICERDataService {
       owname: ownerPerson?.name || (typeof item.cerOwner === "string" ? item.cerOwner : "") || (typeof item.owname === "string" ? item.owname : "") || item.ownname || (item.Author?.Title ? item.Author.Title : ""),
       owner_email: ownerPerson?.email || item.owner_email || (item.Author?.EMail ? item.Author.EMail : ""),
       sbu: item.sbu || "RJ North",
-      status: (item.status === "Approval" ? "In Approval" : item.status) || "In Approval",
+      status: (() => {
+        const raw = (item.status === "Approval" ? "In Approval" : item.status) || "In Approval";
+        return (raw === "Revised" || raw === "Sent Back") ? "Send Back" : raw;
+      })(),
       object: item.object || "",
       amount: proposalAmount,
       currency: item.currency || "USD",
@@ -3230,7 +2994,7 @@ export class SharePointCERDataService implements ICERDataService {
       proposalNo: propNo,
       prName: proposal.pr_name,
       sbu: proposal.sbu,
-      status: proposal.status,
+      status: (proposal.status === "Revised" || proposal.status === "Sent Back") ? "Send Back" : proposal.status,
       object: proposal.object,
       amount: Number(proposal.amount || 0),
       currency: proposal.currency || "USD",

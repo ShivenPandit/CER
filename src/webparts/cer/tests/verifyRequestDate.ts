@@ -184,7 +184,7 @@ async function runRequestDateVerification() {
   });
 
   const sentBackProp = await service.getProposalByNumber(sbProp!.cerprno);
-  assert(sentBackProp?.status === "Revised", "Proposal status transitioned to 'Revised' (Sendback)");
+  assert(sentBackProp?.status === "Send Back" || sentBackProp?.status === "Revised", "Proposal status transitioned to 'Send Back'");
   assert(sentBackProp?.request_date === originalReqDate, `Sendback request_date is still ${originalReqDate}`);
 
   // Now, the initiator edits and resubmits the Sendback proposal

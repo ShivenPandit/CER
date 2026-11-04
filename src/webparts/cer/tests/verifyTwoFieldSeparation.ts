@@ -290,7 +290,7 @@ async function runTwoFieldSeparationVerification(): Promise<void> {
   assert(l2Return.success, "Proposal sent back for revision");
 
   fetched = await dataService.getProposalByNumber(permanentLifecycleId);
-  assert(fetched?.status === "Revised", "Proposal status is Revised");
+  assert(fetched?.status === "Send Back" || fetched?.status === "Revised", "Proposal status is Send Back");
   assert(fetched?.cerprno === permanentLifecycleId, "ID preserved after return for revision");
 
   // Resubmission

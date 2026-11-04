@@ -350,7 +350,7 @@ export function buildTableRowsForIteration(
               // If stage is below current level, it was approved in the active iteration or predecessor
               statusText = "Approved";
             }
-          } else if (propStatus === "Revised") {
+          } else if (propStatus === "Send Back" || propStatus === "Revised" || propStatus === "Sent Back") {
             if (stage.level === currentLvl) {
               statusText = "Pending";
             } else {
@@ -777,7 +777,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
       const currLvl = selectedVersion.rawProposal.current_level || 1;
       const stageName = FIXED_APPROVAL_STAGES.find((s) => s.level === currLvl)?.name || "Approver";
       currentPendingStageText = `L${currLvl} - ${stageName}`;
-    } else if (status === "Revised") {
+    } else if (status === "Send Back" || status === "Revised" || status === "Sent Back") {
       currentPendingStageText = "Initiator (Rework)";
     } else if (status === "Draft") {
       currentPendingStageText = "Initiator (Draft)";

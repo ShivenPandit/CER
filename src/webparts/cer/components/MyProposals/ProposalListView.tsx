@@ -55,7 +55,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
     ).length,
     approved: baseProposals.filter((p) => p.status === "Approved").length,
     draft: baseProposals.filter((p) => p.status === "Draft").length,
-    revised: baseProposals.filter((p) => p.status === "Revised").length,
+    revised: baseProposals.filter((p) => p.status === "Send Back" || p.status === "Revised" || p.status === "Sent Back").length,
   };
 
   // Filter by status filter and search query
@@ -68,7 +68,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
     } else if (statusFilter === "DRAFT") {
       if (p.status !== "Draft") return false;
     } else if (statusFilter === "REVISED") {
-      if (p.status !== "Revised") return false;
+      if (p.status !== "Send Back" && p.status !== "Revised" && p.status !== "Sent Back") return false;
     }
 
     // Search query
@@ -373,7 +373,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                         <span className="text-emerald-700 font-semibold">Approved</span>
                       ) : prop.status === "Rejected" ? (
                         <span className="text-rose-700 font-semibold">Rejected</span>
-                      ) : prop.status === "Revised" ? (
+                      ) : (prop.status === "Send Back" || prop.status === "Revised" || prop.status === "Sent Back") ? (
                         <span className="text-amber-700 font-semibold">Initiator (Rework)</span>
                       ) : prop.status === "Draft" ? (
                         <span className="text-slate-600 font-semibold">Draft</span>
@@ -438,7 +438,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                             );
                           }
 
-                          if (prop.status === "Revised") {
+                          if (prop.status === "Send Back" || prop.status === "Revised" || prop.status === "Sent Back") {
                             return (
                               <button
                                 type="button"
@@ -524,7 +524,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                         ? "Approved"
                         : prop.status === "Rejected"
                         ? "Rejected"
-                        : prop.status === "Revised"
+                        : (prop.status === "Send Back" || prop.status === "Revised" || prop.status === "Sent Back")
                         ? "Initiator Rework"
                         : prop.status === "Draft"
                         ? "Draft"
@@ -587,7 +587,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                       );
                     }
 
-                    if (prop.status === "Revised") {
+                    if (prop.status === "Send Back" || prop.status === "Revised" || prop.status === "Sent Back") {
                       return (
                         <button
                           type="button"
