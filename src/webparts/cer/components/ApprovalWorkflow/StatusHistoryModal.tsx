@@ -350,12 +350,6 @@ export function buildTableRowsForIteration(
               // If stage is below current level, it was approved in the active iteration or predecessor
               statusText = "Approved";
             }
-          } else if (propStatus === "Send Back" || propStatus === "Revised" || propStatus === "Sent Back") {
-            if (stage.level === currentLvl) {
-              statusText = "Pending";
-            } else {
-              statusText = "Not Started";
-            }
           } else if (propStatus === "Approved") {
             statusText = "Approved";
           } else if (propStatus === "Rejected") {
@@ -370,7 +364,7 @@ export function buildTableRowsForIteration(
             } else {
               statusText = "Not Started";
             }
-          } else if (propStatus === "Sent Back") {
+          } else if (propStatus === "Send Back" || propStatus === "Revised" || propStatus === "Sent Back") {
             const sbLevel = iteration.sentBackLevel || currentLvl;
             if (stage.level < sbLevel) {
               statusText = "Approved";
