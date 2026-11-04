@@ -82,6 +82,17 @@ export interface ITableRowData {
   remarks: string;
 }
 
+export function isSendBackDecision(d?: string): boolean {
+  const val = (d || "").trim().toUpperCase();
+  return (
+    val === "SEND_BACK" ||
+    val === "SEND BACK" ||
+    val === "SENT_BACK" ||
+    val === "SENT BACK" ||
+    val === "REVISED"
+  );
+}
+
 export function formatDecisionDateTime(timestamp?: string | Date): string {
   if (!timestamp) return "—";
   let d: Date;
@@ -174,9 +185,7 @@ export function splitDecisionsIntoIterations(
     const dec = sorted[i];
     currentRunDecs.push(dec);
 
-    const isSendBack =
-      (dec.decision || "").trim().toUpperCase() === "SENT_BACK" ||
-      (dec.decision || "").trim().toUpperCase() === "SENT BACK";
+    const isSendBack = isSendBackDecision(dec.decision);
     const isRejected = (dec.decision || "").trim().toUpperCase() === "REJECTED";
 
     if (isSendBack || isRejected) {
@@ -215,10 +224,7 @@ export function splitDecisionsIntoIterations(
 
   // Final / active iteration
   const latestDec = currentRunDecs[currentRunDecs.length - 1];
-  const isLatestSentBack =
-    latestDec &&
-    ((latestDec.decision || "").trim().toUpperCase() === "SENT_BACK" ||
-      (latestDec.decision || "").trim().toUpperCase() === "SENT BACK");
+  const isLatestSentBack = latestDec && isSendBackDecision(latestDec.decision);
 
   const rejectedDec = currentRunDecs.find(
     (d) => (d.decision || "").trim().toUpperCase() === "REJECTED"
@@ -316,7 +322,7 @@ export function buildTableRowsForIteration(
       const decUpper = (latestDec.decision || "").trim().toUpperCase();
       if (decUpper === "APPROVED") {
         statusText = "Approved";
-      } else if (decUpper === "SENT_BACK" || decUpper === "SENT BACK") {
+      } else if (isSendBackDecision(latestDec.decision)) {
         statusText = "Send Back";
       } else if (decUpper === "REJECTED") {
         statusText = "Rejected";
@@ -332,10 +338,10 @@ export function buildTableRowsForIteration(
       remarks = latestDec.comments || (latestDec as any).remarks || "";
     } else {
       if (isApprovedHistorical) {
-        // Historical snapshots in CERProposalHistory are fully approved proposals
-        statusText = "Approved";
-        updatedBy = "Designated Approver";
-        dateTime = proposalVersion.dateStr;
+        // Historical snapshots: strictly rely on recorded decisions. Do not fabricate approver or timestamp.
+        statusText = "Not Started";
+        updatedBy = "—";
+        dateTime = "—";
       } else if (iteration.isLatestActive) {
         if (proposalVersion.isCurrent) {
           const propStatus = proposalVersion.status;
@@ -401,10 +407,11 @@ export function buildTableRowsForIteration(
 
 /**
  * Robustly partitions a master list of approval decisions across proposal versions.
- * 1. Primary: Matches explicit proposal numbers if distinct (e.g. 'PR-2026/02-R1' vs 'PR-2026/02').
- * 2. Secondary: Direct 'version' column matching (e.g. 'V1', 'V2').
- * 3. Fallback: Chronological boundary against historical snapshot archive timestamps.
- * 4. Workflow Continuity Safeguard: Reconciles preceding level approvals (e.g. L1) into active cycles.
+ * Multi-layer deterministic strategy:
+ * 1. Layer 1 (Explicit Tag): Matches distinct proposal numbers or 'version' tags (e.g. 'V1', 'V2').
+ * 2. Layer 2 (Archive Boundaries): Segments unversioned decisions by historical snapshot archive timestamps.
+ * 3. Layer 3 (Cycle Sequence): Fallback segmentation based on sequential approval lifecycle runs.
+ * NOTE: Never splices or steals decisions across versions to prevent timestamp inversions.
  */
 export function partitionDecisionsByVersion(
   allDecisions: IApprovalDecision[],
@@ -429,13 +436,24 @@ export function partitionDecisionsByVersion(
     .filter((v) => !v.isCurrent)
     .sort((a, b) => a.serialNo - b.serialNo);
 
+  // Collect unassigned decisions that need chronological / sequence partitioning
+  const unassignedDecisions: IApprovalDecision[] = [];
+
   sorted.forEach((d) => {
-    const rawV = String((d as any).version || (d as any).Version || "").trim().toUpperCase();
+    const rawV = String(
+      (d as any).version ||
+      (d as any).Version ||
+      (d as any).VersionTag ||
+      (d as any).versionTag ||
+      (d as any).Version_x0020_Tag ||
+      (d as any).version_tag ||
+      ""
+    ).trim().toUpperCase();
+
     const dNo = (d.cerprno || "").trim().toUpperCase();
     const dTitle = ((d as any).Title || "").trim().toUpperCase();
-    const dTime = new Date((d as any).decision_date || (d as any).decidedAt || d.timestamp || (d as any).Created || 0).getTime();
 
-    // 1. Check exact proposal number match if versions have distinct proposal numbers
+    // 1. Explicit proposal number match if versions have distinct proposal numbers
     const explicitNoVer = versionEntries.find((v) => {
       const pNo = (v.proposalNo || "").trim().toUpperCase();
       const pId = (v.rawProposal.cer_proposal_id || "").trim().toUpperCase();
@@ -447,7 +465,7 @@ export function partitionDecisionsByVersion(
       return;
     }
 
-    // 2. Direct 'version' Column Matching (e.g. 'V1', 'V2', '1', '2')
+    // 2. Direct 'version' column matching (e.g. 'V1', 'V2', '1', '2')
     if (rawV) {
       const matchedVer = versionEntries.find((v) => {
         const vExpected = `V${v.serialNo}`.toUpperCase();
@@ -470,32 +488,42 @@ export function partitionDecisionsByVersion(
       }
     }
 
-    // 3. Fallback for untagged / unversioned decisions:
-    // Route to historical versions sequentially until each is fully approved, then route remaining to CURRENT
+    unassignedDecisions.push(d);
+  });
+
+  if (unassignedDecisions.length === 0) {
+    return result;
+  }
+
+  // 3. Fallback for untagged / unversioned decisions:
+  // Route decisions across versions sequentially:
+  // - A Send Back and its subsequent L1 re-trigger stay within the same version cycle (as an iteration).
+  // - A completed approval cycle (reaches Level 4 or higher) closes that historical version.
+  // - A new L1 approval after a completed cycle begins the next version.
+  // - Never moves or steals decisions between partitions.
+  unassignedDecisions.forEach((d) => {
     let assigned = false;
+
     for (const hist of historicalVersAsc) {
       const histDecs = result[hist.id];
-      const hasFinalApproval = histDecs.some(
-        (hd) => hd.level_id === 6 && (hd.decision || "").trim().toUpperCase() === "APPROVED"
-      );
 
-      // If hist already has its complete approved run (reached level 6), it is closed
-      if (hasFinalApproval) {
-        continue;
-      }
+      if (histDecs.length > 0) {
+        const lastDec = histDecs[histDecs.length - 1];
+        const lastWasSendBack = isSendBackDecision(lastDec.decision);
+        const maxLevelInHist = Math.max(...histDecs.map((hd) => hd.level_id || (hd as any).levelId || 0));
 
-      // If hist already has an approved Level 1 and higher levels, and d is an L1 decision:
-      // this marks the start of the next version/cycle!
-      const hasL1 = histDecs.some((hd) => hd.level_id === 1 && (hd.decision || "").trim().toUpperCase() === "APPROVED");
-      const maxLvlInHist = Math.max(...histDecs.map((hd) => hd.level_id), 0);
-      if (hasL1 && maxLvlInHist >= 2 && d.level_id === 1) {
-        continue;
-      }
+        // Rule A: Next L1 decision after a completed cycle begins the next version
+        // (If previous decision was a Send Back, this L1 remains an iteration in the same version)
+        if ((d.level_id === 1 || (d as any).levelId === 1) && maxLevelInHist >= 2 && !lastWasSendBack) {
+          continue; // hist cycle is closed, move to next version
+        }
 
-      // Check chronological boundary if available
-      const histArchiveDate = new Date(hist.rawProposal.modified_date || hist.rawProposal.created_date || 0).getTime();
-      if (histArchiveDate > 0 && dTime > histArchiveDate && histDecs.length >= 6) {
-        continue;
+        // Rule B: Completed approval cycle closure
+        // If hist reached Level 4 or higher with an Approved decision, and incoming decision drops down in level without a send back:
+        const lastDecUpper = (lastDec.decision || "").trim().toUpperCase();
+        if (maxLevelInHist >= 4 && lastDecUpper === "APPROVED" && d.level_id <= maxLevelInHist && !lastWasSendBack) {
+          continue; // hist is fully approved, move to next version
+        }
       }
 
       result[hist.id].push(d);
@@ -508,40 +536,14 @@ export function partitionDecisionsByVersion(
     }
   });
 
-  // 4. Workflow Continuity Safeguard:
-  // If active cycle (or any cycle) has higher level decisions (e.g. L2) but is missing L1,
-  // check if an L1 approval was placed in other partitions that chronologically belongs to this cycle
-  for (const v of versionEntries) {
-    const decs = result[v.id];
-    const hasL2Plus = decs.some((d) => d.level_id >= 2);
-    const hasL1 = decs.some((d) => d.level_id === 1);
-
-    if (hasL2Plus && !hasL1) {
-      for (const otherVer of versionEntries) {
-        if (otherVer.id === v.id) continue;
-        const otherDecs = result[otherVer.id];
-        const minVTime = Math.min(
-          ...decs.map((d) => new Date((d as any).decision_date || (d as any).decidedAt || d.timestamp || (d as any).Created || 0).getTime())
-        );
-        const candidateIdx = otherDecs.findIndex((d) => {
-          if (d.level_id !== 1 || (d.decision || "").trim().toUpperCase() !== "APPROVED") return false;
-          const t = new Date((d as any).decision_date || (d as any).decidedAt || d.timestamp || (d as any).Created || 0).getTime();
-          return t <= minVTime;
-        });
-
-        if (candidateIdx !== -1) {
-          const [migrated] = otherDecs.splice(candidateIdx, 1);
-          decs.push(migrated);
-          decs.sort((a, b) => {
-            const tA = new Date((a as any).decision_date || (a as any).decidedAt || a.timestamp || (a as any).Created || 0).getTime();
-            const tB = new Date((b as any).decision_date || (b as any).decidedAt || b.timestamp || (b as any).Created || 0).getTime();
-            return tA - tB;
-          });
-          break;
-        }
-      }
-    }
-  }
+  // Ensure decisions inside each partition are strictly chronologically sorted
+  versionEntries.forEach((v) => {
+    result[v.id].sort((a, b) => {
+      const tA = new Date((a as any).decision_date || (a as any).decidedAt || a.timestamp || (a as any).Created || 0).getTime();
+      const tB = new Date((b as any).decision_date || (b as any).decidedAt || b.timestamp || (b as any).Created || 0).getTime();
+      return tA - tB;
+    });
+  });
 
   return result;
 }

@@ -438,6 +438,104 @@ async function runTests() {
   assert(cer0002ActRows[1].statusText === "Rejected", "8p. Upper table L2 is Rejected");
   assert(cer0002ActRows[2].statusText === "Not Started", "8q. Upper table L3 is Not Started");
 
+  console.log("\n--- Testing Exact CER-2026-0007 Timing and Partitioning (Screenshots Issue) ---");
+  const cer0007Versions: IProposalVersionEntry[] = [
+    {
+      id: "CURRENT",
+      serialNo: 4,
+      versionLabel: "v4 Active",
+      isCurrent: true,
+      proposalNo: "PR-2026/07",
+      status: "In Approval",
+      amount: 1500,
+      currency: "USD",
+      dateStr: "04 Nov 2026",
+      rawProposal: { id: 7, cer_proposal_id: "CER-2026-0007", created_date: "2026-11-04T05:00:00Z" } as any,
+    },
+    {
+      id: "HIST_3",
+      serialNo: 3,
+      versionLabel: "v3 Snapshot",
+      isCurrent: false,
+      proposalNo: "PR-2026/07",
+      status: "Approved",
+      amount: 1500,
+      currency: "USD",
+      dateStr: "03 Nov 2026",
+      rawProposal: { id: 73, cer_proposal_id: "CER-2026-0007", modified_date: "2026-11-03T11:45:00Z" } as any, // 17:15 IST
+    },
+    {
+      id: "HIST_2",
+      serialNo: 2,
+      versionLabel: "v2 Snapshot",
+      isCurrent: false,
+      proposalNo: "PR-2026/07",
+      status: "Approved",
+      amount: 1500,
+      currency: "USD",
+      dateStr: "03 Nov 2026",
+      rawProposal: { id: 72, cer_proposal_id: "CER-2026-0007", modified_date: "2026-11-03T10:00:00Z" } as any, // 15:30 IST
+    },
+    {
+      id: "HIST_1",
+      serialNo: 1,
+      versionLabel: "v1 Snapshot",
+      isCurrent: false,
+      proposalNo: "PR-2026/07",
+      status: "Approved",
+      amount: 1500,
+      currency: "USD",
+      dateStr: "03 Nov 2026",
+      rawProposal: { id: 71, cer_proposal_id: "CER-2026-0007", modified_date: "2026-11-03T06:30:00Z" } as any,
+    },
+  ];
+
+  const cer0007Decisions: IApprovalDecision[] = [
+    // Version 1 (06:00 - 06:20)
+    { id: "v1_1", cerprno: "CER-2026-0007", level_id: 1, decision: "APPROVED", timestamp: "2026-11-03T06:00:00Z" } as any,
+    { id: "v1_2", cerprno: "CER-2026-0007", level_id: 2, decision: "APPROVED", timestamp: "2026-11-03T06:10:00Z" } as any,
+    { id: "v1_3", cerprno: "CER-2026-0007", level_id: 3, decision: "APPROVED", timestamp: "2026-11-03T06:15:00Z" } as any,
+    { id: "v1_4", cerprno: "CER-2026-0007", level_id: 4, decision: "APPROVED", timestamp: "2026-11-03T06:20:00Z" } as any,
+
+    // Version 2 (15:14 - 15:27)
+    { id: "v2_1", cerprno: "CER-2026-0007", level_id: 1, approver_name: "Priya Kalekar", decision: "APPROVED", timestamp: "2026-11-03T09:44:00Z", decision_date: "2026-11-03T09:44:00Z" } as any, // 15:14 IST
+    { id: "v2_2", cerprno: "CER-2026-0007", level_id: 2, approver_name: "Shiven Pandit", decision: "APPROVED", timestamp: "2026-11-03T09:56:00Z", decision_date: "2026-11-03T09:56:00Z" } as any, // 15:26 IST
+    { id: "v2_3", cerprno: "CER-2026-0007", level_id: 3, approver_name: "Priya Kalekar", decision: "APPROVED", timestamp: "2026-11-03T09:57:00Z", decision_date: "2026-11-03T09:57:00Z" } as any, // 15:27 IST
+    { id: "v2_4", cerprno: "CER-2026-0007", level_id: 4, approver_name: "Priya Kalekar", decision: "APPROVED", timestamp: "2026-11-03T09:57:30Z", decision_date: "2026-11-03T09:57:30Z" } as any, // 15:27 IST
+
+    // Version 3 (16:42 - 17:14)
+    { id: "v3_1", cerprno: "CER-2026-0007", level_id: 1, approver_name: "Priya Kalekar", decision: "APPROVED", timestamp: "2026-11-03T11:12:00Z", decision_date: "2026-11-03T11:12:00Z" } as any, // 16:42 IST
+    { id: "v3_2", cerprno: "CER-2026-0007", level_id: 2, approver_name: "Shiven Pandit", decision: "APPROVED", timestamp: "2026-11-03T11:43:00Z", decision_date: "2026-11-03T11:43:00Z" } as any, // 17:13 IST
+    { id: "v3_3", cerprno: "CER-2026-0007", level_id: 3, approver_name: "Priya Kalekar", decision: "APPROVED", timestamp: "2026-11-03T11:44:00Z", decision_date: "2026-11-03T11:44:00Z" } as any, // 17:14 IST
+    { id: "v3_4", cerprno: "CER-2026-0007", level_id: 4, approver_name: "Priya Kalekar", decision: "APPROVED", timestamp: "2026-11-03T11:44:30Z", decision_date: "2026-11-03T11:44:30Z" } as any, // 17:14 IST
+  ];
+
+  const cer0007Partitioned = partitionDecisionsByVersion(cer0007Decisions, cer0007Versions);
+
+  // Serial No. 2 (HIST_2): MUST contain 15:14 at L1 and 15:26 at L2
+  const hist2Decs = cer0007Partitioned["HIST_2"];
+  assert(hist2Decs.length === 4, `9a. Serial 2 received exactly 4 decisions (got: ${hist2Decs.length})`);
+  assert(hist2Decs[0].level_id === 1 && hist2Decs[0].id === "v2_1", "9b. Serial 2 L1 is v2_1 (15:14 IST), NOT stolen");
+  assert(hist2Decs[1].level_id === 2 && hist2Decs[1].id === "v2_2", "9c. Serial 2 L2 is v2_2 (15:26 IST)");
+  assert(new Date(hist2Decs[0].timestamp).getTime() <= new Date(hist2Decs[1].timestamp).getTime(), "9d. Serial 2 timestamps are in chronological order (L1 <= L2)");
+
+  // Serial No. 3 (HIST_3): MUST contain 16:42 at L1 and 17:13 at L2
+  const hist3Decs = cer0007Partitioned["HIST_3"];
+  assert(hist3Decs.length === 4, `9e. Serial 3 received exactly 4 decisions (got: ${hist3Decs.length})`);
+  assert(hist3Decs[0].level_id === 1 && hist3Decs[0].id === "v3_1", "9f. Serial 3 L1 is v3_1 (16:42 IST)");
+  assert(hist3Decs[1].level_id === 2 && hist3Decs[1].id === "v3_2", "9g. Serial 3 L2 is v3_2 (17:13 IST)");
+  assert(new Date(hist3Decs[0].timestamp).getTime() <= new Date(hist3Decs[1].timestamp).getTime(), "9h. Serial 3 timestamps are in chronological order (L1 <= L2)");
+
+  // Verify Table Rows for Serial No. 2: L5 and L6 must be 'Not Started', NOT 'Approved by Designated Approver'
+  const hist2Iters = splitDecisionsIntoIterations(hist2Decs, false, cer0007Versions[2].rawProposal);
+  const hist2Rows = buildTableRowsForIteration(hist2Iters[0], cer0007Versions[2]);
+  assert(hist2Rows[0].statusText === "Approved", "9i. Serial 2 L1 is Approved");
+  assert(hist2Rows[1].statusText === "Approved", "9j. Serial 2 L2 is Approved");
+  assert(hist2Rows[2].statusText === "Approved", "9k. Serial 2 L3 is Approved");
+  assert(hist2Rows[3].statusText === "Approved", "9l. Serial 2 L4 is Approved");
+  assert(hist2Rows[4].statusText === "Not Started", "9m. Serial 2 L5 is Not Started (CER threshold is 4 stages)");
+  assert(hist2Rows[5].statusText === "Not Started", "9n. Serial 2 L6 is Not Started (CER threshold is 4 stages)");
+
   console.log("\n==================================================");
   console.log("  ALL REDESIGN VERIFICATIONS PASSED               ");
   console.log("==================================================");

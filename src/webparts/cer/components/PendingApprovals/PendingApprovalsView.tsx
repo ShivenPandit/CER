@@ -168,8 +168,9 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
   // Fully Automatic Dynamic Table Pagination
   const pagination = useDynamicPagination({
     totalItems: pendingList.length,
-    defaultRowHeight: 140,
-    bufferBottom: 52,
+    defaultRowHeight: 130,
+    minPageSize: 2,
+    bufferBottom: 24,
   });
 
   const visiblePendingList = pagination.paginateItems(pendingList);
@@ -289,7 +290,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
         ref={pagination.tableContainerRef}
         className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden flex flex-col"
       >
-        <div className="p-4 sm:p-5 space-y-4">
+        <div data-role="list-wrapper" className="p-4 sm:p-5 space-y-4">
           {isLoading && proposals.length === 0 ? (
             <div className="space-y-4">
               {[1, 2].map((idx) => (

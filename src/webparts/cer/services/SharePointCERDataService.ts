@@ -2249,7 +2249,10 @@ export class SharePointCERDataService implements ICERDataService {
               comments: item.remarks || item.comments || "",
               decision_date: item.decidedAt || item.decision_date || item.Created || new Date().toISOString(),
               timestamp: item.decidedAt || item.decision_date || item.Created || new Date().toISOString(),
-              version: item.version || item.Version ? String(item.version || item.Version).trim().toUpperCase() : undefined,
+              version: (() => {
+                const rawV = item.version || item.Version || item.VersionTag || item.versionTag || item.Version_x0020_Tag || item.version_tag;
+                return rawV ? String(rawV).trim().toUpperCase() : undefined;
+              })(),
             };
           });
 
@@ -2498,7 +2501,6 @@ export class SharePointCERDataService implements ICERDataService {
       remarks: params.comments || "",
       decidedAt: now,
       version: versionTag,
-      Version: versionTag,
     };
     if (approverUserId) {
       Object.assign(
@@ -2518,7 +2520,6 @@ export class SharePointCERDataService implements ICERDataService {
       comments: params.comments || "",
       decision_date: now,
       version: versionTag,
-      Version: versionTag,
     };
 
     const candidateDecisionLists = [SP_LISTS.CER_APPROVAL_DECISIONS];

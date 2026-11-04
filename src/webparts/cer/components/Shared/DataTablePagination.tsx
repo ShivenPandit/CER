@@ -27,19 +27,22 @@ interface IDataTablePaginationProps {
  * Calculates page numbers to display with smart ellipsis for compact enterprise pagination
  */
 function getPageNumbers(currentPage: number, totalPages: number): (number | "...")[] {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  const safeCurrent = Number.isFinite(currentPage) && currentPage >= 1 ? Math.floor(currentPage) : 1;
+  const safeTotal = Number.isFinite(totalPages) && totalPages >= 1 ? Math.floor(totalPages) : 1;
+
+  if (safeTotal <= 7) {
+    return Array.from({ length: safeTotal }, (_, i) => i + 1);
   }
 
-  if (currentPage <= 4) {
-    return [1, 2, 3, 4, 5, "...", totalPages];
+  if (safeCurrent <= 4) {
+    return [1, 2, 3, 4, 5, "...", safeTotal];
   }
 
-  if (currentPage >= totalPages - 3) {
-    return [1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+  if (safeCurrent >= safeTotal - 3) {
+    return [1, "...", safeTotal - 4, safeTotal - 3, safeTotal - 2, safeTotal - 1, safeTotal];
   }
 
-  return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
+  return [1, "...", safeCurrent - 1, safeCurrent, safeCurrent + 1, "...", safeTotal];
 }
 
 export const DataTablePagination: React.FC<IDataTablePaginationProps> = ({
@@ -55,12 +58,18 @@ export const DataTablePagination: React.FC<IDataTablePaginationProps> = ({
   onLastPage,
   itemName = "records",
 }) => {
+  const safeTotalItems = Number.isFinite(totalItems) && totalItems >= 0 ? totalItems : 0;
+  const safeStartIndex = Number.isFinite(startIndex) ? Math.max(0, startIndex) : 0;
+  const safeEndIndex = Number.isFinite(endIndex)
+    ? Math.max(safeStartIndex, endIndex)
+    : safeTotalItems;
+
   const pageNumbers = useMemo(
     () => getPageNumbers(currentPage, totalPages),
     [currentPage, totalPages]
   );
 
-  if (totalItems === 0) {
+  if (safeTotalItems === 0) {
     return null;
   }
 
@@ -73,11 +82,11 @@ export const DataTablePagination: React.FC<IDataTablePaginationProps> = ({
       <div className="text-slate-700 font-medium text-center sm:text-left text-sm">
         Showing{" "}
         <strong className="text-slate-900 font-bold">
-          {totalItems > 0 ? startIndex + 1 : 0}
+          {safeTotalItems > 0 ? safeStartIndex + 1 : 0}
         </strong>
         –
-        <strong className="text-slate-900 font-bold">{endIndex}</strong> of{" "}
-        <strong className="text-slate-900 font-bold">{totalItems}</strong> {itemName}
+        <strong className="text-slate-900 font-bold">{safeEndIndex}</strong> of{" "}
+        <strong className="text-slate-900 font-bold">{safeTotalItems}</strong> {itemName}
       </div>
 
       {/* Right: Numbered Page Navigation */}
