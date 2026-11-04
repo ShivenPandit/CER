@@ -16,7 +16,7 @@ import { ICERProposal } from "../../models/CERModel";
 import { IWorkflowLevel, IApprovalDecision } from "../../models/WorkflowModel";
 import { ICERDataService } from "../../services/ICERDataService";
 import { StatusBadge } from "../Shared/StatusBadge";
-import { CategoryBadge } from "../Shared/CategoryBadge";
+import { useModalScrollLock } from "../../hooks/useModalScrollLock";
 
 export interface IStatusHistoryModalProps {
   isOpen: boolean;
@@ -572,6 +572,9 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
 
   const permanentCerId = proposal?.cer_proposal_id || proposal?.cerprno || "—";
 
+  // Lock background scrolling across SharePoint page containers while modal is open
+  useModalScrollLock(isOpen);
+
   // Handle ESC key to close
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -649,7 +652,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
     // Historical versions
     sortedHist.forEach((hp, idx) => {
       const serialNo = totalVersions - 1 - idx;
-      const vId = `HIST_${hp.id || hp.proposal_no || hp.cerprno || idx}`;
+      const vId = hp.id ? `HIST_${hp.id}` : `HIST_${hp.proposal_no || hp.cerprno || "rev"}_${idx}`;
       entries.push({
         id: vId,
         serialNo,
@@ -904,26 +907,28 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
   };
 
   return (
-    <div className="cer-display-scope fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-      <div className="relative w-full max-w-6xl 2xl:max-w-7xl bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] min-h-[580px]">
+    <div
+      className="cer-display-scope fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs overscroll-contain animate-fade-in"
+      style={{ overscrollBehavior: "contain" }}
+      onWheel={(e) => {
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+        }
+      }}
+    >
+      <div
+        className="relative w-full max-w-6xl 2xl:max-w-7xl bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] min-h-[580px] overscroll-contain"
+        style={{ overscrollBehavior: "contain" }}
+      >
         {/* Top Header - White Background matching Proposal History */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-white shrink-0 gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="p-2 rounded-xl bg-[#012964]/10 border border-[#012964]/20 text-[#012964] shrink-0">
               <History className="w-5 h-5 text-[#012964]" />
             </div>
-            <div className="min-w-0 flex items-center flex-wrap gap-2.5">
-              <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight truncate">
-                Status & Approval History ({permanentCerId})
-              </h2>
-              {proposal.pr_name && (
-                <span className="text-sm sm:text-base font-semibold text-slate-700 truncate max-w-xs md:max-w-md hidden sm:inline">
-                  — {proposal.pr_name}
-                </span>
-              )}
-              {proposal.cat && <CategoryBadge category={proposal.cat} />}
-              <StatusBadge status={proposal.status} size="sm" />
-            </div>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight truncate">
+              Status & Approval History ({permanentCerId})
+            </h2>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
@@ -964,7 +969,10 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
             </div>
 
             {/* Version Cards Scrollable List */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+            <div
+              className="flex-1 overflow-y-auto p-3 space-y-2.5 overscroll-contain cer-modal-scrollable"
+              style={{ overscrollBehavior: "contain" }}
+            >
               {isLoadingHistory && versionEntries.length <= 1 ? (
                 <div className="py-8 text-center text-slate-500 text-sm space-y-2">
                   <div className="w-5 h-5 border-2 border-[#012964] border-t-transparent rounded-full animate-spin mx-auto" />
@@ -1041,7 +1049,10 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
           {/* ========================================================================================= */}
           {/* RIGHT PANEL (~70% width): Summary Cards & Multi-Iteration Tables */}
           {/* ========================================================================================= */}
-          <div className="flex-1 flex flex-col overflow-y-auto bg-white p-5 lg:p-6 space-y-5 min-w-0">
+          <div
+            className="flex-1 flex flex-col overflow-y-auto bg-white p-5 lg:p-6 space-y-5 min-w-0 overscroll-contain cer-modal-scrollable"
+            style={{ overscrollBehavior: "contain" }}
+          >
             {/* 4 Compact Summary Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
               {/* Card 1: Total Approval Levels */}
@@ -1285,14 +1296,21 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
       {/* Reviewer Comments & Justification Modal Popup */}
       {viewingComments && (
         <div
-          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overscroll-contain animate-fade-in"
+          style={{ overscrollBehavior: "contain" }}
           onClick={() => setViewingComments(null)}
+          onWheel={(e) => {
+            if (e.target === e.currentTarget) {
+              e.preventDefault();
+            }
+          }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="reviewer-comments-title"
         >
           <div
-            className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col animate-scale-up"
+            className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col overscroll-contain animate-scale-up"
+            style={{ overscrollBehavior: "contain" }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}

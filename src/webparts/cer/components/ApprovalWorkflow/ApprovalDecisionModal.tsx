@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { CheckCircle2, XCircle, RotateCcw, X, AlertTriangle, Paperclip, FileText, User, ShieldAlert } from "lucide-react";
 import { ICERProposal } from "../../models/CERModel";
 import { ICERAttachment } from "../../models/AttachmentModel";
@@ -7,6 +7,7 @@ import { IAppUser } from "../../models/UserModel";
 import { PermissionService } from "../../services/PermissionService";
 import { UserAvatar } from "../Common/UserAvatar";
 import { sanitizeMultiLineText } from "../../utils/sanitizationUtils";
+import { useModalScrollLock } from "../../hooks/useModalScrollLock";
 
 interface IApprovalDecisionModalProps {
   proposal: ICERProposal;
@@ -27,11 +28,34 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
   onClose,
   onSubmitDecision,
 }) => {
+  // Lock background scroll when modal is open
+  useModalScrollLock(isOpen);
+
   const [decision, setDecision] = useState<"APPROVED" | "REJECTED" | "SENT_BACK">("APPROVED");
   const [comments, setComments] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [commentError, setCommentError] = useState<string | null>(null);
+
+  // Cleanly reset comments, decision, and validation errors whenever modal opens or switches proposals
+  useEffect(() => {
+    if (isOpen) {
+      setDecision("APPROVED");
+      setComments("");
+      setError(null);
+      setCommentError(null);
+      setIsSubmitting(false);
+    }
+  }, [isOpen, proposal?.cerprno, proposal?.id, proposal?.current_level]);
+
+  const handleClose = () => {
+    setComments("");
+    setDecision("APPROVED");
+    setError(null);
+    setCommentError(null);
+    setIsSubmitting(false);
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -59,6 +83,10 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
     setIsSubmitting(true);
     try {
       await onSubmitDecision(decision, sanitizedComments);
+      setComments("");
+      setDecision("APPROVED");
+      setError(null);
+      setCommentError(null);
       onClose();
     } catch (e: any) {
       setError(e.message || "Failed to record decision.");
@@ -68,8 +96,19 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm overscroll-contain animate-fade-in"
+      style={{ overscrollBehavior: "contain" }}
+      onWheel={(e) => {
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+        }
+      }}
+    >
+      <div
+        className="relative w-full max-w-2xl bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] overscroll-contain"
+        style={{ overscrollBehavior: "contain" }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
           <div>
@@ -81,7 +120,7 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
             </h3>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -89,7 +128,10 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="p-6 overflow-y-auto space-y-5 text-sm">
+        <div
+          className="p-6 overflow-y-auto space-y-5 text-sm overscroll-contain cer-modal-scrollable"
+          style={{ overscrollBehavior: "contain" }}
+        >
           {/* Summary Box */}
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-3">
             <div className="flex items-start justify-between">
@@ -322,7 +364,7 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
           <div className="flex items-center gap-2.5">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={isSubmitting}
               className="h-10 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
             >

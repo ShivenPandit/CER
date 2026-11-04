@@ -26,6 +26,7 @@ import {
 import { IWorkflowLevel, isProjectOwnerStage } from "../../models/WorkflowModel";
 import { ICERDataService } from "../../services/ICERDataService";
 import { useDynamicPagination } from "../../hooks/useDynamicPagination";
+import { useModalScrollLock } from "../../hooks/useModalScrollLock";
 import { DataTablePagination } from '../Shared/DataTablePagination';
 import { UserAvatar } from "../Common/UserAvatar";
 import { ROLE_MATRIX_SBUS } from "../../constants";
@@ -77,18 +78,6 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Lock background scrolling while assign role modal is open
-  useEffect(() => {
-    if (isAssignModalOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isAssignModalOpen]);
-
   // Form Fields for Assign Modal
   const [directorySearchQuery, setDirectorySearchQuery] = useState("");
   const [directoryResults, setDirectoryResults] = useState<IDirectoryUser[]>([]);
@@ -130,6 +119,9 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
   const [editApprovalLevel, setEditApprovalLevel] = useState<number>(1);
   const [editErrorMessage, setEditErrorMessage] = useState<string | null>(null);
   const [hasAttemptedEditSubmit, setHasAttemptedEditSubmit] = useState(false);
+
+  // Lock background scrolling across SharePoint page containers while any modal in UserManagement is open
+  useModalScrollLock(Boolean(isAssignModalOpen || editingAssignment || revokingAssignment));
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -810,7 +802,15 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
       {/* Modal: Assign Role */}
       {isAssignModalOpen && createPortal(
-        <div className="fixed inset-0 !m-0 !top-0 !left-0 !right-0 !bottom-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in overflow-y-auto">
+        <div
+          className="fixed inset-0 !m-0 !top-0 !left-0 !right-0 !bottom-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm overscroll-contain animate-fade-in overflow-y-auto"
+          style={{ overscrollBehavior: "contain" }}
+          onWheel={(e) => {
+            if (e.target === e.currentTarget) {
+              e.preventDefault();
+            }
+          }}
+        >
           <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] my-auto">
             <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-100 bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
@@ -1138,7 +1138,15 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
       {/* Modal: Edit Role Assignment */}
       {editingAssignment && createPortal(
-        <div className="fixed inset-0 !m-0 !top-0 !left-0 !right-0 !bottom-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in overflow-y-auto">
+        <div
+          className="fixed inset-0 !m-0 !top-0 !left-0 !right-0 !bottom-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm overscroll-contain animate-fade-in overflow-y-auto"
+          style={{ overscrollBehavior: "contain" }}
+          onWheel={(e) => {
+            if (e.target === e.currentTarget) {
+              e.preventDefault();
+            }
+          }}
+        >
           <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] my-auto">
             <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-100 bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
@@ -1292,7 +1300,15 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
       {/* Modal: Confirmation for Revoking Role */}
       {revokingAssignment && createPortal(
-        <div className="fixed inset-0 !m-0 !top-0 !left-0 !right-0 !bottom-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+        <div
+          className="fixed inset-0 !m-0 !top-0 !left-0 !right-0 !bottom-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overscroll-contain animate-fade-in"
+          style={{ overscrollBehavior: "contain" }}
+          onWheel={(e) => {
+            if (e.target === e.currentTarget) {
+              e.preventDefault();
+            }
+          }}
+        >
           <div className="max-w-md w-full bg-white rounded-2xl shadow-elevated border border-slate-200 p-6 text-center space-y-4">
             <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center mx-auto">
               <AlertTriangle className="w-6 h-6" />

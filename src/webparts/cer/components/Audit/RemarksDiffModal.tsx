@@ -1,5 +1,6 @@
 import React from "react";
 import { MessageSquare, X, Calendar, User } from "lucide-react";
+import { useModalScrollLock } from "../../hooks/useModalScrollLock";
 
 interface IRemarksDiffModalProps {
   isOpen: boolean;
@@ -24,14 +25,27 @@ export const RemarksDiffModal: React.FC<IRemarksDiffModalProps> = ({
   auditDate,
   auditTime,
 }) => {
+  useModalScrollLock(isOpen);
+
   if (!isOpen) return null;
 
   const oldWordCount = oldValue ? oldValue.trim().split(/\s+/).filter(Boolean).length : 0;
   const newWordCount = newValue ? newValue.trim().split(/\s+/).filter(Boolean).length : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm overscroll-contain animate-fade-in"
+      style={{ overscrollBehavior: "contain" }}
+      onWheel={(e) => {
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+        }
+      }}
+    >
+      <div
+        className="relative w-full max-w-4xl bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] overscroll-contain"
+        style={{ overscrollBehavior: "contain" }}
+      >
         {/* Header - Screen 0400 equivalent */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center gap-2.5">

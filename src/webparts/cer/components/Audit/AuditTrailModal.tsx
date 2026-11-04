@@ -23,6 +23,7 @@ import { CategoryBadge } from "../Shared/CategoryBadge";
 import { UserAvatar } from "../Common/UserAvatar";
 import { RemarksDiffModal } from "./RemarksDiffModal";
 import { formatLocalDate, formatLocalTime } from "../../utils/dateUtils";
+import { useModalScrollLock } from "../../hooks/useModalScrollLock";
 
 interface IAuditTrailModalProps {
   isOpen: boolean;
@@ -130,11 +131,25 @@ export const AuditTrailModal: React.FC<IAuditTrailModalProps> = ({
     });
   };
 
+  // Lock background scroll when modal is open
+  useModalScrollLock(isOpen);
+
   if (!isOpen || !proposal) return null;
 
   return (
-    <div className="cer-display-scope fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-      <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+    <div
+      className="cer-display-scope fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs overscroll-contain animate-fade-in"
+      style={{ overscrollBehavior: "contain" }}
+      onWheel={(e) => {
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+        }
+      }}
+    >
+      <div
+        className="relative w-full max-w-4xl bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] overscroll-contain"
+        style={{ overscrollBehavior: "contain" }}
+      >
         {/* Header - Unified Dark Aesthetic */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-900 text-white shrink-0 gap-3">
           <div className="flex items-center gap-3">

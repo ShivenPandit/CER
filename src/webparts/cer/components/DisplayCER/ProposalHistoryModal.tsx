@@ -28,6 +28,7 @@ import { StatusBadge } from "../Shared/StatusBadge";
 import { CategoryBadge } from "../Shared/CategoryBadge";
 import { UserAvatar } from "../Common/UserAvatar";
 import { calculateExactDays, getCurrentFiscalYearPhasingLabels } from "../../utils/dateUtils";
+import { useModalScrollLock } from "../../hooks/useModalScrollLock";
 
 interface IProposalHistoryModalProps {
   isOpen: boolean;
@@ -45,11 +46,14 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
   initialHistory,
 }) => {
   const [historyProposals, setHistoryProposals] = useState<ICERProposal[]>(initialHistory || []);
-  const [selectedProposal, setSelectedProposal] = useState<ICERProposal | null>(null);
+  const [selectedVersionIndex, setSelectedVersionIndex] = useState<number>(0);
   const [selectedAttachments, setSelectedAttachments] = useState<ICERAttachment[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(!initialHistory?.length);
   const [isLoadingAttachments, setIsLoadingAttachments] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Lock background scrolling across SharePoint page containers while modal is open
+  useModalScrollLock(isOpen);
 
   // Sync props when opening
   useEffect(() => {
@@ -57,6 +61,13 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
       setHistoryProposals(initialHistory);
     }
   }, [initialHistory]);
+
+  // Reset selected version index whenever modal opens or CER Proposal ID changes
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedVersionIndex(0);
+    }
+  }, [isOpen, cerProposalId]);
 
   // Load historical snapshots strictly from CERProposalsHistory
   useEffect(() => {
@@ -100,22 +111,12 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
     });
   }, [historyProposals]);
 
-  // Selection logic:
-  // Strictly select only from historical snapshots (index 0 is latest historical approved version)
-  useEffect(() => {
-    if (sortedHistory.length > 0) {
-      setSelectedProposal((prev) => {
-        if (!prev) return sortedHistory[0];
-        const prevKey = (prev.proposal_no || prev.cerprno || "").trim().toUpperCase();
-        const found = sortedHistory.find(
-          (p) => (p.proposal_no || p.cerprno || "").trim().toUpperCase() === prevKey
-        );
-        return found || sortedHistory[0];
-      });
-    } else {
-      setSelectedProposal(null);
-    }
-  }, [sortedHistory]);
+  // Derive the active selected index and snapshot safely
+  const activeVersionIndex = sortedHistory.length > 0
+    ? Math.min(Math.max(0, selectedVersionIndex), sortedHistory.length - 1)
+    : 0;
+
+  const selectedProposal = sortedHistory.length > 0 ? sortedHistory[activeVersionIndex] : null;
 
   // Load attachments for the selected historical snapshot
   useEffect(() => {
@@ -212,7 +213,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
 
   return (
     <div
-      className="cer-display-scope fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-900/70 backdrop-blur-xs animate-fade-in"
+      className="cer-display-scope fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-900/70 backdrop-blur-xs overscroll-contain animate-fade-in"
       style={{
         position: "fixed",
         top: 0,
@@ -225,10 +226,16 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
         justifyContent: "center",
         padding: "16px",
         boxSizing: "border-box",
+        overscrollBehavior: "contain",
+      }}
+      onWheel={(e) => {
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+        }
       }}
     >
       <div
-        className="relative w-full max-w-7xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
+        className="relative w-full max-w-7xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col overscroll-contain"
         style={{
           width: "100%",
           maxWidth: "1380px",
@@ -239,6 +246,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
           borderRadius: "16px",
           backgroundColor: "#ffffff",
           overflow: "hidden",
+          overscrollBehavior: "contain",
         }}
       >
         {/* Top Header */}
@@ -295,7 +303,10 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
             </div>
 
             {/* Version Cards Scrollable List */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+            <div
+              className="flex-1 overflow-y-auto p-3 space-y-2.5 overscroll-contain cer-modal-scrollable"
+              style={{ overscrollBehavior: "contain" }}
+            >
               {isLoading ? (
                 <div className="py-12 text-center text-slate-500 text-sm space-y-2">
                   <div className="w-6 h-6 border-2 border-[#012964] border-t-transparent rounded-full animate-spin mx-auto" />
@@ -314,15 +325,12 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                   const serialNo = sortedHistory.length - idx;
                   const revNum = sortedHistory.length - idx;
                   const effectiveNo = prop.proposal_no || prop.cerprno;
-                  const isSelected =
-                    selectedProposal &&
-                    (selectedProposal.id === prop.id ||
-                      (selectedProposal.proposal_no || selectedProposal.cerprno) === effectiveNo);
+                  const isSelected = activeVersionIndex === idx;
 
                   return (
                     <div
-                      key={prop.id || `${effectiveNo}-${idx}`}
-                      onClick={() => setSelectedProposal(prop)}
+                      key={prop.id ? `hist-${prop.id}` : `hist-${effectiveNo}-${idx}`}
+                      onClick={() => setSelectedVersionIndex(idx)}
                       className={`p-3.5 rounded-xl transition-all cursor-pointer relative ${
                         isSelected
                           ? "bg-white border-2 border-[#012964] shadow-xs ring-1 ring-[#012964]/10"
@@ -376,11 +384,12 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
           {/* RIGHT PANEL (~75% width on desktop): Complete Read-Only Proposal Data */}
           {/* ========================================================================================= */}
           <div
-            className="flex-1 min-w-0 overflow-y-auto bg-slate-50/40 p-4 sm:p-5 lg:p-6 space-y-4"
+            className="flex-1 min-w-0 overflow-y-auto bg-slate-50/40 p-4 sm:p-5 lg:p-6 space-y-4 overscroll-contain cer-modal-scrollable"
             style={{
               flex: 1,
               minWidth: 0,
               overflowY: "auto",
+              overscrollBehavior: "contain",
             }}
           >
             {error && (

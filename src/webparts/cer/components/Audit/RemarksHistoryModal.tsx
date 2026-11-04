@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { History, X } from "lucide-react";
 import { ICERRemarksVersion } from "../../models/AuditModel";
 import { ICERDataService } from "../../services/ICERDataService";
+import { useModalScrollLock } from "../../hooks/useModalScrollLock";
 
 interface IRemarksHistoryModalProps {
   isOpen: boolean;
@@ -16,6 +17,8 @@ export const RemarksHistoryModal: React.FC<IRemarksHistoryModalProps> = ({
   cerprno,
   dataService,
 }) => {
+  useModalScrollLock(isOpen);
+
   const [versions, setVersions] = useState<ICERRemarksVersion[]>([]);
   const [selectedVersion, setSelectedVersion] = useState<ICERRemarksVersion | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,8 +47,19 @@ export const RemarksHistoryModal: React.FC<IRemarksHistoryModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[85vh]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm overscroll-contain animate-fade-in"
+      style={{ overscrollBehavior: "contain" }}
+      onWheel={(e) => {
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+        }
+      }}
+    >
+      <div
+        className="relative w-full max-w-4xl bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[85vh] overscroll-contain"
+        style={{ overscrollBehavior: "contain" }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
           <div className="flex items-center gap-2.5">

@@ -408,8 +408,9 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
       </div>
 
       {/* Decision Modal */}
-      {selectedProposal && (
+      {selectedProposal && isDecisionModalOpen && (
         <ApprovalDecisionModal
+          key={`${selectedProposal.cerprno}-${selectedProposal.current_level}-${isDecisionModalOpen}`}
           proposal={selectedProposal}
           currentLevelConfig={levels.find(
             (l) =>
@@ -419,7 +420,10 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
           attachments={selectedAttachments}
           currentUser={currentUser}
           isOpen={isDecisionModalOpen}
-          onClose={() => setIsDecisionModalOpen(false)}
+          onClose={() => {
+            setIsDecisionModalOpen(false);
+            setSelectedProposal(null);
+          }}
           onSubmitDecision={handleSubmitDecision}
         />
       )}

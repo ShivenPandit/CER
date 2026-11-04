@@ -1,5 +1,6 @@
 import React from "react";
 import { X, BookOpen } from "lucide-react";
+import { useModalScrollLock } from "../../hooks/useModalScrollLock";
 
 interface IUserManualModalProps {
   isOpen: boolean;
@@ -10,11 +11,24 @@ export const UserManualModal: React.FC<IUserManualModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  useModalScrollLock(isOpen);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 lg:p-6 overflow-y-auto bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col min-h-[380px]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 lg:p-6 overflow-y-auto bg-slate-900/60 backdrop-blur-sm overscroll-contain animate-fade-in"
+      style={{ overscrollBehavior: "contain" }}
+      onWheel={(e) => {
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+        }
+      }}
+    >
+      <div
+        className="relative w-full max-w-4xl bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col min-h-[380px] overscroll-contain"
+        style={{ overscrollBehavior: "contain" }}
+      >
         {/* Modal Header */}
         <div className="p-4 sm:p-5 bg-white text-slate-900 flex items-center justify-between border-b border-slate-200">
           <div className="flex items-center gap-3">
