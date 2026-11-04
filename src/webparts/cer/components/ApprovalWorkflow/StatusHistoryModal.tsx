@@ -1283,16 +1283,6 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
             </div>
           </div>
         </div>
-
-        {/* Modal Footer */}
-        <div className="flex items-center justify-end px-5 py-3 border-t border-slate-200 bg-slate-50/80 shrink-0">
-          <button
-            onClick={onClose}
-            className="h-10 px-6 rounded-xl text-sm font-semibold text-white bg-[#012964] hover:bg-[#001f4d] transition-colors shadow-2xs cursor-pointer"
-          >
-            Close
-          </button>
-        </div>
       </div>
 
       {/* Reviewer Comments & Justification Modal Popup */}
