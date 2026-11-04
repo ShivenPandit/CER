@@ -350,7 +350,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                   : proposal.status === "Draft"
                   ? "bg-slate-100 text-slate-700 border-slate-200"
                   : proposal.status === "Revised"
-                  ? "bg-purple-50 text-purple-700 border-purple-200"
+                  ? "bg-amber-50 text-amber-700 border-amber-200"
                   : "bg-white cer-border-blue cer-text-blue"
               }`}
             >
@@ -365,7 +365,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                       : "var(--cer-brand-blue)",
                 }}
               />
-              <span>{proposal.status}</span>
+              <span>{proposal.status === "Revised" ? "Send Back" : proposal.status}</span>
             </span>
           </div>
         ) : (
@@ -523,7 +523,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                       : proposal.status === "Draft"
                       ? "Draft"
                       : proposal.status === "Revised"
-                      ? "Revised"
+                      ? "Send Back"
                       : proposal.status}
                   </p>
                 </div>

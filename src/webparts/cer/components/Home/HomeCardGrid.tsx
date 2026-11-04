@@ -78,7 +78,7 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
     },
     {
       id: "my-proposals",
-      title: "My Proposals",
+      title: "My CER Proposals",
       description:
         "Track submitted proposals and projects where you are designated owner.",
       actionLabel: "View Proposals",

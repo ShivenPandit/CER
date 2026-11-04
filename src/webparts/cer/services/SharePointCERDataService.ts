@@ -2973,6 +2973,26 @@ export class SharePointCERDataService implements ICERDataService {
     const ownerPerson = PersonFieldService.extractPersonField(item, "cerOwner") || PersonFieldService.extractPersonField(item, "owname");
     const cerId = String(item.cerPrId || item.cerPrNo || item.cerprno || item.Title || "");
     const propNo = String(item.proposalNo || item.proposal_no || item.cerPrId || item.cerPrNo || item.cerprno || item.Title || "");
+    const engineerCost = Number(item.engineeringCost ?? item.engineer ?? 0);
+    const surfaceCost = Number(item.surfaceFacilitiesCost ?? item.s_fac ?? 0);
+    const comisCost = Number(item.commissioningCost ?? item.comis ?? 0);
+    const preopCost = Number(item.preoperativeCost ?? item.preop ?? 0);
+    let otherCost = Number(item.otherCosts ?? item.others ?? 0);
+    const totalCost = Number(item.total || 0);
+    const proposalAmount = Number(item.amount || 0);
+
+    // Guard against rogue SharePoint column default (where otherCosts defaults to 1 on unpopulated Section D)
+    if (
+      otherCost === 1 &&
+      engineerCost === 0 &&
+      surfaceCost === 0 &&
+      comisCost === 0 &&
+      preopCost === 0 &&
+      (totalCost === 0 || Math.abs(totalCost - proposalAmount) > 0.01)
+    ) {
+      otherCost = 0;
+    }
+
     return {
       id: String(item.Id || item.id),
       cer_proposal_id: cerId,
@@ -2985,7 +3005,7 @@ export class SharePointCERDataService implements ICERDataService {
       sbu: item.sbu || "RJ North",
       status: (item.status === "Approval" ? "In Approval" : item.status) || "In Approval",
       object: item.object || "",
-      amount: Number(item.amount || 0),
+      amount: proposalAmount,
       currency: item.currency || "USD",
       cat: item.category || item.cat || "Vital",
       payable: item.payable || "Payback",
@@ -3023,12 +3043,12 @@ export class SharePointCERDataService implements ICERDataService {
       opex_till: Number(item.opexTill ?? item.opex_till ?? 0),
       opex_fy: Number(item.opexFy ?? item.opex_fy ?? 0),
       opex_beyond: Number(item.opexBeyond ?? item.opex_beyond ?? 0),
-      engineer: Number(item.engineeringCost ?? item.engineer ?? 0),
-      s_fac: Number(item.surfaceFacilitiesCost ?? item.s_fac ?? 0),
-      comis: Number(item.commissioningCost ?? item.comis ?? 0),
-      preop: Number(item.preoperativeCost ?? item.preop ?? 0),
-      others: Number(item.otherCosts ?? item.others ?? 0),
-      total: Number(item.total || 0),
+      engineer: engineerCost,
+      s_fac: surfaceCost,
+      comis: comisCost,
+      preop: preopCost,
+      others: otherCost,
+      total: (otherCost === 0 && engineerCost === 0 && surfaceCost === 0 && comisCost === 0 && preopCost === 0) ? 0 : totalCost,
       remarks: item.remarks || "",
       remarks_jv: item.remarksJv || item.remarks_jv || "",
       current_level: Number(item.currentLevel ?? item.current_level ?? 1),

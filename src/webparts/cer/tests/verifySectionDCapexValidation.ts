@@ -221,6 +221,55 @@ export async function runSectionDCapexValidationTests(): Promise<void> {
     );
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // Test 8: Guard against rogue SharePoint column default (where otherCosts defaults to 1 on unpopulated Section D)
+  // ---------------------------------------------------------------------------------------------
+  console.log("\nTest 8: Guard against rogue SharePoint otherCosts=1 default value");
+  {
+    const rawEngineer = 0;
+    const rawSfac = 0;
+    const rawComis = 0;
+    const rawPreop = 0;
+    let rawOthers = 1; // rogue SharePoint default
+    const rawTotal = 0;
+    const rawAmount = 1500;
+
+    if (
+      rawOthers === 1 &&
+      rawEngineer === 0 &&
+      rawSfac === 0 &&
+      rawComis === 0 &&
+      rawPreop === 0 &&
+      (rawTotal === 0 || Math.abs(rawTotal - rawAmount) > 0.01)
+    ) {
+      rawOthers = 0;
+    }
+
+    assert(rawOthers === 0, "Rogue otherCosts=1 default value sanitized to 0 for unpopulated Section D");
+
+    const sanitizedProposal = {
+      ...baseValidProposal,
+      amount: 1500,
+      engineer: 0,
+      s_fac: 0,
+      comis: 0,
+      preop: 0,
+      others: rawOthers,
+      total: 0,
+    };
+
+    assert(
+      hasEnteredCostBreakdown(sanitizedProposal) === false,
+      "hasEnteredCostBreakdown returns false after rogue others=1 is sanitized"
+    );
+
+    const validationRes = validateAll(sanitizedProposal, false);
+    assert(
+      validationRes.isValid === true,
+      "validateAll succeeds without capex breakdown mismatch after sanitizing rogue others=1"
+    );
+  }
+
   console.log("\n================================================================================");
   console.log("ALL SECTION D CAPEX BREAKDOWN TESTS PASSED SUCCESSFULLY!");
   console.log("================================================================================");

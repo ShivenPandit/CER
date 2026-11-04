@@ -119,7 +119,7 @@ export const ApprovalProgressTracker: React.FC<IApprovalProgressTrackerProps> = 
               : status === "Draft"
               ? "bg-slate-100 text-slate-700 border-slate-200"
               : status === "Revised"
-              ? "bg-purple-50 text-purple-700 border-purple-200"
+              ? "bg-amber-50 text-amber-700 border-amber-200"
               : "bg-white cer-border-blue cer-text-blue"
           }`}
         >
@@ -130,7 +130,7 @@ export const ApprovalProgressTracker: React.FC<IApprovalProgressTrackerProps> = 
             : status === "Draft"
             ? "Draft"
             : status === "Revised"
-            ? "Revised"
+            ? "Send Back"
             : `Level ${currentLevel} Pending`}
         </span>
       </div>

@@ -86,8 +86,34 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
 
         const initialProposalNo = found.proposal_no || found.cerprno || "";
 
+        const rawEngineer = Number(found.engineer || 0);
+        const rawSfac = Number(found.s_fac || 0);
+        const rawComis = Number(found.comis || 0);
+        const rawPreop = Number(found.preop || 0);
+        let cleanOthers = Number(found.others || 0);
+        const rawTotal = Number(found.total || 0);
+        const rawAmount = Number(found.amount || 0);
+
+        // Guard against phantom SharePoint column default (where otherCosts defaults to 1 on unpopulated Section D)
+        if (
+          cleanOthers === 1 &&
+          rawEngineer === 0 &&
+          rawSfac === 0 &&
+          rawComis === 0 &&
+          rawPreop === 0 &&
+          (rawTotal === 0 || Math.abs(rawTotal - rawAmount) > 0.01)
+        ) {
+          cleanOthers = 0;
+        }
+
+        const cleanTotal = (cleanOthers === 0 && rawEngineer === 0 && rawSfac === 0 && rawComis === 0 && rawPreop === 0)
+          ? 0
+          : found.total;
+
         const normalized: ICERProposal = {
           ...found,
+          others: cleanOthers,
+          total: cleanTotal,
           proposal_no: initialProposalNo,
           payback_quarters: found.payback_quarters !== undefined && found.payback_quarters !== null ? found.payback_quarters : 0,
           jv_recoverable: found.jv_recoverable || "No",

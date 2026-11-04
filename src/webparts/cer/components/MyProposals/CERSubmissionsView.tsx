@@ -110,8 +110,8 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
           <button
             onClick={onBack}
             className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
-            title="Back to My Proposals"
-            aria-label="Back to My Proposals"
+            title="Back to My CER Proposals"
+            aria-label="Back to My CER Proposals"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>

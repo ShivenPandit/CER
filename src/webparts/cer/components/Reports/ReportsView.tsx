@@ -8,7 +8,6 @@ import {
   ArrowLeft,
   Eye,
   ChevronDown,
-  Edit2,
   X,
 } from "lucide-react";
 import { ICERProposal, SBU_OPTIONS, IFieldChoices } from "../../models/CERModel";
@@ -17,7 +16,6 @@ import { StatusBadge } from "../Shared/StatusBadge";
 import { CategoryBadge } from "../Shared/CategoryBadge";
 import { ExcelExportService } from "../../services/ExcelExportService";
 import { ICERDataService } from "../../services/ICERDataService";
-import { PermissionService } from "../../services/PermissionService";
 import { useDynamicPagination } from "../../hooks/useDynamicPagination";
 import { DataTablePagination } from "../Shared/DataTablePagination";
 
@@ -25,7 +23,7 @@ interface IReportsViewProps {
   proposals: ICERProposal[];
   currentUser: IAppUser;
   onNavigateToDisplay: (cerprno: string) => void;
-  onNavigateToChange: (cerprno: string) => void;
+  onNavigateToChange?: (cerprno: string) => void;
   onNavigateToSubmissions?: (cerProposalId: string) => void;
   dataService?: ICERDataService;
   fieldChoices?: IFieldChoices;
@@ -60,18 +58,22 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
   const [sortField, setSortField] = useState<keyof ICERProposal>("created_date");
   const [sortAsc, setSortAsc] = useState(false);
 
-  // Status KPI counts
+  // In Reports & Analytics, strictly exclude unsubmitted Draft proposals
+  const nonDraftProposals = useMemo(() => {
+    return proposals.filter((p) => p.status !== "Draft");
+  }, [proposals]);
+
+  // Status KPI counts (strictly excluding drafts)
   const counts = useMemo(() => {
     return {
-      all: proposals.length,
-      inApproval: proposals.filter((p) =>
+      all: nonDraftProposals.length,
+      inApproval: nonDraftProposals.filter((p) =>
         ["Pending Approval", "In Approval", "Submitted"].indexOf(p.status) !== -1
       ).length,
-      approved: proposals.filter((p) => p.status === "Approved").length,
-      draft: proposals.filter((p) => p.status === "Draft").length,
-      revised: proposals.filter((p) => p.status === "Revised").length,
+      approved: nonDraftProposals.filter((p) => p.status === "Approved").length,
+      revised: nonDraftProposals.filter((p) => p.status === "Revised").length,
     };
-  }, [proposals]);
+  }, [nonDraftProposals]);
 
   // Active advanced filter count badge
   const activeAdvancedFilterCount = useMemo(() => {
@@ -84,9 +86,9 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
     return count;
   }, [categoryFilter, sbuFilter, ownerFilter, dateFrom, dateTo]);
 
-  // Filter logic
+  // Filter logic (operating strictly on non-draft proposals)
   const filteredProposals = useMemo(() => {
-    return proposals.filter((p) => {
+    return nonDraftProposals.filter((p) => {
       // Search term (Proposal #, Project Name, Owner, SBU)
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase();
@@ -106,8 +108,6 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
         if (["Pending Approval", "In Approval", "Submitted"].indexOf(p.status) === -1) return false;
       } else if (statusFilter === "APPROVED") {
         if (p.status !== "Approved") return false;
-      } else if (statusFilter === "DRAFT") {
-        if (p.status !== "Draft") return false;
       } else if (statusFilter === "REVISED") {
         if (p.status !== "Revised") return false;
       }
@@ -334,14 +334,14 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
           }}
           className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
             statusFilter === "IN_APPROVAL"
-              ? "bg-amber-600 text-white shadow-sm"
-              : "bg-white text-slate-700 hover:bg-amber-50 hover:text-amber-700 border border-slate-200"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "bg-white text-slate-700 hover:bg-blue-50 hover:text-blue-700 border border-slate-200"
           }`}
         >
           <span>In Approval</span>
           <span
             className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-              statusFilter === "IN_APPROVAL" ? "bg-white/20 text-white" : "bg-amber-100 text-amber-800"
+              statusFilter === "IN_APPROVAL" ? "bg-white/20 text-white" : "bg-blue-100 text-blue-800"
             }`}
           >
             {counts.inApproval}
@@ -369,27 +369,6 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
           </span>
         </button>
 
-        <button
-          onClick={() => {
-            setStatusFilter("DRAFT");
-            pagination.setCurrentPage(1);
-          }}
-          className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
-            statusFilter === "DRAFT"
-              ? "bg-slate-800 text-white shadow-sm"
-              : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
-          }`}
-        >
-          <span>Draft</span>
-          <span
-            className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-              statusFilter === "DRAFT" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700"
-            }`}
-          >
-            {counts.draft}
-          </span>
-        </button>
-
         {counts.revised > 0 && (
           <button
             onClick={() => {
@@ -398,14 +377,14 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
             }}
             className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
               statusFilter === "REVISED"
-                ? "bg-purple-600 text-white shadow-sm"
-                : "bg-white text-slate-700 hover:bg-purple-50 hover:text-purple-700 border border-slate-200"
+                ? "bg-amber-600 text-white shadow-sm"
+                : "bg-white text-slate-700 hover:bg-amber-50 hover:text-amber-700 border border-slate-200"
             }`}
           >
-            <span>Revised (Rework)</span>
+            <span>Send Back</span>
             <span
               className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                statusFilter === "REVISED" ? "bg-white/20 text-white" : "bg-purple-100 text-purple-800"
+                statusFilter === "REVISED" ? "bg-white/20 text-white" : "bg-amber-100 text-amber-800"
               }`}
             >
               {counts.revised}
@@ -648,7 +627,9 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                       ) : prop.status === "Rejected" ? (
                         <span className="text-rose-700 font-semibold">Rejected</span>
                       ) : prop.status === "Revised" ? (
-                        <span className="text-purple-700 font-semibold">Initiator (Rework)</span>
+                        <span className="text-amber-700 font-semibold">Initiator (Rework)</span>
+                      ) : prop.status === "Draft" ? (
+                        <span className="text-slate-600 font-semibold">Draft</span>
                       ) : (
                         <span className="text-slate-700">
                           L{prop.current_level} - {prop.pending_with_role}
@@ -657,7 +638,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                     </td>
                     <td className="py-3.5 px-3 text-center align-middle whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                        {/* Always show View button across all statuses */}
+                        {/* Reports & Analytics View action */}
                         <button
                           type="button"
                           onClick={() => {
@@ -670,64 +651,6 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                           <Eye className="w-3.5 h-3.5" />
                           <span>View</span>
                         </button>
-
-                        {/* Status-specific action button */}
-                        {(() => {
-                          const targetId = prop.cerprno || prop.proposal_no || prop.cer_proposal_id;
-                          const editAuth = PermissionService.canEditCER(prop, currentUser);
-                          const canEdit = editAuth.allowed && Boolean(onNavigateToChange);
-                          if (!canEdit) return null;
-
-                          if (prop.status === "Draft") {
-                            return (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (onNavigateToChange && targetId) onNavigateToChange(targetId);
-                                }}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer border border-amber-200 shadow-2xs"
-                                title="Edit draft proposal"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                                <span>Edit</span>
-                              </button>
-                            );
-                          }
-
-                          if (prop.status === "Approved") {
-                            return (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (onNavigateToChange && targetId) onNavigateToChange(targetId);
-                                }}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 rounded-lg transition-colors cursor-pointer border border-emerald-200/60 shadow-2xs"
-                                title="Amend and resubmit approved proposal"
-                              >
-                                <RotateCcw className="w-3.5 h-3.5" />
-                                <span>Resubmit</span>
-                              </button>
-                            );
-                          }
-
-                          if (prop.status === "Revised") {
-                            return (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (onNavigateToChange && targetId) onNavigateToChange(targetId);
-                                }}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer border border-amber-200 shadow-2xs"
-                                title="Edit and resubmit reworked proposal"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                                <span>Edit</span>
-                              </button>
-                            );
-                          }
-
-                          return null;
-                        })()}
                       </div>
                     </td>
                   </tr>
@@ -790,7 +713,15 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                   <div className="text-right">
                     <span className="text-[10px] text-slate-400 uppercase font-semibold block">Stage</span>
                     <span className="text-slate-700 text-xs font-medium">
-                      {prop.status === "Approved" ? "Approved" : `L${prop.current_level} - ${prop.pending_with_role}`}
+                      {prop.status === "Approved"
+                        ? "Approved"
+                        : prop.status === "Rejected"
+                        ? "Rejected"
+                        : prop.status === "Revised"
+                        ? "Initiator (Rework)"
+                        : prop.status === "Draft"
+                        ? "Draft"
+                        : `L${prop.current_level} - ${prop.pending_with_role}`}
                     </span>
                   </div>
                 </div>

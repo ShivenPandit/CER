@@ -81,7 +81,7 @@ export const Sidebar: React.FC<ISidebarProps> = ({
     },
     {
       id: "my-proposals",
-      label: "My Proposals",
+      label: "My CER Proposals",
       icon: FileText,
       visible: canViewMyProposals,
     },

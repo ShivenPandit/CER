@@ -306,7 +306,7 @@ The system enforces 4 enterprise roles:
 1. **Initiator**:
    - Create new CER proposals across assigned SBUs.
    - Edit draft proposals and revise rejected proposals.
-   - View personal submissions in "My Proposals".
+   - View personal submissions in "My CER Proposals".
 2. **Approver**:
    - Access "Pending Approvals" inbox for assigned SBU and level.
    - Endorse (Approve) or Return with Remarks (Reject) proposals.

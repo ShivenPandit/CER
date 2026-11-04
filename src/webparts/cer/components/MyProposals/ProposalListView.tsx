@@ -139,7 +139,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
           )}
           <div>
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-              {mode === "my" ? "My Proposals" : "All Proposals"}
+              {mode === "my" ? "My CER Proposals" : "All Proposals"}
             </h2>
           </div>
         </div>
@@ -201,14 +201,14 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
           }}
           className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
             statusFilter === "IN_APPROVAL"
-              ? "bg-amber-600 text-white shadow-sm"
-              : "bg-white text-slate-700 hover:bg-amber-50 hover:text-amber-700 border border-slate-200"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "bg-white text-slate-700 hover:bg-blue-50 hover:text-blue-700 border border-slate-200"
           }`}
         >
           <span>In Approval</span>
           <span
             className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-              statusFilter === "IN_APPROVAL" ? "bg-white/20 text-white" : "bg-amber-100 text-amber-800"
+              statusFilter === "IN_APPROVAL" ? "bg-white/20 text-white" : "bg-blue-100 text-blue-800"
             }`}
           >
             {counts.inApproval}
@@ -265,14 +265,14 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
             }}
             className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
               statusFilter === "REVISED"
-                ? "bg-purple-600 text-white shadow-sm"
-                : "bg-white text-slate-700 hover:bg-purple-50 hover:text-purple-700 border border-slate-200"
+                ? "bg-amber-600 text-white shadow-sm"
+                : "bg-white text-slate-700 hover:bg-amber-50 hover:text-amber-700 border border-slate-200"
             }`}
           >
-            <span>Revised (Rework)</span>
+            <span>Send Back</span>
             <span
               className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                statusFilter === "REVISED" ? "bg-white/20 text-white" : "bg-purple-100 text-purple-800"
+                statusFilter === "REVISED" ? "bg-white/20 text-white" : "bg-amber-100 text-amber-800"
               }`}
             >
               {counts.revised}
@@ -374,7 +374,9 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                       ) : prop.status === "Rejected" ? (
                         <span className="text-rose-700 font-semibold">Rejected</span>
                       ) : prop.status === "Revised" ? (
-                        <span className="text-purple-700 font-semibold">Initiator (Rework)</span>
+                        <span className="text-amber-700 font-semibold">Initiator (Rework)</span>
+                      ) : prop.status === "Draft" ? (
+                        <span className="text-slate-600 font-semibold">Draft</span>
                       ) : (
                         <span className="text-slate-700">
                           L{prop.current_level} - {prop.pending_with_role}
@@ -524,6 +526,8 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                         ? "Rejected"
                         : prop.status === "Revised"
                         ? "Initiator Rework"
+                        : prop.status === "Draft"
+                        ? "Draft"
                         : `L${prop.current_level} Review`}
                     </span>
                   </div>

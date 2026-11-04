@@ -18,7 +18,9 @@ export const StatusBadge: React.FC<IStatusBadgeProps> = ({ status, size = "md" }
       case "Rejected":
         return "bg-rose-50 text-rose-700 border-rose-200 ring-rose-500/10";
       case "Revised":
-        return "bg-purple-50 text-purple-700 border-purple-200 ring-purple-500/10";
+      case "Send Back":
+      case "Sent Back":
+        return "bg-amber-50 text-amber-700 border-amber-200 ring-amber-500/10";
       default:
         return "bg-gray-50 text-gray-700 border-gray-200 ring-gray-500/10";
     }
@@ -35,7 +37,9 @@ export const StatusBadge: React.FC<IStatusBadgeProps> = ({ status, size = "md" }
       case "Rejected":
         return "bg-rose-500";
       case "Revised":
-        return "bg-purple-500";
+      case "Send Back":
+      case "Sent Back":
+        return "bg-amber-500";
       default:
         return "bg-gray-400";
     }
@@ -47,12 +51,14 @@ export const StatusBadge: React.FC<IStatusBadgeProps> = ({ status, size = "md" }
     lg: "px-3.5 py-1.5 text-sm",
   }[size];
 
+  const displayStatus = (status === "Revised" || status === "Sent Back") ? "Send Back" : status;
+
   return (
     <span
       className={`inline-flex items-center gap-1.5 font-semibold rounded-full border ring-1 ring-inset ${getStyles()} ${sizeClasses}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${getDotColor()}`} />
-      {status}
+      {displayStatus}
     </span>
   );
 };
