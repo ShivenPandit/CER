@@ -72,6 +72,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
       ).length,
       approved: nonDraftProposals.filter((p) => p.status === "Approved").length,
       revised: nonDraftProposals.filter((p) => p.status === "Send Back" || p.status === "Revised" || p.status === "Sent Back").length,
+      rejected: nonDraftProposals.filter((p) => p.status === "Rejected").length,
     };
   }, [nonDraftProposals]);
 
@@ -108,8 +109,10 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
         if (["Pending Approval", "In Approval", "Submitted"].indexOf(p.status) === -1) return false;
       } else if (statusFilter === "APPROVED") {
         if (p.status !== "Approved") return false;
-      } else if (statusFilter === "REVISED") {
-        if (p.status !== "Revised") return false;
+      } else if (statusFilter === "REVISED" || statusFilter === "SEND_BACK") {
+        if (p.status !== "Send Back" && p.status !== "Revised" && p.status !== "Sent Back") return false;
+      } else if (statusFilter === "REJECTED") {
+        if (p.status !== "Rejected") return false;
       }
 
       // Advanced Filters
@@ -376,7 +379,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
               pagination.setCurrentPage(1);
             }}
             className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
-              statusFilter === "REVISED"
+              statusFilter === "REVISED" || statusFilter === "SEND_BACK"
                 ? "bg-amber-600 text-white shadow-sm"
                 : "bg-white text-slate-700 hover:bg-amber-50 hover:text-amber-700 border border-slate-200"
             }`}
@@ -384,10 +387,33 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
             <span>Send Back</span>
             <span
               className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                statusFilter === "REVISED" ? "bg-white/20 text-white" : "bg-amber-100 text-amber-800"
+                statusFilter === "REVISED" || statusFilter === "SEND_BACK" ? "bg-white/20 text-white" : "bg-amber-100 text-amber-800"
               }`}
             >
               {counts.revised}
+            </span>
+          </button>
+        )}
+
+        {counts.rejected > 0 && (
+          <button
+            onClick={() => {
+              setStatusFilter("REJECTED");
+              pagination.setCurrentPage(1);
+            }}
+            className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
+              statusFilter === "REJECTED"
+                ? "bg-rose-600 text-white shadow-sm"
+                : "bg-white text-slate-700 hover:bg-rose-50 hover:text-rose-700 border border-slate-200"
+            }`}
+          >
+            <span>Rejected</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                statusFilter === "REJECTED" ? "bg-white/20 text-white" : "bg-rose-100 text-rose-800"
+              }`}
+            >
+              {counts.rejected}
             </span>
           </button>
         )}

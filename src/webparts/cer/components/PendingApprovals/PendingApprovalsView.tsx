@@ -206,8 +206,8 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
     setFeedbackNotice(
       decision === "APPROVED"
         ? `Proposal ${selectedProposal.cerprno} successfully APPROVED. Advanced to ${result.newStatus}.`
-        : decision === "SENT_BACK"
-        ? `Proposal ${selectedProposal.cerprno} SENT BACK to Initiator for revision.`
+        : decision === "SENT_BACK" || (decision as any) === "SEND_BACK"
+        ? `Proposal ${selectedProposal.cerprno} SEND BACK to Initiator for revision.`
         : `Proposal ${selectedProposal.cerprno} REJECTED.`
     );
 

@@ -704,19 +704,19 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
             </div>
           )}
 
-          {/* Sent Back for Revision Banner */}
+          {/* Send Back for Revision Banner */}
           {(originalProposal?.status === "Send Back" || originalProposal?.status === "Revised" || originalProposal?.status === "Sent Back") && (
             <div className="p-4 rounded-xl bg-purple-50/80 border border-purple-200/90 text-purple-950 text-xs sm:text-[13px] flex items-start gap-3 shadow-2xs">
               <RotateCcw className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-purple-900 text-sm">Proposal Sent Back for Revision</span>
+                  <span className="font-bold text-purple-900 text-sm">Proposal Send Back for Revision</span>
                   <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-100 text-purple-800">
                     Rework Required
                   </span>
                 </div>
                 <p className="text-slate-700 leading-relaxed">
-                  This proposal was sent back by an approver for rework. Make any necessary updates, add or replace attachments, and click &ldquo;Save Changes &amp; Re-trigger&rdquo; below to restart the approval sequence from Level 1.
+                  This proposal was returned (Send Back) by an approver for rework. Make any necessary updates, add or replace attachments, and click &ldquo;Save Changes &amp; Re-trigger&rdquo; below to restart the approval sequence from Level 1.
                 </p>
               </div>
             </div>

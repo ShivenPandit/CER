@@ -1946,6 +1946,11 @@ export class SharePointCERDataService implements ICERDataService {
       }
     }
     if (lastAuditErr) {
+      const errStr = String(lastAuditErr?.message || lastAuditErr || "");
+      if (errStr.includes("404") || errStr.toLowerCase().includes("does not exist") || errStr.toLowerCase().includes("not found")) {
+        console.warn("[SharePointCERDataService] CERAuditTrail list not found on site, skipping audit record write.");
+        return;
+      }
       throw lastAuditErr;
     }
   }

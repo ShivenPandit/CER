@@ -383,7 +383,7 @@ export const ApprovalProgressTracker: React.FC<IApprovalProgressTrackerProps> = 
                       ) : isSentBack ? (
                         <>
                           <div className="min-w-0">
-                            <p className="text-[10px] text-amber-600 font-medium">Sent back on</p>
+                            <p className="text-[10px] text-amber-600 font-medium">Send Back on</p>
                             <p className="text-[11px] text-slate-700 font-medium flex items-center gap-1 mt-0.5 truncate">
                               <Calendar className="w-3 h-3 text-amber-500 shrink-0" />
                               <span className="truncate">
@@ -397,11 +397,11 @@ export const ApprovalProgressTracker: React.FC<IApprovalProgressTrackerProps> = 
                             <p className="text-[10px] text-amber-600 font-medium">Remarks</p>
                             <p
                               className="text-[11px] text-amber-800 flex items-center gap-1 mt-0.5 truncate"
-                              title={decision?.comments || "Sent back for revision"}
+                              title={decision?.comments || "Send Back for revision"}
                             >
                               <MessageSquare className="w-3 h-3 text-amber-500 shrink-0" />
                               <span className="truncate italic">
-                                "{decision?.comments || "Sent back for revision"}"
+                                &ldquo;{decision?.comments || "Send Back for revision"}&rdquo;
                               </span>
                             </p>
                           </div>

@@ -649,7 +649,6 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                           <th className="py-3 px-4 text-right">{period1Display}</th>
                           <th className="py-3 px-4 text-right">{period2Display}</th>
                           <th className="py-3 px-4 text-right">{period3Display}</th>
-                          <th className="py-3 px-4 text-right font-bold text-slate-900">Total</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -658,39 +657,18 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                           <td className="py-2.5 px-4 text-right font-medium text-slate-700">{Number(selectedProposal.prod_till || 0).toLocaleString()}</td>
                           <td className="py-2.5 px-4 text-right font-medium text-slate-700">{Number(selectedProposal.prod_fy || 0).toLocaleString()}</td>
                           <td className="py-2.5 px-4 text-right font-medium text-slate-700">{Number(selectedProposal.prod_beyond || 0).toLocaleString()}</td>
-                          <td className="py-2.5 px-4 text-right font-bold text-slate-900">
-                            {(
-                              Number(selectedProposal.prod_till || 0) +
-                              Number(selectedProposal.prod_fy || 0) +
-                              Number(selectedProposal.prod_beyond || 0)
-                            ).toLocaleString()}
-                          </td>
                         </tr>
                         <tr className="hover:bg-slate-50/50 transition-colors">
                           <td className="py-2.5 px-4 font-semibold text-slate-800">Capex ($mm)</td>
                           <td className="py-2.5 px-4 text-right font-medium text-slate-700">{Number(selectedProposal.capex_till || 0).toLocaleString()}</td>
                           <td className="py-2.5 px-4 text-right font-medium text-slate-700">{Number(selectedProposal.capex_fy || 0).toLocaleString()}</td>
                           <td className="py-2.5 px-4 text-right font-medium text-slate-700">{Number(selectedProposal.capex_beyond || 0).toLocaleString()}</td>
-                          <td className="py-2.5 px-4 text-right font-bold text-[#012964]">
-                            {(
-                              Number(selectedProposal.capex_till || 0) +
-                              Number(selectedProposal.capex_fy || 0) +
-                              Number(selectedProposal.capex_beyond || 0)
-                            ).toLocaleString()}
-                          </td>
                         </tr>
                         <tr className="hover:bg-slate-50/50 transition-colors">
                           <td className="py-2.5 px-4 font-semibold text-slate-800">Opex ($mm)</td>
                           <td className="py-2.5 px-4 text-right font-medium text-slate-700">{Number(selectedProposal.opex_till || 0).toLocaleString()}</td>
                           <td className="py-2.5 px-4 text-right font-medium text-slate-700">{Number(selectedProposal.opex_fy || 0).toLocaleString()}</td>
                           <td className="py-2.5 px-4 text-right font-medium text-slate-700">{Number(selectedProposal.opex_beyond || 0).toLocaleString()}</td>
-                          <td className="py-2.5 px-4 text-right font-bold text-slate-900">
-                            {(
-                              Number(selectedProposal.opex_till || 0) +
-                              Number(selectedProposal.opex_fy || 0) +
-                              Number(selectedProposal.opex_beyond || 0)
-                            ).toLocaleString()}
-                          </td>
                         </tr>
                       </tbody>
                     </table>

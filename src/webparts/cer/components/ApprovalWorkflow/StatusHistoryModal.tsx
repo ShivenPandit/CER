@@ -1122,12 +1122,12 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
                     <RotateCcw className="w-4 h-4 text-amber-700 shrink-0" />
                     <span className="font-bold text-xs sm:text-[13px] text-amber-950 uppercase tracking-wider">
                       {iterations.length > 1
-                        ? `Active Workflow Cycle (Iteration ${activeIteration.iterationIndex}) — Sent Back at Level ${activeIteration.sentBackLevel} (${activeIteration.sentBackStageName})`
-                        : `Workflow Sent Back at Level ${activeIteration.sentBackLevel} (${activeIteration.sentBackStageName})`}
+                        ? `Active Workflow Cycle (Iteration ${activeIteration.iterationIndex}) — Send Back at Level ${activeIteration.sentBackLevel} (${activeIteration.sentBackStageName})`
+                        : `Workflow Send Back at Level ${activeIteration.sentBackLevel} (${activeIteration.sentBackStageName})`}
                     </span>
                   </div>
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
-                    Sent Back for Revision
+                    Send Back for Revision
                   </span>
                 </div>
               ) : !selectedVersion.isCurrent && selectedVersion.status === "Approved" ? (
@@ -1226,7 +1226,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
                         >
                           {isIterRejected
                             ? `Prior Iteration ${iter.iterationIndex} — Rejected at Level ${iter.rejectedLevel} (${iter.rejectedStageName})`
-                            : `Prior Iteration ${iter.iterationIndex} — Sent Back at Level ${iter.sentBackLevel} (${iter.sentBackStageName})`}
+                            : `Prior Iteration ${iter.iterationIndex} — Send Back at Level ${iter.sentBackLevel} (${iter.sentBackStageName})`}
                         </span>
                       </div>
                       <span
@@ -1236,7 +1236,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
                             : "bg-amber-100 text-amber-800 border-amber-300"
                         }`}
                       >
-                        {isIterRejected ? "Rejected" : "Sent Back for Revision"}
+                        {isIterRejected ? "Rejected" : "Send Back for Revision"}
                       </span>
                     </div>
 

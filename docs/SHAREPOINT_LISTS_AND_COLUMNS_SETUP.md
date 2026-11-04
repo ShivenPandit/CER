@@ -15,10 +15,9 @@ When creating lists manually in SharePoint (**Site Contents -> New -> List -> Bl
 | --- | -------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | **`CERProposals`**         | Custom List      | Master repository for all active CER proposal records (Sections A through G).                                                                                                   |
 | 2   | **`CERProposalsHistory`**  | Custom List      | Archive repository for approved proposal snapshots prior to post-approval changes (identical schema to `CERProposals`). In View CER, displayed under the "CER History" section. |
-| 3   | **`CERAuditTrail`**        | Custom List      | Granular field-level delta change history for compliance and auditing.                                                                                                          |
-| 4   | **`CERApprovalDecisions`** | Custom List      | Formal sign-off records (Approved / Rejected) with timestamps.                                                                                                                  |
-| 5   | **`CERAttachments`**       | Document Library | Associated technical and financial PDF/Excel documentation.                                                                                                                     |
-| 6   | **`CERRoleMatrix`**        | Custom List      | Modern SBU-wise Role-Based Access Control (RBAC) and Fixed 6-Level Approval Matrix.                                                                                              |
+| 3   | **`CERApprovalDecisions`** | Custom List      | Formal sign-off records (Approved / Rejected / Send Back) with timestamps.                                                                                                       |
+| 4   | **`CERAttachments`**       | Document Library | Associated technical and financial PDF/Excel documentation.                                                                                                                     |
+| 5   | **`CERRoleMatrix`**        | Custom List      | Modern SBU-wise Role-Based Access Control (RBAC) and Fixed 6-Level Approval Matrix.                                                                                              |
 
 ---
 
@@ -45,7 +44,7 @@ Stores all proposal header data, financial justifications, partner details, Indi
 | Display Name            | Internal Column Name    | SharePoint Field Type   | Required | Unique? | Indexed?           | Choices / Format / Constraints                   | Business Description                                                                                                                                                                                                                                                   |
 | ----------------------- | ----------------------- | ----------------------- | -------- | ------- | ------------------ | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Title**               | `Title`                 | Single line of text     | Yes      | **Yes** | **Yes (Built-in)** | Unique CER Number (e.g., `CER-2026-0001`)        | Standard SharePoint title field (built-in), stores permanent system CER Proposal ID (`CER-YYYY-NNNN`).                                                                                                                                                                 |
-| **CER Proposal ID**     | **`cerPrId`**           | **Single line of text** | **Yes**  | **Yes** | **Yes**            | **`CER-YYYY-XXXX` format**                       | **System-generated permanent identifier** allocated via atomic counter. (Replaces legacy `cerPrNo`). Immutable across entire lifecycle. Foreign key anchor for all child lists (`CERAuditTrail`, `CERApprovalDecisions`, `CERAttachments`).        |
+| **CER Proposal ID**     | **`cerPrId`**           | **Single line of text** | **Yes**  | **Yes** | **Yes**            | **`CER-YYYY-XXXX` format**                       | **System-generated permanent identifier** allocated via atomic counter. (Replaces legacy `cerPrNo`). Immutable across entire lifecycle. Foreign key anchor for child lists (`CERApprovalDecisions`, `CERAttachments`).        |
 | **CER Proposal No**     | **`proposalNo`**        | **Single line of text** | **Yes**  | **Yes** | **Yes**            | **Alphanumeric business ref (e.g. `PR-RJ-001`)** | **User-entered business proposal number.** Mandatory field in SharePoint and application logic; must be unique across all proposals. Alphanumeric format, non-empty, whitespace-validated.                                                                             |
 | Proposal Name           | `prName`                | Single line of text     | Yes      | No      | No                 | Free text (max 255 chars)                        | Project descriptive title.                                                                                                                                                                                                                                             |
 | **CER Owner**           | **`cerOwner`**          | **Person or Group**     | **Yes**  | No      | **Yes**            | **`SPFieldUser` (Single)**                       | **Native SharePoint Person column.** Populated via `cerOwnerId: <IntegerId>` obtained from `ensureUser`. Provides the owner's Display Name (`cerOwner/Title`), Corporate Email (`cerOwner/EMail`), presence, and M365 profile card (eliminates redundant text fields). |
@@ -182,35 +181,7 @@ Go to **List Settings -> Indexed Columns -> Create a new index**:
 
 ---
 
-### 2.3 `CERAuditTrail` (Field-Level Audit Log)
-
-Maintains an immutable record of all modifications to proposals for governance compliance.
-
-| Display Name        | Internal Column Name | SharePoint Field Type   | Required | Unique? | Indexed?           | Choices / Format / Constraints                    | Business Description                            |
-| ------------------- | -------------------- | ----------------------- | -------- | ------- | ------------------ | ------------------------------------------------- | ----------------------------------------------- |
-| **Title**           | `Title`              | Single line of text     | Yes      | No      | **Yes (Built-in)** | CER Proposal ID (`cerPrId`)                       | Links audit record to parent CER.               |
-| **CER Proposal ID** | **`cerPrId`**        | **Single line of text** | **Yes**  | No      | **Yes**            | **Indexed text (`CER-YYYY-XXXX`)**                | **System proposal identifier (foreign key).**   |
-| Field Name          | `fieldName`          | Single line of text     | Yes      | No      | **Yes**            | Column identifier                                 | Exact field changed (e.g., `amount`, `status`). |
-| Old Value           | `oldValue`           | Multiple lines of text  | No       | No      | No                 | Text representation                               | Value before mutation.                          |
-| New Value           | `newValue`           | Multiple lines of text  | No       | No      | No                 | Text representation                               | Value after mutation.                           |
-| User Name           | `userName`           | Single line of text     | Yes      | No      | No                 | Full Display Name                                 | Name of person performing change.               |
-| User Email          | `userEmail`          | Single line of text     | Yes      | No      | **Yes**            | Corporate email                                   | Corporate email of actor.                       |
-| Timestamp           | `timestamp`          | Date and Time           | Yes      | No      | **Yes**            | DateTime (ISO 8601)                               | Precise timestamp of modification.              |
-| Action Type         | `actionType`         | Choice                  | Yes      | No      | **Yes**            | `CREATE`, `UPDATE`, `APPROVE`, `REJECT`, `REVISE` | Nature of business event.                       |
-
-#### `CERAuditTrail` — Columns to Index in SharePoint List Settings:
-
-Go to **List Settings -> Indexed Columns -> Create a new index**:
-
-1. `cerPrId`
-2. `fieldName`
-3. `userEmail`
-4. `timestamp`
-5. `actionType`
-
----
-
-### 2.4 `CERApprovalDecisions` (Formal Sign-Offs)
+### 2.3 `CERApprovalDecisions` (Formal Sign-Offs)
 
 Captures formal sign-off records by approvers with timestamps and outcomes.
 
@@ -219,7 +190,7 @@ Captures formal sign-off records by approvers with timestamps and outcomes.
 | **Title**           | `Title`              | Single line of text     | Yes      | No      | **Yes (Built-in)** | CER Proposal ID (`cerPrId`)    | Links decision to proposal.                                                                                                                                         |
 | **CER Proposal ID** | **`cerPrId`**        | **Single line of text** | **Yes**  | No      | **Yes**            | **Indexed text**               | **Proposal identifier (foreign key).**                                                                                                                              |
 | Level ID            | `levelId`            | Number                  | Yes      | No      | **Yes**            | Integer (1..N)                 | Workflow stage decided.                                                                                                                                             |
-| Decision            | `decision`           | Choice                  | Yes      | No      | **Yes**            | `Approved`, `Rejected`, `Sent Back` | Outcome of approver evaluation.                                                                                                                                     |
+| Decision            | `decision`           | Choice                  | Yes      | No      | **Yes**            | `Approved`, `Rejected`, `Send Back` | Outcome of approver evaluation. Stored as `Send Back` when rework is requested.                                                                                     |
 | **Version Tag**     | **`version`**        | **Single line of text** | **No**   | No      | **Yes**            | **`V1`, `V2`, `V3` format**      | **Sequential approval cycle tag.** Aligns each decision record to its specific version cycle (Serial 1 = `V1`, Serial 2 = `V2`, etc.). Decisions on sent-back and retriggered workflows within the same cycle retain the same version tag; the version tag increments only upon post-approval resubmission. |
 | **Approver**        | **`approver`**       | **Person or Group**     | **Yes**  | No      | **Yes**            | **`SPFieldUser` (Single)**     | **Native SharePoint Person column.** (Or relies on built-in `Author`). Stores approver's full M365 identity, email, and presence. Eliminates redundant text fields. |
 | Remarks             | `remarks`            | Multiple lines of text  | No       | No      | No                 | Plain text                     | Mandatory on rejection; optional on approval.                                                                                                                       |
@@ -240,7 +211,7 @@ Go to **List Settings -> Indexed Columns -> Create a new index**:
 
 ---
 
-### 2.5 `CERAttachments` (Document Library)
+### 2.4 `CERAttachments` (Document Library)
 
 Document library storing all supporting project files.
 
@@ -263,7 +234,7 @@ Go to **Library Settings -> Indexed Columns -> Create a new index**:
 
 ---
 
-### 2.6 `CERRoleMatrix` (Modern SBU Role Matrix & Person Columns)
+### 2.5 `CERRoleMatrix` (Modern SBU Role Matrix & Person Columns)
 
 Modern enterprise role matrix. Controls user authorization, SBU scope, and designates the fixed sequential approvers for L1, L3, L4, L5, and L6.
 
