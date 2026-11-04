@@ -187,7 +187,7 @@ export class SharePointCERDataService implements ICERDataService {
 
   public async getAllProposals(forceRefresh: boolean = false): Promise<ICERProposal[]> {
     const now = Date.now();
-    const CACHE_TTL_MS = 25000;
+    const CACHE_TTL_MS = 60000; // 60s cache avoids duplicate queries during tab navigation
 
     if (forceRefresh) {
       this._cachedProposals = null;
@@ -2023,7 +2023,7 @@ export class SharePointCERDataService implements ICERDataService {
   public async getWorkflowLevels(sbu?: string, forceRefresh = false): Promise<IWorkflowLevel[]> {
     const cacheKey = sbu ? sbu.trim().toLowerCase() : "ALL";
     const now = Date.now();
-    const CACHE_TTL_MS = 30000;
+    const CACHE_TTL_MS = 120000; // 2-minute cache avoids redundant SharePoint list queries
 
     const cached = this._cachedWorkflowLevels.get(cacheKey);
     if (!forceRefresh && cached && (now - cached.timestamp < CACHE_TTL_MS)) {
@@ -3157,7 +3157,7 @@ export class SharePointCERDataService implements ICERDataService {
         try {
           // Tier 1: Modern CERRoleMatrix schema with Person field 'User' expanded
           items = await this._sp.getListItems<Record<string, any>>(listName, {
-            select: "Id,ID,Title,role,sbu,approverLevel,approverRoleTitle,Created,User/Id,User/Title,User/EMail,User/LoginName",
+            select: "Id,ID,Title,role,sbu,approverLevel,approverRoleTitle,Created,User/Id,User/Title,User/EMail,User/Name",
             expand: "User",
             top: 500,
           });

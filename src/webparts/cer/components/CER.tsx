@@ -234,10 +234,10 @@ const CER: React.FC<ICERProps> = (props) => {
     const handleAutoRevalidate = () => {
       if (document.visibilityState === "visible") {
         const now = Date.now();
-        // 30-second throttle prevents redundant network bursts when switching tabs frequently
-        if (now - lastSync > 30000 && currentView !== "create" && currentView !== "change") {
+        // 60-second throttle prevents redundant network bursts when switching tabs frequently
+        if (now - lastSync > 60000 && currentView !== "create" && currentView !== "change") {
           lastSync = now;
-          handleRefreshProposals(true).catch((e) => console.error(e));
+          handleRefreshProposals(false).catch((e) => console.error(e));
         }
       }
     };
@@ -245,13 +245,13 @@ const CER: React.FC<ICERProps> = (props) => {
     document.addEventListener("visibilitychange", handleAutoRevalidate);
     window.addEventListener("focus", handleAutoRevalidate);
 
-    // 60s Heartbeat silent background check
+    // 120s Heartbeat silent background check
     const interval = setInterval(() => {
       if (document.visibilityState === "visible" && currentView !== "create" && currentView !== "change") {
         lastSync = Date.now();
-        handleRefreshProposals(true).catch((e) => console.error(e));
+        handleRefreshProposals(false).catch((e) => console.error(e));
       }
-    }, 60000);
+    }, 120000);
 
     return () => {
       document.removeEventListener("visibilitychange", handleAutoRevalidate);

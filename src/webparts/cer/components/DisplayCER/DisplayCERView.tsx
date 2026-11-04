@@ -297,47 +297,47 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
 
         {/* Actions & Status Badge in Top Bar Header */}
         {proposal ? (
-          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 shrink-0">
-            {/* Action Toolbar - Prominently positioned with enhanced UI/UX */}
-            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 print:hidden shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 w-full md:w-auto">
+            {/* Action Toolbar - Prominently positioned with enhanced responsive UI/UX */}
+            <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:flex-row sm:items-center sm:gap-2.5 sm:w-auto print:hidden">
               <button
                 type="button"
                 onClick={handleDownloadPDF}
-                className="group flex items-center gap-2 h-10 px-4 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 active:scale-[0.98] text-white text-sm font-semibold rounded-xl shadow-xs hover:shadow transition-all cursor-pointer"
+                className="group flex items-center justify-center gap-1.5 sm:gap-2 h-10 px-3 sm:px-4 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 active:scale-[0.98] text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs hover:shadow transition-all cursor-pointer whitespace-nowrap"
                 title="Download Adobe/Vector CER PDF Form"
               >
                 <FileDown className="w-4 h-4 shrink-0 transition-transform group-hover:-translate-y-0.5" />
-                <span>Download PDF</span>
+                <span className="truncate">Download PDF</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleDownloadExcel}
-                className="group flex items-center gap-2 h-10 px-4 bg-[#107C41] hover:bg-[#0E6C38] active:scale-[0.98] text-white text-sm font-semibold rounded-xl shadow-xs hover:shadow transition-all cursor-pointer"
+                className="group flex items-center justify-center gap-1.5 sm:gap-2 h-10 px-3 sm:px-4 bg-[#107C41] hover:bg-[#0E6C38] active:scale-[0.98] text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs hover:shadow transition-all cursor-pointer whitespace-nowrap"
                 title="Download Excel Spreadsheet"
               >
                 <FileSpreadsheet className="w-4 h-4 shrink-0 transition-transform group-hover:-translate-y-0.5" />
-                <span>Download Excel</span>
+                <span className="truncate">Download Excel</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setIsStatusHistoryOpen(true)}
-                className="group flex items-center gap-2 h-10 px-4 bg-white hover:bg-slate-50 active:scale-[0.98] text-slate-700 hover:text-[#012964] border border-slate-300 hover:border-slate-400 text-sm font-semibold rounded-xl shadow-2xs hover:shadow-xs transition-all cursor-pointer"
+                className="group flex items-center justify-center gap-1.5 sm:gap-2 h-10 px-3 sm:px-4 bg-white hover:bg-slate-50 active:scale-[0.98] text-slate-700 hover:text-[#012964] border border-slate-300 hover:border-slate-400 text-xs sm:text-sm font-semibold rounded-xl shadow-2xs hover:shadow-xs transition-all cursor-pointer whitespace-nowrap"
                 title="View complete stage-by-stage status history, approvals, rejections, and comments"
               >
                 <History className="w-4 h-4 text-slate-500 group-hover:text-[#012964] shrink-0 transition-transform group-hover:rotate-[-20deg]" />
-                <span>Status History</span>
+                <span className="truncate">Status History</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setIsProposalHistoryOpen(true)}
-                className="group flex items-center gap-2 h-10 px-4 bg-white hover:bg-slate-50 active:scale-[0.98] text-slate-700 hover:text-[#012964] border border-slate-300 hover:border-slate-400 text-sm font-semibold rounded-xl shadow-2xs hover:shadow-xs transition-all cursor-pointer"
+                className="group flex items-center justify-center gap-1.5 sm:gap-2 h-10 px-3 sm:px-4 bg-white hover:bg-slate-50 active:scale-[0.98] text-slate-700 hover:text-[#012964] border border-slate-300 hover:border-slate-400 text-xs sm:text-sm font-semibold rounded-xl shadow-2xs hover:shadow-xs transition-all cursor-pointer whitespace-nowrap"
                 title="View complete proposal submissions and approved version history"
               >
                 <History className="w-4 h-4 text-slate-500 group-hover:text-[#012964] shrink-0 transition-transform group-hover:rotate-[-20deg]" />
-                <span>Proposal History</span>
+                <span className="truncate">Proposal History</span>
               </button>
             </div>
 
@@ -345,7 +345,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
 
             {/* Proposal Status Badge */}
             <span
-              className={`inline-flex items-center gap-2 h-10 text-sm font-bold px-4 rounded-xl border shadow-2xs shrink-0 ${
+              className={`inline-flex items-center justify-center gap-2 h-10 text-xs sm:text-sm font-bold px-4 rounded-xl border shadow-2xs w-full sm:w-auto shrink-0 ${
                 proposal.status === "Approved"
                   ? "bg-white cer-border-green text-slate-900"
                   : proposal.status === "Rejected"

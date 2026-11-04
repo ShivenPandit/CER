@@ -908,9 +908,51 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
     );
   };
 
+  // Helper to render a mobile card row (< md)
+  const renderMobileStageCard = (row: ITableRowData) => {
+    const { stage, statusText, updatedBy, dateTime, remarks } = row;
+    return (
+      <div key={`m-card-${stage.level}`} className="p-3.5 space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="inline-block px-2 py-0.5 rounded-md font-mono text-xs font-bold bg-[#012964]/10 text-[#012964] border border-[#012964]/20">
+              {stage.levelBadge}
+            </span>
+            <span className="font-bold text-slate-900 text-sm">
+              {stage.name}
+            </span>
+          </div>
+          <div>{renderStatusBadge(statusText)}</div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-100">
+          <div>
+            <span className="text-[11px] text-slate-400 font-semibold uppercase block">Updated By</span>
+            <span className="font-medium text-slate-800 text-xs">
+              {updatedBy || "—"}
+            </span>
+          </div>
+          <div>
+            <span className="text-[11px] text-slate-400 font-semibold uppercase block">Date & Time</span>
+            <span className="font-medium text-slate-800 text-xs">
+              {dateTime || "—"}
+            </span>
+          </div>
+        </div>
+
+        {remarks && remarks !== "—" && remarks.trim() !== "" && (
+          <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200/70 text-xs text-slate-700">
+            <span className="text-[10px] text-slate-400 uppercase font-bold block mb-0.5">Comments</span>
+            <p className="italic leading-relaxed">{remarks}</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div
-      className="cer-display-scope fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs overscroll-contain animate-fade-in"
+      className="cer-display-scope fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-5 bg-slate-900/60 backdrop-blur-xs overscroll-contain animate-fade-in"
       style={{ overscrollBehavior: "contain" }}
       onWheel={(e) => {
         if (e.target === e.currentTarget) {
@@ -919,21 +961,21 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
       }}
     >
       <div
-        className="relative w-full max-w-6xl 2xl:max-w-7xl bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] min-h-[580px] overscroll-contain"
+        className="relative w-full max-w-6xl 2xl:max-w-7xl bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[92vh] min-h-0 sm:min-h-[580px] overscroll-contain"
         style={{ overscrollBehavior: "contain" }}
       >
         {/* Top Header - White Background matching Proposal History */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-white shrink-0 gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="p-2 rounded-xl bg-[#012964]/10 border border-[#012964]/20 text-[#012964] shrink-0">
-              <History className="w-5 h-5 text-[#012964]" />
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-slate-200 bg-white shrink-0 gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="p-1.5 sm:p-2 rounded-xl bg-[#012964]/10 border border-[#012964]/20 text-[#012964] shrink-0">
+              <History className="w-4 h-4 sm:w-5 sm:h-5 text-[#012964]" />
             </div>
-            <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight truncate">
+            <h2 className="text-base sm:text-xl font-bold text-slate-900 tracking-tight truncate">
               Status & Approval History ({permanentCerId})
             </h2>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {isLoadingDecisions && (
               <div className="flex items-center gap-1.5 text-xs text-slate-500 mr-1">
                 <div className="w-3.5 h-3.5 border-2 border-[#012964] border-t-transparent rounded-full animate-spin" />
@@ -956,7 +998,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
           {/* ========================================================================================= */}
           {/* LEFT PANEL (~30% width): Proposal Versions Selector */}
           {/* ========================================================================================= */}
-          <div className="w-full md:w-[32%] lg:w-[30%] shrink-0 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50/70 flex flex-col overflow-hidden max-h-56 md:max-h-none">
+          <div className="w-full md:w-[32%] lg:w-[30%] shrink-0 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50/70 flex flex-col overflow-hidden max-h-36 sm:max-h-48 md:max-h-none">
             {/* Sidebar Title */}
             <div className="px-4 py-3 bg-slate-100/80 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
@@ -1052,11 +1094,11 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
           {/* RIGHT PANEL (~70% width): Summary Cards & Multi-Iteration Tables */}
           {/* ========================================================================================= */}
           <div
-            className="flex-1 flex flex-col overflow-y-auto bg-white p-5 lg:p-6 space-y-5 min-w-0 overscroll-contain cer-modal-scrollable"
+            className="flex-1 flex flex-col overflow-y-auto bg-white p-3.5 sm:p-5 lg:p-6 space-y-3.5 sm:space-y-5 min-w-0 overscroll-contain cer-modal-scrollable"
             style={{ overscrollBehavior: "contain" }}
           >
             {/* 4 Compact Summary Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 shrink-0">
               {/* Card 1: Total Approval Levels */}
               <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-3.5 flex flex-col justify-between">
                 <span className="text-xs sm:text-[13px] uppercase font-bold text-slate-500 tracking-wider">
@@ -1181,8 +1223,13 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
                 </div>
               )}
 
-              {/* Active Iteration Table */}
-              <div className="overflow-x-auto overflow-y-hidden">
+              {/* Active Iteration Mobile Card View (< md) */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {activeRows.map((row) => renderMobileStageCard(row))}
+              </div>
+
+              {/* Active Iteration Desktop Table (>= md) */}
+              <div className="hidden md:block overflow-x-auto overflow-y-hidden">
                 <table className="w-full text-left border-collapse text-sm">
                   <thead>
                     <tr
@@ -1253,8 +1300,13 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
                       </span>
                     </div>
 
-                    {/* Prior Iteration Table */}
-                    <div className="overflow-x-auto overflow-y-hidden">
+                    {/* Prior Iteration Mobile Card View (< md) */}
+                    <div className="md:hidden divide-y divide-slate-100">
+                      {iterRows.map((row) => renderMobileStageCard(row))}
+                    </div>
+
+                    {/* Prior Iteration Desktop Table (>= md) */}
+                    <div className="hidden md:block overflow-x-auto overflow-y-hidden">
                       <table className="w-full text-left border-collapse text-sm">
                         <thead>
                           <tr

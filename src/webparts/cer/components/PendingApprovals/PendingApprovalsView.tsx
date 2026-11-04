@@ -64,7 +64,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
 
   const loadData = async (force: boolean = false): Promise<void> => {
     try {
-      if (!force && initialProposals && initialProposals.length > 0 && initialWorkflowLevels && initialWorkflowLevels.length > 0) {
+      if (!force && initialProposals !== undefined && initialWorkflowLevels !== undefined) {
         setIsLoading(false);
         return;
       }
@@ -168,8 +168,8 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
   // Fully Automatic Dynamic Table Pagination
   const pagination = useDynamicPagination({
     totalItems: pendingList.length,
-    defaultRowHeight: 130,
-    minPageSize: 2,
+    defaultRowHeight: 160,
+    minPageSize: 1,
     bufferBottom: 24,
   });
 
@@ -238,8 +238,8 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="relative flex-1 sm:flex-initial">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto">
+          <div className="relative w-full sm:w-56 md:w-64">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
@@ -249,24 +249,26 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
                 pagination.setCurrentPage(1);
               }}
               placeholder="Search queue..."
-              className="w-full sm:w-56 h-10 pl-9 pr-3.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
+              className="w-full sm:w-56 md:w-64 h-10 pl-9 pr-3.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
             />
           </div>
 
-          <button
-            type="button"
-            onClick={handleManualRefresh}
-            disabled={isRefreshing}
-            className="flex items-center gap-1.5 h-10 px-4 bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400 rounded-xl text-sm font-semibold text-slate-700 hover:text-[#012964] transition-all shadow-2xs cursor-pointer disabled:opacity-60"
-            title="Check for new approval tasks immediately without reloading browser"
-          >
-            <RotateCw className={`w-4 h-4 text-slate-500 ${isRefreshing ? "animate-spin text-[#012964]" : ""}`} />
-            <span>{isRefreshing ? "Checking..." : "Refresh"}</span>
-          </button>
+          <div className="flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 h-10 px-4 bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 hover:text-[#012964] transition-all shadow-2xs cursor-pointer disabled:opacity-60 whitespace-nowrap"
+              title="Check for new approval tasks immediately without reloading browser"
+            >
+              <RotateCw className={`w-4 h-4 text-slate-500 ${isRefreshing ? "animate-spin text-[#012964]" : ""}`} />
+              <span>{isRefreshing ? "Checking..." : "Refresh"}</span>
+            </button>
 
-          <span className="flex items-center h-10 text-sm font-bold px-4 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 shrink-0 shadow-2xs">
-            {pendingList.length} Pending
-          </span>
+            <span className="flex-1 sm:flex-initial flex items-center justify-center h-10 text-xs sm:text-sm font-bold px-3 sm:px-4 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 shrink-0 shadow-2xs whitespace-nowrap">
+              {pendingList.length} Pending
+            </span>
+          </div>
         </div>
       </div>
 
@@ -290,11 +292,11 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
         ref={pagination.tableContainerRef}
         className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden flex flex-col"
       >
-        <div data-role="list-wrapper" className="p-4 sm:p-5 space-y-4">
+        <div data-role="list-wrapper" className="p-3.5 sm:p-4 space-y-3">
           {isLoading && proposals.length === 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {[1, 2].map((idx) => (
-                <div key={idx} className="bg-slate-50/50 rounded-xl border border-slate-200 p-4 sm:p-5 animate-pulse">
+                <div key={idx} className="bg-slate-50/50 rounded-xl border border-slate-200 p-3.5 sm:p-4 animate-pulse">
                   <div className="h-4 bg-slate-200 rounded w-1/4 mb-3" />
                   <div className="h-6 bg-slate-200 rounded w-1/2 mb-2" />
                   <div className="h-3 bg-slate-200 rounded w-1/3" />
@@ -319,9 +321,9 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
                 <div
                   key={prop.id}
                   data-role="list-item"
-                  className="bg-slate-50/50 hover:bg-slate-50 rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs hover:shadow-subtle transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  className="bg-slate-50/50 hover:bg-slate-50 rounded-xl border border-slate-200 p-3.5 sm:p-4 shadow-2xs hover:shadow-subtle transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4"
                 >
-                  <div className="space-y-2.5 min-w-0 flex-1">
+                  <div className="space-y-2 min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono font-bold text-xs sm:text-[13px] text-slate-900 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs" title="CER Proposal ID">
                         {prop.cer_proposal_id || prop.cerprno}
@@ -333,11 +335,11 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
                       </span>
                     </div>
 
-                    <h3 className="font-bold text-[17px] sm:text-lg text-slate-900 leading-snug">
+                    <h3 className="font-bold text-base sm:text-lg text-slate-900 leading-snug">
                       {prop.pr_name}
                     </h3>
 
-                    <p className="text-sm text-slate-600 flex flex-wrap gap-x-2.5 gap-y-1 items-center">
+                    <p className="text-xs sm:text-sm text-slate-600 flex flex-wrap gap-x-2.5 gap-y-1 items-center">
                       <span>Owner: <strong className="text-slate-800 font-semibold">{prop.owname}</strong></span>
                       <span>•</span>
                       <span>SBU: <strong className="text-slate-800 font-semibold">{prop.sbu}</strong></span>
@@ -345,12 +347,12 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
                       <span>Duration: <strong className="text-slate-800 font-semibold">{prop.period}</strong></span>
                     </p>
 
-                    <p className="text-sm text-slate-700 line-clamp-2 bg-white p-3 rounded-xl border border-slate-200/90 mt-1 leading-relaxed">
+                    <p className="text-xs sm:text-sm text-slate-700 line-clamp-2 bg-white px-3 py-2 rounded-xl border border-slate-200/90 leading-relaxed">
                       {prop.remarks || "No narrative remarks provided."}
                     </p>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row md:flex-col items-start sm:items-center md:items-end justify-between shrink-0 gap-3.5 border-t md:border-t-0 pt-3 md:pt-0 border-slate-200">
+                  <div className="flex flex-col sm:flex-row md:flex-col items-start sm:items-center md:items-end justify-between shrink-0 gap-3 border-t md:border-t-0 pt-3 md:pt-0 border-slate-200">
                     <div>
                       <span className="text-xs sm:text-[13px] uppercase font-bold text-slate-500 block md:text-right tracking-wider">
                         Expenditure Amount

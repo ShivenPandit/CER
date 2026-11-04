@@ -60,7 +60,11 @@ export function useDynamicPagination({
     }
     if (typeof window === "undefined") return 10;
     const vh = window.innerHeight;
-    const factor = safeDefaultRowHeight > 55 ? Math.max(0.15, 44 / safeDefaultRowHeight) : 1;
+    const isMobile = window.innerWidth < 640;
+    if (isMobile) {
+      return vh >= 850 ? Math.max(safeMinPageSize, 3) : Math.max(safeMinPageSize, 2);
+    }
+    const factor = safeDefaultRowHeight > 55 ? Math.max(0.25, 44 / safeDefaultRowHeight) : 1;
     if (vh >= 1800) return Math.max(safeMinPageSize, Math.round(36 * factor)); // 4K display
     if (vh >= 1300) return Math.max(safeMinPageSize, Math.round(22 * factor)); // 1440p QHD display
     if (vh >= 950) return Math.max(safeMinPageSize, Math.round(14 * factor));  // 1080p display
@@ -133,7 +137,9 @@ export function useDynamicPagination({
           !!el.querySelector("[data-role='list-item']");
         const isListWrapper =
           el.getAttribute("data-role") === "list-wrapper" ||
-          el.classList.contains("space-y-4");
+          el.classList.contains("space-y-4") ||
+          el.classList.contains("divide-y") ||
+          el.classList.contains("overflow-x-auto");
         if (!isTable && !isListItem && !isListWrapper) {
           const h = el.offsetHeight;
           if (Number.isFinite(h) && h > 0) {
@@ -165,23 +171,43 @@ export function useDynamicPagination({
 
       // Measure actual rendered row/card height from DOM if available
       let measuredRowHeight = safeDefaultRowHeight;
-      const renderedCard = container.querySelector("[data-role='list-item']") as HTMLElement | null;
-      if (renderedCard && Number.isFinite(renderedCard.offsetHeight) && renderedCard.offsetHeight > 50) {
-        let parentGap = 0;
-        if (listWrapper) {
-          const rawGap = window.getComputedStyle(listWrapper).rowGap;
-          parentGap = safeParsePixel(rawGap, 0);
-        }
-        // Tailwind space-y-4 is 16px vertical gap
-        const effectiveGap = Math.max(parentGap, 16);
-        const totalCardHeight = renderedCard.offsetHeight + effectiveGap;
-        if (Number.isFinite(totalCardHeight) && totalCardHeight > 0) {
-          measuredRowHeight = totalCardHeight;
+      const isMobileWidth = typeof window !== "undefined" && window.innerWidth < 640;
+      if (isMobileWidth && safeDefaultRowHeight < 90) {
+        measuredRowHeight = 135;
+      }
+
+      // Check renderedCard first (for mobile cards or card views)
+      const renderedCard =
+        (container.querySelector(".sm\\:hidden [data-role='list-item']") as HTMLElement | null) ||
+        (container.querySelector("[data-role='list-item']:not(tr)") as HTMLElement | null) ||
+        (container.querySelector("[data-role='list-item']") as HTMLElement | null);
+
+      if (isMobileWidth) {
+        if (renderedCard && Number.isFinite(renderedCard.offsetHeight) && renderedCard.offsetHeight > 40) {
+          let parentGap = 0;
+          if (listWrapper) {
+            const rawGap = window.getComputedStyle(listWrapper).rowGap;
+            parentGap = safeParsePixel(rawGap, 0);
+          }
+          const effectiveGap = parentGap > 0 ? parentGap : 12;
+          measuredRowHeight = renderedCard.offsetHeight + effectiveGap;
+        } else if (safeDefaultRowHeight < 90) {
+          measuredRowHeight = 135;
         }
       } else {
-        const renderedTr = container.querySelector("tbody tr") as HTMLElement | null;
+        const renderedTr =
+          (container.querySelector("tbody tr[data-role='list-item']") as HTMLElement | null) ||
+          (container.querySelector("tbody tr") as HTMLElement | null);
         if (renderedTr && Number.isFinite(renderedTr.offsetHeight) && renderedTr.offsetHeight > 20) {
           measuredRowHeight = renderedTr.offsetHeight;
+        } else if (renderedCard && Number.isFinite(renderedCard.offsetHeight) && renderedCard.offsetHeight > 40) {
+          let parentGap = 0;
+          if (listWrapper) {
+            const rawGap = window.getComputedStyle(listWrapper).rowGap;
+            parentGap = safeParsePixel(rawGap, 0);
+          }
+          const effectiveGap = Math.max(parentGap, 16);
+          measuredRowHeight = renderedCard.offsetHeight + effectiveGap;
         }
       }
 
@@ -194,12 +220,24 @@ export function useDynamicPagination({
       const netRowSpace = Math.max(0, availableHeight - overhead);
 
       // Calculate optimal row count with tolerance so nearly-fitting items (e.g. 2.8 items) are not aggressively dropped
-      const tolerance = Math.min(24, measuredRowHeight * 0.18);
+      const tolerance = Math.min(32, measuredRowHeight * 0.25);
       let optimalRows = Math.floor((netRowSpace + tolerance) / measuredRowHeight);
-      if (!Number.isFinite(optimalRows) || optimalRows < 1) {
-        optimalRows = safeMinPageSize;
+
+      if (isMobileWidth) {
+        // On mobile viewports, show at least 3 cards (or 2 if only 2 items) to eliminate empty white space
+        const minMobileCards = totalItems >= 3 ? 3 : (totalItems >= 2 ? 2 : 1);
+        optimalRows = Math.max(minMobileCards, Math.min(5, Number.isFinite(optimalRows) ? optimalRows : minMobileCards));
+      } else {
+        const isCardView = safeDefaultRowHeight > 100 || (renderedCard && !container.querySelector("tbody tr"));
+        const minRows = isCardView ? (totalItems >= 2 ? 2 : 1) : safeMinPageSize;
+        if (!Number.isFinite(optimalRows) || optimalRows < 1) {
+          optimalRows = minRows;
+        }
+        optimalRows = Math.max(minRows, Math.min(safeMaxPageSize, optimalRows));
       }
-      optimalRows = Math.max(safeMinPageSize, Math.min(safeMaxPageSize, optimalRows));
+
+      // Guard: strictly finite integer >= 1
+      optimalRows = Math.max(1, Math.floor(optimalRows));
 
       // Guard: only update state if changed to avoid unnecessary re-renders
       if (optimalRows !== lastCalculatedSizeRef.current) {
@@ -209,8 +247,8 @@ export function useDynamicPagination({
 
         // Keep currentPage within valid bounds without forcing user back to page 1
         setCurrentPage((prevPage) => {
-          const safePrev = Number.isFinite(prevPage) && prevPage >= 1 ? prevPage : 1;
-          const safeTotal = Number.isFinite(totalItems) && totalItems >= 0 ? totalItems : 0;
+          const safePrev = Number.isFinite(prevPage) && prevPage >= 1 ? Math.floor(prevPage) : 1;
+          const safeTotal = Number.isFinite(totalItems) && totalItems >= 0 ? Math.floor(totalItems) : 0;
           const newTotal = Math.max(1, Math.ceil(safeTotal / optimalRows));
           return Math.max(1, Math.min(safePrev, newTotal));
         });
@@ -225,13 +263,12 @@ export function useDynamicPagination({
     const container = tableContainerRef.current;
     if (!container) return;
 
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const debouncedCalculate = () => {
-      if (calculationTimerRef.current !== null) {
-        window.cancelAnimationFrame(calculationTimerRef.current);
-      }
-      calculationTimerRef.current = window.requestAnimationFrame(() => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
         recalculatePageSize();
-      });
+      }, 50);
     };
 
     // Calculate immediately and shortly after mount for settled layout
@@ -240,41 +277,31 @@ export function useDynamicPagination({
       recalculatePageSize();
     }, 60);
 
-    const scrollParent = container.closest("main") || document.body;
-    let lastWidth = container.offsetWidth;
+    let lastWidth = Math.round(container.offsetWidth);
     let observer: ResizeObserver | null = null;
     if (typeof ResizeObserver !== "undefined") {
       observer = new ResizeObserver((entries) => {
-        let shouldRecalculate = false;
         for (const entry of entries) {
           if (entry.target === container) {
-            // Only trigger if container width changed (layout/window resize), not on vertical height change caused by rendering fewer items
+            // ONLY trigger if container width changed (layout/window resize or breakpoint change)
+            // NEVER on container height change caused by rendering fewer/more items!
             const currentWidth = Math.round(entry.contentRect.width);
-            if (currentWidth !== lastWidth) {
+            if (Math.abs(currentWidth - lastWidth) >= 2) {
               lastWidth = currentWidth;
-              shouldRecalculate = true;
+              debouncedCalculate();
             }
-          } else {
-            shouldRecalculate = true;
           }
         }
-        if (shouldRecalculate) {
-          debouncedCalculate();
-        }
       });
+      // ONLY observe container itself - never observe scrollParent or document.body!
       observer.observe(container);
-      if (scrollParent && scrollParent !== container) {
-        observer.observe(scrollParent);
-      }
     }
 
     window.addEventListener("resize", debouncedCalculate, { passive: true });
 
     return () => {
       clearTimeout(initialTimer);
-      if (calculationTimerRef.current !== null) {
-        window.cancelAnimationFrame(calculationTimerRef.current);
-      }
+      if (debounceTimer) clearTimeout(debounceTimer);
       if (observer) {
         observer.disconnect();
       }
@@ -283,9 +310,11 @@ export function useDynamicPagination({
   }, [recalculatePageSize]);
 
   // Safe calculated range indices
-  const safeTotalItemsCount = Number.isFinite(totalItems) && totalItems >= 0 ? totalItems : 0;
-  const startIndex = Math.max(0, (safeCurrentPage - 1) * safeEffectivePageSize);
-  const endIndex = Math.min(startIndex + safeEffectivePageSize, safeTotalItemsCount);
+  const safeTotalItemsCount = Number.isFinite(totalItems) && totalItems >= 0 ? Math.floor(totalItems) : 0;
+  const safeCurrentPageNum = Number.isFinite(safeCurrentPage) && safeCurrentPage >= 1 ? Math.floor(safeCurrentPage) : 1;
+  const safeSizeNum = Number.isFinite(safeEffectivePageSize) && safeEffectivePageSize >= 1 ? Math.floor(safeEffectivePageSize) : 1;
+  const startIndex = Math.max(0, (safeCurrentPageNum - 1) * safeSizeNum);
+  const endIndex = Math.min(startIndex + safeSizeNum, safeTotalItemsCount);
 
   const goToNextPage = useCallback(() => {
     setCurrentPage((prev) => {

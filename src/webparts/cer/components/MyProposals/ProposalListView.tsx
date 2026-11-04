@@ -92,7 +92,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
   const pagination = useDynamicPagination({
     totalItems: filteredProposals.length,
     defaultRowHeight: 52,
-    bufferBottom: 52,
+    bufferBottom: 24,
   });
 
   const visibleProposals = pagination.paginateItems(filteredProposals);
@@ -174,14 +174,14 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
         </div>
       </div>
 
-      {/* KPI Status Filter Strip - Horizontally scrollable on mobile */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible">
+      {/* KPI Status Filter Strip */}
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pb-1">
         <button
           onClick={() => {
             setStatusFilter("ALL");
             pagination.setCurrentPage(1);
           }}
-          className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
+          className={`shrink-0 whitespace-nowrap px-3 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 ${
             statusFilter === "ALL"
               ? "bg-[#012964] text-white shadow-sm"
               : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
@@ -202,7 +202,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
             setStatusFilter("IN_APPROVAL");
             pagination.setCurrentPage(1);
           }}
-          className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
+          className={`shrink-0 whitespace-nowrap px-3 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 ${
             statusFilter === "IN_APPROVAL"
               ? "bg-blue-600 text-white shadow-sm"
               : "bg-white text-slate-700 hover:bg-blue-50 hover:text-blue-700 border border-slate-200"
@@ -223,7 +223,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
             setStatusFilter("APPROVED");
             pagination.setCurrentPage(1);
           }}
-          className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
+          className={`shrink-0 whitespace-nowrap px-3 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 ${
             statusFilter === "APPROVED"
               ? "bg-emerald-600 text-white shadow-sm"
               : "bg-white text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 border border-slate-200"
@@ -244,7 +244,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
             setStatusFilter("DRAFT");
             pagination.setCurrentPage(1);
           }}
-          className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
+          className={`shrink-0 whitespace-nowrap px-3 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 ${
             statusFilter === "DRAFT"
               ? "bg-slate-800 text-white shadow-sm"
               : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
@@ -266,7 +266,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
               setStatusFilter("REVISED");
               pagination.setCurrentPage(1);
             }}
-            className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
+            className={`shrink-0 whitespace-nowrap px-3 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 ${
               statusFilter === "REVISED" || statusFilter === "SEND_BACK"
                 ? "bg-amber-600 text-white shadow-sm"
                 : "bg-white text-slate-700 hover:bg-amber-50 hover:text-amber-700 border border-slate-200"
@@ -289,7 +289,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
               setStatusFilter("REJECTED");
               pagination.setCurrentPage(1);
             }}
-            className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
+            className={`shrink-0 whitespace-nowrap px-3 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 ${
               statusFilter === "REJECTED"
                 ? "bg-rose-600 text-white shadow-sm"
                 : "bg-white text-slate-700 hover:bg-rose-50 hover:text-rose-700 border border-slate-200"
@@ -313,7 +313,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
         className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden flex flex-col"
       >
         {/* Desktop & Tablet Table View */}
-        <div className="hidden sm:block overflow-x-auto">
+        <div data-role="list-wrapper" className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse table-fixed">
             <colgroup>
               <col style={{ width: "135px" }} />
@@ -350,6 +350,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                 visibleProposals.map((prop) => (
                   <tr
                     key={prop.id}
+                    data-role="list-item"
                     className="hover:bg-slate-50/70 transition-colors select-none"
                   >
                     <td className="py-3.5 px-4 text-left align-middle whitespace-nowrap">
@@ -492,7 +493,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
         </div>
 
         {/* Mobile Adaptive Cards View (active on < 640px) */}
-        <div className="sm:hidden divide-y divide-slate-100">
+        <div data-role="list-wrapper" className="sm:hidden divide-y divide-slate-100">
           {visibleProposals.length === 0 ? (
             <div className="py-12 text-center text-slate-400 text-sm px-4">
               No proposals found.
@@ -501,6 +502,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
             visibleProposals.map((prop) => (
               <div
                 key={prop.id}
+                data-role="list-item"
                 className="p-4 space-y-3 hover:bg-slate-50/80 transition-colors"
               >
                 <div className="flex items-center justify-between gap-2">
