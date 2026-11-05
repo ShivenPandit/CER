@@ -12,6 +12,7 @@ export interface IWorkflowLevel {
   created_date?: string; // Timestamp when created
   approver_name?: string;
   approver_email?: string;
+  approvers?: any[];
   is_project_owner_stage?: boolean;
   min_amount?: number;
   max_amount?: number;

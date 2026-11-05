@@ -232,7 +232,8 @@ export function validateField(
     // 9. Payback/Non Payback (Required dropdown with exactly: Payback, Non Payback)
     // -------------------------------------------------------------------------------------------
     case "payable": {
-      if (!value || (value !== "Payback" && value !== "Non Payback")) {
+      const cleanVal = typeof value === "string" ? value.trim().replace(/-/g, " ") : value;
+      if (!cleanVal || (cleanVal !== "Payback" && cleanVal !== "Non Payback")) {
         return "Payback/Non Payback is required. Please select Payback or Non Payback.";
       }
       return undefined;

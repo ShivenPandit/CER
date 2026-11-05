@@ -75,7 +75,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
       }
       const [allProps, allLevels] = await Promise.all([
         dataService.getAllProposals(force),
-        dataService.getWorkflowLevels(undefined, force),
+        dataService.getWorkflowLevels(currentUser.sbu || undefined, force),
       ]);
       setProposals(allProps);
       setLevels(allLevels);

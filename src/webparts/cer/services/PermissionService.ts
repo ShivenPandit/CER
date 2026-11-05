@@ -17,6 +17,32 @@ export const AUTHORIZED_APPROVAL_HIERARCHY_EMAIL = "";
 
 export class PermissionService {
   public static readonly AUTHORIZED_APPROVAL_HIERARCHY_EMAIL = AUTHORIZED_APPROVAL_HIERARCHY_EMAIL;
+
+  /**
+   * Normalizes identity strings (emails, login names, UPNs) by trimming, lowercasing,
+   * and stripping SharePoint claims prefixes (e.g. i:0#.f|membership|).
+   */
+  public static normIdentity(val?: string): string {
+    return (val || "")
+      .trim()
+      .toLowerCase()
+      .replace(/^i:0#\.f\|membership\|/i, "")
+      .replace(/^membership\|/i, "");
+  }
+
+  /**
+   * Normalizes display names by trimming, lowercasing, removing corporate/vendor
+   * parentheses (e.g. '(STL Digital)', '(Microlink)', '(External)'), and collapsing whitespace.
+   */
+  public static cleanDisplayName(val?: string): string {
+    return (val || "")
+      .replace(/\s*\([^)]*\)/g, "")
+      .replace(/[^a-zA-Z0-9\s]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  }
+
   /**
    * Centralized access-control rule:
    * Dynamically permits Approval Hierarchy management based on permissions
@@ -361,11 +387,15 @@ export class PermissionService {
       };
     }
 
-    const normUserEmail = (user.email || "").trim().toLowerCase();
-    const normUserLogin = (user.loginName || "").trim().toLowerCase();
-    const cleanUserName = (user.name || "").replace(/\s+/g, " ").trim().toLowerCase();
-    const normCreatedBy = (proposal.created_by || "").trim().toLowerCase();
-    const cleanCreatedBy = (proposal.created_by || "").replace(/\s+/g, " ").trim().toLowerCase();
+    const norm = (val?: string) => PermissionService.normIdentity(val);
+    const cleanName = (val?: string) => PermissionService.cleanDisplayName(val);
+
+    const normUserEmail = norm(user.email);
+    const normUserLogin = norm(user.loginName);
+    const effectiveUserEmail = normUserEmail || (normUserLogin.indexOf("@") !== -1 ? normUserLogin : "");
+    const cleanUserName = cleanName(user.name);
+    const normCreatedBy = norm(proposal.created_by);
+    const cleanCreatedBy = cleanName(proposal.created_by);
 
     const isOwner = this.isProposalOwner(proposal, user);
 
@@ -399,7 +429,11 @@ export class PermissionService {
 
     // 3. Segregation of Duties: Proposal initiator/creator strictly cannot approve their own CER on non-owner stages
     const isCreator = Boolean(
-      (normCreatedBy && (normCreatedBy === normUserEmail || normCreatedBy === normUserLogin)) ||
+      (normCreatedBy && (
+        normCreatedBy === normUserEmail ||
+        normCreatedBy === normUserLogin ||
+        (effectiveUserEmail && normCreatedBy === effectiveUserEmail)
+      )) ||
       (cleanCreatedBy && cleanUserName && cleanCreatedBy === cleanUserName)
     );
 
@@ -411,23 +445,67 @@ export class PermissionService {
     }
 
     // 4. Designated Stage Approver Email Check:
-    // If the stage specifies an approver email, the user MUST match it
-    const stageApproverEmail = (currentStageConfig?.approver_email || "").trim().toLowerCase();
-    const targetApproverEmail = stageApproverEmail;
+    // If the stage configuration explicitly designates approver email(s) or approvers list,
+    // the user MUST match one of them.
+    const stageApproverEmail = (currentStageConfig?.approver_email || "").trim();
+    const stageApprovers = currentStageConfig?.approvers;
+    const stageHasApprovers = Boolean(stageApprovers && stageApprovers.length > 0);
+    const pendingWithEmail = (proposal.pending_with_email || "").trim();
 
-    if (targetApproverEmail) {
-      const isStageApproverMatch =
-        normUserEmail === targetApproverEmail ||
-        normUserLogin === targetApproverEmail;
+    const matchesUser = (target: string) => {
+      if (!target) return false;
+      const normTarget = norm(target);
+      return (
+        (normUserEmail && normTarget === normUserEmail) ||
+        (normUserLogin && normTarget === normUserLogin) ||
+        (effectiveUserEmail && normTarget === effectiveUserEmail)
+      );
+    };
+
+    let isStageApproverMatch = false;
+
+    if (stageApproverEmail || stageHasApprovers) {
+      const stageEmails = stageApproverEmail
+        .split(/[;,]/)
+        .map((e) => norm(e))
+        .filter(Boolean);
+
+      const pendingEmails = pendingWithEmail
+        .split(/[;,]/)
+        .map((e) => norm(e))
+        .filter(Boolean);
+
+      isStageApproverMatch =
+        stageEmails.some(matchesUser) ||
+        pendingEmails.some(matchesUser) ||
+        Boolean(
+          stageApprovers &&
+          stageApprovers.some((app) => {
+            const appEmail = norm(app.user_email);
+            const appLogin = norm(app.login_name);
+            const appCleanName = cleanName(app.user_name);
+            return (
+              matchesUser(appEmail) ||
+              matchesUser(appLogin) ||
+              (cleanUserName && appCleanName && cleanUserName === appCleanName)
+            );
+          })
+        );
 
       if (!isStageApproverMatch) {
         return {
           allowed: false,
           reason: isProjectOwner
             ? "Segregation of Duties Enforcement: You are the initiator/owner of this CER proposal and cannot approve your own request."
-            : `Access Denied: This approval stage is assigned to designated approver (${targetApproverEmail}). Only the assigned approver can approve this level.`,
+            : `Access Denied: This approval stage is assigned to designated approver (${stageApproverEmail || "configured approver"}). Only the assigned approver can approve this level.`,
         };
       }
+    } else if (pendingWithEmail) {
+      const pendingEmails = pendingWithEmail
+        .split(/[;,]/)
+        .map((e) => norm(e))
+        .filter(Boolean);
+      isStageApproverMatch = pendingEmails.some(matchesUser);
     }
 
     // 5. Level number match: if user has a configured approval_level, it must match current level
@@ -446,11 +524,11 @@ export class PermissionService {
       // (e.g. Level 1 Finance), allow them to perform their duty at this stage.
       const isFinanceRole = Boolean(
         currentStageConfig?.role_title &&
-        currentStageConfig.role_title.toLowerCase().includes("finance")
+        currentStageConfig.role_title.toLowerCase().indexOf("finance") !== -1
       );
       const isLevelMatch = (user.approval_level || 1) === proposal.current_level;
-      const isExplicitAssignedApprover = targetApproverEmail
-        ? (normUserEmail === targetApproverEmail || normUserLogin === targetApproverEmail)
+      const isExplicitAssignedApprover = (stageApproverEmail || stageHasApprovers)
+        ? isStageApproverMatch
         : (isFinanceRole && isLevelMatch && !isCreator);
 
       if (!isExplicitAssignedApprover) {
@@ -464,11 +542,7 @@ export class PermissionService {
     // 7. SBU match check if user has an SBU assigned
     // If the proposal is explicitly routed to this user via pending_with_email or stage approver,
     // they are authorized to act on this specific task. Otherwise, enforce strict SBU alignment.
-    const pendingWithEmail = (proposal.pending_with_email || "").trim().toLowerCase();
-    const isDirectlyRoutedToUser = Boolean(
-      (targetApproverEmail && (normUserEmail === targetApproverEmail || normUserLogin === targetApproverEmail)) ||
-      (pendingWithEmail && (normUserEmail === pendingWithEmail || normUserLogin === pendingWithEmail))
-    );
+    const isDirectlyRoutedToUser = isStageApproverMatch;
 
     if (!isDirectlyRoutedToUser && user.sbu && user.sbu !== "All" && proposal.sbu) {
       const userSbu = user.sbu.trim().toLowerCase();

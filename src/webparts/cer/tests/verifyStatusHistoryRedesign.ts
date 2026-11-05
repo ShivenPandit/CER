@@ -31,7 +31,7 @@ async function runTests() {
   // 1. Fixed 6-Level Workflow Hierarchy
   assert(FIXED_APPROVAL_STAGES.length === 6, "1. Exactly 6 workflow levels configured");
   assert(FIXED_APPROVAL_STAGES[0].level === 1 && FIXED_APPROVAL_STAGES[0].name === "Finance", "1a. L1 is Finance");
-  assert(FIXED_APPROVAL_STAGES[1].level === 2 && FIXED_APPROVAL_STAGES[1].name === "Project Owner", "1b. L2 is Project Owner");
+  assert(FIXED_APPROVAL_STAGES[1].level === 2 && FIXED_APPROVAL_STAGES[1].name === "CER Owner", "1b. L2 is CER Owner");
   assert(FIXED_APPROVAL_STAGES[2].level === 3 && FIXED_APPROVAL_STAGES[2].name === "BU CFO", "1c. L3 is BU CFO");
   assert(FIXED_APPROVAL_STAGES[3].level === 4 && FIXED_APPROVAL_STAGES[3].name === "BU Director", "1d. L4 is BU Director");
   assert(FIXED_APPROVAL_STAGES[4].level === 5 && FIXED_APPROVAL_STAGES[4].name === "VOGL CFO", "1e. L5 is VOGL CFO");
@@ -317,7 +317,7 @@ async function runTests() {
   assert(rejRows[2].statusText === "Not Started", "5k. Stage 3 (L3 BU CFO) statusText is Not Started");
   assert(rejIteration.isRejected === true, "5l. Active rejected iteration is marked isRejected");
   assert(rejIteration.rejectedLevel === 2, "5m. Active rejected iteration level is 2");
-  assert(rejIteration.rejectedStageName === "Project Owner", "5n. Active rejected iteration stage name is Project Owner");
+  assert(rejIteration.rejectedStageName === "CER Owner", "5n. Active rejected iteration stage name is CER Owner");
   assert(rejIteration.rejectedBy === "Shiven Pandit (Microlink)", "5o. Active rejected iteration rejectedBy captured");
 
   // 6. Multi-Version Snapshot Isolation without Overwriting (Images 1, 2, 3 fix)

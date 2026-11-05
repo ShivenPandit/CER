@@ -33,7 +33,7 @@ export interface ICERDataService {
     proposal: ICERProposal,
     user: { name: string; email: string },
     originalProposal?: ICERProposal,
-    options?: { removedAttachmentIds?: string[]; stagedAttachments?: ICERAttachment[] }
+    options?: { removedAttachmentIds?: string[]; stagedAttachments?: ICERAttachment[]; snapshotAttachments?: ICERAttachment[] }
   ): Promise<{
     success: boolean;
     message: string;
@@ -52,6 +52,7 @@ export interface ICERDataService {
   // Proposal History & Submissions (CERProposalsHistory)
   getProposalHistory(cerProposalId?: string): Promise<ICERProposal[]>;
   getAllSubmissionsForCER(cerProposalId: string): Promise<{ active: ICERProposal | null; history: ICERProposal[] }>;
+  archiveApprovedProposal(original: ICERProposal, options?: { removedAttachmentIds?: string[]; snapshotAttachments?: ICERAttachment[] }): Promise<void>;
 
   // Audit Trail & Remarks
   getAuditTrail(cerprno?: string): Promise<ICERAuditRecord[]>;

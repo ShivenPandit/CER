@@ -651,6 +651,64 @@ export class LocalMockCERDataService implements ICERDataService {
     return historyFound ? { ...historyFound } : null;
   }
 
+  public async archiveApprovedProposal(
+    original: ICERProposal,
+    options?: { removedAttachmentIds?: string[]; snapshotAttachments?: ICERAttachment[] }
+  ): Promise<void> {
+    const historySnapshot: ICERProposal = JSON.parse(JSON.stringify(original));
+    const cerId = (historySnapshot.cer_proposal_id || historySnapshot.cerprno || "").trim().toUpperCase();
+    const versionIndex = (Number(historySnapshot.revision_count) || 0) + 1;
+    const versionTag = `V${versionIndex}`;
+    historySnapshot.version = versionTag;
+    const now = new Date();
+    historySnapshot.created_date = historySnapshot.created_date || now.toISOString();
+    (historySnapshot as any).created_at = (historySnapshot as any).created_at || historySnapshot.created_date;
+
+    // Record snapshot's approved attachments and authoritative manifest
+    const v1Atts = this._attachments.filter((a) => {
+      const matchesCer = (a.cerprno || "").toUpperCase() === cerId || (a.cerprno || "").toUpperCase() === (original.proposal_no || "").toUpperCase();
+      return matchesCer && (!a.version || a.version === "");
+    });
+    (historySnapshot as any).approved_attachment_ids = v1Atts.map((a) => a.id);
+    const manifestEntries: ICERAttachmentManifestEntry[] = v1Atts.map((a) => ({
+      id: String(a.id),
+      name: a.name,
+      size: a.size || 0,
+      type: a.type || "application/octet-stream",
+      server_relative_url: a.server_relative_url || a.data_url || `/sites/CER/CERAttachments/${cerId}_${a.name}`,
+      data_url: a.data_url || a.server_relative_url || `/sites/CER/CERAttachments/${cerId}_${a.name}`,
+      uploaded_by: a.uploaded_by || "User",
+      uploaded_date: a.uploaded_date || now.toISOString(),
+      version_tag: versionTag,
+      proposal_no: historySnapshot.proposal_no || historySnapshot.cerprno,
+    }));
+    (historySnapshot as any).attachments_manifest = manifestEntries;
+
+    // Only stamp removed attachments with versionTag
+    const removedIds = (options?.removedAttachmentIds || []).map((id) => String(id).toUpperCase());
+    if (removedIds.length > 0) {
+      for (const att of this._attachments) {
+        const matchesCer = (att.cerprno || "").toUpperCase() === cerId || (att.cerprno || "").toUpperCase() === (original.proposal_no || "").toUpperCase();
+        if (matchesCer && removedIds.indexOf(String(att.id).toUpperCase()) !== -1) {
+          att.version = versionTag;
+          att.version_tag = versionTag;
+        }
+      }
+      this._saveToStorage(STORAGE_KEYS.ATTACHMENTS, this._attachments);
+    }
+
+    const existIdx = this._proposalsHistory.findIndex(
+      (h) => (h.cer_proposal_id || h.cerprno || "").toUpperCase() === cerId &&
+             String((h as any).version || "").toUpperCase() === versionTag
+    );
+    if (existIdx !== -1) {
+      this._proposalsHistory[existIdx] = historySnapshot;
+    } else {
+      this._proposalsHistory.unshift(historySnapshot);
+    }
+    this._saveToStorage(STORAGE_KEYS.PROPOSALS_HISTORY, this._proposalsHistory);
+  }
+
   public async getProposalHistory(cerProposalId?: string): Promise<ICERProposal[]> {
     const cleanId = (cerProposalId || "").trim().toUpperCase();
     if (!cleanId || cleanId === "ALL") {
@@ -660,8 +718,7 @@ export class LocalMockCERDataService implements ICERDataService {
       .filter((p) => {
         const pCerId = (p.cer_proposal_id || p.cerPrId || p.cerprno || "").trim().toUpperCase();
         const pCerNo = (p.cerprno || "").trim().toUpperCase();
-        const pPropNo = (p.proposal_no || "").trim().toUpperCase();
-        return pCerId === cleanId || pCerNo === cleanId || pPropNo === cleanId;
+        return pCerId === cleanId || pCerNo === cleanId;
       })
       .map((p) => ({ ...p }));
   }
@@ -854,7 +911,7 @@ export class LocalMockCERDataService implements ICERDataService {
     updatedProposal: ICERProposal,
     user: { name: string; email: string },
     originalProposal?: ICERProposal,
-    options?: { removedAttachmentIds?: string[]; stagedAttachments?: ICERAttachment[] }
+    options?: { removedAttachmentIds?: string[]; stagedAttachments?: ICERAttachment[]; snapshotAttachments?: ICERAttachment[] }
   ): Promise<{ success: boolean; message: string; proposal: ICERProposal; auditRowsCount: number }> {
     const index = this._proposals.findIndex(p => p.cerprno.toUpperCase() === updatedProposal.cerprno.toUpperCase());
     if (index === -1) {
@@ -1000,64 +1057,10 @@ export class LocalMockCERDataService implements ICERDataService {
 
     if (isApprovedOriginal) {
       const snapshot = (originalProposal && originalProposal.status === "Approved") ? originalProposal : oldProposal;
-      // Archive the previously approved proposal snapshot into CERProposalsHistory
-      const historySnapshot: ICERProposal = JSON.parse(JSON.stringify(snapshot));
-      const cerId = (historySnapshot.cer_proposal_id || historySnapshot.cerprno || "").trim().toUpperCase();
-      const existingHistory = this._proposalsHistory.filter((p) => {
-        const pCerId = (p.cer_proposal_id || p.cerPrId || p.cerprno || "").trim().toUpperCase();
-        return pCerId === cerId;
+      await this.archiveApprovedProposal(snapshot, {
+        removedAttachmentIds: options?.removedAttachmentIds || (user as any)?.removedAttachmentIds || (originalProposal as any)?.removedAttachmentIds,
+        snapshotAttachments: options?.snapshotAttachments
       });
-      const versionIndex = (historySnapshot as any).version
-        ? parseInt(String((historySnapshot as any).version).replace(/\D/g, ""), 10) || (existingHistory.length + 1)
-        : (existingHistory.length + 1);
-      const versionTag = `V${versionIndex}`;
-      historySnapshot.version = versionTag;
-      historySnapshot.created_date = historySnapshot.created_date || now.toISOString();
-      (historySnapshot as any).created_at = (historySnapshot as any).created_at || historySnapshot.created_date;
-
-      // Record snapshot's approved attachments and authoritative manifest
-      const v1Atts = this._attachments.filter((a) => {
-        const matchesCer = (a.cerprno || "").toUpperCase() === cerId || (a.cerprno || "").toUpperCase() === (oldProposal.proposal_no || "").toUpperCase();
-        return matchesCer && (!a.version || a.version === "");
-      });
-      (historySnapshot as any).approved_attachment_ids = v1Atts.map((a) => a.id);
-      const manifestEntries: ICERAttachmentManifestEntry[] = v1Atts.map((a) => ({
-        id: String(a.id),
-        name: a.name,
-        size: a.size || 0,
-        type: a.type || "application/octet-stream",
-        server_relative_url: a.server_relative_url || a.data_url || `/sites/CER/CERAttachments/${cerId}_${a.name}`,
-        data_url: a.data_url || a.server_relative_url || `/sites/CER/CERAttachments/${cerId}_${a.name}`,
-        uploaded_by: a.uploaded_by || "User",
-        uploaded_date: a.uploaded_date || now.toISOString(),
-        version_tag: versionTag,
-        proposal_no: historySnapshot.proposal_no || historySnapshot.cerprno,
-      }));
-      (historySnapshot as any).attachments_manifest = manifestEntries;
-
-      // Only stamp removed attachments with versionTag
-      const removedIds = (options?.removedAttachmentIds || []).map((id) => String(id).toUpperCase());
-      if (removedIds.length > 0) {
-        for (const att of this._attachments) {
-          const matchesCer = (att.cerprno || "").toUpperCase() === cerId || (att.cerprno || "").toUpperCase() === (oldProposal.proposal_no || "").toUpperCase();
-          if (matchesCer && removedIds.indexOf(String(att.id).toUpperCase()) !== -1) {
-            att.version = versionTag;
-            att.version_tag = versionTag;
-          }
-        }
-        this._saveToStorage(STORAGE_KEYS.ATTACHMENTS, this._attachments);
-      }
-
-      const existIdx = this._proposalsHistory.findIndex(
-        (h) => (h.cer_proposal_id || h.cerprno || "").toUpperCase() === cerId &&
-               String((h as any).version || "").toUpperCase() === versionTag
-      );
-      if (existIdx !== -1) {
-        this._proposalsHistory[existIdx] = historySnapshot;
-      } else {
-        this._proposalsHistory.unshift(historySnapshot);
-      }
-      this._saveToStorage(STORAGE_KEYS.PROPOSALS_HISTORY, this._proposalsHistory);
     }
 
     this._proposals[index] = savedProposal;
@@ -1169,30 +1172,30 @@ export class LocalMockCERDataService implements ICERDataService {
       const lid = stage.level;
       const isPO = stage.isProjectOwnerStage;
 
-      let matchedUser: IUserRoleAssignment | undefined;
+      let matchedUsers: IUserRoleAssignment[] = [];
       if (!isPO) {
-        matchedUser = this._userRoles.find(
-          (u) =>
-            u.is_active &&
-            u.role === "Approver" &&
-            u.approval_level === lid &&
-            Boolean(u.sbu && u.sbu.toLowerCase() === targetSbu.toLowerCase())
+        const eligible = this._userRoles.filter(
+          (u) => u.is_active && u.role === "Approver" && u.approval_level === lid
         );
-
-        if (!matchedUser) {
-          matchedUser = this._userRoles.find(
-            (u) =>
-              u.is_active &&
-              u.role === "Approver" &&
-              u.approval_level === lid &&
-              Boolean(u.sbu && u.sbu.toLowerCase() === "all")
-          );
+        let candidates: IUserRoleAssignment[] = [];
+        if (targetSbu) {
+          const exact = eligible.filter((u) => Boolean(u.sbu && u.sbu.toLowerCase() === targetSbu.toLowerCase()));
+          const allSbu = eligible.filter((u) => Boolean(u.sbu && u.sbu.toLowerCase() === "all"));
+          const merged = exact.concat(allSbu);
+          candidates = merged.length > 0 ? merged : eligible;
+        } else {
+          candidates = eligible;
         }
 
-        if (!matchedUser) {
-          matchedUser = this._userRoles.find(
-            (u) => u.is_active && u.role === "Approver" && u.approval_level === lid
-          );
+        const seenKeys: string[] = [];
+        for (const u of candidates) {
+          const key = u.user_id && u.user_id > 0
+            ? `id:${u.user_id}`
+            : (u.user_email || u.login_name || "").toLowerCase().trim();
+          if (key && seenKeys.indexOf(key) === -1) {
+            seenKeys.push(key);
+            matchedUsers.push(u);
+          }
         }
       }
 
@@ -1207,16 +1210,13 @@ export class LocalMockCERDataService implements ICERDataService {
         is_project_owner_stage: isPO,
         approver_name: isPO
           ? "Project Owner (Auto-fetched from CER Proposal)"
-          : matchedUser
-          ? matchedUser.user_name
-          : "",
+          : matchedUsers.map((u) => u.user_name).filter(Boolean).join(", "),
         approver_email: isPO
           ? ""
-          : matchedUser
-          ? matchedUser.user_email
-          : "",
-        created_by: matchedUser ? matchedUser.assigned_by : "System Bootstrap",
-        created_date: matchedUser ? matchedUser.assigned_date : "",
+          : matchedUsers.map((u) => u.user_email).filter(Boolean).join(";"),
+        approvers: matchedUsers,
+        created_by: matchedUsers[0] ? matchedUsers[0].assigned_by : "System Bootstrap",
+        created_date: matchedUsers[0] ? matchedUsers[0].assigned_date : "",
       };
     });
   }
@@ -1313,9 +1313,20 @@ export class LocalMockCERDataService implements ICERDataService {
         }
       }
 
-      if (stageApproverEmail && stageApproverEmail !== approverEmail) {
+      const stageApproverEmails = stageApproverEmail
+        ? stageApproverEmail.split(/[;,]/).map((e) => e.trim().toLowerCase()).filter(Boolean)
+        : [];
+      const proposalPendingEmails = (proposal.pending_with_email || "")
+        ? proposal.pending_with_email.split(/[;,]/).map((e) => e.trim().toLowerCase()).filter(Boolean)
+        : [];
+      const isApprovedByDesignated =
+        stageApproverEmails.indexOf(approverEmail) !== -1 ||
+        proposalPendingEmails.indexOf(approverEmail) !== -1 ||
+        Boolean(currentLevelConfig?.approvers && currentLevelConfig.approvers.some((app) => (app.user_email || "").trim().toLowerCase() === approverEmail || (app.login_name || "").trim().toLowerCase() === approverEmail));
+
+      if ((stageApproverEmails.length > 0 || proposalPendingEmails.length > 0) && !isApprovedByDesignated) {
         throw new Error(
-          `Access Denied: This approval stage is assigned to designated approver (${stageApproverEmail}). Only the assigned approver can approve this level.`
+          `Access Denied: This approval stage is assigned to designated approver (${stageApproverEmail || proposal.pending_with_email}). Only the assigned approver can approve this level.`
         );
       }
     }
@@ -1643,7 +1654,7 @@ export class LocalMockCERDataService implements ICERDataService {
     id: string,
     options?: { cerprno?: string; force?: boolean; serverRelativeUrl?: string }
   ): Promise<void> {
-    const cerprno = options?.cerprno;
+    const cerprno = typeof options === "string" ? options : options?.cerprno;
     if (!options?.force) {
       const targetAtt = this._attachments.find((a) => a.id === id);
       if (targetAtt && targetAtt.version) {

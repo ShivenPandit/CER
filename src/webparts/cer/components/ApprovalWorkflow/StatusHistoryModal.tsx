@@ -36,7 +36,7 @@ export interface IFixedApprovalStage {
 
 export const FIXED_APPROVAL_STAGES: readonly IFixedApprovalStage[] = [
   { level: 1, levelBadge: "L1", name: "Finance" },
-  { level: 2, levelBadge: "L2", name: "Project Owner" },
+  { level: 2, levelBadge: "L2", name: "CER Owner" },
   { level: 3, levelBadge: "L3", name: "BU CFO" },
   { level: 4, levelBadge: "L4", name: "BU Director" },
   { level: 5, levelBadge: "L5", name: "VOGL CFO" },

@@ -156,15 +156,23 @@ async function runPersonFieldServiceTests() {
   const singleUndef = PersonFieldService.formatPersonFieldPayload('User', undefined);
   assert(singleUndef.UserId === null, 'Single person optional undefined cleared as UserId: null');
 
-  // Multi-person field formatting
+  // Multi-person field formatting (native SharePoint OData results wrapper)
   const multiPayload = PersonFieldService.formatMultiPersonFieldPayload('Approvers', [105, 202]);
   assert(Array.isArray(multiPayload.ApproversId?.results), 'Multi-person payload has results array');
   assert(multiPayload.ApproversId.results.length === 2, 'Multi-person results length is 2');
   assert(multiPayload.ApproversId.results[0] === 105 && multiPayload.ApproversId.results[1] === 202, 'Multi-person contains [105, 202]');
 
-  // Multi-person empty / clear
+  // Multi-person empty / clear ({ results: [] })
   const multiEmpty = PersonFieldService.formatMultiPersonFieldPayload('Approvers', []);
   assert(Array.isArray(multiEmpty.ApproversId?.results) && multiEmpty.ApproversId.results.length === 0, 'Multi-person empty formatted as { results: [] }');
+
+  // Multi-person flat format
+  const multiFlat = PersonFieldService.formatMultiPersonFieldPayload('Approvers', [105, 202], 'flat');
+  assert(Array.isArray(multiFlat.ApproversId) && multiFlat.ApproversId[0] === 105, 'Multi-person flat format');
+
+  // Multi-person verbose format
+  const multiVerbose = PersonFieldService.formatMultiPersonFieldPayload('Approvers', [105], 'verbose');
+  assert(Array.isArray(multiVerbose.ApproversId?.results) && multiVerbose.ApproversId.results[0] === 105, 'Multi-person verbose formatted as { results: [...] }');
 
   // ---------------------------------------------------------------------------
   // Suite 5: Reading and Normalizing Person-Field Responses

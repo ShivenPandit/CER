@@ -356,11 +356,18 @@ const CER: React.FC<ICERProps> = (props) => {
     return proposals.filter((p) => {
       if (p.status !== "In Approval") return false;
       const propSbu = (p.sbu || "").trim().toLowerCase();
-      const stageConfig = workflowLevels.find(
-        (l) =>
-          (l.sbu || "").trim().toLowerCase() === propSbu &&
-          l.level_id === p.current_level
-      );
+      const stageConfig =
+        workflowLevels.find(
+          (l) =>
+            (l.sbu || "").trim().toLowerCase() === propSbu &&
+            l.level_id === p.current_level
+        ) ||
+        workflowLevels.find(
+          (l) =>
+            ((l.sbu || "").trim().toLowerCase() === "all" || !l.sbu) &&
+            l.level_id === p.current_level
+        ) ||
+        workflowLevels.find((l) => l.level_id === p.current_level);
       return PermissionService.canApproveCER(p, currentUser, stageConfig).allowed;
     }).length;
   }, [proposals, workflowLevels, currentUser]);

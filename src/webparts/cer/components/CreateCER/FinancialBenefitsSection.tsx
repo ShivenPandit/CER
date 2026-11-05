@@ -91,16 +91,24 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
           <select
             id="payable"
             disabled={isReadOnly}
-            value={formData.payable === "Non-Payback" ? "Non Payback" : formData.payable}
-            onChange={(e) => onChange("payable", e.target.value as CERPayable)}
+            value={formData.payable ? String(formData.payable).trim().replace(/-/g, " ") : "Payback"}
+            onChange={(e) => {
+              const clean = e.target.value.trim().replace(/-/g, " ") as CERPayable;
+              onChange("payable", clean);
+            }}
             onBlur={() => onBlur && onBlur("payable")}
             className="w-full h-10 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964] transition-colors text-sm font-medium text-slate-900"
           >
-            {(fieldChoices?.payable && fieldChoices.payable.length > 0 ? fieldChoices.payable : ["Payback", "Non Payback"]).map((pay) => (
-              <option key={pay} value={pay}>
-                {pay}
-              </option>
-            ))}
+            {(fieldChoices?.payable && fieldChoices.payable.length > 0
+              ? fieldChoices.payable.map((p) => p.trim().replace(/-/g, " "))
+              : ["Payback", "Non Payback"]
+            )
+              .filter((val, idx, arr) => arr.indexOf(val) === idx)
+              .map((pay) => (
+                <option key={pay} value={pay}>
+                  {pay}
+                </option>
+              ))}
           </select>
           {getFieldError("payable") && (
             <p className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">

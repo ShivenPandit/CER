@@ -275,15 +275,22 @@ export class PersonFieldService {
   /**
    * Formats a multi-person field payload for SharePoint REST POST or MERGE operations.
    *
-   * Multi-selection Person columns with internal name `FieldName` are saved
-   * as `FieldNameId: { results: [<number>] }` (or `FieldNameId: { results: [] }` to clear).
+   * Multi-selection Person columns with internal name `FieldName` in SharePoint REST API
+   * (both in odata=nometadata and odata=verbose) strictly expect:
+   *   `FieldNameId: { results: [<number>] }` (or `FieldNameId: { results: [] }` to clear).
+   *
+   * Passing a flat array or null to SharePoint causes:
+   *   - ODataJsonLightPropertyAndValueDeserializer_ReadPropertyValue (when flat array is sent)
+   *   - A null value was found for the property named '...Id', which has expected type Collection(Edm.Int32)[Nullable=False] (when null is sent)
    *
    * @param internalFieldName - Internal name of the multi-person column
    * @param users - Array of resolved SharePoint user objects or integer IDs
+   * @param format - Payload format: "results" (default, { results: [...] }) or "flat" ([...])
    */
   public static formatMultiPersonFieldPayload(
     internalFieldName: string,
-    users: Array<ISharePointUser | number> | null | undefined
+    users: Array<ISharePointUser | number> | null | undefined,
+    format: "results" | "verbose" | "nometadata" | "flat" = "results"
   ): Record<string, any> {
     if (!internalFieldName || !internalFieldName.trim()) {
       throw new Error("[PersonFieldService] Internal field name must be specified.");
@@ -292,7 +299,7 @@ export class PersonFieldService {
     const targetKey = cleanName.endsWith("Id") ? cleanName : `${cleanName}Id`;
 
     if (!users || !Array.isArray(users) || users.length === 0) {
-      return { [targetKey]: { results: [] } };
+      return format === "flat" ? { [targetKey]: [] } : { [targetKey]: { results: [] } };
     }
 
     const validIds: number[] = [];
@@ -303,7 +310,7 @@ export class PersonFieldService {
       }
     }
 
-    return { [targetKey]: { results: validIds } };
+    return format === "flat" ? { [targetKey]: validIds } : { [targetKey]: { results: validIds } };
   }
 
   /**
@@ -376,16 +383,41 @@ export class PersonFieldService {
     if (!rawItem || typeof rawItem !== "object") return [];
 
     const personField = rawItem[internalFieldName];
-    if (Array.isArray(personField)) {
-      return personField.map((u) => {
+    const candidateList: any[] | null = Array.isArray(personField)
+      ? personField
+      : (personField && typeof personField === "object" && Array.isArray((personField as any).results))
+      ? (personField as any).results
+      : null;
+
+    if (candidateList && Array.isArray(candidateList)) {
+      const result: INormalizedPersonValue[] = [];
+      for (const u of candidateList) {
+        if (!u || typeof u !== "object") continue;
         const id = Number(u.Id !== undefined ? u.Id : u.id);
-        return {
-          id: !isNaN(id) && id > 0 ? id : undefined,
-          name: String(u.Title || u.title || u.LookupValue || "").trim(),
-          email: String(u.EMail || u.Email || u.email || "").trim(),
-          loginName: String(u.Name || u.name || "").trim(),
-        };
-      });
+        const validId = !isNaN(id) && id > 0 ? id : undefined;
+        const name = String(u.Title || u.title || u.LookupValue || "").trim();
+        let email = String(u.EMail || u.Email || u.email || "").trim();
+        const rawLogin = String(u.Name || u.name || u.LoginName || u.loginName || "").trim();
+
+        // If EMail is empty (common for vendor/contractor accounts), extract UPN from LoginName after removing claims prefix
+        if (!email && rawLogin) {
+          const claimsStripped = rawLogin.replace(/^i:0#\.f\|membership\|/i, "").replace(/^membership\|/i, "");
+          if (claimsStripped.indexOf("@") !== -1) {
+            email = claimsStripped;
+          }
+        }
+
+        // Validate extracted values without inventing missing identities; retain valid user even if email is blank
+        if (!validId && !name && !email && !rawLogin) continue;
+
+        result.push({
+          id: validId,
+          name,
+          email,
+          loginName: rawLogin,
+        });
+      }
+      return result;
     }
 
     const single = this.extractPersonField(rawItem, internalFieldName);

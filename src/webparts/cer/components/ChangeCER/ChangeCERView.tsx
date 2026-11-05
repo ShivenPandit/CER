@@ -52,6 +52,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
   const [submitStageText, setSubmitStageText] = useState<string>("");
   const [isCheckingCerNo, setIsCheckingCerNo] = useState(false);
   const cerNoDebounceTimer = React.useRef<any>(null);
+  const initialAttachmentsRef = React.useRef<ICERAttachment[]>([]);
 
   const loadProposal = async (cerprno: string): Promise<void> => {
     // Specific mandatory validation as required by FR-02:
@@ -138,6 +139,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           cb_amnt: found.cb_amnt !== undefined && found.cb_amnt !== null && Number(found.cb_amnt) !== 0 ? found.cb_amnt : ("" as any),
           jv_amnt: found.jv_amnt !== undefined && found.jv_amnt !== null && Number(found.jv_amnt) !== 0 ? found.jv_amnt : ("" as any),
           proposal_no: initialProposalNo,
+          payable: found.payable ? String(found.payable).trim().replace(/-/g, " ") : "Payback",
           payback_quarters: found.payback_quarters !== undefined && found.payback_quarters !== null && Number(found.payback_quarters) > 0 ? found.payback_quarters : ("" as any),
           jv_recoverable: found.jv_recoverable || "No",
           ph_till_label: found.ph_till_label || defaultPhasing.ph_till_label,
@@ -512,6 +514,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         originalProposal || undefined,
         {
           removedAttachmentIds: isApprovedOriginal ? removedIds : undefined,
+          snapshotAttachments: isApprovedOriginal ? initialAttachmentsRef.current : undefined,
         }
       );
 

@@ -1,5 +1,6 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/heft/v0/heft-sass-plugin.schema.json",
-
-  "extends": "@microsoft/spfx-web-build-rig/profiles/default/config/sass.json"
+  "extends": "@microsoft/spfx-web-build-rig/profiles/default/config/sass.json",
+  "fileExtensions": [".sass", ".scss"],
+  "excludeFiles": ["tailwind.generated.css"]
 }

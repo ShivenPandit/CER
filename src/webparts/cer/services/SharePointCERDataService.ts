@@ -83,6 +83,10 @@ export class SharePointCERDataService implements ICERDataService {
   private _cachedProposals: { data: ICERProposal[]; timestamp: number } | null = null;
   private _inFlightProposals: Promise<ICERProposal[]> | null = null;
 
+  // Multi-person field payload format preference (flat number[] vs verbose { results: number[] })
+  // Modern SharePoint REST using application/json;odata=nometadata expects flat array [id1, id2]
+  private static _preferFlatPersonArray: boolean = false;
+
   private _cachedProposalByNumber: Map<string, { data: ICERProposal; timestamp: number }> = new Map();
   private _inFlightProposalByNumber: Map<string, Promise<ICERProposal | null>> = new Map();
 
@@ -244,29 +248,46 @@ export class SharePointCERDataService implements ICERDataService {
           const fetchItems = typeof this._sp.getAllListItems === "function"
             ? (opts: any) => this._sp.getAllListItems(listName, opts)
             : (opts: any) => this._sp.getListItems(listName, opts);
-          // Primary query with full Person & System expansion (cerOwner, Author, Editor)
+          // Primary query with full Person & System expansion (cerOwner, Author, Editor, pendingWithEmail/pendingWith)
           try {
             items = await fetchItems({
               top: 500,
               orderby: "Created desc",
-              expand: "cerOwner,Author,Editor",
-              select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
+              expand: "cerOwner,Author,Editor,pendingWithEmail",
+              select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail,pendingWithEmail/Id,pendingWithEmail/Title,pendingWithEmail/EMail,pendingWithEmail/Name",
             });
-          } catch (expandErr) {
-            // Tier 2: Fallback with cerOwner only
+          } catch (expandWithPendingErr) {
             try {
               items = await fetchItems({
                 top: 500,
                 orderby: "Created desc",
-                expand: "cerOwner",
-                select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name",
+                expand: "cerOwner,Author,Editor,pendingWith",
+                select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail,pendingWith/Id,pendingWith/Title,pendingWith/EMail,pendingWith/Name",
               });
-            } catch (cerOwnerErr) {
-              // Tier 3: Unexpanded query
-              items = await fetchItems({
-                top: 500,
-                orderby: "Created desc",
-              });
+            } catch (expandErr) {
+              try {
+                items = await fetchItems({
+                  top: 500,
+                  orderby: "Created desc",
+                  expand: "cerOwner,Author,Editor",
+                  select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
+                });
+              } catch (cerOwnerErr) {
+                try {
+                  items = await fetchItems({
+                    top: 500,
+                    orderby: "Created desc",
+                    expand: "cerOwner",
+                    select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name",
+                  });
+                } catch {
+                  // Fallback: Unexpanded query
+                  items = await fetchItems({
+                    top: 500,
+                    orderby: "Created desc",
+                  });
+                }
+              }
             }
           }
           const mapped = items
@@ -431,34 +452,43 @@ export class SharePointCERDataService implements ICERDataService {
       for (const listName of candidateLists) {
         try {
           let items: any[] = [];
-          // Tier 1: With full Person & System expansion (cerOwner, Author, Editor)
+          // Tier 1: With full Person & System expansion (cerOwner, Author, Editor, pendingWithEmail)
           try {
             items = await this._sp.getListItems(listName, {
               filter: `cerPrId eq '${safeFilterVal}' or proposalNo eq '${safeFilterVal}' or Title eq '${safeFilterVal}'`,
               orderby: "Modified desc",
-              expand: "cerOwner,Author,Editor",
-              select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
+              expand: "cerOwner,Author,Editor,pendingWithEmail",
+              select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail,pendingWithEmail/Id,pendingWithEmail/Title,pendingWithEmail/EMail,pendingWithEmail/Name",
               top: 1,
             });
-          } catch (t1Err) {
-            // Tier 2: With cerOwner only
+          } catch (t1PendingErr) {
             try {
               items = await this._sp.getListItems(listName, {
-                filter: `cerPrId eq '${safeFilterVal}' or Title eq '${safeFilterVal}' or proposalNo eq '${safeFilterVal}'`,
+                filter: `cerPrId eq '${safeFilterVal}' or proposalNo eq '${safeFilterVal}' or Title eq '${safeFilterVal}'`,
                 orderby: "Modified desc",
-                expand: "cerOwner",
-                select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name",
+                expand: "cerOwner,Author,Editor",
+                select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
                 top: 1,
               });
-            } catch (t2Err) {
-              // Tier 3: Fetch recent list items with expand and match in memory
+            } catch (t1Err) {
+              // Tier 2: With cerOwner only
               try {
-                const allItems = await this._sp.getListItems(listName, {
-                  top: 500,
-                  orderby: "Created desc",
-                  expand: "cerOwner,Author,Editor",
-                  select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
+                items = await this._sp.getListItems(listName, {
+                  filter: `cerPrId eq '${safeFilterVal}' or Title eq '${safeFilterVal}' or proposalNo eq '${safeFilterVal}'`,
+                  orderby: "Modified desc",
+                  expand: "cerOwner",
+                  select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name",
+                  top: 1,
                 });
+              } catch (t2Err) {
+                // Tier 3: Fetch recent list items with expand and match in memory
+                try {
+                  const allItems = await this._sp.getListItems(listName, {
+                    top: 500,
+                    orderby: "Created desc",
+                    expand: "cerOwner,Author,Editor",
+                    select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
+                  });
                 items = allItems.filter(
                   (it: any) =>
                     (it.cerPrId && it.cerPrId === cerprno) ||
@@ -472,6 +502,7 @@ export class SharePointCERDataService implements ICERDataService {
               }
             }
           }
+        }
 
           if (items.length > 0) {
             const mapped = this._mapSharePointItemToProposal(items[0]);
@@ -689,6 +720,108 @@ export class SharePointCERDataService implements ICERDataService {
           throw err;
         }
 
+        // Handle OData deserializer crashes & Collection/Nullable type mismatches (e.g. null sent to Collection(Edm.Int32)[Nullable=False])
+        if (
+          errMsg.indexOf("Collection(Edm.Int32)") !== -1 ||
+          errMsg.indexOf("does not allow null values") !== -1 ||
+          errMsg.indexOf("A null value was found for the property") !== -1 ||
+          errMsg.indexOf("ODataJsonLightPropertyAndValueDeserializer") !== -1 ||
+          errMsg.indexOf("StartArray") !== -1 ||
+          errMsg.indexOf("StartObject") !== -1 ||
+          (errMsg.indexOf("InvalidClientQueryException") !== -1 && (errMsg.indexOf("Deserializer") !== -1 || errMsg.indexOf("pendingWithEmailId") !== -1))
+        ) {
+          console.warn("[SharePointCERDataService] SharePoint OData type mismatch / Collection constraint encountered. Sanitizing Person payload and retrying...", errMsg);
+          let modified = false;
+
+          const isStartArrayExpected =
+            errMsg.indexOf("A 'StartArray' node was expected") !== -1 ||
+            errMsg.indexOf("StartArray") !== -1 ||
+            errMsg.indexOf("Collection(Edm.Int32)") !== -1 ||
+            errMsg.indexOf("ODataJsonLightPropertyAndValueDeserializer") !== -1;
+
+          const isStartObjectExpected =
+            errMsg.indexOf("A 'StartObject' node was expected") !== -1;
+
+          const isPrimitiveExpected =
+            errMsg.indexOf("Cannot convert a primitive value") !== -1 ||
+            errMsg.indexOf("primitive value was found") !== -1 ||
+            errMsg.indexOf("A 'PrimitiveValue' node was expected") !== -1;
+
+          if (isStartArrayExpected) {
+            SharePointCERDataService._preferFlatPersonArray = true;
+          }
+
+          // SharePoint multi-person column pendingWithEmailId:
+          // Under odata=nometadata (used by SPHttpClient REST), SharePoint strictly requires a flat array: [1, 2] (or []).
+          // Under odata=verbose, SharePoint requires { results: [1, 2] } (or { results: [] }).
+          // Under single-person field configuration, SharePoint requires a scalar number (or null).
+          if (payload.pendingWithEmailId !== undefined) {
+            if (isStartArrayExpected) {
+              // Convert object { results: [...] }, number, or null to flat array number[]
+              if (payload.pendingWithEmailId && typeof payload.pendingWithEmailId === "object" && !Array.isArray(payload.pendingWithEmailId)) {
+                const resArr = (payload.pendingWithEmailId as any).results;
+                payload.pendingWithEmailId = Array.isArray(resArr) ? resArr : [];
+                modified = true;
+              } else if (payload.pendingWithEmailId === null) {
+                payload.pendingWithEmailId = [];
+                modified = true;
+              } else if (typeof payload.pendingWithEmailId === "number") {
+                payload.pendingWithEmailId = [payload.pendingWithEmailId];
+                modified = true;
+              }
+            } else if (isStartObjectExpected) {
+              // Convert flat array or scalar to { results: [...] }
+              if (Array.isArray(payload.pendingWithEmailId)) {
+                payload.pendingWithEmailId = { results: payload.pendingWithEmailId };
+                modified = true;
+              } else if (payload.pendingWithEmailId === null) {
+                payload.pendingWithEmailId = { results: [] };
+                modified = true;
+              } else if (typeof payload.pendingWithEmailId === "number") {
+                payload.pendingWithEmailId = { results: [payload.pendingWithEmailId] };
+                modified = true;
+              }
+            } else if (isPrimitiveExpected) {
+              // Convert collection to scalar
+              if (Array.isArray(payload.pendingWithEmailId)) {
+                payload.pendingWithEmailId = payload.pendingWithEmailId.length > 0 ? payload.pendingWithEmailId[0] : null;
+                modified = true;
+              } else if (payload.pendingWithEmailId && typeof payload.pendingWithEmailId === "object") {
+                const resArr = (payload.pendingWithEmailId as any).results;
+                payload.pendingWithEmailId = Array.isArray(resArr) && resArr.length > 0 ? resArr[0] : null;
+                modified = true;
+              }
+            } else {
+              // Default collection null-safety: if null sent to Collection(Edm.Int32)[Nullable=False]
+              if (payload.pendingWithEmailId === null) {
+                payload.pendingWithEmailId = SharePointCERDataService._preferFlatPersonArray ? [] : { results: [] };
+                modified = true;
+              }
+            }
+          }
+
+          const nullPropMatch =
+            /A null value was found for the property named '([^']+)'/i.exec(errMsg) ||
+            /null value was found for.*property named '([^']+)'/i.exec(errMsg);
+          if (nullPropMatch && nullPropMatch[1]) {
+            const problematicKey = nullPropMatch[1];
+            if (problematicKey === "pendingWithEmailId") {
+              payload.pendingWithEmailId = isStartArrayExpected || SharePointCERDataService._preferFlatPersonArray ? [] : { results: [] };
+              modified = true;
+            } else if (payload[problematicKey] === null || payload[problematicKey] === undefined) {
+              payload[problematicKey] = [];
+              modified = true;
+            } else {
+              delete payload[problematicKey];
+              modified = true;
+            }
+          }
+
+          if (modified && attempts <= maxRetries) {
+            continue;
+          }
+        }
+
         // Match SharePoint REST error: "The property 'fieldName' does not exist on type '...'"
         const propMatch =
           /The property '([^']+)' does not exist/i.exec(errMsg) ||
@@ -696,6 +829,7 @@ export class SharePointCERDataService implements ICERDataService {
           /field or property '([^']+)' does not exist/i.exec(errMsg) ||
           /column named '([^']+)' was not found/i.exec(errMsg) ||
           /field '([^']+)' does not exist/i.exec(errMsg) ||
+          /navigation property '([^']+)'/i.exec(errMsg) ||
           /A parameter named '([^']+)' was not found/i.exec(errMsg);
 
         if (propMatch && propMatch[1]) {
@@ -705,7 +839,9 @@ export class SharePointCERDataService implements ICERDataService {
           delete payload[missingProp];
 
           // Handle known casing / schema variations:
-          if (missingProp === "RequestDate" && initialPayload.RequestDate && !payload.requestDate) {
+          if (missingProp === "pendingWithEmailId" && !payload.pendingWithEmail && (initialPayload.pending_with_email || initialPayload.pendingWithEmail)) {
+            payload.pendingWithEmail = initialPayload.pending_with_email || initialPayload.pendingWithEmail;
+          } else if (missingProp === "RequestDate" && initialPayload.RequestDate && !payload.requestDate) {
             payload.requestDate = initialPayload.RequestDate;
           } else if (missingProp === "requestDate" && (initialPayload.requestDate || initialPayload.RequestDate) && !payload.RequestDate) {
             payload.RequestDate = initialPayload.requestDate || initialPayload.RequestDate;
@@ -734,7 +870,7 @@ export class SharePointCERDataService implements ICERDataService {
 
         // Handle SharePoint OData array/primitive type mismatches (e.g. multi-user vs single-user, multi-choice vs single-choice)
         const isStartArrayExpected =
-          errMsg.indexOf("StartArray") !== -1 ||
+          errMsg.indexOf("StartArray") !== -1 || errMsg.indexOf("Collection(Edm.Int32)") !== -1 ||
           /PrimitiveValue.*StartArray/i.test(errMsg) ||
           /A 'StartArray' node was expected/i.test(errMsg);
 
@@ -775,15 +911,20 @@ export class SharePointCERDataService implements ICERDataService {
         }
 
         const isPrimitiveExpected =
-          errMsg.indexOf("PrimitiveValue") !== -1 &&
-          /StartArray.*PrimitiveValue/i.test(errMsg);
+          errMsg.indexOf("PrimitiveValue") !== -1 ||
+          /StartArray.*PrimitiveValue/i.test(errMsg) ||
+          /A 'PrimitiveValue' node was expected/i.test(errMsg);
 
         if (isPrimitiveExpected) {
           console.warn("[SharePointCERDataService] SharePoint expected a primitive value. Converting array fields to scalars and retrying...");
           let modified = false;
           for (const key of Object.keys(payload)) {
+            if (key === "pendingWithEmailId") continue; // Never convert multi-person collection to null
             if (Array.isArray(payload[key])) {
               payload[key] = payload[key].length > 0 ? payload[key][0] : null;
+              modified = true;
+            } else if (payload[key] && typeof payload[key] === "object" && Array.isArray(payload[key].results)) {
+              payload[key] = payload[key].results.length > 0 ? payload[key].results[0] : null;
               modified = true;
             }
           }
@@ -849,6 +990,112 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     throw new Error("Maximum retry attempts exceeded while reconciling SharePoint field schema.");
+  }
+
+  /**
+   * Resolves all assigned approvers for a workflow level into verified SharePoint User IDs.
+   * Validates existing user IDs via resolveUserById, and resolves unverified identities via ensureUser.
+   * Fails truthfully if any required approver cannot be resolved.
+   */
+  private async _resolveApproversForStage(
+    approvers: IUserRoleAssignment[],
+    explicitEmails?: string,
+    stageName = "Approval Stage"
+  ): Promise<{ userIds: number[]; resolvedEmails: string[]; approverNames: string[] }> {
+    const userIds: number[] = [];
+    const resolvedEmails: string[] = [];
+    const approverNames: string[] = [];
+
+    // 1. Process all configured approvers for this stage
+    for (const app of approvers) {
+      let resolvedId: number | null = null;
+      let resolvedEmail = (app.user_email || "").trim();
+      let resolvedLogin = (app.login_name || "").trim();
+
+      // Validate an existing ID against the actual SharePoint user identity via resolveUserById
+      if (app.user_id && typeof app.user_id === "number" && app.user_id > 0) {
+        try {
+          const verifiedUser = await PersonFieldService.resolveUserById(
+            this._spHttpClient,
+            this._siteUrl,
+            app.user_id
+          );
+          if (verifiedUser && verifiedUser.Id === app.user_id) {
+            resolvedId = verifiedUser.Id;
+            if (!resolvedEmail && verifiedUser.Email) resolvedEmail = verifiedUser.Email;
+            if (!resolvedLogin && verifiedUser.LoginName) resolvedLogin = verifiedUser.LoginName;
+          }
+        } catch {
+          // If resolveUserById fails or isn't verified, fall through to ensureUser
+        }
+      }
+
+      // If not verified by ID, resolve using ensureUser with loginName or userEmail
+      if (!resolvedId) {
+        const identityToResolve = resolvedLogin || resolvedEmail;
+        if (identityToResolve) {
+          try {
+            const ensured = await PersonFieldService.resolveUser(
+              this._spHttpClient,
+              this._siteUrl,
+              identityToResolve
+            );
+            if (ensured && ensured.Id > 0) {
+              resolvedId = ensured.Id;
+              if (!resolvedEmail && ensured.Email) resolvedEmail = ensured.Email;
+              if (!resolvedLogin && ensured.LoginName) resolvedLogin = ensured.LoginName;
+            }
+          } catch (ensureErr: any) {
+            console.error(`[SharePointCERDataService] Failed to resolve approver '${app.user_name || identityToResolve}' via ensureUser:`, ensureErr);
+          }
+        }
+      }
+
+      if (!resolvedId) {
+        throw new Error(
+          `Cannot submit CER for approval: Failed to resolve SharePoint User ID for assigned approver '${app.user_name || app.user_email || app.login_name}' in '${stageName}'. Please ensure the user has been added to the SharePoint site collection.`
+        );
+      }
+
+      if (userIds.indexOf(resolvedId) === -1) {
+        userIds.push(resolvedId);
+      }
+
+      const effectiveEmail = resolvedEmail || (resolvedLogin ? resolvedLogin.replace(/^i:0#\.f\|membership\|/i, "").replace(/^membership\|/i, "") : "");
+      if (effectiveEmail && resolvedEmails.indexOf(effectiveEmail) === -1) {
+        resolvedEmails.push(effectiveEmail);
+      }
+      if (app.user_name && approverNames.indexOf(app.user_name) === -1) {
+        approverNames.push(app.user_name);
+      }
+    }
+
+    // 2. Process any explicitly supplied pending emails (e.g. from existing proposal or rework)
+    if (explicitEmails) {
+      const extraEmails = explicitEmails.split(/[;,]/).map((e) => e.trim()).filter(Boolean);
+      for (const em of extraEmails) {
+        try {
+          const ensured = await PersonFieldService.resolveUser(
+            this._spHttpClient,
+            this._siteUrl,
+            em
+          );
+          if (ensured && ensured.Id > 0) {
+            if (userIds.indexOf(ensured.Id) === -1) {
+              userIds.push(ensured.Id);
+            }
+            const cleanEm = (ensured.Email || em).trim();
+            if (cleanEm && resolvedEmails.indexOf(cleanEm) === -1) {
+              resolvedEmails.push(cleanEm);
+            }
+          }
+        } catch (ensureErr) {
+          console.warn("[SharePointCERDataService] Warning resolving explicit email:", em, ensureErr);
+        }
+      }
+    }
+
+    return { userIds, resolvedEmails, approverNames };
   }
 
   public async createProposal(
@@ -934,11 +1181,52 @@ export class SharePointCERDataService implements ICERDataService {
       }
     }
 
+    let pendingSpUserIds: number[] = [];
+    let pendingEmailsList: string[] = [];
+
+    if (!isDraft) {
+      if (isL1PO) {
+        if (ownerSpUserId) {
+          pendingSpUserIds = [ownerSpUserId];
+          pendingEmailsList = [newProposal.owner_email || ""];
+        } else {
+          throw new Error(`Cannot route to Project Owner: Proposal Owner Email ('${newProposal.owner_email || ""}') is missing or invalid.`);
+        }
+      } else {
+        const levelApprovers = activeL1?.approvers || [];
+        const resolved = await this._resolveApproversForStage(
+          levelApprovers,
+          newProposal.pending_with_email,
+          activeL1?.role_title || "L1 - Finance Review"
+        );
+        if (resolved.userIds.length === 0) {
+          throw new Error(
+            `Cannot submit CER for approval: No active approvers found or resolved for Level 1 (${activeL1?.role_title || "Finance"}). Please configure approvers in CERRoleMatrix.`
+          );
+        }
+        pendingSpUserIds = resolved.userIds;
+        pendingEmailsList = resolved.resolvedEmails;
+      }
+    }
+
     const modernPayload: any = this._mapProposalToModernSharePointItem(newProposal);
     if (ownerSpUserId) {
       const ownerPayload = PersonFieldService.formatPersonFieldPayload("cerOwner", ownerSpUserId);
       Object.assign(modernPayload, ownerPayload);
     }
+    if (pendingSpUserIds.length > 0) {
+      modernPayload.pendingWithEmailId = SharePointCERDataService._preferFlatPersonArray
+        ? pendingSpUserIds
+        : { results: pendingSpUserIds };
+      newProposal.pending_with_email = pendingEmailsList.join(";");
+    } else {
+      modernPayload.pendingWithEmailId = SharePointCERDataService._preferFlatPersonArray
+        ? []
+        : { results: [] };
+    }
+    delete modernPayload.pendingWithEmail;
+    delete modernPayload.pendingWith;
+    delete modernPayload.pendingWithId;
 
     // Check if an item already exists in CERProposals list (e.g. updating an existing draft)
     let existingItems: Array<{ Id: number; Status?: string; cerStatus?: string }> = [];
@@ -1096,7 +1384,7 @@ export class SharePointCERDataService implements ICERDataService {
     proposal: ICERProposal,
     user: { name: string; email: string },
     originalProposal?: ICERProposal,
-    options?: { removedAttachmentIds?: string[]; stagedAttachments?: ICERAttachment[] }
+    options?: { removedAttachmentIds?: string[]; stagedAttachments?: ICERAttachment[]; snapshotAttachments?: ICERAttachment[] }
   ): Promise<{
     success: boolean;
     message: string;
@@ -1320,11 +1608,56 @@ export class SharePointCERDataService implements ICERDataService {
       }
     }
 
+    let pendingSpUserIds: number[] = [];
+    let pendingEmailsList: string[] = [];
+
+    if (nextStatus === "In Approval") {
+      const activeLevels = await this.getWorkflowLevels(cleanProposal.sbu);
+      const activeStage = activeLevels.find((l) => l.level_id === nextLevel && l.is_active) || activeLevels[0];
+      const isPO = activeStage ? isProjectOwnerStage(activeStage) : false;
+
+      if (isPO) {
+        if (ownerSpUserId) {
+          pendingSpUserIds = [ownerSpUserId];
+          pendingEmailsList = [updatedProposal.owner_email || ""];
+        } else {
+          throw new Error(`Cannot route to Project Owner: Proposal Owner Email ('${updatedProposal.owner_email || ""}') is missing or invalid.`);
+        }
+      } else {
+        const levelApprovers = activeStage?.approvers || [];
+        const resolved = await this._resolveApproversForStage(
+          levelApprovers,
+          updatedProposal.pending_with_email,
+          activeStage?.role_title || `Level ${nextLevel}`
+        );
+        if (resolved.userIds.length === 0) {
+          throw new Error(
+            `Cannot resubmit CER for approval: No active approvers found or resolved for Level ${nextLevel} (${activeStage?.role_title || "Approver"}). Please configure approvers in CERRoleMatrix.`
+          );
+        }
+        pendingSpUserIds = resolved.userIds;
+        pendingEmailsList = resolved.resolvedEmails;
+      }
+    }
+
     const modernPayload: any = this._mapProposalToModernSharePointItem(updatedProposal);
     if (ownerSpUserId) {
       const ownerPayload = PersonFieldService.formatPersonFieldPayload("cerOwner", ownerSpUserId);
       Object.assign(modernPayload, ownerPayload);
     }
+    if (pendingSpUserIds.length > 0) {
+      modernPayload.pendingWithEmailId = SharePointCERDataService._preferFlatPersonArray
+        ? pendingSpUserIds
+        : { results: pendingSpUserIds };
+      updatedProposal.pending_with_email = pendingEmailsList.join(";");
+    } else {
+      modernPayload.pendingWithEmailId = SharePointCERDataService._preferFlatPersonArray
+        ? []
+        : { results: [] };
+    }
+    delete modernPayload.pendingWithEmail;
+    delete modernPayload.pendingWith;
+    delete modernPayload.pendingWithId;
 
     // Post-Approval Archival: If previous status was Approved, archive snapshot into CERProposalsHistory
     if (isApprovedOriginal) {
@@ -1337,6 +1670,7 @@ export class SharePointCERDataService implements ICERDataService {
       try {
         await this.archiveApprovedProposal(snapshotToArchive, {
           removedAttachmentIds: options?.removedAttachmentIds,
+          snapshotAttachments: options?.snapshotAttachments,
         });
       } catch (archiveErr: any) {
         console.error("[SharePointCERDataService] Error archiving approved proposal snapshot to CERProposalsHistory:", archiveErr);
@@ -1642,10 +1976,10 @@ export class SharePointCERDataService implements ICERDataService {
   public async getProposalHistory(cerProposalId?: string): Promise<ICERProposal[]> {
     const cleanId = (cerProposalId || "").trim();
     const safeCleanId = escapeODataString(cleanId);
-    const baseNo = safeCleanId.replace(/-R\d+$/i, "");
+
     const filterClause =
       cleanId && cleanId.toUpperCase() !== "ALL"
-        ? `cerPrId eq '${safeCleanId}' or proposalNo eq '${safeCleanId}' or Title eq '${safeCleanId}' or proposalNo eq '${baseNo}' or Title eq '${baseNo}'`
+        ? `cerPrId eq '${safeCleanId}'`
         : undefined;
 
     try {
@@ -1686,7 +2020,7 @@ export class SharePointCERDataService implements ICERDataService {
       if (items.length === 0 && cleanId && cleanId.toUpperCase() !== "ALL") {
         try {
           items = await this._sp.getListItems(SP_LISTS.CER_PROPOSALS_HISTORY, {
-            filter: `Title eq '${safeCleanId}' or Title eq '${baseNo}'`,
+            filter: `cerPrId eq '${safeCleanId}' or Title eq '${safeCleanId}'`,
             top: 100,
           });
         } catch {
@@ -1713,7 +2047,7 @@ export class SharePointCERDataService implements ICERDataService {
    * Discovers exact column schema from SharePoint, deduplicates by proposal number,
    * updates any existing row and purges duplicates.
    */
-  public async archiveApprovedProposal(original: ICERProposal, options?: { removedAttachmentIds?: string[] }): Promise<void> {
+  public async archiveApprovedProposal(original: ICERProposal, options?: { removedAttachmentIds?: string[]; snapshotAttachments?: ICERAttachment[] }): Promise<void> {
     const cerId = (original.cer_proposal_id || original.cerprno || "").trim();
     const propNo = (original.proposal_no || original.cerprno || cerId).trim();
 
@@ -1733,25 +2067,9 @@ export class SharePointCERDataService implements ICERDataService {
       }
     }
 
-    // 1. Determine existing snapshots for this proposal to compute accurate versionTag
-    let versionIndex = 1;
-    if ((original as any).version) {
-      versionIndex = parseInt(String((original as any).version).replace(/\D/g, ""), 10) || 1;
-    } else {
-      try {
-        const historyCountItems = await this._sp.getListItems<{ Id: number; version?: string; Version?: string }>(
-          SP_LISTS.CER_PROPOSALS_HISTORY,
-          {
-            filter: `cerPrId eq '${escapeODataString(cerId)}' or proposalNo eq '${escapeODataString(propNo)}' or Title eq '${escapeODataString(propNo)}'`,
-            select: "Id,version,Version",
-            top: 100,
-          }
-        );
-        versionIndex = (historyCountItems?.length || 0) + 1;
-      } catch {
-        versionIndex = Math.max(1, (Number(original.revision_count) || 0) + 1);
-      }
-    }
+    // 1. Determine target versionTag for this approved snapshot from its lifecycle revision_count
+    // revision_count = 0 -> V1, revision_count = 1 -> V2, revision_count = 2 -> V3
+    const versionIndex = (Number(original.revision_count) || 0) + 1;
     const versionTag = `V${versionIndex}`;
 
     // 2. Discover list fields for CERProposalsHistory
@@ -1759,10 +2077,23 @@ export class SharePointCERDataService implements ICERDataService {
 
     // 2a. Query active attachments to generate authoritative snapshot manifest
     let snapshotAttachments: ICERAttachment[] = [];
-    try {
-      snapshotAttachments = await this.getAttachments(cerId, { forceRefresh: true });
-    } catch {
-      snapshotAttachments = [];
+    if (options?.snapshotAttachments && options.snapshotAttachments.length > 0) {
+      snapshotAttachments = options.snapshotAttachments;
+    } else {
+      try {
+        const allAtts = await this.getAttachments(cerId, { forceRefresh: true });
+        const approvedTime = new Date((original as any).created_at || original.created_date || original.modified_date || 0).getTime();
+        snapshotAttachments = allAtts.filter((a) => {
+          if (!a.uploaded_date) return true;
+          const upTime = new Date(a.uploaded_date).getTime();
+          if (approvedTime > 0 && upTime > approvedTime + 60000) {
+            return false;
+          }
+          return true;
+        });
+      } catch {
+        snapshotAttachments = [];
+      }
     }
 
     const manifestEntries: ICERAttachmentManifestEntry[] = snapshotAttachments.map((a) => ({
@@ -1819,14 +2150,14 @@ export class SharePointCERDataService implements ICERDataService {
 
     try {
       existingItems = await this._sp.getListItems<any>(SP_LISTS.CER_PROPOSALS_HISTORY, {
-        filter: `(cerPrId eq '${safeCerId}' or proposalNo eq '${safePropNo}' or Title eq '${safePropNo}') and (version eq '${versionTag}' or Version eq '${versionTag}')`,
+        filter: `cerPrId eq '${safeCerId}' and (version eq '${versionTag}' or Version eq '${versionTag}')`,
         select: "Id,Title,version,Version",
         top: 5,
       });
     } catch {
       try {
         const allHist = await this._sp.getListItems<any>(SP_LISTS.CER_PROPOSALS_HISTORY, {
-          filter: `cerPrId eq '${safeCerId}' or proposalNo eq '${safePropNo}' or Title eq '${safePropNo}'`,
+          filter: `cerPrId eq '${safeCerId}'`,
           select: "Id,Title,version,Version",
           top: 50,
         });
@@ -1913,24 +2244,11 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     // Auto-heal existing blank rows in CERProposalsHistory:
-    // If historical items exist but lack pr_name or sbu, re-archive the snapshot so columns become populated
+    // If historical items exist but lack pr_name or sbu, populate in memory without re-archiving
     if (history.length > 0 && active) {
-      const needsHealing = history.some((h) => !h.pr_name || !h.sbu);
-      if (needsHealing) {
-        for (const h of history) {
-          if (!h.pr_name || !h.sbu) {
-            const healed: ICERProposal = {
-              ...active,
-              ...h,
-              cer_proposal_id: parentCerId,
-              cerprno: parentCerId,
-              proposal_no: h.proposal_no || h.cerprno || (active.proposal_no ? active.proposal_no.replace(/-R\d+$/i, "") : parentCerId),
-              status: "Approved",
-              current_level: 6,
-            };
-            void this.archiveApprovedProposal(healed);
-          }
-        }
+      for (const h of history) {
+        if (!h.pr_name) h.pr_name = active.pr_name;
+        if (!h.sbu) h.sbu = active.sbu;
       }
     }
 
@@ -2236,40 +2554,41 @@ export class SharePointCERDataService implements ICERDataService {
           const lid = stage.level;
           const isPO = stage.isProjectOwnerStage;
 
-          let matchedUser: IUserRoleAssignment | undefined;
+          let matchedUsers: IUserRoleAssignment[] = [];
           if (!isPO) {
-            // 1. Try exact SBU match for Approver at this level
+            // Retrieve active Approvers assigned to this level
+            const eligibleForLevel = approverRoles.filter(
+              (u) =>
+                u.is_active !== false &&
+                u.role === "Approver" &&
+                u.approval_level === lid
+            );
+
+            let candidates: IUserRoleAssignment[] = [];
             if (targetSbu) {
-              matchedUser = approverRoles.find(
-                (u) =>
-                  u.is_active !== false &&
-                  u.role === "Approver" &&
-                  u.approval_level === lid &&
-                  Boolean(u.sbu && u.sbu.toLowerCase() === targetSbu.toLowerCase())
-              );
+              const exactSbuUsers = eligibleForLevel.filter((u) => Boolean(u.sbu && u.sbu.toLowerCase() === targetSbu.toLowerCase()));
+              const allSbuUsers = eligibleForLevel.filter((u) => Boolean(u.sbu && u.sbu.toLowerCase() === "all"));
+              const merged = exactSbuUsers.concat(allSbuUsers);
+              candidates = merged.length > 0 ? merged : eligibleForLevel;
+            } else {
+              candidates = eligibleForLevel;
             }
 
-            // 2. Try 'All' SBU assignment for Approver at this level
-            if (!matchedUser) {
-              matchedUser = approverRoles.find(
-                (u) =>
-                  u.is_active !== false &&
-                  u.role === "Approver" &&
-                  u.approval_level === lid &&
-                  Boolean(u.sbu && u.sbu.toLowerCase() === "all")
-              );
-            }
-
-            // 3. Fallback to any active Approver matching this level
-            if (!matchedUser) {
-              matchedUser = approverRoles.find(
-                (u) =>
-                  u.is_active !== false &&
-                  u.role === "Approver" &&
-                  u.approval_level === lid
-              );
+            // Deduplicate: by verified user_id if present, otherwise by normalized login / email
+            const seenKeys: string[] = [];
+            for (const u of candidates) {
+              const dedupKey = u.user_id && u.user_id > 0
+                ? `id:${u.user_id}`
+                : `login:${PersonFieldService.normalizeLogon(u.login_name || u.user_email)}`;
+              if (dedupKey && seenKeys.indexOf(dedupKey) === -1) {
+                seenKeys.push(dedupKey);
+                matchedUsers.push(u);
+              }
             }
           }
+
+          const allEmails = matchedUsers.map((u) => u.user_email).filter(Boolean);
+          const allNames = matchedUsers.map((u) => u.user_name).filter(Boolean);
 
           return {
             id: `L${lid}-${targetSbu || "ALL"}`,
@@ -2282,16 +2601,17 @@ export class SharePointCERDataService implements ICERDataService {
             is_project_owner_stage: isPO,
             approver_name: isPO
               ? "Project Owner (Auto-fetched from CER Proposal)"
-              : matchedUser
-              ? matchedUser.user_name
+              : allNames.length > 0
+              ? allNames.join(", ")
               : "",
             approver_email: isPO
               ? ""
-              : matchedUser
-              ? matchedUser.user_email
+              : allEmails.length > 0
+              ? allEmails.join(";")
               : "",
-            created_by: matchedUser ? matchedUser.assigned_by : "System",
-            created_date: matchedUser ? matchedUser.assigned_date : "",
+            approvers: matchedUsers,
+            created_by: matchedUsers[0] ? matchedUsers[0].assigned_by : "System",
+            created_date: matchedUsers[0] ? matchedUsers[0].assigned_date : "",
           };
         });
 
@@ -2487,7 +2807,7 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     const proposalSBU = existingProposal.sbu || "RJ North";
-    const workflowLevels = await this.getWorkflowLevels(proposalSBU);
+    const workflowLevels = await this.getWorkflowLevels(proposalSBU, true);
     const activeLevels = workflowLevels
       .filter((l) => l.is_active)
       .sort((a, b) => a.level_id - b.level_id);
@@ -2547,9 +2867,20 @@ export class SharePointCERDataService implements ICERDataService {
         }
       }
 
-      if (stageApproverEmail && stageApproverEmail !== approverEmail) {
+      const stageApproverEmails = stageApproverEmail
+        ? stageApproverEmail.split(/[;,]/).map((e) => e.trim().toLowerCase()).filter(Boolean)
+        : [];
+      const proposalPendingEmails = (existingProposal.pending_with_email || "")
+        ? existingProposal.pending_with_email.split(/[;,]/).map((e) => e.trim().toLowerCase()).filter(Boolean)
+        : [];
+      const isApprovedByDesignated =
+        stageApproverEmails.indexOf(approverEmail) !== -1 ||
+        proposalPendingEmails.indexOf(approverEmail) !== -1 ||
+        Boolean(currentLevelConfig?.approvers && currentLevelConfig.approvers.some((app) => (app.user_email || "").trim().toLowerCase() === approverEmail || (app.login_name || "").trim().toLowerCase() === approverEmail));
+
+      if ((stageApproverEmails.length > 0 || proposalPendingEmails.length > 0) && !isApprovedByDesignated) {
         throw new Error(
-          `Access Denied: This approval stage is assigned to designated approver (${stageApproverEmail}). Only the assigned approver can approve this level.`
+          `Access Denied: This approval stage is assigned to designated approver (${stageApproverEmail || existingProposal.pending_with_email}). Only the assigned approver can approve this level.`
         );
       }
     }
@@ -2662,7 +2993,7 @@ export class SharePointCERDataService implements ICERDataService {
     // Send-backs and re-triggers within a cycle must NEVER increment the version tag.
     let versionIndex = 1;
     try {
-      const cleanProposalId = (existingProposal.cer_proposal_id || existingProposal.cerprno || params.cerprno || "").split("-R")[0].trim();
+      const cleanProposalId = (existingProposal.cer_proposal_id || existingProposal.cerprno || params.cerprno || "").trim();
       const hist = await this.getProposalHistory(cleanProposalId);
       versionIndex = (hist?.length || 0) + 1;
     } catch {
@@ -2786,12 +3117,101 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     // 6. Primary write 2: Update proposal item in CERProposals
+    let nextPendingUserIds: number[] = [];
+    let nextEmailsList: string[] = [];
+    const decision = params.decision;
+
+    if (decision === "APPROVED") {
+      if (nextLevelConfig) {
+        if (isNextPO) {
+          let ownerId: number | null = null;
+          const ownerIdent = existingProposal.owner_email || existingProposal.owname;
+          if (ownerIdent) {
+            try {
+              const ensured = await PersonFieldService.resolveUser(
+                this._spHttpClient,
+                this._siteUrl,
+                ownerIdent
+              );
+              if (ensured && ensured.Id > 0) {
+                ownerId = ensured.Id;
+              }
+            } catch (err) {
+              console.warn("[SharePointCERDataService] Failed to resolve owner for L2:", err);
+            }
+          }
+          if (!ownerId) {
+            throw new Error(`Cannot advance workflow to Project Owner: Failed to resolve SharePoint User ID for proposal owner '${ownerIdent}'.`);
+          }
+          nextPendingUserIds = [ownerId];
+          nextEmailsList = [existingProposal.owner_email || ""];
+        } else {
+          const levelApprovers = nextLevelConfig.approvers || [];
+          if (levelApprovers.length > 0 || nextEmail) {
+            const resolved = await this._resolveApproversForStage(
+              levelApprovers,
+              nextEmail,
+              nextLevelConfig.role_title || `Level ${nextLevel}`
+            );
+            if (resolved.userIds.length > 0) {
+              nextPendingUserIds = resolved.userIds;
+              nextEmailsList = resolved.resolvedEmails;
+            }
+          } else {
+            console.warn(
+              `[SharePointCERDataService] No active approvers configured in CERRoleMatrix for next stage Level ${nextLevel} (${nextLevelConfig.role_title}). Advancing workflow pending assignment.`
+            );
+          }
+        }
+      } else {
+        // Final approval reached
+        nextPendingUserIds = [];
+        nextEmailsList = [];
+      }
+    } else if (decision === "REJECTED") {
+      nextPendingUserIds = [];
+      nextEmailsList = [];
+    } else if (decision === "SEND_BACK" || decision === "SENT_BACK") {
+      let creatorId: number | null = null;
+      const targetIdentity = existingProposal.owner_email || existingProposal.created_by || existingProposal.owname;
+      if (targetIdentity) {
+        try {
+          const ensured = await PersonFieldService.resolveUser(
+            this._spHttpClient,
+            this._siteUrl,
+            targetIdentity
+          );
+          if (ensured && ensured.Id > 0) {
+            creatorId = ensured.Id;
+          }
+        } catch (err) {
+          console.warn("[SharePointCERDataService] Failed to resolve initiator for Send Back:", err);
+        }
+      }
+      if (creatorId) {
+        nextPendingUserIds = [creatorId];
+      }
+      nextEmailsList = [targetIdentity || ""];
+    }
+
     const modernUpdatePayload: Record<string, any> = {
       status: newStatus,
       currentLevel: nextLevel,
       pendingWithRole: nextRole,
-      pendingWithEmail: nextEmail,
     };
+
+    if (nextPendingUserIds.length > 0) {
+      modernUpdatePayload.pendingWithEmailId = SharePointCERDataService._preferFlatPersonArray
+        ? nextPendingUserIds
+        : { results: nextPendingUserIds };
+    } else {
+      modernUpdatePayload.pendingWithEmailId = SharePointCERDataService._preferFlatPersonArray
+        ? []
+        : { results: [] };
+    }
+    delete modernUpdatePayload.pendingWithEmail;
+    delete modernUpdatePayload.pendingWith;
+    delete modernUpdatePayload.pendingWithId;
 
     try {
       await this._executeWithFieldFallback(
@@ -2965,25 +3385,47 @@ export class SharePointCERDataService implements ICERDataService {
             if (snapshotCandidate) {
               const manifest = this._extractAttachmentManifest(snapshotCandidate);
               if (manifest !== null) {
-                // Return authoritative manifest entries!
-                result = manifest.map((m) => {
-                  const physical = mapped.find(
-                    (p) => String(p.id) === String(m.id) || p.name.toLowerCase() === m.name.toLowerCase()
-                  );
-                  return {
-                    id: String(m.id),
-                    cerprno: cerprno,
-                    name: m.name,
-                    size: m.size || (physical ? physical.size : 0),
-                    type: m.type || (physical ? physical.type : "application/octet-stream"),
-                    data_url: physical?.data_url || m.data_url || m.server_relative_url,
-                    server_relative_url: physical?.server_relative_url || m.server_relative_url || m.data_url,
-                    uploaded_by: m.uploaded_by || physical?.uploaded_by || "User",
-                    uploaded_date: m.uploaded_date || physical?.uploaded_date || "",
-                    version: targetTag,
-                    version_tag: targetTag,
-                  };
-                });
+                const snapshotCreatedTime = (snapshotCandidate as any)?.created_at
+                  ? new Date((snapshotCandidate as any).created_at).getTime()
+                  : snapshotCandidate?.created_date
+                  ? new Date(snapshotCandidate.created_date).getTime()
+                  : 0;
+
+                // Return authoritative manifest entries, safely filtering out any physical files uploaded significantly after snapshot approval
+                result = manifest
+                  .filter((m) => {
+                    const physical = mapped.find(
+                      (p) => String(p.id) === String(m.id) || p.name.toLowerCase() === m.name.toLowerCase()
+                    );
+                    if (physical && physical.version && physical.version.toUpperCase() !== targetTag) {
+                      return false;
+                    }
+                    if (physical && snapshotCreatedTime > 0 && physical.uploaded_date) {
+                      const upTime = new Date(physical.uploaded_date).getTime();
+                      if (!isNaN(upTime) && upTime > snapshotCreatedTime + 60000) {
+                        return false;
+                      }
+                    }
+                    return true;
+                  })
+                  .map((m) => {
+                    const physical = mapped.find(
+                      (p) => String(p.id) === String(m.id) || p.name.toLowerCase() === m.name.toLowerCase()
+                    );
+                    return {
+                      id: String(m.id),
+                      cerprno: cerprno,
+                      name: m.name,
+                      size: m.size || (physical ? physical.size : 0),
+                      type: m.type || (physical ? physical.type : "application/octet-stream"),
+                      data_url: physical?.data_url || m.data_url || m.server_relative_url,
+                      server_relative_url: physical?.server_relative_url || m.server_relative_url || m.data_url,
+                      uploaded_by: m.uploaded_by || physical?.uploaded_by || "User",
+                      uploaded_date: m.uploaded_date || physical?.uploaded_date || "",
+                      version: targetTag,
+                      version_tag: targetTag,
+                    };
+                  });
                 this._cachedAttachments.set(cacheKey, { data: result, timestamp: Date.now() });
                 return result;
               }
@@ -3262,7 +3704,7 @@ export class SharePointCERDataService implements ICERDataService {
     id: string,
     options?: { cerprno?: string; force?: boolean; serverRelativeUrl?: string }
   ): Promise<void> {
-    const cerprno = options?.cerprno;
+    const cerprno = typeof options === "string" ? options : options?.cerprno;
     if (!options?.force && cerprno) {
       // 1. Check if parent proposal is currently Approved
       try {
@@ -3295,17 +3737,46 @@ export class SharePointCERDataService implements ICERDataService {
             );
           }
 
-          // 3. Check if proposal has historical snapshots in CERProposalsHistory
-          const historySnapshots = await this.getProposalHistory(cerprno);
-          if (historySnapshots && historySnapshots.length > 0) {
-            const fileUploadTime = new Date(targetItem?.uploadDate || targetItem?.Created || 0).getTime();
-            const latestSnapshotTime = Math.max(
-              ...historySnapshots.map((h) => new Date((h as any).created_at || h.created_date || h.st_date || 0).getTime())
+          // 3. Exhaustive check across every historical snapshot manifest in CERProposalsHistory
+          let historySnapshots: ICERProposal[] = [];
+          try {
+            historySnapshots = await this.getProposalHistory(cerprno);
+          } catch (histErr) {
+            // Fail closed: If historical manifests cannot be reliably fetched, block deletion!
+            throw new Error(
+              `[Protected Historical File] Deletion blocked: Unable to verify historical proposal manifests for '${cerprno}'. Deletion denied to protect historical audit integrity.`
             );
-            if (fileUploadTime > 0 && latestSnapshotTime > 0 && fileUploadTime <= latestSnapshotTime + 5 * 60 * 1000) {
-              throw new Error(
-                `[Protected Historical File] Deletion blocked: File (ID: ${id}) belongs to an approved audit snapshot and cannot be deleted.`
-              );
+          }
+
+          if (historySnapshots && historySnapshots.length > 0) {
+            const targetLeaf = String((targetItem as any)?.FileLeafRef || (targetItem as any)?.Title || "").toLowerCase();
+            const targetUrl = String((targetItem as any)?.FileRef || (targetItem as any)?.ServerRelativeUrl || "").toLowerCase();
+
+            for (const snap of historySnapshots) {
+              const manifestStr = (snap as any).attachments_manifest || (snap as any).attachmentsManifest || "";
+              if (manifestStr) {
+                try {
+                  const entries: ICERAttachmentManifestEntry[] = JSON.parse(manifestStr);
+                  for (const entry of entries) {
+                    const entryId = String(entry.id || "").trim();
+                    const entryUrl = (entry.server_relative_url || entry.data_url || "").toLowerCase();
+                    const entryName = (entry.name || "").toLowerCase();
+                    const matchesId = Boolean(entryId && entryId === String(id));
+                    const matchesUrl = Boolean(targetUrl && (entryUrl === targetUrl || entryUrl.endsWith(targetUrl) || targetUrl.endsWith(entryUrl)));
+                    const matchesName = Boolean(targetLeaf && (targetLeaf === entryName || targetLeaf.endsWith(`_${entryName}`)));
+
+                    if (matchesId || matchesUrl || matchesName) {
+                      throw new Error(
+                        `[Protected Historical File] Deletion blocked: File (ID: ${id}) is part of historical version '${entry.version_tag || snap.version || "Archived"}' audit manifest and cannot be deleted.`
+                      );
+                    }
+                  }
+                } catch (jsonErr: any) {
+                  if (jsonErr.message && jsonErr.message.includes("[Protected Historical File]")) {
+                    throw jsonErr;
+                  }
+                }
+              }
             }
           }
         }
@@ -3424,6 +3895,14 @@ export class SharePointCERDataService implements ICERDataService {
                          PersonFieldService.extractPersonField(item, "initiator") ||
                          PersonFieldService.extractPersonField(item, "cerInitiator") ||
                          PersonFieldService.extractPersonField(item, "Created_x0020_By");
+    const pendingPersons = PersonFieldService.extractMultiPersonField(item, "pendingWithEmail");
+    const multiPendingEmails = pendingPersons.map((p) => p.email).filter(Boolean);
+    const multiPendingNames = pendingPersons.map((p) => p.name).filter(Boolean);
+    const pendingPerson = pendingPersons.length > 0 ? pendingPersons[0] : (
+      PersonFieldService.extractPersonField(item, "pendingWith") ||
+      PersonFieldService.extractPersonField(item, "pendingWithUser") ||
+      PersonFieldService.extractPersonField(item, "pendingApprover")
+    );
     const authorName = authorPerson?.name || item.Author?.Title || item.Author?.title || (typeof item.created_by === "string" ? item.created_by : "") || (typeof item.createdBy === "string" ? item.createdBy : "") || "System";
     const cerId = String(item.cerPrId || item.cerPrNo || item.cerprno || item.Title || "");
     const propNo = String(item.proposalNo || item.proposal_no || item.cerPrId || item.cerPrNo || item.cerprno || item.Title || "");
@@ -3515,7 +3994,7 @@ export class SharePointCERDataService implements ICERDataService {
       remarks_jv: item.remarksJv || item.remarks_jv || "",
       current_level: Number(item.currentLevel ?? item.current_level ?? 1),
       pending_with_role: item.pendingWithRole || item.pending_with_role || "L1 - Technical Review",
-      pending_with_email: item.pendingWithEmail || item.pending_with_email || "",
+      pending_with_email: (multiPendingEmails.length > 0 ? multiPendingEmails.join(";") : (pendingPerson?.email || (typeof item.pendingWithEmail === "string" ? item.pendingWithEmail : "") || (typeof item.pending_with_email === "string" ? item.pending_with_email : "") || (typeof item.pendingWith === "string" ? item.pendingWith : "") || "")),
       request_date: (item.RequestDate || item.requestDate || item.request_date) ? String(item.RequestDate || item.requestDate || item.request_date).split("T")[0] : undefined,
       created_date: item.Created || new Date().toISOString(),
       created_by: authorName,
@@ -3590,7 +4069,6 @@ export class SharePointCERDataService implements ICERDataService {
       remarksJv: proposal.remarks_jv,
       currentLevel: Number(proposal.current_level || 1),
       pendingWithRole: proposal.pending_with_role,
-      pendingWithEmail: proposal.pending_with_email,
       RequestDate: formatIsoDate(proposal.request_date),
       revisionCount: Number(proposal.revision_count || 0),
     };
@@ -3699,30 +4177,21 @@ export class SharePointCERDataService implements ICERDataService {
         const listName = SP_LISTS.CER_ROLE_MATRIX;
 
         try {
-          // Tier 1: Modern CERRoleMatrix schema with Person field 'User' expanded
+          // Tier 1: Modern CERRoleMatrix schema with wildcard select and Person field 'User' expanded
           items = await this._sp.getListItems<Record<string, any>>(listName, {
-            select: "Id,ID,Title,role,sbu,approverLevel,approverRoleTitle,Created,User/Id,User/Title,User/EMail,User/Name",
+            select: "*,User/Id,User/Title,User/EMail,User/Name",
             expand: "User",
             top: 500,
           });
         } catch {
           try {
-            // Tier 2: User Person field with Id & Title only (fallback if tenant restricts LoginName/EMail projection)
+            // Tier 2: Unexpanded query (fallback if tenant blocks expand or User column is missing)
             items = await this._sp.getListItems<Record<string, any>>(listName, {
-              select: "Id,ID,Title,role,sbu,approverLevel,approverRoleTitle,Created,User/Id,User/Title",
-              expand: "User",
               top: 500,
             });
-          } catch {
-            try {
-              // Tier 3: Unprojected safe query (SharePoint never fails on column projection mismatch when select is omitted)
-              items = await this._sp.getListItems<Record<string, any>>(listName, {
-                top: 500,
-              });
-            } catch (err) {
-              console.warn(`[SharePointCERDataService] Query on ${listName} failed:`, err);
-              items = [];
-            }
+          } catch (err) {
+            console.warn(`[SharePointCERDataService] Query on ${listName} failed:`, err);
+            items = [];
           }
         }
 
@@ -3732,13 +4201,49 @@ export class SharePointCERDataService implements ICERDataService {
           return [];
         }
 
-        const list: IUserRoleAssignment[] = items.map((item: any) => {
-          const userPerson = PersonFieldService.extractPersonField(item, "User");
+        const list: IUserRoleAssignment[] = await Promise.all(items.map(async (item: any) => {
+          let userPerson = PersonFieldService.extractPersonField(item, "User");
           const assignedByPerson = PersonFieldService.extractPersonField(item, "assignedBy");
 
+          const rawUserId = userPerson?.id || (item.UserId ? Number(item.UserId) : (item.User && typeof item.User === "number" ? Number(item.User) : undefined));
+
+          // If Person field was not expanded but UserId exists, resolve identity via resolveUserById
+          if ((!userPerson || !userPerson.email) && rawUserId && rawUserId > 0) {
+            try {
+              const resolved = await PersonFieldService.resolveUserById(this._spHttpClient, this._siteUrl, rawUserId);
+              if (resolved) {
+                userPerson = {
+                  id: resolved.Id,
+                  name: resolved.Title,
+                  email: resolved.Email,
+                  loginName: resolved.LoginName,
+                };
+              }
+            } catch {
+              // Continue with fallback fields
+            }
+          }
+
           const userName = userPerson?.name || item.Title || item.user_name || "";
-          const userEmail = userPerson?.email || item.user_email || "";
-          const loginName = userPerson?.loginName || item.login_name || userEmail;
+
+          // Priority 1: Resolved Person field email
+          let userEmail = (userPerson?.email || "").trim();
+
+          // Priority 2: Valid UPN extracted from SharePoint LoginName
+          const rawLogin = (userPerson?.loginName || item.login_name || item.LoginName || "").trim();
+          if (!userEmail && rawLogin) {
+            const claimsStripped = rawLogin.replace(/^i:0#.f\|membership\|/i, "").replace(/^membership\|/i, "");
+            if (claimsStripped.indexOf("@") !== -1) {
+              userEmail = claimsStripped;
+            }
+          }
+
+          // Priority 3: Explicitly stored and validated email/UPN from the role matrix
+          if (!userEmail && item.user_email && String(item.user_email).indexOf("@") !== -1) {
+            userEmail = String(item.user_email).trim();
+          }
+
+          const loginName = rawLogin || userEmail;
           const userId = userPerson?.id || (item.UserId ? Number(item.UserId) : undefined);
 
           const assignedByName = assignedByPerson?.name || item.assignedBy || item.assigned_by || (item.Author ? item.Author.Title : "System Administrator");
@@ -3762,7 +4267,7 @@ export class SharePointCERDataService implements ICERDataService {
             assigned_by: assignedByName,
             assigned_date: assignedDate,
           };
-        });
+        }));
         list.sort((a: IUserRoleAssignment, b: IUserRoleAssignment) => new Date(b.assigned_date).getTime() - new Date(a.assigned_date).getTime());
         
         this._cachedUserRoles = list;
@@ -3936,9 +4441,13 @@ export class SharePointCERDataService implements ICERDataService {
           lastCreateErr = createErr;
           const errStr = String(createErr?.message || "").toLowerCase();
 
-          // Match field name from SharePoint error message (e.g. "The field or property 'xyz' does not exist")
-          const fieldMatch = errStr.match(/field or property '([^']+)' does not exist/i) ||
-                             errStr.match(/field '([^']+)' does not exist/i);
+          // Match field name from SharePoint error message (e.g. "The property 'xyz' does not exist" or "field or property 'xyz' does not exist")
+          const fieldMatch =
+            errStr.match(/The property '([^']+)' does not exist/i) ||
+            errStr.match(/property '([^']+)' does not exist/i) ||
+            errStr.match(/field or property '([^']+)' does not exist/i) ||
+            errStr.match(/field '([^']+)' does not exist/i) ||
+            errStr.match(/column named '([^']+)' was not found/i);
           if (fieldMatch && fieldMatch[1]) {
             const missingField = fieldMatch[1].toLowerCase();
             const keyToRemove = Object.keys(currentPayload).find(
@@ -3951,6 +4460,10 @@ export class SharePointCERDataService implements ICERDataService {
           }
 
           // Known optional column fallbacks
+          if (errStr.indexOf("approvallevel") !== -1 && currentPayload.approvalLevel !== undefined) {
+            delete currentPayload.approvalLevel;
+            continue;
+          }
           if (errStr.indexOf("approverlevel") !== -1 && currentPayload.approverLevel !== undefined) {
             delete currentPayload.approverLevel;
             continue;
@@ -3991,6 +4504,7 @@ export class SharePointCERDataService implements ICERDataService {
         // ignore audit logging error
       }
 
+      this.clearCache();
       return created;
     } catch (e) {
       console.error("[SharePointCERDataService] assignUserRole failed in SharePoint:", e);
@@ -4056,8 +4570,12 @@ export class SharePointCERDataService implements ICERDataService {
         } catch (updateErr: any) {
           lastUpdateErr = updateErr;
           const errStr = String(updateErr?.message || "").toLowerCase();
-          const fieldMatch = errStr.match(/field or property '([^']+)' does not exist/i) ||
-                             errStr.match(/field '([^']+)' does not exist/i);
+          const fieldMatch =
+            errStr.match(/The property '([^']+)' does not exist/i) ||
+            errStr.match(/property '([^']+)' does not exist/i) ||
+            errStr.match(/field or property '([^']+)' does not exist/i) ||
+            errStr.match(/field '([^']+)' does not exist/i) ||
+            errStr.match(/column named '([^']+)' was not found/i);
           if (fieldMatch && fieldMatch[1]) {
             const missingField = fieldMatch[1].toLowerCase();
             const keyToRemove = Object.keys(currentPayload).find(
@@ -4067,6 +4585,10 @@ export class SharePointCERDataService implements ICERDataService {
               delete currentPayload[keyToRemove];
               continue;
             }
+          }
+          if (errStr.indexOf("approvallevel") !== -1 && currentPayload.approvalLevel !== undefined) {
+            delete currentPayload.approvalLevel;
+            continue;
           }
           if (errStr.indexOf("approverlevel") !== -1 && currentPayload.approverLevel !== undefined) {
             delete currentPayload.approverLevel;
@@ -4098,6 +4620,7 @@ export class SharePointCERDataService implements ICERDataService {
       } catch {
         // ignore audit logging error
       }
+      this.clearCache();
       return;
     } catch (e) {
       console.error("[SharePointCERDataService] updateUserRole failed in SharePoint:", e);
@@ -4142,6 +4665,7 @@ export class SharePointCERDataService implements ICERDataService {
       } catch {
         // ignore audit logging error
       }
+      this.clearCache();
       return;
     } catch (e) {
       console.error("[SharePointCERDataService] revokeUserRole failed in SharePoint:", e);

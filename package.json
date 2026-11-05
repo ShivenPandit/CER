@@ -6,8 +6,8 @@
     "node": ">=22.14.0"
   },
   "scripts": {
-    "build": "node -e \"const fs=require('fs'); ['dist', 'release', 'sharepoint/solution/debug'].forEach(d => fs.rmSync(d, {recursive: true, force: true}))\" && heft test --production && heft package-solution --production",
-    "start": "heft start --clean",
+    "build": "node -e \"const fs=require('fs'); ['dist', 'release', 'sharepoint/solution'].forEach(d => fs.rmSync(d, {recursive: true, force: true}))\" && heft test --production && node -e \"const fs=require('fs'); const p='release/assets'; if (fs.existsSync(p)) fs.readdirSync(p).filter(f => f.includes('hot-update') || f.endsWith('.map') || f === 'template-spfx-web-part.js').forEach(f => fs.rmSync(p + '/' + f, {force: true}))\" && heft package-solution --production",
+    "start": "heft start",
     "clean": "heft clean",
     "eject-webpack": "heft eject-webpack",
     "tailwind:build": "tailwindcss -i ./src/webparts/cer/tailwind.css -o ./src/tailwind.generated.css",
