@@ -222,6 +222,7 @@ Document library storing all supporting project files.
 | Category            | `category`           | Choice                  | Yes      | No               | **Yes**            | `Technical`, `Financial`, `Quotation`, `Other` | Classification of uploaded document.                                                                                                                                                                                                                                  |
 | **Uploaded By**     | **`uploadedBy`**     | **Person or Group**     | **Yes**  | No               | **Yes**            | **`SPFieldUser` (Single)**                     | **Native SharePoint Person column.** Populated via `uploadedById: <IntegerId>` obtained from `ensureUser`. Provides uploader Display Name (`uploadedBy/Title`), Corporate Email (`uploadedBy/EMail`), presence, and M365 profile card (replaces plain text uploader). |
 | Upload Date         | `uploadDate`         | Date and Time           | Yes      | No               | **Yes**            | DateTime (ISO 8601)                            | Timestamp of upload.                                                                                                                                                                                                                                                  |
+| **Version Tag**     | **`version`**        | **Single line of text** | **No**   | No               | **Yes**            | `V1`, `V2`, `V3` (Default: None)               | **Approved baseline version tag.** Unapproved / active cycle files remain blank. Files belonging to approved snapshots or preserved upon deletion are tagged with their approved version (`V1`, `V2`).                                                                    |
 
 #### `CERAttachments` — Columns to Index in SharePoint Library Settings:
 
@@ -231,6 +232,7 @@ Go to **Library Settings -> Indexed Columns -> Create a new index**:
 2. `category`
 3. `uploadedBy`
 4. `uploadDate`
+5. `version`
 
 ---
 

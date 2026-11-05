@@ -330,16 +330,21 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
   };
 
   const handleAddApproverToLevel = (level: number, approverToAdd: IUserRoleAssignment) => {
+    const addKey = (approverToAdd.user_email || approverToAdd.login_name || approverToAdd.user_name).trim().toLowerCase();
     setStagedApproversByLevel((prev) => {
-      const current = prev[level] || [];
-      const addKey = (approverToAdd.user_email || approverToAdd.login_name || approverToAdd.user_name).trim().toLowerCase();
-      if (current.some((a) => (a.user_email || a.login_name || a.user_name).trim().toLowerCase() === addKey)) {
-        return prev;
+      const updated: Record<number, IUserRoleAssignment[]> = {};
+      const keys = Object.keys(prev);
+      for (let i = 0; i < keys.length; i++) {
+        const lvl = Number(keys[i]);
+        const list = prev[lvl] || [];
+        // Remove from any other level so an approver cannot be assigned to two levels simultaneously
+        updated[lvl] = list.filter(
+          (a: IUserRoleAssignment) => (a.user_email || a.login_name || a.user_name).trim().toLowerCase() !== addKey
+        );
       }
-      return {
-        ...prev,
-        [level]: [...current, approverToAdd],
-      };
+      const current = updated[level] || [];
+      updated[level] = [...current, approverToAdd];
+      return updated;
     });
     setOpenDropdownLevel(null);
     setApproverSearchQueries((prev) => ({ ...prev, [level]: "" }));
@@ -356,35 +361,59 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
     try {
       const levelsToProcess = [1, 3, 4, 5, 6];
 
-      for (const lvl of levelsToProcess) {
-        const currentlyAssigned = getApproversForBlockAndLevel(block, lvl);
-        const stagedAssigned = stagedApproversByLevel[lvl] || [];
+      // Helper to compute a normalized user identity key
+      const getUserKey = (u: { user_email?: string; login_name?: string; user_name?: string }) =>
+        (u.user_email || u.login_name || u.user_name || "").trim().toLowerCase();
 
-        const stagedKeys = new Set(
-          stagedAssigned.map((a) => (a.user_email || a.login_name || a.user_name).trim().toLowerCase())
-        );
-        const currentKeys = new Set(
-          currentlyAssigned.map((a) => (a.user_email || a.login_name || a.user_name).trim().toLowerCase())
-        );
+      interface IAssignedRecord {
+        key: string;
+        approver: IUserRoleAssignment;
+        level: number;
+      }
 
-        // 1. Process Removed Approvers for (Block, Level)
-        const removed = currentlyAssigned.filter((a) => {
-          const k = (a.user_email || a.login_name || a.user_name).trim().toLowerCase();
-          return !stagedKeys.has(k);
-        });
+      // 1. Gather all currently assigned approvers in this block across levels 1, 3, 4, 5, 6
+      const currentInBlockList: IAssignedRecord[] = [];
+      const currentInBlockKeys = new Set<string>();
+      for (let i = 0; i < levelsToProcess.length; i++) {
+        const lvl = levelsToProcess[i];
+        const assigned = getApproversForBlockAndLevel(block, lvl);
+        for (let j = 0; j < assigned.length; j++) {
+          const a = assigned[j];
+          const k = getUserKey(a);
+          if (k && !currentInBlockKeys.has(k)) {
+            currentInBlockKeys.add(k);
+            currentInBlockList.push({ key: k, approver: a, level: lvl });
+          }
+        }
+      }
 
-        for (const rem of removed) {
-          const remKey = (rem.user_email || rem.login_name || rem.user_name).trim().toLowerCase();
-          // Find all rows in CERRoleMatrix for this user
-          const userRows = roles.filter(
-            (r) => (r.user_email || r.login_name || r.user_name).trim().toLowerCase() === remKey
-          );
+      // 2. Gather all staged approvers in this block across levels 1, 3, 4, 5, 6
+      const stagedInBlockList: IAssignedRecord[] = [];
+      const stagedInBlockKeys = new Set<string>();
+      for (let i = 0; i < levelsToProcess.length; i++) {
+        const lvl = levelsToProcess[i];
+        const staged = stagedApproversByLevel[lvl] || [];
+        for (let j = 0; j < staged.length; j++) {
+          const a = staged[j];
+          const k = getUserKey(a);
+          if (k && !stagedInBlockKeys.has(k)) {
+            stagedInBlockKeys.add(k);
+            stagedInBlockList.push({ key: k, approver: a, level: lvl });
+          }
+        }
+      }
 
+      // 3. Process Approvers Removed from this Block (were assigned in currentInBlockKeys, but not in stagedInBlockKeys)
+      for (let i = 0; i < currentInBlockList.length; i++) {
+        const currentItem = currentInBlockList[i];
+        if (!stagedInBlockKeys.has(currentItem.key)) {
+          // Approver unassigned from this SBU
+          const rem = currentItem.approver;
+          const userRows = roles.filter((r) => getUserKey(r) === currentItem.key);
           if (userRows.length > 1) {
-            // Delete this specific assignment row
             await dataService.revokeUserRole(rem.id, actor);
           } else {
-            // Update row to remove SBU & level while preserving role = Approver
+            // Update row to clear SBU & approval level while preserving role = Approver
             await dataService.updateUserRole(
               {
                 ...rem,
@@ -397,56 +426,58 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
             );
           }
         }
+      }
 
-        // 2. Process Added Approvers for (Block, Level)
-        const added = stagedAssigned.filter((a) => {
-          const k = (a.user_email || a.login_name || a.user_name).trim().toLowerCase();
-          return !currentKeys.has(k);
-        });
+      // 4. Process Staged Approvers (assigned, reassigned, or moved across levels)
+      for (let i = 0; i < stagedInBlockList.length; i++) {
+        const stagedItem = stagedInBlockList[i];
+        const currentAssignment = currentInBlockList.find((c) => c.key === stagedItem.key);
+        // If the approver was already assigned to this block at the exact same level, no change needed
+        if (currentAssignment && currentAssignment.level === stagedItem.level) {
+          continue;
+        }
 
-        for (const add of added) {
-          const addKey = (add.user_email || add.login_name || add.user_name).trim().toLowerCase();
-          // Check if this approver has an unassigned row in CERRoleMatrix
-          const existingUnassigned = roles.find(
-            (r) =>
-              (r.user_email || r.login_name || r.user_name).trim().toLowerCase() === addKey &&
-              r.role === "Approver" &&
-              (!r.approval_level || !r.sbu || r.sbu.trim() === "")
+        const title = getApproverRoleTitle(stagedItem.level);
+        const staged = stagedItem.approver;
+
+        // Find this user's existing record in the role matrix
+        const existingRole = roles.find(
+          (r) =>
+            (staged.id && r.id === staged.id) ||
+            getUserKey(r) === stagedItem.key ||
+            (staged.user_id && r.user_id && Number(r.user_id) === Number(staged.user_id))
+        );
+
+        if (existingRole) {
+          // Update the existing record in CERRoleMatrix (respects SharePoint uniqueness on [User])
+          await dataService.updateUserRole(
+            {
+              ...existingRole,
+              sbu: block,
+              approval_level: stagedItem.level,
+              approver_role_title: title,
+              is_active: true,
+            },
+            actor
           );
-
-          const title = getApproverRoleTitle(lvl);
-
-          if (existingUnassigned) {
-            // Update the unassigned row with this block and level
-            await dataService.updateUserRole(
-              {
-                ...existingUnassigned,
-                sbu: block,
-                approval_level: lvl,
-                approver_role_title: title,
-                is_active: true,
-              },
-              actor
-            );
-          } else {
-            // Create a new assignment record in CERRoleMatrix
-            await dataService.assignUserRole(
-              {
-                user_name: add.user_name,
-                user_email: add.user_email,
-                login_name: add.login_name || add.user_email,
-                user_id: add.user_id,
-                role: "Approver",
-                sbu: block,
-                approval_level: lvl,
-                approver_role_title: title,
-                is_active: true,
-                assigned_by: currentUser.name,
-                assigned_date: new Date().toISOString(),
-              },
-              actor
-            );
-          }
+        } else {
+          // Create a new assignment record in CERRoleMatrix only if user is brand new to the matrix
+          await dataService.assignUserRole(
+            {
+              user_name: staged.user_name,
+              user_email: staged.user_email,
+              login_name: staged.login_name || staged.user_email,
+              user_id: staged.user_id,
+              role: "Approver",
+              sbu: block,
+              approval_level: stagedItem.level,
+              approver_role_title: title,
+              is_active: true,
+              assigned_by: currentUser.name,
+              assigned_date: new Date().toISOString(),
+            },
+            actor
+          );
         }
       }
 

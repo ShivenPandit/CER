@@ -1213,8 +1213,15 @@ export class LocalMockCERDataService implements ICERDataService {
           };
         }
 
+        const effectiveSbu = (lvl.sbu || sbu || "").trim().toLowerCase();
         const matchedUser = this._userRoles.find(
-          (u) => u.is_active && u.role === "Approver" && u.approval_level === lvl.level_id
+          (u) =>
+            u.is_active &&
+            u.role === "Approver" &&
+            u.approval_level === lvl.level_id &&
+            (effectiveSbu && effectiveSbu !== "all"
+              ? Boolean(u.sbu && (u.sbu.toLowerCase() === effectiveSbu || u.sbu.toLowerCase() === "all"))
+              : true)
         );
 
         return {

@@ -427,7 +427,42 @@ export class PermissionService {
       };
     }
 
-    // 3. Segregation of Duties: Proposal initiator/creator strictly cannot approve their own CER on non-owner stages
+    // 3. Strict SBU Alignment on non-Project-Owner stages:
+    // Approvers assigned to a specific SBU (not 'All') cannot approve proposals belonging to a different SBU.
+    // Each SBU has its own sequential workflow and approval queue.
+    if (
+      user.sbu &&
+      user.sbu.trim().toLowerCase() !== "all" &&
+      proposal.sbu &&
+      proposal.sbu.trim().toLowerCase() !== "all"
+    ) {
+      const userSbu = user.sbu.trim().toLowerCase();
+      const propSbu = proposal.sbu.trim().toLowerCase();
+      if (userSbu !== propSbu) {
+        return {
+          allowed: false,
+          reason: `SBU Mismatch: This proposal belongs to SBU '${proposal.sbu}', whereas you are assigned to '${user.sbu}'.`,
+        };
+      }
+    }
+
+    if (
+      currentStageConfig?.sbu &&
+      currentStageConfig.sbu.trim().toLowerCase() !== "all" &&
+      proposal.sbu &&
+      proposal.sbu.trim().toLowerCase() !== "all"
+    ) {
+      const stageSbu = currentStageConfig.sbu.trim().toLowerCase();
+      const propSbu = proposal.sbu.trim().toLowerCase();
+      if (stageSbu !== propSbu) {
+        return {
+          allowed: false,
+          reason: `SBU Mismatch: Stage configuration belongs to SBU '${currentStageConfig.sbu}', whereas proposal belongs to '${proposal.sbu}'.`,
+        };
+      }
+    }
+
+    // 4. Segregation of Duties: Proposal initiator/creator strictly cannot approve their own CER on non-owner stages
     const isCreator = Boolean(
       (normCreatedBy && (
         normCreatedBy === normUserEmail ||
@@ -535,22 +570,6 @@ export class PermissionService {
         return {
           allowed: false,
           reason: "Segregation of Duties Enforcement: You are designated as the Project Owner on this CER and cannot approve subsequent workflow stages.",
-        };
-      }
-    }
-
-    // 7. SBU match check if user has an SBU assigned
-    // If the proposal is explicitly routed to this user via pending_with_email or stage approver,
-    // they are authorized to act on this specific task. Otherwise, enforce strict SBU alignment.
-    const isDirectlyRoutedToUser = isStageApproverMatch;
-
-    if (!isDirectlyRoutedToUser && user.sbu && user.sbu !== "All" && proposal.sbu) {
-      const userSbu = user.sbu.trim().toLowerCase();
-      const propSbu = proposal.sbu.trim().toLowerCase();
-      if (userSbu !== propSbu) {
-        return {
-          allowed: false,
-          reason: `SBU Mismatch: This proposal belongs to SBU '${proposal.sbu}', whereas you are assigned to '${user.sbu}'.`,
         };
       }
     }

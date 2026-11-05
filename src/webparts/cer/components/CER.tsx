@@ -355,7 +355,19 @@ const CER: React.FC<ICERProps> = (props) => {
   const pendingCount = React.useMemo(() => {
     return proposals.filter((p) => {
       if (p.status !== "In Approval") return false;
+
+      // SBU Alignment:
+      // Approvers assigned to a specific SBU only count proposals belonging to their SBU
+      // (or proposals where they are the designated Project Owner)
+      const userSbu = (currentUser.sbu || "").trim().toLowerCase();
       const propSbu = (p.sbu || "").trim().toLowerCase();
+      const isAllSbu = !userSbu || userSbu === "all";
+      const isProjectOwner = PermissionService.isProjectOwner(p, currentUser);
+
+      if (!isAllSbu && propSbu && userSbu !== propSbu && !isProjectOwner) {
+        return false;
+      }
+
       const stageConfig =
         workflowLevels.find(
           (l) =>
@@ -366,8 +378,7 @@ const CER: React.FC<ICERProps> = (props) => {
           (l) =>
             ((l.sbu || "").trim().toLowerCase() === "all" || !l.sbu) &&
             l.level_id === p.current_level
-        ) ||
-        workflowLevels.find((l) => l.level_id === p.current_level);
+        );
       return PermissionService.canApproveCER(p, currentUser, stageConfig).allowed;
     }).length;
   }, [proposals, workflowLevels, currentUser]);

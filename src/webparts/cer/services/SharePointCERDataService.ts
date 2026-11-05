@@ -2762,8 +2762,7 @@ export class SharePointCERDataService implements ICERDataService {
             if (targetSbu) {
               const exactSbuUsers = eligibleForLevel.filter((u) => Boolean(u.sbu && u.sbu.toLowerCase() === targetSbu.toLowerCase()));
               const allSbuUsers = eligibleForLevel.filter((u) => Boolean(u.sbu && u.sbu.toLowerCase() === "all"));
-              const merged = exactSbuUsers.concat(allSbuUsers);
-              candidates = merged.length > 0 ? merged : eligibleForLevel;
+              candidates = exactSbuUsers.concat(allSbuUsers);
             } else {
               candidates = eligibleForLevel;
             }
@@ -4814,7 +4813,7 @@ export class SharePointCERDataService implements ICERDataService {
       };
 
       const levelFieldName = await this._getApprovalLevelFieldName();
-      if (assignment.approval_level) {
+      if (assignment.approval_level !== undefined && assignment.approval_level !== null) {
         payload[levelFieldName] = assignment.approval_level;
       }
       if (assignment.approver_role_title) {
@@ -4837,6 +4836,48 @@ export class SharePointCERDataService implements ICERDataService {
         } catch (createErr: any) {
           lastCreateErr = createErr;
           const errStr = String(createErr?.message || "").toLowerCase();
+
+          // Catch SharePoint uniqueness violation on [User] if pre-check didn't catch it
+          if (
+            errStr.indexOf("spduplicatevaluesfoundexception") !== -1 ||
+            errStr.indexOf("duplicate values were found") !== -1
+          ) {
+            try {
+              const freshRoles = await this.getUserRoles(true);
+              const normTargetEmail = (assignment.user_email || "").trim().toLowerCase();
+              const normTargetLogin = (assignment.login_name || "").trim().toLowerCase();
+              const normTargetName = (assignment.user_name || "").trim().toLowerCase();
+
+              const duplicateItem = freshRoles.find((r) => {
+                if (spUserId && r.user_id && Number(r.user_id) === Number(spUserId)) return true;
+                const rEmail = (r.user_email || "").trim().toLowerCase();
+                const rLogin = (r.login_name || "").trim().toLowerCase();
+                const rName = (r.user_name || "").trim().toLowerCase();
+                return (
+                  (normTargetEmail && (rEmail === normTargetEmail || rLogin === normTargetEmail)) ||
+                  (normTargetLogin && (rLogin === normTargetLogin || rEmail === normTargetLogin)) ||
+                  (normTargetName && rName === normTargetName)
+                );
+              });
+
+              if (duplicateItem && duplicateItem.id) {
+                await this.updateUserRole(
+                  {
+                    ...duplicateItem,
+                    ...assignment,
+                    id: duplicateItem.id,
+                    user_id: spUserId || duplicateItem.user_id,
+                    is_active: true,
+                  },
+                  actor
+                );
+                res = { Id: Number(duplicateItem.id), ID: Number(duplicateItem.id) };
+                break;
+              }
+            } catch (dupRecoveryErr) {
+              console.warn("[SharePointCERDataService] Duplicate recovery update failed:", dupRecoveryErr);
+            }
+          }
 
           // Match field name from SharePoint error message (e.g. "The property 'xyz' does not exist" or "field or property 'xyz' does not exist")
           const fieldMatch =
@@ -4957,11 +4998,15 @@ export class SharePointCERDataService implements ICERDataService {
       };
 
       const levelFieldName = await this._getApprovalLevelFieldName();
-      if (assignment.approval_level) {
+      if (assignment.approval_level !== undefined && assignment.approval_level !== null) {
         payload[levelFieldName] = assignment.approval_level;
+      } else {
+        payload[levelFieldName] = null;
       }
-      if (assignment.approver_role_title) {
+      if (assignment.approver_role_title !== undefined && assignment.approver_role_title !== null && assignment.approver_role_title.trim() !== "") {
         payload.approverRoleTitle = assignment.approver_role_title;
+      } else {
+        payload.approverRoleTitle = null;
       }
       if (spUserId) {
         payload.UserId = spUserId;

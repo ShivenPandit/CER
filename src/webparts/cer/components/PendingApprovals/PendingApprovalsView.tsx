@@ -133,13 +133,25 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
 
   // Filter proposals awaiting action by current user:
   // Only proposals where the current user is the designated Project Owner (on PO stages)
-  // or the explicitly assigned Approver for that specific level
+  // or the explicitly assigned Approver for that specific level in their assigned SBU
   const pendingList = React.useMemo(() => {
     return proposals.filter((p) => {
       if (p.status !== "In Approval") return false;
 
-      // SBU-specific stage lookup with fallback to "All" or level_id
+      // SBU Alignment:
+      // If current user is assigned to a specific SBU (not 'All'), they can ONLY see:
+      // 1. Proposals belonging to their assigned SBU, OR
+      // 2. Proposals where they are the designated Project Owner (on dynamic PO stage)
+      const userSbu = (currentUser.sbu || "").trim().toLowerCase();
       const propSbu = (p.sbu || "").trim().toLowerCase();
+      const isAllSbu = !userSbu || userSbu === "all";
+      const isProjectOwner = PermissionService.isProjectOwner(p, currentUser);
+
+      if (!isAllSbu && propSbu && userSbu !== propSbu && !isProjectOwner) {
+        return false;
+      }
+
+      // SBU-specific stage lookup with fallback to "All" (Strictly no cross-SBU leakage)
       const stageConfig =
         levels.find(
           (l) =>
@@ -150,8 +162,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
           (l) =>
             (l.sbu || "").trim().toLowerCase() === "all" &&
             l.level_id === p.current_level
-        ) ||
-        levels.find((l) => l.level_id === p.current_level);
+        );
 
       return PermissionService.canApproveCER(p, currentUser, stageConfig).allowed;
     }).filter((p) => {
