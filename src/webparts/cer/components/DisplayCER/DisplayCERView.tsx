@@ -477,7 +477,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                   <User className="w-4 h-4 text-slate-500" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Project Owner</p>
+                  <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">CER Owner</p>
                   <p className="text-sm sm:text-[15px] font-bold text-slate-900 truncate mt-0.5" title={proposal.owname}>
                     {proposal.owname}
                   </p>

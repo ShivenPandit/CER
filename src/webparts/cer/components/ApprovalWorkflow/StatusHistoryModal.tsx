@@ -775,7 +775,8 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
     if (status === "In Approval") {
       const currLvl = selectedVersion.rawProposal.current_level || 1;
       const stageName = FIXED_APPROVAL_STAGES.find((s) => s.level === currLvl)?.name || "Approver";
-      currentPendingStageText = `L${currLvl} - ${stageName}`;
+      const displayStageName = stageName === "Project Owner" ? "CER Owner" : stageName;
+      currentPendingStageText = `L${currLvl} - ${displayStageName}`;
     } else if (status === "Send Back" || status === "Revised" || status === "Sent Back") {
       currentPendingStageText = "Initiator (Rework)";
     } else if (status === "Draft") {
@@ -848,7 +849,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
         {/* Column 2: Level Name */}
         <td className="py-3 px-3.5">
           <span className="font-bold text-slate-900 text-sm">
-            {stage.name}
+            {stage.name === "Project Owner" ? "CER Owner" : stage.name}
           </span>
         </td>
 
@@ -919,7 +920,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
               {stage.levelBadge}
             </span>
             <span className="font-bold text-slate-900 text-sm">
-              {stage.name}
+              {stage.name === "Project Owner" ? "CER Owner" : stage.name}
             </span>
           </div>
           <div>{renderStatusBadge(statusText)}</div>
@@ -1067,12 +1068,6 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
                       <span className="font-mono font-bold text-sm sm:text-[15px] text-[#012964]">
                         {ver.proposalNo}
                       </span>
-                      {isSelected && (
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#012964] bg-[#012964]/10 px-2 py-0.5 rounded">
-                          <Check className="w-3.5 h-3.5 text-[#012964]" />
-                          Selected
-                        </span>
-                      )}
                     </div>
 
                     {/* Metadata: Amount & Date */}

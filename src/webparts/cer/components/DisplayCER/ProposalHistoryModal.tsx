@@ -481,7 +481,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                     <div className="flex items-center gap-2.5">
                       <UserAvatar name={selectedProposal.owname} email={selectedProposal.owner_email} size="sm" />
                       <div className="min-w-0">
-                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Project Owner</p>
+                        <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">CER Owner</p>
                         <p className="font-bold text-slate-900 text-sm sm:text-[15px] truncate" title={selectedProposal.owname}>
                           {selectedProposal.owname}
                         </p>

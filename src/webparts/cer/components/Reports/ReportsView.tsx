@@ -13,7 +13,6 @@ import {
 import { ICERProposal, SBU_OPTIONS, IFieldChoices } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
 import { StatusBadge } from "../Shared/StatusBadge";
-import { CategoryBadge } from "../Shared/CategoryBadge";
 import { ExcelExportService } from "../../services/ExcelExportService";
 import { ICERDataService } from "../../services/ICERDataService";
 import { useDynamicPagination } from "../../hooks/useDynamicPagination";
@@ -99,7 +98,8 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
         const matchesName = (p.pr_name || "").toLowerCase().includes(query);
         const matchesOwner = (p.owname || "").toLowerCase().includes(query);
         const matchesSbu = (p.sbu || "").toLowerCase().includes(query);
-        if (!matchesId && !matchesPropNo && !matchesCerNo && !matchesName && !matchesOwner && !matchesSbu) {
+        const matchesInitiator = (p.created_by || "").toLowerCase().includes(query);
+        if (!matchesId && !matchesPropNo && !matchesCerNo && !matchesName && !matchesOwner && !matchesSbu && !matchesInitiator) {
           return false;
         }
       }
@@ -548,15 +548,15 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
         <div data-role="list-wrapper" className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse table-fixed">
             <colgroup>
-              <col style={{ width: "140px" }} />
-              <col style={{ width: "190px" }} />
-              <col style={{ width: "170px" }} />
+              <col style={{ width: "135px" }} />
+              <col style={{ width: "175px" }} />
+              <col style={{ width: "165px" }} />
               <col style={{ width: "85px" }} />
-              <col style={{ width: "85px" }} />
-              <col style={{ width: "110px" }} />
+              <col style={{ width: "165px" }} />
+              <col style={{ width: "105px" }} />
               <col style={{ width: "95px" }} />
               <col style={{ width: "140px" }} />
-              <col style={{ width: "175px" }} />
+              <col style={{ width: "165px" }} />
             </colgroup>
             <thead>
               <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-700 font-bold uppercase text-xs sm:text-[13px] tracking-wider select-none">
@@ -578,9 +578,9 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                     <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
                   </div>
                 </th>
-                <th className="py-3.5 px-4 text-left whitespace-nowrap">Owner</th>
+                <th className="py-3.5 px-4 text-left whitespace-nowrap">CER Owner</th>
                 <th className="py-3.5 px-3 text-center whitespace-nowrap">SBU</th>
-                <th className="py-3.5 px-3 text-center whitespace-nowrap">Category</th>
+                <th className="py-3.5 px-4 text-left whitespace-nowrap">Initiated By</th>
                 <th
                   onClick={() => handleSort("amount")}
                   className="py-3.5 px-4 text-right cursor-pointer hover:text-slate-900 whitespace-nowrap"
@@ -642,8 +642,15 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                         {prop.sbu}
                       </span>
                     </td>
-                    <td className="py-3.5 px-3 text-center align-middle whitespace-nowrap">
-                      <CategoryBadge category={prop.cat} />
+                    <td className="py-3.5 px-4 text-left align-middle overflow-hidden whitespace-nowrap">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 font-bold text-[11px] leading-none flex items-center justify-center shrink-0 border border-slate-200/90 shadow-2xs">
+                          {getInitials(prop.created_by || "System")}
+                        </div>
+                        <span className="font-medium text-sm text-slate-800 truncate" title={prop.created_by || "System"}>
+                          {prop.created_by || "System"}
+                        </span>
+                      </div>
                     </td>
                     <td className="py-3.5 px-4 text-right align-middle font-bold text-sm text-slate-900 whitespace-nowrap">
                       {prop.currency} {prop.amount.toLocaleString()}
@@ -662,7 +669,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                         <span className="text-slate-600 font-semibold">Draft</span>
                       ) : (
                         <span className="text-slate-700">
-                          L{prop.current_level} - {prop.pending_with_role}
+                          L{prop.current_level} - {String(prop.pending_with_role || "").replace(/Project Owner/g, "CER Owner")}
                         </span>
                       )}
                     </td>
@@ -713,20 +720,30 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                     {prop.cer_proposal_id || prop.cerprno}
                   </button>
                   <div className="flex items-center gap-1.5">
-                    <CategoryBadge category={prop.cat} />
                     <StatusBadge status={prop.status} size="sm" />
                   </div>
                 </div>
 
                 <div>
-                  <h4 className="font-semibold text-slate-900 text-sm leading-snug group-hover:text-[#012964] transition-colors">
+                  <h4 className="font-semibold text-slate-900 text-sm leading-snug group-hover:text-[#012964] transition-colors truncate">
                     {prop.pr_name}
                   </h4>
-                  <div className="flex items-center gap-2 text-xs text-slate-600 mt-1">
-                    <div className="w-6 h-6 rounded-full bg-blue-50 text-[#012964] font-bold text-[10px] leading-none flex items-center justify-center shrink-0 border border-blue-200/80 shadow-2xs">
-                      {getInitials(prop.owname)}
+                  <div className="flex items-center gap-2 text-xs text-slate-600 mt-1 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-slate-400 font-medium">Owner:</span>
+                      <div className="w-5 h-5 rounded-full bg-blue-50 text-[#012964] font-bold text-[9px] leading-none flex items-center justify-center shrink-0 border border-blue-200/80 shadow-2xs">
+                        {getInitials(prop.owname)}
+                      </div>
+                      <span className="truncate max-w-[110px]">{prop.owname}</span>
                     </div>
-                    <span className="truncate max-w-[150px]">{prop.owname}</span>
+                    <span>•</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-slate-400 font-medium">Initiator:</span>
+                      <div className="w-5 h-5 rounded-full bg-slate-100 text-slate-700 font-bold text-[9px] leading-none flex items-center justify-center shrink-0 border border-slate-200 shadow-2xs">
+                        {getInitials(prop.created_by)}
+                      </div>
+                      <span className="truncate max-w-[110px]">{prop.created_by || "System"}</span>
+                    </div>
                     <span>•</span>
                     <span className="font-medium bg-slate-100 px-1.5 py-0.5 rounded text-[11px] text-slate-600">
                       {prop.sbu}

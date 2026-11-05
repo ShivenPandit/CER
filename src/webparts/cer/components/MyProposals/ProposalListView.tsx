@@ -10,7 +10,6 @@ import {
 import { ICERProposal } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
 import { StatusBadge } from '../Shared/StatusBadge';
-import { CategoryBadge } from '../Shared/CategoryBadge';
 import { PermissionService } from "../../services/PermissionService";
 import { useDynamicPagination } from "../../hooks/useDynamicPagination";
 import { DataTablePagination } from '../Shared/DataTablePagination';
@@ -83,7 +82,8 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
       const nameMatch = (p.pr_name || "").toLowerCase().includes(q);
       const ownerMatch = (p.owname || "").toLowerCase().includes(q);
       const sbuMatch = (p.sbu || "").toLowerCase().includes(q);
-      return idMatch || noMatch || cerMatch || nameMatch || ownerMatch || sbuMatch;
+      const initiatorMatch = (p.created_by || "").toLowerCase().includes(q);
+      return idMatch || noMatch || cerMatch || nameMatch || ownerMatch || sbuMatch || initiatorMatch;
     }
     return true;
   });
@@ -317,22 +317,22 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
           <table className="w-full text-left border-collapse table-fixed">
             <colgroup>
               <col style={{ width: "135px" }} />
-              <col style={{ width: "185px" }} />
-              <col style={{ width: "170px" }} />
+              <col style={{ width: "175px" }} />
+              <col style={{ width: "165px" }} />
               <col style={{ width: "85px" }} />
-              <col style={{ width: "85px" }} />
+              <col style={{ width: "165px" }} />
               <col style={{ width: "105px" }} />
               <col style={{ width: "95px" }} />
               <col style={{ width: "140px" }} />
-              <col style={{ width: "175px" }} />
+              <col style={{ width: "165px" }} />
             </colgroup>
             <thead>
               <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-700 font-bold uppercase text-xs sm:text-[13px] tracking-wider select-none">
                 <th className="py-3.5 px-4 text-left whitespace-nowrap">Proposal ID</th>
                 <th className="py-3.5 px-4 text-left whitespace-nowrap">Project Name</th>
-                <th className="py-3.5 px-4 text-left whitespace-nowrap">Owner</th>
+                <th className="py-3.5 px-4 text-left whitespace-nowrap">CER Owner</th>
                 <th className="py-3.5 px-3 text-center whitespace-nowrap">SBU</th>
-                <th className="py-3.5 px-3 text-center whitespace-nowrap">Category</th>
+                <th className="py-3.5 px-4 text-left whitespace-nowrap">Initiated By</th>
                 <th className="py-3.5 px-4 text-right whitespace-nowrap">Amount</th>
                 <th className="py-3.5 px-3 text-center whitespace-nowrap">Status</th>
                 <th className="py-3.5 px-4 text-left whitespace-nowrap">Pending Level</th>
@@ -386,8 +386,15 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                         {prop.sbu}
                       </span>
                     </td>
-                    <td className="py-3.5 px-3 text-center align-middle whitespace-nowrap">
-                      <CategoryBadge category={prop.cat} />
+                    <td className="py-3.5 px-4 text-left align-middle overflow-hidden whitespace-nowrap">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 font-bold text-[11px] leading-none flex items-center justify-center shrink-0 border border-slate-200/90 shadow-2xs">
+                          {getInitials(prop.created_by || "System")}
+                        </div>
+                        <span className="font-medium text-sm text-slate-800 truncate" title={prop.created_by || "System"}>
+                          {prop.created_by || "System"}
+                        </span>
+                      </div>
                     </td>
                     <td className="py-3.5 px-4 text-right align-middle font-bold text-sm text-slate-900 whitespace-nowrap">
                       {prop.currency} {prop.amount.toLocaleString()}
@@ -406,7 +413,7 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                         <span className="text-slate-600 font-semibold">Draft</span>
                       ) : (
                         <span className="text-slate-700">
-                          L{prop.current_level} - {prop.pending_with_role}
+                          L{prop.current_level} - {String(prop.pending_with_role || "").replace(/Project Owner/g, "CER Owner")}
                         </span>
                       )}
                     </td>
@@ -515,7 +522,6 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                     {prop.cer_proposal_id || prop.cerprno}
                   </button>
                   <div className="flex items-center gap-1.5">
-                    <CategoryBadge category={prop.cat} />
                     <StatusBadge status={prop.status} size="sm" />
                   </div>
                 </div>
@@ -524,11 +530,22 @@ export const ProposalListView: React.FC<IProposalListViewProps> = ({
                   <h4 className="font-semibold text-slate-900 text-sm leading-snug group-hover:text-[#012964] transition-colors truncate" title={prop.pr_name}>
                     {truncateProjectName(prop.pr_name, 20)}
                   </h4>
-                  <div className="flex items-center gap-2 text-xs text-slate-600 mt-1.5">
-                    <div className="w-6 h-6 rounded-full bg-blue-50 text-[#012964] font-bold text-[10px] leading-none flex items-center justify-center shrink-0 border border-blue-200/80 shadow-2xs">
-                      {getInitials(prop.owname)}
+                  <div className="flex items-center gap-2 text-xs text-slate-600 mt-1.5 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-slate-400 font-medium">Owner:</span>
+                      <div className="w-5 h-5 rounded-full bg-blue-50 text-[#012964] font-bold text-[9px] leading-none flex items-center justify-center shrink-0 border border-blue-200/80 shadow-2xs">
+                        {getInitials(prop.owname)}
+                      </div>
+                      <span className="truncate max-w-[110px]">{prop.owname}</span>
                     </div>
-                    <span>{prop.owname}</span>
+                    <span>•</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-slate-400 font-medium">Initiator:</span>
+                      <div className="w-5 h-5 rounded-full bg-slate-100 text-slate-700 font-bold text-[9px] leading-none flex items-center justify-center shrink-0 border border-slate-200 shadow-2xs">
+                        {getInitials(prop.created_by)}
+                      </div>
+                      <span className="truncate max-w-[110px]">{prop.created_by || "System"}</span>
+                    </div>
                     <span>•</span>
                     <span className="font-medium bg-slate-100 px-1.5 py-0.5 rounded">{prop.sbu}</span>
                   </div>

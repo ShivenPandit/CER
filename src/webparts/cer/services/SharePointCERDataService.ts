@@ -3420,6 +3420,11 @@ export class SharePointCERDataService implements ICERDataService {
 
   private _mapSharePointItemToProposal(item: any): ICERProposal {
     const ownerPerson = PersonFieldService.extractPersonField(item, "cerOwner") || PersonFieldService.extractPersonField(item, "owname");
+    const authorPerson = PersonFieldService.extractPersonField(item, "Author") ||
+                         PersonFieldService.extractPersonField(item, "initiator") ||
+                         PersonFieldService.extractPersonField(item, "cerInitiator") ||
+                         PersonFieldService.extractPersonField(item, "Created_x0020_By");
+    const authorName = authorPerson?.name || item.Author?.Title || item.Author?.title || (typeof item.created_by === "string" ? item.created_by : "") || (typeof item.createdBy === "string" ? item.createdBy : "") || "System";
     const cerId = String(item.cerPrId || item.cerPrNo || item.cerprno || item.Title || "");
     const propNo = String(item.proposalNo || item.proposal_no || item.cerPrId || item.cerPrNo || item.cerprno || item.Title || "");
     const engineerCost = Number(item.engineeringCost ?? item.engineer ?? 0);
@@ -3513,7 +3518,7 @@ export class SharePointCERDataService implements ICERDataService {
       pending_with_email: item.pendingWithEmail || item.pending_with_email || "",
       request_date: (item.RequestDate || item.requestDate || item.request_date) ? String(item.RequestDate || item.requestDate || item.request_date).split("T")[0] : undefined,
       created_date: item.Created || new Date().toISOString(),
-      created_by: item.Author?.Title || "System",
+      created_by: authorName,
       modified_date: item.Modified || new Date().toISOString(),
       modified_by: item.Editor?.Title || "System",
       revision_count: Number(item.revisionCount ?? item.revision_count ?? 0),
