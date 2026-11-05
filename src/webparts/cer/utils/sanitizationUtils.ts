@@ -119,6 +119,7 @@ export function stripAttachmentsManifest(text?: string | null): string {
   let clean = String(text);
 
   clean = clean.replace(/\[CER_ATTACHMENTS_MANIFEST_START\][\s\S]*?\[CER_ATTACHMENTS_MANIFEST_END\]/gi, "");
+  clean = clean.replace(/\[CER_ATTACHMENTS_ACTIVE_START\][\s\S]*?\[CER_ATTACHMENTS_ACTIVE_END\]/gi, "");
   clean = clean.replace(/\[CER_ATTACHMENTS_MANIFEST:\[[\s\S]*?\]\]/gi, "");
   clean = clean.replace(/\[CER_ATTACHMENTS_MANIFEST:[\s\S]*?\]/gi, "");
   clean = clean.replace(/<!--\s*CER_ATTACHMENTS_MANIFEST:[\s\S]*?-->/gi, "");
@@ -209,8 +210,10 @@ export function sanitizeProposalPayload(proposal: ICERProposal): ICERProposal {
   if (sanitized.cat !== undefined) {
     sanitized.cat = sanitizeSingleLineText(sanitized.cat) as any;
   }
-  if (sanitized.payable !== undefined) {
-    sanitized.payable = sanitizeSingleLineText(sanitized.payable) as any;
+  if (!sanitized.payable) {
+    sanitized.payable = "Payback";
+  } else {
+    sanitized.payable = (sanitizeSingleLineText(sanitized.payable) as any).replace(/-/g, " ");
   }
   if (sanitized.period !== undefined) {
     sanitized.period = sanitizeSingleLineText(sanitized.period);

@@ -152,6 +152,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         // Load attachments
         const atts = await dataService.getAttachments(found.cerprno);
         setAttachments(atts);
+        initialAttachmentsRef.current = atts.map((a) => ({ ...a }));
       }
     } catch (err: any) {
       setErrorMessage(err.message || "Error retrieving proposal.");
@@ -493,6 +494,9 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
     setErrorMessage(null);
     setSecondaryWarning(null);
     try {
+      const removedIds = stagedDeletions.map((d) => String(d.id)).filter(Boolean);
+      const remainingActive = attachments.filter((a) => !stagedDeletions.some((d) => String(d.id) === String(a.id)));
+
       const updatedPayload: ICERProposal = {
         ...sanitizedData,
         proposal_no: trimmedNo,
@@ -500,10 +504,10 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         cer_proposal_id: (originalProposal && (originalProposal.cer_proposal_id || originalProposal.cerprno)) || sanitizedData.cer_proposal_id || sanitizedData.cerprno,
         status: isDraft ? "Draft" : "In Approval",
         current_level: 1,
+        attachments_manifest: remainingActive as any,
       };
 
       const isApprovedOriginal = Boolean(originalProposal && originalProposal.status === "Approved");
-      const removedIds = stagedDeletions.map((d) => String(d.id)).filter(Boolean);
 
       const result = await dataService.updateProposal(
         updatedPayload,
@@ -513,7 +517,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         },
         originalProposal || undefined,
         {
-          removedAttachmentIds: isApprovedOriginal ? removedIds : undefined,
+          removedAttachmentIds: removedIds.length > 0 ? removedIds : undefined,
           snapshotAttachments: isApprovedOriginal ? initialAttachmentsRef.current : undefined,
         }
       );
@@ -538,9 +542,14 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         for (const del of stagedDeletions) {
           if (del.id && !del.id.startsWith("att-")) {
             try {
+              const isHistoricalDoc = Boolean(
+                del.version ||
+                (initialAttachmentsRef.current && initialAttachmentsRef.current.some((a) => String(a.id) === String(del.id)))
+              );
               await dataService.deleteAttachment(del.id, {
                 cerprno: formData.cerprno,
                 serverRelativeUrl: del.server_relative_url || del.data_url,
+                archiveOnDelete: isHistoricalDoc,
               });
             } catch (delErr: any) {
               console.warn("[ChangeCERView] Deletion error for obsolete attachment:", delErr);

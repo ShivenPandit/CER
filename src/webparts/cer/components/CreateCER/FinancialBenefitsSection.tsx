@@ -33,6 +33,13 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
     }
   }, [formData.currency, isReadOnly, onChange]);
 
+  // Ensure Payback / Non Payback has a consistent default value in state
+  React.useEffect(() => {
+    if (!isReadOnly && !formData.payable) {
+      onChange("payable", "Payback");
+    }
+  }, [formData.payable, isReadOnly, onChange]);
+
 
 
   return (

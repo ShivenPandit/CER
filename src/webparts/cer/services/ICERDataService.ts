@@ -82,7 +82,7 @@ export interface ICERDataService {
   ): Promise<ICERAttachment>;
   deleteAttachment(
     id: string,
-    options?: { cerprno?: string; force?: boolean; serverRelativeUrl?: string }
+    options?: { cerprno?: string; force?: boolean; serverRelativeUrl?: string; archiveOnDelete?: boolean }
   ): Promise<void>;
 
   // Notifications

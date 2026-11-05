@@ -665,12 +665,21 @@ export class LocalMockCERDataService implements ICERDataService {
     (historySnapshot as any).created_at = (historySnapshot as any).created_at || historySnapshot.created_date;
 
     // Record snapshot's approved attachments and authoritative manifest
-    const v1Atts = this._attachments.filter((a) => {
-      const matchesCer = (a.cerprno || "").toUpperCase() === cerId || (a.cerprno || "").toUpperCase() === (original.proposal_no || "").toUpperCase();
-      return matchesCer && (!a.version || a.version === "");
-    });
-    (historySnapshot as any).approved_attachment_ids = v1Atts.map((a) => a.id);
-    const manifestEntries: ICERAttachmentManifestEntry[] = v1Atts.map((a) => ({
+    let snapshotAtts: ICERAttachment[] = [];
+    if (options?.snapshotAttachments && options.snapshotAttachments.length > 0) {
+      snapshotAtts = options.snapshotAttachments;
+    } else if (original.attachments_manifest && (original.attachments_manifest as any).length > 0) {
+      snapshotAtts = original.attachments_manifest as any;
+    } else {
+      try {
+        snapshotAtts = await this.getAttachments(cerId);
+      } catch {
+        snapshotAtts = [];
+      }
+    }
+
+    (historySnapshot as any).approved_attachment_ids = snapshotAtts.map((a) => a.id);
+    const manifestEntries: ICERAttachmentManifestEntry[] = snapshotAtts.map((a) => ({
       id: String(a.id),
       name: a.name,
       size: a.size || 0,
@@ -684,25 +693,46 @@ export class LocalMockCERDataService implements ICERDataService {
     }));
     (historySnapshot as any).attachments_manifest = manifestEntries;
 
-    // Only stamp removed attachments with versionTag
-    const removedIds = (options?.removedAttachmentIds || []).map((id) => String(id).toUpperCase());
-    if (removedIds.length > 0) {
-      for (const att of this._attachments) {
-        const matchesCer = (att.cerprno || "").toUpperCase() === cerId || (att.cerprno || "").toUpperCase() === (original.proposal_no || "").toUpperCase();
-        if (matchesCer && removedIds.indexOf(String(att.id).toUpperCase()) !== -1) {
+    // Stamp only the approved snapshot attachments with versionTag
+    const approvedAttIds = new Set(snapshotAtts.map((a) => String(a.id).toUpperCase()));
+    for (const att of this._attachments) {
+      const matchesCer = (att.cerprno || "").toUpperCase() === cerId || (att.cerprno || "").toUpperCase() === (original.proposal_no || "").toUpperCase();
+      if (!matchesCer) continue;
+
+      const isApprovedInSnapshot = approvedAttIds.has(String(att.id).toUpperCase()) || snapshotAtts.some((sa) => sa.name.toLowerCase() === att.name.toLowerCase());
+      if (isApprovedInSnapshot) {
+        if (!att.version) {
           att.version = versionTag;
           att.version_tag = versionTag;
+        } else if (att.version.toUpperCase().split(/[,;\s]+/).indexOf(versionTag.toUpperCase()) === -1) {
+          att.version = `${att.version}, ${versionTag}`;
+          att.version_tag = att.version;
         }
       }
-      this._saveToStorage(STORAGE_KEYS.ATTACHMENTS, this._attachments);
     }
+    this._saveToStorage(STORAGE_KEYS.ATTACHMENTS, this._attachments);
 
     const existIdx = this._proposalsHistory.findIndex(
       (h) => (h.cer_proposal_id || h.cerprno || "").toUpperCase() === cerId &&
              String((h as any).version || "").toUpperCase() === versionTag
     );
     if (existIdx !== -1) {
-      this._proposalsHistory[existIdx] = historySnapshot;
+      const existing = this._proposalsHistory[existIdx];
+      const existingPropNo = String(existing.proposal_no || existing.cerprno || "").trim().toUpperCase();
+      const targetPropNo = String(original.proposal_no || original.cerprno || "").trim().toUpperCase();
+      const existingAmount = Number(existing.amount || 0);
+      const targetAmount = Number(original.amount || 0);
+
+      const isSameBaseline = (!existingPropNo || existingPropNo === targetPropNo) &&
+        (isNaN(existingAmount) || existingAmount === 0 || existingAmount === targetAmount);
+
+      if (isSameBaseline) {
+        // Reuse immutable historical snapshot without modification
+        return;
+      }
+      throw new Error(
+        `[Historical Snapshot Conflict] Cannot overwrite historical snapshot for ${versionTag}: an immutable historical record already exists with different baseline parameters.`
+      );
     } else {
       this._proposalsHistory.unshift(historySnapshot);
     }
@@ -1039,6 +1069,54 @@ export class LocalMockCERDataService implements ICERDataService {
       ? (oldProposal.revision_count || 0) + 1
       : (oldProposal.revision_count || 0);
 
+    let activeManifest: any = updatedProposal.attachments_manifest;
+    let baselineSnapshotAtts: ICERAttachment[] | undefined = undefined;
+
+    if (!activeManifest) {
+      if (isApprovedOriginal) {
+        const baselineProp = oldProposal || originalProposal;
+        const baselineAtts = await this.getAttachments(permanentId, { proposal: baselineProp });
+        baselineSnapshotAtts = baselineAtts;
+        const removedSet = options?.removedAttachmentIds && options.removedAttachmentIds.length > 0
+          ? new Set(options.removedAttachmentIds.map((id) => String(id).toUpperCase()))
+          : null;
+
+        activeManifest = (baselineAtts || [])
+          .filter((a) => !removedSet || !removedSet.has(String(a.id).toUpperCase()))
+          .map((a) => ({
+            id: String(a.id),
+            name: a.name,
+            size: a.size || 0,
+            type: a.type || "application/octet-stream",
+            server_relative_url: a.server_relative_url || a.data_url || "",
+            data_url: a.data_url || a.server_relative_url || "",
+            uploaded_by: a.uploaded_by || "User",
+            uploaded_date: a.uploaded_date || now.toISOString(),
+            version_tag: a.version || "",
+            proposal_no: effectiveProposalNo,
+          }));
+      } else if (options?.removedAttachmentIds && options.removedAttachmentIds.length > 0) {
+        const removedSet = new Set(options.removedAttachmentIds.map((id) => String(id).toUpperCase()));
+        activeManifest = this._attachments
+          .filter((a) => {
+            const matchesCer = (a.cerprno || "").toUpperCase() === permanentId.toUpperCase() || (a.cerprno || "").toUpperCase() === effectiveProposalNo.toUpperCase();
+            return matchesCer && !removedSet.has(String(a.id).toUpperCase());
+          })
+          .map((a) => ({
+            id: String(a.id),
+            name: a.name,
+            size: a.size || 0,
+            type: a.type || "application/octet-stream",
+            server_relative_url: a.server_relative_url || a.data_url || "",
+            data_url: a.data_url || a.server_relative_url || "",
+            uploaded_by: a.uploaded_by || "User",
+            uploaded_date: a.uploaded_date || now.toISOString(),
+            version_tag: a.version || "",
+            proposal_no: effectiveProposalNo,
+          }));
+      }
+    }
+
     const savedProposal: ICERProposal = {
       ...updatedProposal,
       proposal_no: effectiveProposalNo,
@@ -1052,14 +1130,15 @@ export class LocalMockCERDataService implements ICERDataService {
       request_date: nextRequestDate,
       modified_date: now.toISOString(),
       modified_by: user.name,
-      revision_count: newRevisionCount
+      revision_count: newRevisionCount,
+      attachments_manifest: activeManifest as any,
     };
 
     if (isApprovedOriginal) {
       const snapshot = (originalProposal && originalProposal.status === "Approved") ? originalProposal : oldProposal;
       await this.archiveApprovedProposal(snapshot, {
         removedAttachmentIds: options?.removedAttachmentIds || (user as any)?.removedAttachmentIds || (originalProposal as any)?.removedAttachmentIds,
-        snapshotAttachments: options?.snapshotAttachments
+        snapshotAttachments: options?.snapshotAttachments || baselineSnapshotAtts
       });
     }
 
@@ -1430,6 +1509,21 @@ export class LocalMockCERDataService implements ICERDataService {
         proposal.status = "Approved";
         newStatus = "Approved";
 
+        const approvedVerTag = `V${(Number(proposal.revision_count) || 0) + 1}`;
+        for (const att of this._attachments) {
+          const matchesCer = (att.cerprno || "").toUpperCase() === proposal.cerprno.toUpperCase() || (att.cerprno || "").toUpperCase() === (proposal.proposal_no || "").toUpperCase();
+          if (matchesCer) {
+            if (!att.version) {
+              att.version = approvedVerTag;
+              att.version_tag = approvedVerTag;
+            } else if (att.version.toUpperCase().split(/[,;\s]+/).indexOf(approvedVerTag.toUpperCase()) === -1) {
+              att.version = `${att.version}, ${approvedVerTag}`;
+              att.version_tag = att.version;
+            }
+          }
+        }
+        this._saveToStorage(STORAGE_KEYS.ATTACHMENTS, this._attachments);
+
         try {
           this._recordNotification({
             cerprno: proposal.cerprno,
@@ -1596,12 +1690,66 @@ export class LocalMockCERDataService implements ICERDataService {
       return result;
     }
 
-    // Active proposal: return attachments with NO version (blank/null)
-    return this._attachments.filter((a) => {
-      const matchesCer = a.cerprno.toUpperCase() === target || a.cerprno.toUpperCase() === trimmed;
-      const isActive = !a.version || a.version.trim() === "";
-      return matchesCer && isActive;
-    });
+    // Active proposal: return attachments belonging to current active submission
+    const activeProp = resolved;
+    const allCerAtts = this._attachments.filter(
+      (a) => a.cerprno.toUpperCase() === target || a.cerprno.toUpperCase() === trimmed
+    );
+
+    let manifestList: any[] = [];
+    if (Array.isArray(activeProp?.attachments_manifest)) {
+      manifestList = activeProp.attachments_manifest;
+    } else if (typeof activeProp?.attachments_manifest === "string") {
+      try {
+        manifestList = JSON.parse(activeProp.attachments_manifest);
+      } catch {
+        manifestList = [];
+      }
+    }
+
+    const hasActiveManifest = Boolean(activeProp && activeProp.attachments_manifest !== undefined && activeProp.attachments_manifest !== null);
+    if (hasActiveManifest) {
+      const seenIds = new Set<string>();
+      const activeResult: ICERAttachment[] = [];
+
+      for (const m of manifestList) {
+        const physical = allCerAtts.find(p =>
+          (m.id && String(p.id) === String(m.id)) ||
+          (m.name && p.name.toLowerCase() === m.name.toLowerCase())
+        );
+        const k = String(m.id || physical?.id || m.name);
+        if (!seenIds.has(k)) {
+          seenIds.add(k);
+          activeResult.push({
+            id: String(m.id || physical?.id || ""),
+            cerprno: activeProp ? activeProp.cerprno : target,
+            name: m.name || physical?.name || "document",
+            size: m.size || physical?.size || 0,
+            type: m.type || physical?.type || "application/octet-stream",
+            data_url: physical?.data_url || m.data_url || m.server_relative_url,
+            server_relative_url: physical?.server_relative_url || m.server_relative_url || m.data_url,
+            uploaded_by: m.uploaded_by || physical?.uploaded_by || "User",
+            uploaded_date: m.uploaded_date || physical?.uploaded_date || "",
+            version: physical?.version || m.version_tag || "",
+            version_tag: physical?.version || m.version_tag || "",
+          });
+        }
+      }
+
+      // Also include any newly uploaded unversioned files
+      for (const physical of allCerAtts) {
+        if (!physical.version || physical.version.trim() === "") {
+          const k = physical.id || physical.name;
+          if (!seenIds.has(k)) {
+            seenIds.add(k);
+            activeResult.push(physical);
+          }
+        }
+      }
+      return activeResult;
+    }
+
+    return allCerAtts;
   }
 
   public async addAttachment(
@@ -1652,12 +1800,16 @@ export class LocalMockCERDataService implements ICERDataService {
 
   public async deleteAttachment(
     id: string,
-    options?: { cerprno?: string; force?: boolean; serverRelativeUrl?: string }
+    options?: { cerprno?: string; force?: boolean; serverRelativeUrl?: string; archiveOnDelete?: boolean }
   ): Promise<void> {
     const cerprno = typeof options === "string" ? options : options?.cerprno;
+    const shouldArchive = Boolean(options?.archiveOnDelete);
     if (!options?.force) {
       const targetAtt = this._attachments.find((a) => a.id === id);
       if (targetAtt && targetAtt.version) {
+        if (shouldArchive) {
+          return;
+        }
         throw new Error(
           `[Protected Historical File] Deletion blocked: File belongs to archived historical version '${targetAtt.version}' and cannot be deleted.`
         );
@@ -1668,9 +1820,24 @@ export class LocalMockCERDataService implements ICERDataService {
         if (prop && prop.status === "Approved") {
           throw new Error(`[Protected Historical File] Deletion blocked: File belongs to an Approved proposal and cannot be deleted.`);
         }
-        const hasHistory = this._proposalsHistory.some(p => (p.cer_proposal_id || p.cerprno || "").toUpperCase() === cleanCer);
-        if (hasHistory && targetAtt) {
-          throw new Error(`[Protected Historical File] Deletion blocked: File belongs to an approved audit snapshot and cannot be deleted.`);
+        const histProps = this._proposalsHistory.filter(p => (p.cer_proposal_id || p.cerprno || "").toUpperCase() === cleanCer);
+        let matchedHistoryTag: string | null = null;
+        if (targetAtt) {
+          for (const snap of histProps) {
+            const manifest = this._extractAttachmentManifest(snap);
+            if (manifest && manifest.some(m => String(m.id) === String(targetAtt.id) || (m.name && m.name.toLowerCase() === targetAtt.name.toLowerCase()))) {
+              matchedHistoryTag = String((snap as any).version || (snap as any).Version || "V1").toUpperCase();
+              break;
+            }
+          }
+        }
+        if (matchedHistoryTag && targetAtt) {
+          if (shouldArchive) {
+            targetAtt.version = targetAtt.version ? `${targetAtt.version}, ${matchedHistoryTag}` : matchedHistoryTag;
+            this._saveToStorage(STORAGE_KEYS.ATTACHMENTS, this._attachments);
+            return;
+          }
+          throw new Error(`[Protected Historical File] Deletion blocked: File belongs to an approved audit snapshot (${matchedHistoryTag}) and cannot be deleted.`);
         }
       }
     }
