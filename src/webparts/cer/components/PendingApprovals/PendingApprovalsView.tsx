@@ -18,6 +18,7 @@ import { ApprovalDecisionModal } from '../ApprovalWorkflow/ApprovalDecisionModal
 import { useDynamicPagination } from "../../hooks/useDynamicPagination";
 import { DataTablePagination } from '../Shared/DataTablePagination';
 import { PermissionService } from "../../services/PermissionService";
+import { stripAttachmentsManifest } from "../../utils/sanitizationUtils";
 
 interface IPendingApprovalsViewProps {
   dataService: ICERDataService;
@@ -179,7 +180,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
     try {
       setOpeningProposalId(prop.cerprno);
       setSelectedProposal(prop);
-      const atts = await dataService.getAttachments(prop.cerprno);
+      const atts = await dataService.getAttachments(prop.cerprno, { proposal: prop, forceRefresh: true });
       setSelectedAttachments(atts);
       setIsDecisionModalOpen(true);
     } catch (err) {
@@ -348,7 +349,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
                     </p>
 
                     <p className="text-xs sm:text-sm text-slate-700 line-clamp-2 bg-white px-3 py-2 rounded-xl border border-slate-200/90 leading-relaxed">
-                      {prop.remarks || "No narrative remarks provided."}
+                      {stripAttachmentsManifest(prop.remarks) || "No narrative remarks provided."}
                     </p>
                   </div>
 

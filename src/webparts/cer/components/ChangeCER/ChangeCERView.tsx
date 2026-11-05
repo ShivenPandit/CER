@@ -500,6 +500,9 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         current_level: 1,
       };
 
+      const isApprovedOriginal = Boolean(originalProposal && originalProposal.status === "Approved");
+      const removedIds = stagedDeletions.map((d) => String(d.id)).filter(Boolean);
+
       const result = await dataService.updateProposal(
         updatedPayload,
         {
@@ -507,6 +510,9 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           email: currentUser.email,
         },
         originalProposal || undefined,
+        {
+          removedAttachmentIds: isApprovedOriginal ? removedIds : undefined,
+        }
       );
 
       // Save any remaining un-uploaded attachments linked to proposal
@@ -522,15 +528,8 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         );
       }
 
-      // Execute staged deletions strictly after successful save for Draft & Send Back proposals
-      const isDraftOrSendBack = isDraft || (originalProposal && (
-        originalProposal.status === "Draft" ||
-        originalProposal.status === "Send Back" ||
-        originalProposal.status === "Revised" ||
-        originalProposal.status === "Sent Back"
-      ));
-
-      if (isDraftOrSendBack && stagedDeletions.length > 0) {
+      // Execute staged deletions strictly after successful save across all transitions (Draft, Send Back, or Post-Approval Amendment)
+      if (!isApprovedOriginal && stagedDeletions.length > 0) {
         setSubmitStageText("Cleaning up obsolete attachments...");
         const deletionErrors: string[] = [];
         for (const del of stagedDeletions) {
@@ -551,6 +550,8 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
             `Proposal saved successfully, but cleanup of obsolete attachments requires attention: ${deletionErrors.join(", ")}`
           );
         }
+      } else if (isApprovedOriginal && stagedDeletions.length > 0) {
+        console.log(`[ChangeCERView] Post-approval amendment: ${stagedDeletions.length} obsolete attachments safely preserved in SharePoint library for historical audit (version tagged as V1). Physical deletion bypassed.`);
       }
 
       setSubmitStageText("Completed!");
@@ -850,7 +851,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
                 </button>
 
                 {/* Save Draft button for Draft OR Post-Approval Resubmit */}
-                {(formData.status === "Draft" || originalProposal?.status === "Approved") && (
+                {formData.status === "Draft" && originalProposal?.status !== "Approved" && (
                   <button
                     type="button"
                     onClick={() => handleSaveChange(true)}

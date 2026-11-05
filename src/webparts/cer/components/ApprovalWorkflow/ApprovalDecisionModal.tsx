@@ -6,7 +6,7 @@ import { IWorkflowLevel } from "../../models/WorkflowModel";
 import { IAppUser } from "../../models/UserModel";
 import { PermissionService } from "../../services/PermissionService";
 import { UserAvatar } from "../Common/UserAvatar";
-import { sanitizeMultiLineText } from "../../utils/sanitizationUtils";
+import { sanitizeMultiLineText, stripAttachmentsManifest } from "../../utils/sanitizationUtils";
 import { useModalScrollLock } from "../../hooks/useModalScrollLock";
 
 interface IApprovalDecisionModalProps {
@@ -189,7 +189,7 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
           <div className="p-4 rounded-xl border border-slate-200 bg-white">
             <p className="font-semibold text-slate-900 text-sm mb-1.5">Justification:</p>
             <p className="text-slate-700 text-sm leading-relaxed max-h-32 overflow-y-auto pr-2">
-              {proposal.remarks || "No narrative remarks provided."}
+              {stripAttachmentsManifest(proposal.remarks) || "No narrative remarks provided."}
             </p>
           </div>
 

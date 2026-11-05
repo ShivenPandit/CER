@@ -28,6 +28,7 @@ import { StatusBadge } from "../Shared/StatusBadge";
 import { CategoryBadge } from "../Shared/CategoryBadge";
 import { UserAvatar } from "../Common/UserAvatar";
 import { calculateExactDays, getCurrentFiscalYearPhasingLabels } from "../../utils/dateUtils";
+import { stripAttachmentsManifest } from "../../utils/sanitizationUtils";
 import { useModalScrollLock } from "../../hooks/useModalScrollLock";
 
 interface IProposalHistoryModalProps {
@@ -129,37 +130,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
     const loadAtts = async (): Promise<void> => {
       setIsLoadingAttachments(true);
       try {
-        // 1. Check if selectedProposal has direct attachments_manifest
-        const manifestRaw = (selectedProposal as any).attachments_manifest || (selectedProposal as any).attachments;
-        if (manifestRaw) {
-          try {
-            const parsed = typeof manifestRaw === "string" ? JSON.parse(manifestRaw) : manifestRaw;
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              if (isMounted) {
-                setSelectedAttachments(parsed);
-                setIsLoadingAttachments(false);
-              }
-              return;
-            }
-          } catch { /* fallback to getAttachments */ }
-        }
-
-        // 2. Check if embedded inside remarks as a manifest marker
-        const remarksText = String(selectedProposal.remarks || "");
-        const match = remarksText.match(/<!--\s*CER_ATTACHMENTS_MANIFEST:([\s\S]*?)-->/i);
-        if (match && match[1]) {
-          try {
-            const parsed = JSON.parse(match[1].trim());
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              if (isMounted) {
-                setSelectedAttachments(parsed);
-                setIsLoadingAttachments(false);
-              }
-              return;
-            }
-          } catch { /* fallback */ }
-        }
-
+        // Load attachments for snapshot version
         const targetId = (
           selectedProposal.cerprno ||
           selectedProposal.proposal_no ||
@@ -170,10 +141,15 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
           if (isMounted) setSelectedAttachments([]);
           return;
         }
-        const vTag = (selectedProposal as any).version || undefined;
+        const computedVersion =
+          (selectedProposal as any).version ||
+          (activeVersionIndex >= 0 ? `V${sortedHistory.length - activeVersionIndex}` : "V1");
+        const vTag = computedVersion;
         const atts = await dataService.getAttachments(targetId, {
           versionTag: vTag,
           proposalNo: selectedProposal.proposal_no,
+          proposal: { ...selectedProposal, version: vTag },
+          forceRefresh: true,
         });
         if (isMounted) {
           setSelectedAttachments(atts || []);
@@ -194,7 +170,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [selectedProposal, dataService]);
+  }, [selectedProposal, activeVersionIndex, sortedHistory.length, dataService]);
 
   // Handle ESC key to close
   useEffect(() => {
@@ -852,7 +828,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                       <p className="font-bold text-slate-900 mb-1 text-sm">
                         Remarks (including justification for Non Payback expenditure, etc.):
                       </p>
-                      <p className="whitespace-pre-wrap">{selectedProposal.remarks || "No narrative remarks provided."}</p>
+                      <p className="whitespace-pre-wrap">{stripAttachmentsManifest(selectedProposal.remarks) || "No narrative remarks provided."}</p>
                     </div>
                     {selectedProposal.remarks_jv && (
                       <div className="pt-3 border-t border-slate-200">

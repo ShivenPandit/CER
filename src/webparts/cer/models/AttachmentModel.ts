@@ -9,6 +9,7 @@ export interface ICERAttachment {
   uploaded_date: string;
   server_relative_url?: string; // Verified server-relative URL in SharePoint
   sp_file_id?: string; // Stable SharePoint identifier
+  version?: string; // e.g. "V1", "V2" or empty/undefined for active
   version_tag?: string; // e.g. "V1", "V2"
   proposal_no?: string; // e.g. "PR-2026/08"
   is_staged_for_delete?: boolean;

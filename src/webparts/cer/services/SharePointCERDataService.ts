@@ -25,7 +25,7 @@ import { getCurrentFiscalYearPhasingLabels, formatLocalDate, formatLocalTime, ge
 import { SharePointOperations } from "../hooks/useSharePointOperations";
 import { PersonFieldService } from "./PersonFieldService";
 import { SP_LISTS, FIXED_6_LEVEL_APPROVAL_STAGES } from "../constants";
-import { sanitizeProposalPayload, escapeODataString } from "../utils/sanitizationUtils";
+import { sanitizeProposalPayload, escapeODataString, stripAttachmentsManifest } from "../utils/sanitizationUtils";
 
 /**
  * Sanitizes and formats raw SharePoint REST / OData / Network errors into
@@ -96,8 +96,11 @@ export class SharePointCERDataService implements ICERDataService {
   private _cachedHistoryFields: Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string; AllowMultipleValues?: boolean }> | null = null;
   private _lastAllocatedSequenceMap: Map<number, number> = new Map();
 
+  private _cachedAttachmentFields: Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string; AllowMultipleValues?: boolean }> | null = null;
+
   public clearCache(): void {
     this._cachedHistoryFields = null;
+    this._cachedAttachmentFields = null;
     this._cachedSubmissionsByCerId.clear();
     this._cachedUserRoles = null;
     this._cachedUserRolesTimestamp = 0;
@@ -119,6 +122,34 @@ export class SharePointCERDataService implements ICERDataService {
     this._siteUrl = siteUrl;
     this._context = context;
     this._sp = new SharePointOperations(spHttpClient, siteUrl);
+  }
+
+  public async getAttachmentListFields(): Promise<Array<{
+    InternalName: string;
+    Title: string;
+    TypeAsString: string;
+    EntityPropertyName?: string;
+    AllowMultipleValues?: boolean;
+  }>> {
+    if (this._cachedAttachmentFields && this._cachedAttachmentFields.length > 0) {
+      return this._cachedAttachmentFields;
+    }
+    try {
+      let raw: any[] = [];
+      try {
+        raw = await this._sp.getListFields<any>(SP_LISTS.CER_ATTACHMENTS, {
+          select: "InternalName,Title,TypeAsString,EntityPropertyName,Hidden,ReadOnlyField,AllowMultipleValues",
+        });
+      } catch {
+        raw = await this._sp.getListFields<any>(SP_LISTS.CER_ATTACHMENTS, {
+          select: "InternalName,Title,TypeAsString,EntityPropertyName,Hidden,ReadOnlyField",
+        });
+      }
+      this._cachedAttachmentFields = (raw || []).filter((f) => !f.Hidden && !f.ReadOnlyField);
+      return this._cachedAttachmentFields;
+    } catch {
+      return [];
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -635,6 +666,10 @@ export class SharePointCERDataService implements ICERDataService {
     delete payload.proposal_no;
     delete payload.owname;
     delete payload.owner_email;
+    delete payload.Attachments;
+    delete payload.attachments;
+    delete payload.AttachmentFiles;
+    delete payload.attachmentFiles;
 
     let attempts = 0;
 
@@ -684,6 +719,12 @@ export class SharePointCERDataService implements ICERDataService {
             payload.SBU = initialPayload.sbu;
           } else if (missingProp === "status" && !payload.Status && initialPayload.status) {
             payload.Status = initialPayload.status;
+          } else if (missingProp === "remarks" && !payload.Remarks && (initialPayload.remarks || initialPayload.Remarks)) {
+            payload.Remarks = initialPayload.remarks || initialPayload.Remarks;
+          } else if (missingProp === "Remarks" && !payload.remarks && (initialPayload.Remarks || initialPayload.remarks)) {
+            payload.remarks = initialPayload.Remarks || initialPayload.remarks;
+          } else if ((missingProp === "remarks" || missingProp === "Remarks") && !payload.GeneralRemarks && (initialPayload.remarks || initialPayload.Remarks)) {
+            payload.GeneralRemarks = initialPayload.remarks || initialPayload.Remarks;
           }
 
           if (attempts <= maxRetries) {
@@ -764,6 +805,32 @@ export class SharePointCERDataService implements ICERDataService {
           delete payload.requestDate;
           if (attempts <= maxRetries) {
             continue;
+          }
+        }
+
+        // Handle SharePoint literal conversion errors (e.g. Cannot convert the literal '...' to the expected type 'Edm.Boolean')
+        const literalMatch = /Cannot convert the literal '([\s\S]*?)' to the expected type/i.exec(errMsg);
+        if (literalMatch && literalMatch[1]) {
+          const literalVal = literalMatch[1];
+          let strippedProp: string | null = null;
+          for (const key of Object.keys(payload)) {
+            const val = payload[key];
+            const valStr = typeof val === "object" ? JSON.stringify(val) : String(val);
+            if (
+              valStr === literalVal ||
+              literalVal.indexOf(valStr) !== -1 ||
+              (typeof val === "string" && val.trim() === literalVal.trim())
+            ) {
+              strippedProp = key;
+              delete payload[key];
+              break;
+            }
+          }
+          if (strippedProp) {
+            console.warn(`[SharePointCERDataService] SharePoint cannot convert literal for property '${strippedProp}'. Stripping property and retrying...`);
+            if (attempts <= maxRetries) {
+              continue;
+            }
           }
         }
 
@@ -1029,6 +1096,7 @@ export class SharePointCERDataService implements ICERDataService {
     proposal: ICERProposal,
     user: { name: string; email: string },
     originalProposal?: ICERProposal,
+    options?: { removedAttachmentIds?: string[]; stagedAttachments?: ICERAttachment[] }
   ): Promise<{
     success: boolean;
     message: string;
@@ -1267,7 +1335,9 @@ export class SharePointCERDataService implements ICERDataService {
           ? existing
           : original;
       try {
-        await this.archiveApprovedProposal(snapshotToArchive);
+        await this.archiveApprovedProposal(snapshotToArchive, {
+          removedAttachmentIds: options?.removedAttachmentIds,
+        });
       } catch (archiveErr: any) {
         console.error("[SharePointCERDataService] Error archiving approved proposal snapshot to CERProposalsHistory:", archiveErr);
         throw new Error(
@@ -1311,6 +1381,7 @@ export class SharePointCERDataService implements ICERDataService {
 
     this._cachedProposals = null;
     this._cachedProposalByNumber.delete(proposal.cerprno.toUpperCase());
+    this._cachedAttachments.clear();
     this._cachedSubmissionsByCerId.clear();
 
     const hasSecondaryFailures = auditFailedCount > 0;
@@ -1428,17 +1499,9 @@ export class SharePointCERDataService implements ICERDataService {
       preoperativeCost: Number(original.preop || 0),
       otherCosts: Number(original.others || 0),
       total: Number(original.total || 0),
-      remarks: manifestJson && manifestJson !== "[]"
-        ? (String(original.remarks || "").replace(/\s*<!--\s*CER_ATTACHMENTS_MANIFEST:[\s\S]*?-->/gi, "").trim()
-          ? `${String(original.remarks || "").replace(/\s*<!--\s*CER_ATTACHMENTS_MANIFEST:[\s\S]*?-->/gi, "").trim()}\n\n<!-- CER_ATTACHMENTS_MANIFEST:${manifestJson} -->`
-          : `<!-- CER_ATTACHMENTS_MANIFEST:${manifestJson} -->`)
-        : String(original.remarks || "").replace(/\s*<!--\s*CER_ATTACHMENTS_MANIFEST:[\s\S]*?-->/gi, "").trim(),
+      remarks: stripAttachmentsManifest(original.remarks),
+      Remarks: stripAttachmentsManifest(original.remarks),
       remarksJv: original.remarks_jv || "",
-      attachments: manifestJson || "",
-      attachments_manifest: manifestJson || "",
-      attachmentsManifest: manifestJson || "",
-      attachmentJson: manifestJson || "",
-      manifest: manifestJson || "",
       currentLevel: Number(original.current_level || 6),
       pendingWithRole: original.pending_with_role || "Approved",
       pendingWithEmail: original.pending_with_email || "",
@@ -1454,6 +1517,16 @@ export class SharePointCERDataService implements ICERDataService {
         const dispName = field.Title || "";
         const entityProp = field.EntityPropertyName || "";
         const type = (field.TypeAsString || "").toLowerCase();
+
+        // Guard against SharePoint system Attachments property (Edm.Boolean) and system fields
+        if (
+          intName.toLowerCase() === "attachments" ||
+          dispName.toLowerCase() === "attachments" ||
+          entityProp.toLowerCase() === "attachments" ||
+          type === "attachments"
+        ) {
+          continue;
+        }
 
         let matchedKey: string | undefined;
         for (const key of Object.keys(dataDict)) {
@@ -1502,6 +1575,13 @@ export class SharePointCERDataService implements ICERDataService {
             payload[payloadKey] = rawVal || null;
           } else if (type.indexOf("note") !== -1 || type.indexOf("text") !== -1 || type.indexOf("choice") !== -1) {
             payload[payloadKey] = rawVal !== null && rawVal !== undefined ? String(rawVal) : "";
+          } else if (type.indexOf("bool") !== -1) {
+            payload[payloadKey] = Boolean(
+              rawVal === true ||
+              String(rawVal).toLowerCase() === "true" ||
+              String(rawVal).toLowerCase() === "yes" ||
+              rawVal === 1
+            );
           } else {
             payload[payloadKey] = rawVal;
           }
@@ -1522,6 +1602,39 @@ export class SharePointCERDataService implements ICERDataService {
     if (!hasField(["status", "Status", "OData__x0073_tatus"])) payload.status = "Approved";
     payload.version = effectiveVersion;
     payload.Version = effectiveVersion;
+
+    // 5. Populate Authoritative Historical Attachment Manifest
+    if (manifestJson) {
+      let manifestColumnFound = false;
+      if (availableFields && availableFields.length > 0) {
+        for (const f of availableFields) {
+          const intName = (f.InternalName || "").toLowerCase();
+          const dispName = (f.Title || "").toLowerCase();
+          if (
+            intName === "attachments_manifest" ||
+            intName === "attachmentsmanifest" ||
+            intName === "attachmentjson" ||
+            dispName === "attachments manifest" ||
+            dispName === "attachment manifest"
+          ) {
+            payload[f.InternalName] = manifestJson;
+            manifestColumnFound = true;
+            break;
+          }
+        }
+      }
+
+      if (!manifestColumnFound) {
+        // Never pollute remarks with JSON manifest text!
+        payload.remarks = stripAttachmentsManifest(original.remarks);
+        payload.Remarks = stripAttachmentsManifest(original.remarks);
+      }
+    }
+
+    delete payload.Attachments;
+    delete payload.attachments;
+    delete payload.AttachmentFiles;
+    delete payload.attachmentFiles;
 
     return payload;
   }
@@ -1600,7 +1713,7 @@ export class SharePointCERDataService implements ICERDataService {
    * Discovers exact column schema from SharePoint, deduplicates by proposal number,
    * updates any existing row and purges duplicates.
    */
-  public async archiveApprovedProposal(original: ICERProposal): Promise<void> {
+  public async archiveApprovedProposal(original: ICERProposal, options?: { removedAttachmentIds?: string[] }): Promise<void> {
     const cerId = (original.cer_proposal_id || original.cerprno || "").trim();
     const propNo = (original.proposal_no || original.cerprno || cerId).trim();
 
@@ -1624,8 +1737,6 @@ export class SharePointCERDataService implements ICERDataService {
     let versionIndex = 1;
     if ((original as any).version) {
       versionIndex = parseInt(String((original as any).version).replace(/\D/g, ""), 10) || 1;
-    } else if (typeof original.revision_count === "number" && original.revision_count > 0) {
-      versionIndex = original.revision_count;
     } else {
       try {
         const historyCountItems = await this._sp.getListItems<{ Id: number; version?: string; Version?: string }>(
@@ -1633,12 +1744,12 @@ export class SharePointCERDataService implements ICERDataService {
           {
             filter: `cerPrId eq '${escapeODataString(cerId)}' or proposalNo eq '${escapeODataString(propNo)}' or Title eq '${escapeODataString(propNo)}'`,
             select: "Id,version,Version",
-            top: 50,
+            top: 100,
           }
         );
         versionIndex = (historyCountItems?.length || 0) + 1;
       } catch {
-        versionIndex = 1;
+        versionIndex = Math.max(1, (Number(original.revision_count) || 0) + 1);
       }
     }
     const versionTag = `V${versionIndex}`;
@@ -1646,26 +1757,58 @@ export class SharePointCERDataService implements ICERDataService {
     // 2. Discover list fields for CERProposalsHistory
     const discoveredFields = await this.getHistoryListFields();
 
-    // 2b. Snapshot current active attachments for this version manifest
-    let currentAtts: ICERAttachment[] = [];
+    // 2a. Query active attachments to generate authoritative snapshot manifest
+    let snapshotAttachments: ICERAttachment[] = [];
     try {
-      currentAtts = await this.getAttachments(cerId, true);
-    } catch (attErr) {
-      console.warn("[SharePointCERDataService] Warning loading attachments for history snapshot:", attErr);
+      snapshotAttachments = await this.getAttachments(cerId, { forceRefresh: true });
+    } catch {
+      snapshotAttachments = [];
     }
-    const manifest = currentAtts.map((a) => ({
-      id: a.id,
+
+    const manifestEntries: ICERAttachmentManifestEntry[] = snapshotAttachments.map((a) => ({
+      id: String(a.id),
       name: a.name,
-      size: a.size,
-      type: a.type,
-      server_relative_url: a.server_relative_url || a.data_url || "",
-      data_url: a.server_relative_url || a.data_url || "",
-      uploaded_by: a.uploaded_by,
-      uploaded_date: a.uploaded_date,
+      size: a.size || 0,
+      type: a.type || "application/octet-stream",
+      server_relative_url: a.server_relative_url || a.data_url || `/sites/CERManagementSystemUAT/CERAttachments/${cerId}_${a.name}`,
+      data_url: a.data_url || a.server_relative_url || `/sites/CERManagementSystemUAT/CERAttachments/${cerId}_${a.name}`,
+      uploaded_by: a.uploaded_by || "User",
+      uploaded_date: a.uploaded_date || new Date().toISOString(),
       version_tag: versionTag,
       proposal_no: propNo,
     }));
-    const manifestJson = JSON.stringify(manifest);
+    const manifestJson = JSON.stringify(manifestEntries);
+
+    // 2b. Stamp removed/superseded attachments in CERAttachments library with this snapshot's versionTag
+    const removedIds = (options?.removedAttachmentIds || []).map((id) => String(id).trim()).filter(Boolean);
+    if (removedIds.length > 0) {
+      try {
+        const attFields = await this.getAttachmentListFields();
+        const vCol = attFields.find((f) => {
+          const intName = (f.InternalName || "").toLowerCase();
+          const title = (f.Title || "").toLowerCase();
+          return intName === "version" || title === "version" || intName.startsWith("version");
+        });
+        const vColName = vCol ? vCol.InternalName : "version";
+
+        for (const remId of removedIds) {
+          const numId = parseInt(remId, 10);
+          if (!isNaN(numId) && numId > 0) {
+            try {
+              await this._sp.updateListItem(SP_LISTS.CER_ATTACHMENTS, numId, {
+                [vColName]: versionTag,
+              });
+              console.log(`[SharePointCERDataService] Tagged removed attachment ${numId} with version ${versionTag}`);
+            } catch (tagErr) {
+              console.warn(`[SharePointCERDataService] Warning tagging removed attachment ${numId} with version ${versionTag}:`, tagErr);
+            }
+          }
+        }
+        this._cachedAttachments.clear();
+      } catch (attQueryErr) {
+        console.warn("[SharePointCERDataService] Warning updating removed attachments with version:", attQueryErr);
+      }
+    }
 
     const payload = this._buildHistoryPayload(original, ownerSpUserId, discoveredFields, versionTag, manifestJson);
 
@@ -1791,13 +1934,15 @@ export class SharePointCERDataService implements ICERDataService {
       }
     }
 
-    // Deduplicate history items in memory by proposal_no
-    const seenPropNos = new Set<string>();
+    // Deduplicate history items in memory by version tag or ID (never by proposal_no, since post-approval revisions share the same proposal_no)
+    const seenVersions = new Set<string>();
     const deduplicatedHistory: ICERProposal[] = [];
     for (const h of history) {
-      const pKey = (h.proposal_no || h.cerprno || "").toUpperCase();
-      if (pKey && !seenPropNos.has(pKey)) {
-        seenPropNos.add(pKey);
+      const vKey = String((h as any).version || (h as any).Version || h.id || "").trim().toUpperCase();
+      if (vKey && !seenVersions.has(vKey)) {
+        seenVersions.add(vKey);
+        deduplicatedHistory.push(h);
+      } else if (!vKey) {
         deduplicatedHistory.push(h);
       }
     }
@@ -2678,54 +2823,21 @@ export class SharePointCERDataService implements ICERDataService {
 
   public async getAttachments(
     cerprno: string,
-    options: boolean | { forceRefresh?: boolean; versionTag?: string; proposalNo?: string } = false
+    options: boolean | { forceRefresh?: boolean; versionTag?: string; proposalNo?: string; proposal?: ICERProposal } = false
   ): Promise<ICERAttachment[]> {
     const key = (cerprno || "").trim().toUpperCase();
     const now = Date.now();
     const CACHE_TTL_MS = 25000;
     const forceRefresh = typeof options === "boolean" ? options : Boolean(options?.forceRefresh);
     const versionTag = typeof options === "object" ? options?.versionTag : undefined;
-    const proposalNo = typeof options === "object" ? options?.proposalNo : undefined;
+    const cacheKey = versionTag ? `${key}_${versionTag.toUpperCase()}` : key;
 
-    // If a specific historical version is requested, resolve its immutable snapshot manifest
-    if (versionTag || proposalNo) {
-      try {
-        const history = await this.getProposalHistory(cerprno);
-        const matched = history.find((h) => {
-          const vMatch = versionTag && String(h.version || (h as any).Version || "").toUpperCase() === versionTag.toUpperCase();
-          const pMatch = proposalNo && String(h.proposal_no || "").toUpperCase() === proposalNo.toUpperCase();
-          return vMatch || pMatch;
-        });
-        if (matched) {
-          const manifest = this._extractAttachmentManifest(matched);
-          if (manifest && manifest.length > 0) {
-            return manifest.map((m: any) => ({
-              id: String(m.id || ""),
-              cerprno: cerprno,
-              name: m.name || "document",
-              size: Number(m.size || 0),
-              type: m.type || "application/octet-stream",
-              data_url: m.server_relative_url || m.data_url || "",
-              server_relative_url: m.server_relative_url || m.data_url || "",
-              sp_file_id: String(m.id || ""),
-              uploaded_by: m.uploaded_by || "User",
-              uploaded_date: m.uploaded_date || new Date().toISOString(),
-              version_tag: m.version_tag || versionTag,
-              proposal_no: m.proposal_no || proposalNo,
-            }));
-          }
-        }
-      } catch (mErr) {
-        console.warn("[SharePointCERDataService] getAttachments version manifest check warning:", mErr);
-      }
-    }
-
-    const cached = this._cachedAttachments.get(key);
+    const cached = this._cachedAttachments.get(cacheKey);
     if (!forceRefresh && cached && now - cached.timestamp < CACHE_TTL_MS) {
       return cached.data.map((a) => ({ ...a }));
     }
 
-    const inFlight = this._inFlightAttachments.get(key);
+    const inFlight = this._inFlightAttachments.get(cacheKey);
     if (!forceRefresh && inFlight) {
       const res = await inFlight;
       return res.map((a) => ({ ...a }));
@@ -2738,30 +2850,30 @@ export class SharePointCERDataService implements ICERDataService {
       for (const libName of candidateLists) {
         try {
           let items: Record<string, any>[] = [];
-          // Tier 1: Query by cerPrId with File and uploadedBy expanded
+          // Tier 1: Query by cerPrId or filename prefix with File, uploadedBy, and version
           try {
             items = await this._sp.getListItems<Record<string, any>>(libName, {
-              filter: `cerPrId eq '${cerprno}'`,
-              select: "Id,Title,FileLeafRef,FileRef,cerPrId,category,uploadDate,Created,File/ServerRelativeUrl,File/Length,uploadedBy/Id,uploadedBy/Title,uploadedBy/EMail",
+              filter: `cerPrId eq '${cerprno}' or startswith(FileLeafRef, '${cerprno}')`,
+              select: "Id,Title,FileLeafRef,FileRef,cerPrId,category,uploadDate,Created,version,Version,File/ServerRelativeUrl,File/Length,uploadedBy/Id,uploadedBy/Title,uploadedBy/EMail",
               expand: "File,uploadedBy",
-              top: 100,
+              top: 200,
             });
           } catch (t1Err) {
             // Tier 2: Query by cerPrId with only File expanded
             try {
               items = await this._sp.getListItems<Record<string, any>>(libName, {
                 filter: `cerPrId eq '${cerprno}'`,
-                select: "Id,Title,FileLeafRef,FileRef,cerPrId,category,uploadDate,Created,File/ServerRelativeUrl,File/Length",
+                select: "Id,Title,FileLeafRef,FileRef,cerPrId,category,uploadDate,Created,version,Version,File/ServerRelativeUrl,File/Length",
                 expand: "File",
-                top: 100,
+                top: 200,
               });
             } catch (t2Err) {
-              // Tier 3: Query without filter if column isn't indexed or configured, filter in memory
+              // Tier 3: Query without filter if column isn't indexed, filter in memory
               try {
                 items = await this._sp.getListItems<Record<string, any>>(libName, {
-                  select: "Id,Title,FileLeafRef,FileRef,Created,File/ServerRelativeUrl,File/Length",
+                  select: "Id,Title,FileLeafRef,FileRef,cerPrId,category,uploadDate,version,Version,Created,File/ServerRelativeUrl,File/Length",
                   expand: "File",
-                  top: 200,
+                  top: 500,
                 });
                 items = items.filter((it) => {
                   const leaf = String(it.FileLeafRef || "");
@@ -2771,7 +2883,7 @@ export class SharePointCERDataService implements ICERDataService {
               } catch (t3Err) {
                 // Tier 4: Minimal query fallback
                 items = await this._sp.getListItems<Record<string, any>>(libName, {
-                  top: 100,
+                  top: 500,
                 });
                 items = items.filter((it) => {
                   const leaf = String(it.FileLeafRef || "");
@@ -2782,15 +2894,37 @@ export class SharePointCERDataService implements ICERDataService {
             }
           }
 
-          const mapped = items.map((item) => {
+          // Auto-heal missing metadata on orphan items uploaded for this CER
+          for (const rawItem of items) {
+            if (rawItem.Id && (!rawItem.cerPrId || !rawItem.uploadDate)) {
+              void (async () => {
+                try {
+                  const healPayload: Record<string, any> = {
+                    cerPrId: cerprno,
+                    category: "Technical",
+                    uploadDate: rawItem.uploadDate || rawItem.Created || new Date().toISOString(),
+                  };
+                  if (this._context?.pageContext?.legacyPageContext?.userId) {
+                    healPayload.uploadedById = Number(this._context.pageContext.legacyPageContext.userId);
+                  }
+                  await this._executeWithFieldFallback(
+                    (p) => this._sp.updateListItem(libName, rawItem.Id, p),
+                    healPayload
+                  );
+                } catch { /* silent heal */ }
+              })();
+            }
+          }
+
+          const mapped: ICERAttachment[] = items.map((item) => {
             const uploaderPerson = PersonFieldService.extractPersonField(item, "uploadedBy") || PersonFieldService.extractPersonField(item, "Author");
             const uploaderName = uploaderPerson?.name || item.uploaded_by || (typeof item.uploadedBy === "string" ? item.uploadedBy : "") || "User";
             const uploadDate = item.uploadDate || item.Created || new Date().toISOString();
             const fileSize = Number(item.File?.Length || item.file_size || 0);
             const serverRelUrl = item.File?.ServerRelativeUrl || item.FileRef || "";
             const rawLeaf = String(item.FileLeafRef || item.File?.Name || "document");
-            // Prefer stored Title, or strip CER-YYYY-NNNN_(timestamp_)?(hash_)?
             const displayName = String(item.Title || "").trim() || rawLeaf.replace(/^CER-\d{4}-\d{4}_(?:\d+_)?(?:[a-z0-9]+_)?/i, "");
+            const itemVer = String(item.version || item.Version || "").trim();
 
             return {
               id: String(item.Id || item.id),
@@ -2803,11 +2937,97 @@ export class SharePointCERDataService implements ICERDataService {
               sp_file_id: String(item.Id || item.id),
               uploaded_by: uploaderName,
               uploaded_date: uploadDate,
+              version: itemVer,
+              version_tag: itemVer,
             };
           });
 
-          this._cachedAttachments.set(key, { data: mapped, timestamp: Date.now() });
-          return mapped;
+          // Filter by versionTag
+          let result: ICERAttachment[] = [];
+          if (versionTag) {
+            const targetTag = versionTag.toUpperCase();
+
+            // 1. Authoritative Manifest Resolution
+            const snapshotProposal = (typeof options === "object" && options?.proposal) || null;
+            let snapshotCandidate = snapshotProposal;
+
+            if (!snapshotCandidate) {
+              try {
+                const historySnapshots = await this.getProposalHistory(cerprno);
+                snapshotCandidate = historySnapshots.find(
+                  (h) => String((h as any).version || "").toUpperCase() === targetTag
+                ) || null;
+              } catch {
+                snapshotCandidate = null;
+              }
+            }
+
+            if (snapshotCandidate) {
+              const manifest = this._extractAttachmentManifest(snapshotCandidate);
+              if (manifest !== null) {
+                // Return authoritative manifest entries!
+                result = manifest.map((m) => {
+                  const physical = mapped.find(
+                    (p) => String(p.id) === String(m.id) || p.name.toLowerCase() === m.name.toLowerCase()
+                  );
+                  return {
+                    id: String(m.id),
+                    cerprno: cerprno,
+                    name: m.name,
+                    size: m.size || (physical ? physical.size : 0),
+                    type: m.type || (physical ? physical.type : "application/octet-stream"),
+                    data_url: physical?.data_url || m.data_url || m.server_relative_url,
+                    server_relative_url: physical?.server_relative_url || m.server_relative_url || m.data_url,
+                    uploaded_by: m.uploaded_by || physical?.uploaded_by || "User",
+                    uploaded_date: m.uploaded_date || physical?.uploaded_date || "",
+                    version: targetTag,
+                    version_tag: targetTag,
+                  };
+                });
+                this._cachedAttachments.set(cacheKey, { data: result, timestamp: Date.now() });
+                return result;
+              }
+            }
+
+            // Fallback for legacy snapshots lacking an authoritative manifest
+            const explicitMatches = mapped.filter((a) => (a.version || "").toUpperCase() === targetTag);
+            const snapshotCreatedTime = (snapshotCandidate as any)?.created_at
+              ? new Date((snapshotCandidate as any).created_at).getTime()
+              : snapshotCandidate?.created_date
+              ? new Date(snapshotCandidate.created_date).getTime()
+              : 0;
+
+            const carryOverMatches = mapped.filter((a) => {
+              if (a.version && a.version.trim() !== "") return false;
+              if (snapshotCreatedTime > 0 && a.uploaded_date) {
+                const fileUploadedTime = new Date(a.uploaded_date).getTime();
+                if (!isNaN(fileUploadedTime) && fileUploadedTime >= snapshotCreatedTime) {
+                  return false;
+                }
+              }
+              return explicitMatches.length === 0;
+            });
+
+            const seenIds = new Set<string>();
+            result = [];
+            for (const att of [...explicitMatches, ...carryOverMatches]) {
+              const k = att.id || att.name;
+              if (!seenIds.has(k)) {
+                seenIds.add(k);
+                result.push({
+                  ...att,
+                  version: att.version || targetTag,
+                  version_tag: att.version_tag || att.version || targetTag,
+                });
+              }
+            }
+          } else {
+            // Active proposal: return documents with NO version tag (blank / null)
+            result = mapped.filter((a) => !a.version || a.version.trim() === "");
+          }
+
+          this._cachedAttachments.set(cacheKey, { data: result, timestamp: Date.now() });
+          return result;
         } catch (e) {
           lastErr = e;
         }
@@ -2822,19 +3042,19 @@ export class SharePointCERDataService implements ICERDataService {
       throw new Error(`Unable to load attachments for CER '${cerprno}' from SharePoint: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`);
     })();
 
-    this._inFlightAttachments.set(key, fetchPromise);
+    this._inFlightAttachments.set(cacheKey, fetchPromise);
     try {
       const res = await fetchPromise;
       return res.map((a) => ({ ...a }));
     } finally {
-      this._inFlightAttachments.delete(key);
+      this._inFlightAttachments.delete(cacheKey);
     }
   }
 
   public async addAttachment(
     attachment: ICERAttachment,
     options?: { versionTag?: string; proposalNo?: string; overwrite?: boolean }
-  ): Promise<void> {
+  ): Promise<ICERAttachment> {
     const rawName = (attachment.name || "document").trim();
     // Normalize file name: strip any legacy or previously generated proposal prefixes
     const cleanOriginalName = rawName.replace(/^CER-\d{4}-\d{4}_(?:\d+_)?(?:[a-z0-9]+_)?/i, "");
@@ -2852,44 +3072,158 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     let uploadedById: number | undefined;
-    if (attachment.uploaded_by) {
+
+    // 1. Context legacyPageContext userId (instant, synchronous, 100% reliable for current logged-in user)
+    if (this._context?.pageContext?.legacyPageContext?.userId) {
+      uploadedById = Number(this._context.pageContext.legacyPageContext.userId);
+    }
+
+    // 2. Context user email / loginName
+    if (!uploadedById) {
+      const emailCand = this._context?.pageContext?.user?.email || this._context?.pageContext?.user?.loginName;
+      if (emailCand) {
+        try {
+          const ensured = await PersonFieldService.resolveUser(this._spHttpClient, this._siteUrl, emailCand);
+          if (ensured && ensured.Id > 0) {
+            uploadedById = ensured.Id;
+          }
+        } catch { /* continue */ }
+      }
+    }
+
+    // 3. Attachment uploaded_by (clean any parenthetical company names like '(Microlink)')
+    if (!uploadedById && attachment.uploaded_by) {
       try {
-        const ensured = await PersonFieldService.resolveUser(
-          this._spHttpClient,
-          this._siteUrl,
-          attachment.uploaded_by
-        );
-        if (ensured && ensured.Id > 0) {
-          uploadedById = ensured.Id;
+        const cleanName = attachment.uploaded_by.replace(/\s*\(.*?\)\s*/g, "").trim();
+        const candidates = [attachment.uploaded_by, cleanName];
+        for (const cand of candidates) {
+          try {
+            const ensured = await PersonFieldService.resolveUser(this._spHttpClient, this._siteUrl, cand);
+            if (ensured && ensured.Id > 0) {
+              uploadedById = ensured.Id;
+              break;
+            }
+          } catch { /* continue */ }
         }
       } catch (ensureErr) {
         console.warn("[SharePointCERDataService] ensureUser resolution warning for uploadedBy:", ensureErr);
       }
     }
 
+    // 4. Site users query fallback
+    if (!uploadedById) {
+      try {
+        const siteUsers = await this._sp.getSiteUsers<{ Id: number; Title?: string; Email?: string }>();
+        const targetName = (attachment.uploaded_by || "").replace(/\s*\(.*?\)\s*/g, "").trim().toLowerCase();
+        const found = siteUsers.find((u) => {
+          const uTitle = (u.Title || "").replace(/\s*\(.*?\)\s*/g, "").trim().toLowerCase();
+          const uEmail = (u.Email || "").trim().toLowerCase();
+          return (targetName && uTitle === targetName) || (uEmail && targetName.includes(uEmail));
+        });
+        if (found && found.Id) {
+          uploadedById = found.Id;
+        }
+      } catch { /* continue */ }
+    }
+
+    const attFields = await this.getAttachmentListFields();
+    const findAttField = (pred: (f: any) => boolean) => attFields.find(pred);
+
+    const cerPrIdField = findAttField((f) => {
+      const intName = (f.InternalName || "").toLowerCase();
+      const title = (f.Title || "").toLowerCase();
+      return intName === "cerprid" || title === "cerprid" || intName === "cerproposalid" || title === "cer proposal id";
+    });
+
+    const categoryField = findAttField((f) => {
+      const intName = (f.InternalName || "").toLowerCase();
+      const title = (f.Title || "").toLowerCase();
+      return intName === "category" || title === "category";
+    });
+
+    const uploadDateField = findAttField((f) => {
+      const intName = (f.InternalName || "").toLowerCase();
+      const title = (f.Title || "").toLowerCase();
+      return intName === "uploaddate" || title === "uploaddate" || intName === "upload_date" || title === "upload date";
+    });
+
+    const uploadedByField = findAttField((f) => {
+      const intName = (f.InternalName || "").toLowerCase();
+      const title = (f.Title || "").toLowerCase();
+      return intName === "uploadedby" || title === "uploadedby" || intName === "uploaded_by" || title === "uploaded by";
+    });
+
+    const versionField = findAttField((f) => {
+      const intName = (f.InternalName || "").toLowerCase();
+      const title = (f.Title || "").toLowerCase();
+      return intName === "version" || title === "version" || intName.startsWith("version");
+    });
+
     const modernMetadata: Record<string, any> = {
       Title: cleanOriginalName,
-      cerPrId: attachment.cerprno,
-      category: (attachment.type && attachment.type.indexOf("pdf") !== -1) ? "Technical" : "Other",
-      uploadDate: new Date().toISOString(),
-      ...(uploadedById ? PersonFieldService.formatPersonFieldPayload("uploadedBy", uploadedById) : {}),
     };
+
+    if (cerPrIdField) {
+      modernMetadata[cerPrIdField.InternalName] = attachment.cerprno;
+    } else {
+      modernMetadata.cerPrId = attachment.cerprno;
+    }
+
+    if (categoryField) {
+      modernMetadata[categoryField.InternalName] = "Technical";
+    } else {
+      modernMetadata.category = "Technical";
+    }
+
+    const isoDate = new Date().toISOString();
+    if (uploadDateField) {
+      modernMetadata[uploadDateField.InternalName] = isoDate;
+    } else {
+      modernMetadata.uploadDate = isoDate;
+    }
+
+    if (uploadedByField) {
+      const fType = (uploadedByField.TypeAsString || "").toLowerCase();
+      if (fType.indexOf("user") !== -1 || fType.indexOf("person") !== -1) {
+        if (uploadedById && uploadedById > 0) {
+          modernMetadata[`${uploadedByField.InternalName}Id`] = uploadedById;
+        }
+      } else {
+        modernMetadata[uploadedByField.InternalName] = attachment.uploaded_by || "User";
+      }
+    } else if (uploadedById && uploadedById > 0) {
+      modernMetadata.uploadedById = uploadedById;
+    }
+
+    if (versionField && options?.versionTag) {
+      modernMetadata[versionField.InternalName] = options.versionTag;
+    } else if (versionField && !options?.versionTag) {
+      modernMetadata[versionField.InternalName] = "";
+    }
 
     const candidateLibraries = [SP_LISTS.CER_ATTACHMENTS];
     let uploaded = false;
     let lastErr: any = null;
+    let uploadResult: { itemId: number; serverRelativeUrl: string } | null = null;
 
     if (attachment.data_url && attachment.data_url.indexOf("data:") === 0) {
       const buffer = this._base64ToArrayBuffer(attachment.data_url);
-      // Clean, unique physical filename: CER-YYYY-NNNN_{timestamp}_{unique}_{originalFilename}.ext
-      // Preserves original display filename while guaranteeing zero physical overwriting in SharePoint
-      const timestamp = Date.now();
-      const safeUniqueSuffix = Math.random().toString(36).substring(2, 6);
-      const fileName = `${attachment.cerprno}_${timestamp}_${safeUniqueSuffix}_${cleanOriginalName}`;
+      const versionPrefix = options?.versionTag ? `${options.versionTag}_` : "";
+      const fileName = `${attachment.cerprno}_${versionPrefix}${cleanOriginalName}`;
 
       for (const libName of candidateLibraries) {
         try {
-          await this._sp.uploadFileToLibrary(libName, fileName, buffer, modernMetadata);
+          uploadResult = await this._sp.uploadFileToLibrary(libName, fileName, buffer, modernMetadata);
+          if (uploadResult && uploadResult.itemId > 0) {
+            try {
+              await this._executeWithFieldFallback(
+                (payload) => this._sp.updateListItem(libName, uploadResult!.itemId, payload),
+                modernMetadata
+              );
+            } catch (metaUpdateErr) {
+              console.warn("[SharePointCERDataService] Additional metadata update note:", metaUpdateErr);
+            }
+          }
           uploaded = true;
           break;
         } catch (err: any) {
@@ -2904,7 +3238,24 @@ export class SharePointCERDataService implements ICERDataService {
         );
       }
       this._cachedAttachments.clear();
+
+      const uploadedUrl = uploadResult?.serverRelativeUrl || `/sites/CERManagementSystemUAT/CERAttachments/${fileName}`;
+      const uploadedId = uploadResult?.itemId && uploadResult.itemId > 0 ? String(uploadResult.itemId) : String(Date.now());
+
+      return {
+        id: uploadedId,
+        cerprno: attachment.cerprno,
+        name: cleanOriginalName,
+        size: buffer.byteLength,
+        type: attachment.type || "application/octet-stream",
+        data_url: uploadedUrl,
+        server_relative_url: uploadedUrl,
+        uploaded_by: attachment.uploaded_by || "User",
+        uploaded_date: modernMetadata.uploadDate,
+      };
     }
+
+    return attachment;
   }
 
   public async deleteAttachment(
@@ -2927,28 +3278,33 @@ export class SharePointCERDataService implements ICERDataService {
         }
       }
 
-      // 2. Check if this file is referenced in ANY approved historical version manifest
+      // 2. Check if this file has an archived version tag in CERAttachments
       try {
-        const history = await this.getProposalHistory(cerprno);
-        for (const h of history) {
-          if (h.status === "Approved" || (h as any).is_archived || (h as any).version) {
-            const manifest = this._extractAttachmentManifest(h);
-            const isRef = manifest.some((m) => {
-              const mId = String(m.id || "").trim();
-              const targetId = String(id).trim();
-              const mUrl = String(m.server_relative_url || m.data_url || "").toLowerCase();
-              const targetUrl = String(options?.serverRelativeUrl || "").toLowerCase();
+        const numId = parseInt(id, 10);
+        if (!isNaN(numId) && numId > 0) {
+          const targetItems = await this._sp.getListItems<any>(SP_LISTS.CER_ATTACHMENTS, {
+            filter: `Id eq ${numId}`,
+            select: "Id,version,Version,uploadDate,Created",
+            top: 1,
+          });
+          const targetItem = targetItems && targetItems.length > 0 ? targetItems[0] : null;
+          const fileVer = String(targetItem?.version || targetItem?.Version || "").trim();
+          if (fileVer) {
+            throw new Error(
+              `[Protected Historical File] Deletion blocked: File (ID: ${id}) belongs to archived historical version '${fileVer}' and cannot be deleted.`
+            );
+          }
 
-              return (
-                (mId && mId === targetId) ||
-                (targetUrl && mUrl && (mUrl === targetUrl || mUrl.endsWith(targetUrl) || targetUrl.endsWith(mUrl))) ||
-                (mUrl && targetId && (mUrl.endsWith(`_${targetId}`) || mUrl.includes(`/${targetId}`)))
-              );
-            });
-            if (isRef) {
-              const vLabel = h.proposal_no || (h as any).version || "Approved Historical Version";
+          // 3. Check if proposal has historical snapshots in CERProposalsHistory
+          const historySnapshots = await this.getProposalHistory(cerprno);
+          if (historySnapshots && historySnapshots.length > 0) {
+            const fileUploadTime = new Date(targetItem?.uploadDate || targetItem?.Created || 0).getTime();
+            const latestSnapshotTime = Math.max(
+              ...historySnapshots.map((h) => new Date((h as any).created_at || h.created_date || h.st_date || 0).getTime())
+            );
+            if (fileUploadTime > 0 && latestSnapshotTime > 0 && fileUploadTime <= latestSnapshotTime + 5 * 60 * 1000) {
               throw new Error(
-                `[Protected Historical File] Deletion blocked: File (ID: ${id}) is referenced by approved historical version '${vLabel}' and cannot be deleted.`
+                `[Protected Historical File] Deletion blocked: File (ID: ${id}) belongs to an approved audit snapshot and cannot be deleted.`
               );
             }
           }
@@ -2957,7 +3313,6 @@ export class SharePointCERDataService implements ICERDataService {
         if (err.message && err.message.includes("[Protected Historical File]")) {
           throw err;
         }
-        console.warn("[SharePointCERDataService] Warning checking historical manifests during delete:", err);
       }
     }
 
@@ -2986,9 +3341,9 @@ export class SharePointCERDataService implements ICERDataService {
     }
   }
 
-  private _extractAttachmentManifest(itemOrProposal: any): ICERAttachmentManifestEntry[] {
-    if (!itemOrProposal) return [];
-    const direct = itemOrProposal.attachments_manifest || itemOrProposal.attachments || itemOrProposal.attachmentsManifest || itemOrProposal.attachmentJson;
+  private _extractAttachmentManifest(itemOrProposal: any): ICERAttachmentManifestEntry[] | null {
+    if (!itemOrProposal) return null;
+    const direct = itemOrProposal.attachments_manifest || itemOrProposal.attachmentsManifest || itemOrProposal.attachmentJson;
     if (typeof direct === "string" && direct.trim().startsWith("[")) {
       try {
         const parsed = JSON.parse(direct.trim());
@@ -2997,15 +3352,50 @@ export class SharePointCERDataService implements ICERDataService {
     } else if (Array.isArray(direct)) {
       return direct;
     }
-    const remarksText = String(itemOrProposal.remarks || itemOrProposal.Remarks || itemOrProposal.comments || "");
-    const match = remarksText.match(/<!--\s*CER_ATTACHMENTS_MANIFEST:([\s\S]*?)-->/i);
-    if (match && match[1]) {
+
+    const remarksText = String(itemOrProposal.remarks || itemOrProposal.Remarks || itemOrProposal.GeneralRemarks || itemOrProposal.generalRemarks || itemOrProposal.comments || "");
+
+    // 1. New safe tag format: [CER_ATTACHMENTS_MANIFEST_START]...[CER_ATTACHMENTS_MANIFEST_END]
+    const newTagMatch = remarksText.match(/\[CER_ATTACHMENTS_MANIFEST_START\]([\s\S]*?)\[CER_ATTACHMENTS_MANIFEST_END\]/i);
+    if (newTagMatch && newTagMatch[1]) {
       try {
-        const parsed = JSON.parse(match[1].trim());
+        const parsed = JSON.parse(newTagMatch[1].trim());
         if (Array.isArray(parsed)) return parsed;
       } catch { /* continue */ }
     }
-    return [];
+
+    // 2. Legacy nested bracket format: [CER_ATTACHMENTS_MANIFEST:[...]]
+    const nestedBracketMatch = remarksText.match(/\[CER_ATTACHMENTS_MANIFEST:(\[[\s\S]*?\])\]/i);
+    if (nestedBracketMatch && nestedBracketMatch[1]) {
+      try {
+        const parsed = JSON.parse(nestedBracketMatch[1].trim());
+        if (Array.isArray(parsed)) return parsed;
+      } catch { /* continue */ }
+    }
+
+    // 3. Fallback repair for any bracket truncated candidates
+    const fallbackMatch = remarksText.match(/\[CER_ATTACHMENTS_MANIFEST:([\s\S]*?)\]/i);
+    if (fallbackMatch && fallbackMatch[1]) {
+      try {
+        let candidate = fallbackMatch[1].trim();
+        if (candidate.startsWith("[") && !candidate.endsWith("]")) {
+          candidate = candidate + "]";
+        }
+        const parsed = JSON.parse(candidate);
+        if (Array.isArray(parsed)) return parsed;
+      } catch { /* continue */ }
+    }
+
+    // 4. Legacy HTML comment format: <!-- CER_ATTACHMENTS_MANIFEST:... -->
+    const htmlMatch = remarksText.match(/<!--\s*CER_ATTACHMENTS_MANIFEST:([\s\S]*?)-->/i);
+    if (htmlMatch && htmlMatch[1]) {
+      try {
+        const parsed = JSON.parse(htmlMatch[1].trim());
+        if (Array.isArray(parsed)) return parsed;
+      } catch { /* continue */ }
+    }
+
+    return null;
   }
 
   public async getNotificationLogs(_cerprno?: string, _forceRefresh: boolean = false): Promise<INotificationLog[]> {
@@ -3052,18 +3442,9 @@ export class SharePointCERDataService implements ICERDataService {
       otherCost = 0;
     }
 
-    const rawRemarks = String(item.remarks || item.Remarks || "");
-    const cleanRemarks = rawRemarks.replace(/\s*<!--\s*CER_ATTACHMENTS_MANIFEST:[\s\S]*?-->/gi, "").trim();
-    let manifestStr: string | undefined = undefined;
-    const directManifest = item.attachments_manifest || item.attachments || item.attachmentsManifest || item.attachmentJson;
-    if (typeof directManifest === "string" && directManifest.trim().startsWith("[")) {
-      manifestStr = directManifest.trim();
-    } else {
-      const match = rawRemarks.match(/<!--\s*CER_ATTACHMENTS_MANIFEST:([\s\S]*?)-->/i);
-      if (match && match[1]) {
-        manifestStr = match[1].trim();
-      }
-    }
+    const rawRemarks = String(item.remarks || item.Remarks || item.GeneralRemarks || item.generalRemarks || item.comments || "");
+    const manifestFromRaw = this._extractAttachmentManifest(item);
+    const cleanRemarks = stripAttachmentsManifest(rawRemarks);
 
     return {
       id: String(item.Id || item.id),
@@ -3125,7 +3506,7 @@ export class SharePointCERDataService implements ICERDataService {
       others: otherCost,
       total: (otherCost === 0 && engineerCost === 0 && surfaceCost === 0 && comisCost === 0 && preopCost === 0) ? 0 : totalCost,
       remarks: cleanRemarks,
-      attachments_manifest: manifestStr,
+      attachments_manifest: manifestFromRaw || item.attachments_manifest || item.attachmentsManifest || item.attachmentJson || undefined,
       remarks_jv: item.remarksJv || item.remarks_jv || "",
       current_level: Number(item.currentLevel ?? item.current_level ?? 1),
       pending_with_role: item.pendingWithRole || item.pending_with_role || "L1 - Technical Review",
@@ -3199,7 +3580,8 @@ export class SharePointCERDataService implements ICERDataService {
       preoperativeCost: Number(proposal.preop || 0),
       otherCosts: Number(proposal.others || 0),
       total: Number(proposal.total || 0),
-      remarks: proposal.remarks,
+      remarks: stripAttachmentsManifest(proposal.remarks),
+      Remarks: stripAttachmentsManifest(proposal.remarks),
       remarksJv: proposal.remarks_jv,
       currentLevel: Number(proposal.current_level || 1),
       pendingWithRole: proposal.pending_with_role,

@@ -38,6 +38,7 @@ import { AuditTrailModal } from '../Audit/AuditTrailModal';
 import { ProposalHistoryModal } from './ProposalHistoryModal';
 import { UserAvatar } from '../Common/UserAvatar';
 import { calculateExactDays, getCurrentFiscalYearPhasingLabels } from "../../utils/dateUtils";
+import { stripAttachmentsManifest } from "../../utils/sanitizationUtils";
 
 interface IDisplayCERViewProps {
   dataService: ICERDataService;
@@ -88,7 +89,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
       } else {
         setProposal(found);
         const [atts, lvls, decs, roles, hist] = await Promise.all([
-          dataService.getAttachments(found.cerprno),
+          dataService.getAttachments(found.cerprno, { proposal: found, forceRefresh: true }),
           dataService.getWorkflowLevels(found.sbu),
           dataService.getApprovalDecisions(found.cerprno),
           dataService.getUserRoles().catch(() => []),
@@ -849,7 +850,9 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 text-sm text-slate-800 leading-relaxed space-y-3">
               <div>
                 <p className="font-bold text-slate-900 mb-1 text-sm">Business Remarks & Justification:</p>
-                <p>{proposal.remarks || "No narrative remarks provided."}</p>
+                <p>
+                  {stripAttachmentsManifest(proposal.remarks) || "No narrative remarks provided."}
+                </p>
               </div>
               {proposal.remarks_jv && (
                 <div className="pt-3 border-t border-slate-200">

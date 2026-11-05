@@ -33,6 +33,7 @@ export interface ICERDataService {
     proposal: ICERProposal,
     user: { name: string; email: string },
     originalProposal?: ICERProposal,
+    options?: { removedAttachmentIds?: string[]; stagedAttachments?: ICERAttachment[] }
   ): Promise<{
     success: boolean;
     message: string;
@@ -72,12 +73,12 @@ export interface ICERDataService {
   // Attachments
   getAttachments(
     cerprno: string,
-    options?: boolean | { forceRefresh?: boolean; versionTag?: string; proposalNo?: string }
+    options?: boolean | { forceRefresh?: boolean; versionTag?: string; proposalNo?: string; proposal?: ICERProposal }
   ): Promise<ICERAttachment[]>;
   addAttachment(
     attachment: ICERAttachment,
     options?: { versionTag?: string; proposalNo?: string; overwrite?: boolean }
-  ): Promise<void>;
+  ): Promise<ICERAttachment>;
   deleteAttachment(
     id: string,
     options?: { cerprno?: string; force?: boolean; serverRelativeUrl?: string }

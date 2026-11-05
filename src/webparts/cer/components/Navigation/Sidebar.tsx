@@ -89,7 +89,7 @@ export const Sidebar: React.FC<ISidebarProps> = ({
       id: "all-proposals",
       label: "All Proposals",
       icon: Files,
-      visible: true,
+      visible: false,
     },
     {
       id: "pending-approvals",

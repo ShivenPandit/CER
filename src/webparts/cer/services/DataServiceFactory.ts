@@ -21,14 +21,14 @@ export class DataServiceFactory {
           props.newcontext
         );
       }
-      return cachedService;
+      return cachedService!;
     }
 
     if (!cachedService) {
       cachedService = new LocalMockCERDataService();
     }
 
-    return cachedService;
+    return cachedService!;
   }
 
   public static resetService(): void {

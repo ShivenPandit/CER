@@ -565,48 +565,121 @@ export class SharePointOperations {
     const uploadResult = await uploadResponse.json();
     const serverRelativeUrl: string = uploadResult.ServerRelativeUrl;
 
-    // Step 2: Get the file's list item properties
+    // Step 2: Get the file's list item properties with multi-strategy resolution
+    let itemId = -1;
     const safeFileUrl = serverRelativeUrl.replace(/'/g, "''");
-    const fileItemUrl = `${this._siteUrl}/_api/web/GetFileByServerRelativeUrl('${safeFileUrl}')/ListItemAllFields`;
-    const fileItemResponse: SPHttpClientResponse = await this._client.get(
-      fileItemUrl,
-      SPHttpClient.configurations.v1,
-      {
-        headers: {
-          Accept: "application/json;odata=nometadata",
-        },
-      },
-    );
 
-    if (!fileItemResponse.ok) {
-      // File uploaded but can't read item ID — return without metadata tagging
+    // Strategy 2a: Query by UniqueId (GUID) if returned in SP.File response
+    if (uploadResult && uploadResult.UniqueId) {
+      try {
+        const uniqueIdUrl = `${this._siteUrl}/_api/web/getFileById('${uploadResult.UniqueId}')/ListItemAllFields`;
+        const uidResp = await this._client.get(uniqueIdUrl, SPHttpClient.configurations.v1, {
+          headers: { Accept: "application/json;odata=nometadata" },
+        });
+        if (uidResp.ok) {
+          const uidJson = await uidResp.json();
+          if (uidJson && uidJson.Id) {
+            itemId = Number(uidJson.Id);
+          }
+        }
+      } catch { /* continue to 2b */ }
+    }
+
+    // Strategy 2b: GetFileByServerRelativeUrl with URI encoding variations
+    if (itemId <= 0) {
+      const urlCandidates = [
+        safeFileUrl,
+        decodeURIComponent(safeFileUrl),
+        encodeURI(safeFileUrl),
+      ];
+      for (const cand of urlCandidates) {
+        try {
+          const fileItemUrl = `${this._siteUrl}/_api/web/GetFileByServerRelativeUrl('${cand.replace(/'/g, "''")}')/ListItemAllFields`;
+          const fileItemResponse: SPHttpClientResponse = await this._client.get(
+            fileItemUrl,
+            SPHttpClient.configurations.v1,
+            { headers: { Accept: "application/json;odata=nometadata" } }
+          );
+          if (fileItemResponse.ok) {
+            const fileItemJson = await fileItemResponse.json();
+            if (fileItemJson && fileItemJson.Id) {
+              itemId = Number(fileItemJson.Id);
+              break;
+            }
+          }
+        } catch { /* continue */ }
+      }
+    }
+
+    // Strategy 2c: Query the Document Library by FileLeafRef
+    if (itemId <= 0) {
+      try {
+        const safeLeaf = fileName.replace(/'/g, "''");
+        const listQueryUrl = `${this._siteUrl}/_api/web/lists/getByTitle('${encodeURIComponent(libraryName).replace(/'/g, "''")}')/items?$filter=FileLeafRef eq '${encodeURIComponent(safeLeaf)}'&$select=Id`;
+        const listResp = await this._client.get(listQueryUrl, SPHttpClient.configurations.v1, {
+          headers: { Accept: "application/json;odata=nometadata" },
+        });
+        if (listResp.ok) {
+          const listJson = await listResp.json();
+          if (listJson && Array.isArray(listJson.value) && listJson.value.length > 0 && listJson.value[0].Id) {
+            itemId = Number(listJson.value[0].Id);
+          }
+        }
+      } catch { /* continue */ }
+    }
+
+    if (itemId <= 0) {
       console.warn("[SPOperations] File uploaded but could not retrieve list item properties for metadata tagging.");
       return { itemId: -1, serverRelativeUrl };
     }
 
-    const fileItemJson = await fileItemResponse.json();
-    const itemId: number = fileItemJson.Id;
 
-    // Step 3: Tag metadata (if provided) — failures here do NOT re-upload the file
+    // Step 3: Tag metadata (if provided) with auto-pruning retry loop
     if (metadata && Object.keys(metadata).length > 0) {
       const updateUrl = this.buildListEndpoint(
         libraryName,
         `/items(${itemId})`,
       );
 
-      try {
-        await this._client.post(updateUrl, SPHttpClient.configurations.v1, {
-          headers: {
-            Accept: "application/json;odata=nometadata",
-            "Content-Type": "application/json;odata=nometadata",
-            "X-HTTP-Method": "MERGE",
-            "If-Match": fileItemJson["@odata.etag"] || "*",
-          },
-          body: JSON.stringify(metadata),
-        });
-      } catch (metaErr) {
-        // Metadata tagging failed but the file is already uploaded — log and continue
-        console.warn("[SPOperations] Metadata tagging failed (file was uploaded successfully):", metaErr);
+      let currentMetadata: Record<string, unknown> = { ...metadata };
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const updateResp = await this._client.post(updateUrl, SPHttpClient.configurations.v1, {
+            headers: {
+              Accept: "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata",
+              "X-HTTP-Method": "MERGE",
+              "If-Match": "*",
+            },
+            body: JSON.stringify(currentMetadata),
+          });
+
+          if (updateResp.ok || updateResp.status === 204 || updateResp.status === 200) {
+            break;
+          }
+
+          const errBody = await updateResp.text().catch(() => "");
+          console.warn(`[SPOperations] Metadata tagging attempt ${attempt + 1} failed (${updateResp.status}):`, errBody);
+
+          const fieldMatch = errBody.match(/property '([^']+)' does not exist/i) ||
+                             errBody.match(/field '([^']+)' does not exist/i) ||
+                             errBody.match(/field or property '([^']+)' does not exist/i);
+          if (fieldMatch && fieldMatch[1]) {
+            const badProp = fieldMatch[1];
+            const matchingKey = Object.keys(currentMetadata).find(
+              (k) => k.toLowerCase() === badProp.toLowerCase()
+            );
+            if (matchingKey) {
+              console.warn(`[SPOperations] Auto-pruning unsupported field '${matchingKey}' and retrying...`);
+              delete currentMetadata[matchingKey];
+              continue;
+            }
+          }
+          break;
+        } catch (metaErr) {
+          console.warn(`[SPOperations] Metadata tagging attempt ${attempt + 1} error:`, metaErr);
+          break;
+        }
       }
     }
 

@@ -105,6 +105,30 @@ export function containsMaliciousScript(val?: string | null): boolean {
  * - Collapses consecutive spaces/tabs to a single space.
  * - Removes hidden non-printable control characters.
  */
+/**
+ * Strips any legacy or persisted attachment manifest markers and payloads from text.
+ * Handles:
+ * - [CER_ATTACHMENTS_MANIFEST_START]...[CER_ATTACHMENTS_MANIFEST_END]
+ * - [CER_ATTACHMENTS_MANIFEST:[...]]
+ * - [CER_ATTACHMENTS_MANIFEST:[... (unclosed / truncated)
+ * - <!-- CER_ATTACHMENTS_MANIFEST:... -->
+ * - Stray trailing brackets "]" left behind by flawed manifest parsing
+ */
+export function stripAttachmentsManifest(text?: string | null): string {
+  if (!text) return "";
+  let clean = String(text);
+
+  clean = clean.replace(/\[CER_ATTACHMENTS_MANIFEST_START\][\s\S]*?\[CER_ATTACHMENTS_MANIFEST_END\]/gi, "");
+  clean = clean.replace(/\[CER_ATTACHMENTS_MANIFEST:\[[\s\S]*?\]\]/gi, "");
+  clean = clean.replace(/\[CER_ATTACHMENTS_MANIFEST:[\s\S]*?\]/gi, "");
+  clean = clean.replace(/<!--\s*CER_ATTACHMENTS_MANIFEST:[\s\S]*?-->/gi, "");
+  clean = clean.replace(/\[CER_ATTACHMENTS_MANIFEST[\s\S]*$/gi, "");
+  clean = clean.replace(/^\s*\]+\s*$/, "");
+  clean = clean.replace(/\s*\]+\s*$/, "");
+
+  return clean.trim();
+}
+
 export function sanitizeSingleLineText(val?: string | null): string {
   if (val === undefined || val === null) return "";
   const str = String(val);
@@ -126,7 +150,7 @@ export function sanitizeSingleLineText(val?: string | null): string {
  */
 export function sanitizeMultiLineText(val?: string | null): string {
   if (val === undefined || val === null) return "";
-  let text = String(val);
+  let text = stripAttachmentsManifest(String(val));
 
   // Remove control characters (except newline \n and tab \t)
   text = text.replace(CONTROL_CHARS_REGEX, "");

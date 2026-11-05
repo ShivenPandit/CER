@@ -57,6 +57,9 @@ const CER: React.FC<ICERProps> = (props) => {
       "audit-trail",
       "workflow-config",
     ];
+    if (viewName === "all-proposals") {
+      return { view: "my-proposals", proposalId: propId };
+    }
     if (validViews.indexOf(viewName) !== -1) {
       return { view: viewName, proposalId: propId };
     }
@@ -76,8 +79,8 @@ const CER: React.FC<ICERProps> = (props) => {
   // Track origin navigation view so when displaying/changing a proposal,
   // the corresponding parent list (e.g. "all-proposals" or "my-proposals") remains highlighted in the sidebar
   const [activeParentView, setActiveParentView] = useState<NavView>(() => {
-    if (initialRoute.view === "display" || initialRoute.view === "change") {
-      return "all-proposals";
+    if (initialRoute.view === "display" || initialRoute.view === "change" || (initialRoute.view as string) === "all-proposals") {
+      return "my-proposals";
     }
     return initialRoute.view;
   });
@@ -261,11 +264,12 @@ const CER: React.FC<ICERProps> = (props) => {
   }, [currentView]);
 
   const handleNavigate = (
-    view: NavView,
+    targetView: NavView,
     proposalId?: string,
     isBackNavigation: boolean = false,
     replaceHistory: boolean = false
   ): void => {
+    let view = (targetView as string) === "all-proposals" ? "my-proposals" : targetView;
     // Revalidate data when navigating into queue or dashboard
     if (view === "pending-approvals" || view === "dashboard") {
       handleRefreshProposals(true).catch((e) => console.error(e));
@@ -316,7 +320,8 @@ const CER: React.FC<ICERProps> = (props) => {
         handleNavigate("dashboard", undefined, true);
         return;
       }
-      handleNavigate(prev.view, prev.proposalId, true);
+      const safeView = (prev.view as string) === "all-proposals" ? "my-proposals" : prev.view;
+      handleNavigate(safeView, prev.proposalId, true);
       return;
     }
 
@@ -324,11 +329,13 @@ const CER: React.FC<ICERProps> = (props) => {
     if (currentView === "change" || currentView === "create") {
       handleNavigate("dashboard", undefined, true);
     } else if (currentView === "display") {
-      if (activeParentView && activeParentView !== "display" && activeParentView !== "change") {
+      if (activeParentView && activeParentView !== "display" && activeParentView !== "change" && (activeParentView as string) !== "all-proposals") {
         handleNavigate(activeParentView, undefined, true);
       } else {
-        handleNavigate("dashboard", undefined, true);
+        handleNavigate("my-proposals", undefined, true);
       }
+    } else if (currentView === "my-proposals" || (currentView as string) === "all-proposals") {
+      handleNavigate("dashboard", undefined, true);
     } else if (currentView === "audit-trail") {
       if (activeProposalId) {
         handleNavigate("display", activeProposalId, true);
@@ -630,7 +637,7 @@ const CER: React.FC<ICERProps> = (props) => {
           <ProposalListView
             proposals={proposals}
             currentUser={currentUser}
-            mode="all"
+            mode="my"
             onNavigateToCreate={() => handleNavigate("create")}
             onNavigateToDisplay={(cerprno) => handleNavigate("display", cerprno)}
             onNavigateToChange={(cerprno) => handleNavigate("change", cerprno)}
