@@ -11,6 +11,7 @@ declare const process: any;
   createElement: () => ({ id: "", rel: "", type: "", href: "" }),
 };
 
+/* eslint-disable @typescript-eslint/no-var-requires, prefer-rest-params */
 const Module = require("module");
 const origLoad = Module._load;
 Module._load = function (request: string, ...args: any[]) {
