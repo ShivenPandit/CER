@@ -1696,57 +1696,77 @@ export class LocalMockCERDataService implements ICERDataService {
       (a) => a.cerprno.toUpperCase() === target || a.cerprno.toUpperCase() === trimmed
     );
 
-    let manifestList: any[] = [];
-    if (Array.isArray(activeProp?.attachments_manifest)) {
-      manifestList = activeProp.attachments_manifest;
-    } else if (typeof activeProp?.attachments_manifest === "string") {
-      try {
-        manifestList = JSON.parse(activeProp.attachments_manifest);
-      } catch {
-        manifestList = [];
-      }
-    }
-
-    const hasActiveManifest = Boolean(activeProp && activeProp.attachments_manifest !== undefined && activeProp.attachments_manifest !== null);
-    if (hasActiveManifest) {
+    const activeManifest = activeProp ? this._extractAttachmentManifest(activeProp) : null;
+    if (activeManifest !== null && Array.isArray(activeManifest)) {
       const seenIds = new Set<string>();
+      const seenNames = new Set<string>();
+      const seenUrls = new Set<string>();
       const activeResult: ICERAttachment[] = [];
 
-      for (const m of manifestList) {
+      for (const m of activeManifest) {
         const physical = allCerAtts.find(p =>
           (m.id && String(p.id) === String(m.id)) ||
-          (m.name && p.name.toLowerCase() === m.name.toLowerCase())
+          (m.name && p.name.toLowerCase() === m.name.toLowerCase()) ||
+          (m.server_relative_url && (p.server_relative_url || "").toLowerCase() === m.server_relative_url.toLowerCase())
         );
-        const k = String(m.id || physical?.id || m.name);
-        if (!seenIds.has(k)) {
-          seenIds.add(k);
-          activeResult.push({
-            id: String(m.id || physical?.id || ""),
-            cerprno: activeProp ? activeProp.cerprno : target,
-            name: m.name || physical?.name || "document",
-            size: m.size || physical?.size || 0,
-            type: m.type || physical?.type || "application/octet-stream",
-            data_url: physical?.data_url || m.data_url || m.server_relative_url,
-            server_relative_url: physical?.server_relative_url || m.server_relative_url || m.data_url,
-            uploaded_by: m.uploaded_by || physical?.uploaded_by || "User",
-            uploaded_date: m.uploaded_date || physical?.uploaded_date || "",
-            version: physical?.version || m.version_tag || "",
-            version_tag: physical?.version || m.version_tag || "",
-          });
-        }
+        const idKey = String(m.id || physical?.id || "").toLowerCase();
+        const nameKey = String(m.name || physical?.name || "").toLowerCase();
+        const urlKey = String(m.server_relative_url || physical?.server_relative_url || "").toLowerCase();
+
+        if (idKey) seenIds.add(idKey);
+        if (physical?.id) seenIds.add(String(physical.id).toLowerCase());
+        if (nameKey) seenNames.add(nameKey);
+        if (physical?.name) seenNames.add(String(physical.name).toLowerCase());
+        if (urlKey) seenUrls.add(urlKey);
+        if (physical?.server_relative_url) seenUrls.add(String(physical.server_relative_url).toLowerCase());
+
+        activeResult.push({
+          id: String(physical?.id || m.id || ""),
+          cerprno: activeProp ? activeProp.cerprno : target,
+          name: m.name || physical?.name || "document",
+          size: m.size || physical?.size || 0,
+          type: m.type || physical?.type || "application/octet-stream",
+          data_url: physical?.data_url || m.data_url || m.server_relative_url,
+          server_relative_url: physical?.server_relative_url || m.server_relative_url || m.data_url,
+          uploaded_by: m.uploaded_by || physical?.uploaded_by || "User",
+          uploaded_date: m.uploaded_date || physical?.uploaded_date || "",
+          version: physical?.version || m.version_tag || "",
+          version_tag: physical?.version || m.version_tag || "",
+        });
       }
 
       // Also include any newly uploaded unversioned files
       for (const physical of allCerAtts) {
-        if (!physical.version || physical.version.trim() === "") {
-          const k = physical.id || physical.name;
-          if (!seenIds.has(k)) {
-            seenIds.add(k);
+        const isUnversioned = !physical.version || physical.version.trim() === "";
+        if (isUnversioned) {
+          const idLower = String(physical.id || "").toLowerCase();
+          const nameLower = String(physical.name || "").toLowerCase();
+          const urlLower = String(physical.server_relative_url || "").toLowerCase();
+          const alreadySeen =
+            (idLower && seenIds.has(idLower)) ||
+            (nameLower && seenNames.has(nameLower)) ||
+            (urlLower && seenUrls.has(urlLower));
+
+          if (!alreadySeen) {
+            if (idLower) seenIds.add(idLower);
+            if (nameLower) seenNames.add(nameLower);
             activeResult.push(physical);
           }
         }
       }
       return activeResult;
+    }
+
+    // Fallback: Check if proposal has history or revision_count > 0
+    const historySnapshots = this._proposalsHistory.filter(
+      (h) => (h.cer_proposal_id || h.cerprno || "").toUpperCase() === target || (h.proposal_no || "").toUpperCase() === trimmed
+    );
+    const hasHistory = historySnapshots.length > 0 || (Number(activeProp?.revision_count) || 0) > 0;
+    if (hasHistory) {
+      const unversionedFiles = allCerAtts.filter((a) => !a.version || a.version.trim() === "");
+      if (unversionedFiles.length > 0) {
+        return unversionedFiles;
+      }
     }
 
     return allCerAtts;
@@ -1860,7 +1880,16 @@ export class LocalMockCERDataService implements ICERDataService {
 
     const remarksText = String(itemOrProposal.remarks || itemOrProposal.Remarks || itemOrProposal.GeneralRemarks || itemOrProposal.generalRemarks || itemOrProposal.comments || "");
 
-    // 1. New safe tag format: [CER_ATTACHMENTS_MANIFEST_START]...[CER_ATTACHMENTS_MANIFEST_END]
+    // 1. Check active attachments tag: [CER_ATTACHMENTS_ACTIVE_START]...[CER_ATTACHMENTS_ACTIVE_END]
+    const activeTagMatch = remarksText.match(/\[CER_ATTACHMENTS_ACTIVE_START\]([\s\S]*?)\[CER_ATTACHMENTS_ACTIVE_END\]/i);
+    if (activeTagMatch && activeTagMatch[1]) {
+      try {
+        const parsed = JSON.parse(activeTagMatch[1].trim());
+        if (Array.isArray(parsed)) return parsed;
+      } catch { /* continue */ }
+    }
+
+    // 2. New safe tag format: [CER_ATTACHMENTS_MANIFEST_START]...[CER_ATTACHMENTS_MANIFEST_END]
     const newTagMatch = remarksText.match(/\[CER_ATTACHMENTS_MANIFEST_START\]([\s\S]*?)\[CER_ATTACHMENTS_MANIFEST_END\]/i);
     if (newTagMatch && newTagMatch[1]) {
       try {

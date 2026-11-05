@@ -2314,17 +2314,33 @@ export class SharePointCERDataService implements ICERDataService {
         );
       }
 
+      let effectiveSnapshotAtts = snapshotAttachments;
+      if (!effectiveSnapshotAtts && (!removedAttachmentIds || removedAttachmentIds.length === 0)) {
+        try {
+          effectiveSnapshotAtts = await this.getAttachments(cerprno);
+        } catch {
+          effectiveSnapshotAtts = undefined;
+        }
+      }
+
+      const hasExplicitTarget = Boolean(
+        (removedAttachmentIds && removedAttachmentIds.length > 0) ||
+        (effectiveSnapshotAtts && effectiveSnapshotAtts.length > 0)
+      );
+
       const removedSet = new Set((removedAttachmentIds || []).map((id) => String(id).trim().toUpperCase()));
-      const approvedIds = new Set((snapshotAttachments || []).map((a) => String(a.id).trim().toUpperCase()));
-      const approvedNames = new Set((snapshotAttachments || []).map((a) => String(a.name || "").trim().toLowerCase()));
+      const approvedIds = new Set((effectiveSnapshotAtts || []).map((a) => String(a.id).trim().toUpperCase()));
+      const approvedNames = new Set((effectiveSnapshotAtts || []).map((a) => String(a.name || "").trim().toLowerCase()));
 
       for (const item of items) {
         if (!item.Id) continue;
         const itemIdStr = String(item.Id).toUpperCase();
         const itemName = String(item.FileLeafRef || item.Title || "").trim().toLowerCase();
 
-        // Only stamp if this attachment belongs to the approved snapshot or was explicitly removed during this cycle
+        // Only stamp if this attachment belongs to the approved snapshot, was explicitly removed during this cycle,
+        // or if no explicit filter was given (meaning all current items of this CER belong to this approved baseline)
         const isTarget =
+          !hasExplicitTarget ||
           removedSet.has(itemIdStr) ||
           approvedIds.has(itemIdStr) ||
           (approvedNames.size > 0 && Array.from(approvedNames).some((n) => itemName.indexOf(n) !== -1));
@@ -3412,7 +3428,8 @@ export class SharePointCERDataService implements ICERDataService {
     if (newStatus === "Approved") {
       const approvedVerTag = `V${(Number(existingProposal.revision_count) || 0) + 1}`;
       try {
-        await this._stampAttachmentsForApprovedVersion(params.cerprno, approvedVerTag);
+        const currentAtts = await this.getAttachments(params.cerprno, { proposal: existingProposal });
+        await this._stampAttachmentsForApprovedVersion(params.cerprno, approvedVerTag, currentAtts);
       } catch (stampErr) {
         console.warn("[SharePointCERDataService] Warning auto-stamping attachments on final approval:", stampErr);
       }
@@ -3585,41 +3602,28 @@ export class SharePointCERDataService implements ICERDataService {
                   ? new Date(snapshotCandidate.created_date).getTime()
                   : 0;
 
-                // Return authoritative manifest entries, safely filtering out any physical files uploaded significantly after snapshot approval
-                result = manifest
-                  .filter((m) => {
-                    const physical = mapped.find(
-                      (p) => String(p.id) === String(m.id) || p.name.toLowerCase() === m.name.toLowerCase()
-                    );
-                    if (physical && physical.version && !matchesVersionTag(physical.version, targetTag)) {
-                      return false;
-                    }
-                    if (physical && snapshotCreatedTime > 0 && physical.uploaded_date) {
-                      const upTime = new Date(physical.uploaded_date).getTime();
-                      if (!isNaN(upTime) && upTime > snapshotCreatedTime + 60000) {
-                        return false;
-                      }
-                    }
-                    return true;
-                  })
-                  .map((m) => {
-                    const physical = mapped.find(
-                      (p) => String(p.id) === String(m.id) || p.name.toLowerCase() === m.name.toLowerCase()
-                    );
-                    return {
-                      id: String(m.id),
-                      cerprno: cerprno,
-                      name: m.name,
-                      size: m.size || (physical ? physical.size : 0),
-                      type: m.type || (physical ? physical.type : "application/octet-stream"),
-                      data_url: physical?.data_url || m.data_url || m.server_relative_url,
-                      server_relative_url: physical?.server_relative_url || m.server_relative_url || m.data_url,
-                      uploaded_by: m.uploaded_by || physical?.uploaded_by || "User",
-                      uploaded_date: m.uploaded_date || physical?.uploaded_date || "",
-                      version: targetTag,
-                      version_tag: targetTag,
-                    };
-                  });
+                // Authoritative historical manifest: return exact files associated with this historical version
+                result = manifest.map((m) => {
+                  const physical = mapped.find(
+                    (p) =>
+                      (m.id && String(p.id) === String(m.id)) ||
+                      (m.name && p.name.toLowerCase() === m.name.toLowerCase()) ||
+                      (m.server_relative_url && (p.server_relative_url || "").toLowerCase() === m.server_relative_url.toLowerCase())
+                  );
+                  return {
+                    id: String(m.id || physical?.id || ""),
+                    cerprno: cerprno,
+                    name: m.name,
+                    size: m.size || (physical ? physical.size : 0),
+                    type: m.type || (physical ? physical.type : "application/octet-stream"),
+                    data_url: physical?.data_url || m.data_url || m.server_relative_url,
+                    server_relative_url: physical?.server_relative_url || m.server_relative_url || m.data_url,
+                    uploaded_by: m.uploaded_by || physical?.uploaded_by || "User",
+                    uploaded_date: m.uploaded_date || physical?.uploaded_date || "",
+                    version: targetTag,
+                    version_tag: targetTag,
+                  };
+                });
                 this._cachedAttachments.set(cacheKey, { data: result, timestamp: Date.now() });
                 return result;
               }
@@ -3627,11 +3631,6 @@ export class SharePointCERDataService implements ICERDataService {
 
             // Fallback for legacy snapshots lacking an authoritative manifest
             const explicitMatches = mapped.filter((a) => matchesVersionTag(a.version || "", targetTag));
-            const snapshotCreatedTime = (snapshotCandidate as any)?.created_at
-              ? new Date((snapshotCandidate as any).created_at).getTime()
-              : snapshotCandidate?.created_date
-              ? new Date(snapshotCandidate.created_date).getTime()
-              : 0;
 
             const carryOverMatches = mapped.filter((a) => {
               const fileVer = (a.version || "").trim();
@@ -3656,7 +3655,7 @@ export class SharePointCERDataService implements ICERDataService {
               }
             }
           } else {
-            // Active proposal: resolve documents belonging to current active submission
+            // Active proposal: resolve documents belonging strictly to current active submission
             let activeProp: ICERProposal | null = null;
             try {
               activeProp = (typeof options === "object" && options?.proposal) ? options.proposal : await this.getProposalByNumber(cerprno);
@@ -3665,8 +3664,10 @@ export class SharePointCERDataService implements ICERDataService {
             }
 
             const activeManifest = activeProp ? this._extractAttachmentManifest(activeProp) : null;
-            if (activeManifest !== null) {
+            if (activeManifest !== null && Array.isArray(activeManifest)) {
               const seenIds = new Set<string>();
+              const seenNames = new Set<string>();
+              const seenUrls = new Set<string>();
               result = [];
 
               for (const m of activeManifest) {
@@ -3675,46 +3676,96 @@ export class SharePointCERDataService implements ICERDataService {
                   (m.name && p.name.toLowerCase() === m.name.toLowerCase()) ||
                   (m.server_relative_url && (p.server_relative_url || "").toLowerCase() === m.server_relative_url.toLowerCase())
                 );
-                const k = String(m.id || physical?.id || m.name);
-                if (!seenIds.has(k)) {
-                  seenIds.add(k);
-                  result.push({
-                    id: String(m.id || physical?.id || ""),
-                    cerprno: cerprno,
-                    name: m.name || physical?.name || "document",
-                    size: m.size || physical?.size || 0,
-                    type: m.type || physical?.type || "application/octet-stream",
-                    data_url: physical?.data_url || m.data_url || m.server_relative_url,
-                    server_relative_url: physical?.server_relative_url || m.server_relative_url || m.data_url,
-                    uploaded_by: m.uploaded_by || physical?.uploaded_by || "User",
-                    uploaded_date: m.uploaded_date || physical?.uploaded_date || "",
-                    version: physical?.version || m.version_tag || "",
-                    version_tag: physical?.version || m.version_tag || "",
-                  });
-                }
+                const idKey = String(m.id || physical?.id || "").toLowerCase();
+                const nameKey = String(m.name || physical?.name || "").toLowerCase();
+                const urlKey = String(m.server_relative_url || physical?.server_relative_url || "").toLowerCase();
+
+                if (idKey) seenIds.add(idKey);
+                if (physical?.id) seenIds.add(String(physical.id).toLowerCase());
+                if (nameKey) seenNames.add(nameKey);
+                if (physical?.name) seenNames.add(String(physical.name).toLowerCase());
+                if (urlKey) seenUrls.add(urlKey);
+                if (physical?.server_relative_url) seenUrls.add(String(physical.server_relative_url).toLowerCase());
+
+                result.push({
+                  id: String(physical?.id || m.id || ""),
+                  cerprno: cerprno,
+                  name: m.name || physical?.name || "document",
+                  size: m.size || physical?.size || 0,
+                  type: m.type || physical?.type || "application/octet-stream",
+                  data_url: physical?.data_url || m.data_url || m.server_relative_url,
+                  server_relative_url: physical?.server_relative_url || m.server_relative_url || m.data_url,
+                  uploaded_by: m.uploaded_by || physical?.uploaded_by || "User",
+                  uploaded_date: m.uploaded_date || physical?.uploaded_date || "",
+                  version: physical?.version || m.version_tag || "",
+                  version_tag: physical?.version || m.version_tag || "",
+                });
               }
 
-              // Also include any newly uploaded unversioned files that are not yet in manifest
+              // Also include any newly uploaded unversioned files that are NOT yet in manifest
               for (const physical of mapped) {
                 const isUnversioned = !physical.version || physical.version.trim() === "";
                 if (isUnversioned) {
-                  const k = physical.id || physical.name;
-                  if (!seenIds.has(k)) {
-                    seenIds.add(k);
+                  const idLower = String(physical.id || "").toLowerCase();
+                  const nameLower = String(physical.name || "").toLowerCase();
+                  const urlLower = String(physical.server_relative_url || "").toLowerCase();
+                  const alreadySeen =
+                    (idLower && seenIds.has(idLower)) ||
+                    (nameLower && seenNames.has(nameLower)) ||
+                    (urlLower && seenUrls.has(urlLower));
+
+                  if (!alreadySeen) {
+                    if (idLower) seenIds.add(idLower);
+                    if (nameLower) seenNames.add(nameLower);
                     result.push(physical);
                   }
                 }
               }
             } else {
               // Fallback for active proposals lacking an embedded active manifest:
-              // Include all documents uploaded for this CER (both unversioned and versioned)
-              const seenIds = new Set<string>();
+              // Check if proposal has historical revisions or snapshots in CERProposalsHistory
+              let historySnapshots: ICERProposal[] = [];
+              try {
+                historySnapshots = await this.getProposalHistory(cerprno);
+              } catch {
+                historySnapshots = [];
+              }
+
+              const hasHistory = historySnapshots.length > 0 || (Number(activeProp?.revision_count) || 0) > 0;
+              const seenKeys = new Set<string>();
               result = [];
-              for (const att of mapped) {
-                const k = att.id || att.name;
-                if (!seenIds.has(k)) {
-                  seenIds.add(k);
-                  result.push(att);
+
+              if (hasHistory) {
+                // If this is a revised / post-approval proposal and unversioned files exist,
+                // the unversioned files are the active cycle's files.
+                // Do NOT leak historical version-tagged files into the active view!
+                const unversionedFiles = mapped.filter((a) => !a.version || a.version.trim() === "");
+                if (unversionedFiles.length > 0) {
+                  for (const att of unversionedFiles) {
+                    const k = att.id || att.name;
+                    if (!seenKeys.has(k)) {
+                      seenKeys.add(k);
+                      result.push(att);
+                    }
+                  }
+                } else {
+                  // No unversioned files found, return mapped files
+                  for (const att of mapped) {
+                    const k = att.id || att.name;
+                    if (!seenKeys.has(k)) {
+                      seenKeys.add(k);
+                      result.push(att);
+                    }
+                  }
+                }
+              } else {
+                // Initial proposal (V1): all uploaded files belong to this proposal
+                for (const att of mapped) {
+                  const k = att.id || att.name;
+                  if (!seenKeys.has(k)) {
+                    seenKeys.add(k);
+                    result.push(att);
+                  }
                 }
               }
             }
@@ -4119,7 +4170,16 @@ export class SharePointCERDataService implements ICERDataService {
 
     const remarksText = String(itemOrProposal.remarks || itemOrProposal.Remarks || itemOrProposal.GeneralRemarks || itemOrProposal.generalRemarks || itemOrProposal.comments || "");
 
-    // 1. New safe tag format: [CER_ATTACHMENTS_MANIFEST_START]...[CER_ATTACHMENTS_MANIFEST_END]
+    // 1. Check active attachments tag: [CER_ATTACHMENTS_ACTIVE_START]...[CER_ATTACHMENTS_ACTIVE_END]
+    const activeTagMatch = remarksText.match(/\[CER_ATTACHMENTS_ACTIVE_START\]([\s\S]*?)\[CER_ATTACHMENTS_ACTIVE_END\]/i);
+    if (activeTagMatch && activeTagMatch[1]) {
+      try {
+        const parsed = JSON.parse(activeTagMatch[1].trim());
+        if (Array.isArray(parsed)) return parsed;
+      } catch { /* continue */ }
+    }
+
+    // 2. New safe tag format: [CER_ATTACHMENTS_MANIFEST_START]...[CER_ATTACHMENTS_MANIFEST_END]
     const newTagMatch = remarksText.match(/\[CER_ATTACHMENTS_MANIFEST_START\]([\s\S]*?)\[CER_ATTACHMENTS_MANIFEST_END\]/i);
     if (newTagMatch && newTagMatch[1]) {
       try {
@@ -4311,10 +4371,20 @@ export class SharePointCERDataService implements ICERDataService {
 
     const cleanRemarks = stripAttachmentsManifest(proposal.remarks);
     let finalRemarks = cleanRemarks;
-    if (proposal.attachments_manifest && Array.isArray(proposal.attachments_manifest) && proposal.attachments_manifest.length > 0) {
-      const activeJson = JSON.stringify(proposal.attachments_manifest.map((a: any) => ({
-        id: String(a.id),
-        name: a.name,
+    let activeEntries: any[] | null = null;
+    if (Array.isArray(proposal.attachments_manifest)) {
+      activeEntries = proposal.attachments_manifest;
+    } else if (typeof proposal.attachments_manifest === "string" && proposal.attachments_manifest.trim().startsWith("[")) {
+      try {
+        const parsed = JSON.parse(proposal.attachments_manifest.trim());
+        if (Array.isArray(parsed)) activeEntries = parsed;
+      } catch { /* continue */ }
+    }
+
+    if (activeEntries !== null) {
+      const activeJson = JSON.stringify(activeEntries.map((a: any) => ({
+        id: String(a.id || ""),
+        name: a.name || "document",
         size: a.size || 0,
         type: a.type || "application/octet-stream",
         server_relative_url: a.server_relative_url || a.data_url || "",

@@ -149,8 +149,8 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         setFormData(normalized);
         setOriginalProposal({ ...found });
 
-        // Load attachments
-        const atts = await dataService.getAttachments(found.cerprno);
+        // Load attachments strictly for this proposal's active state
+        const atts = await dataService.getAttachments(found.cerprno, { proposal: found, forceRefresh: true });
         setAttachments(atts);
         initialAttachmentsRef.current = atts.map((a) => ({ ...a }));
       }
@@ -494,8 +494,32 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
     setErrorMessage(null);
     setSecondaryWarning(null);
     try {
+      // 1. Upload any pending new attachments FIRST so we obtain real SharePoint IDs and server URLs
+      const pendingAttachments = attachments.filter(
+        (att) => att.data_url && att.data_url.startsWith("data:") && (!att.id || att.id.startsWith("att-"))
+      );
+      let uploadedPendingAtts: ICERAttachment[] = [];
+      if (pendingAttachments.length > 0) {
+        setSubmitStageText("Uploading attachments...");
+        uploadedPendingAtts = await Promise.all(
+          pendingAttachments.map((att) =>
+            dataService.addAttachment({ ...att, cerprno: formData.cerprno })
+          )
+        );
+      }
+
+      // 2. Build final remaining active attachments list:
+      // Existing active attachments (excluding deleted ones and temporary pending stubs)
+      // PLUS newly uploaded attachments with their real SharePoint IDs
+      const nonPendingExistingActive = attachments.filter(
+        (a) => (!a.id || !a.id.startsWith("att-")) && !stagedDeletions.some((d) => String(d.id) === String(a.id))
+      );
+      const finalRemainingActive: ICERAttachment[] = [
+        ...nonPendingExistingActive,
+        ...uploadedPendingAtts,
+      ];
+
       const removedIds = stagedDeletions.map((d) => String(d.id)).filter(Boolean);
-      const remainingActive = attachments.filter((a) => !stagedDeletions.some((d) => String(d.id) === String(a.id)));
 
       const updatedPayload: ICERProposal = {
         ...sanitizedData,
@@ -504,7 +528,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         cer_proposal_id: (originalProposal && (originalProposal.cer_proposal_id || originalProposal.cerprno)) || sanitizedData.cer_proposal_id || sanitizedData.cerprno,
         status: isDraft ? "Draft" : "In Approval",
         current_level: 1,
-        attachments_manifest: remainingActive as any,
+        attachments_manifest: finalRemainingActive as any,
       };
 
       const isApprovedOriginal = Boolean(originalProposal && originalProposal.status === "Approved");
@@ -522,21 +546,8 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         }
       );
 
-      // Save any remaining un-uploaded attachments linked to proposal
-      const pendingAttachments = attachments.filter(
-        (att) => att.data_url && att.data_url.startsWith("data:") && (!att.id || att.id.startsWith("att-"))
-      );
-      if (pendingAttachments.length > 0) {
-        setSubmitStageText("Uploading attachments...");
-        await Promise.all(
-          pendingAttachments.map((att) =>
-            dataService.addAttachment({ ...att, cerprno: formData.cerprno })
-          )
-        );
-      }
-
-      // Execute staged deletions strictly after successful save across all transitions (Draft, Send Back, or Post-Approval Amendment)
-      if (!isApprovedOriginal && stagedDeletions.length > 0) {
+      // 3. Process staged deletions: ensure removed files are stamped with their historical version and preserved in SharePoint library
+      if (stagedDeletions.length > 0) {
         setSubmitStageText("Cleaning up obsolete attachments...");
         const deletionErrors: string[] = [];
         for (const del of stagedDeletions) {
@@ -544,6 +555,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
             try {
               const isHistoricalDoc = Boolean(
                 del.version ||
+                isApprovedOriginal ||
                 (initialAttachmentsRef.current && initialAttachmentsRef.current.some((a) => String(a.id) === String(del.id)))
               );
               await dataService.deleteAttachment(del.id, {
@@ -562,8 +574,6 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
             `Proposal saved successfully, but cleanup of obsolete attachments requires attention: ${deletionErrors.join(", ")}`
           );
         }
-      } else if (isApprovedOriginal && stagedDeletions.length > 0) {
-        console.log(`[ChangeCERView] Post-approval amendment: ${stagedDeletions.length} obsolete attachments safely preserved in SharePoint library for historical audit (version tagged as V1). Physical deletion bypassed.`);
       }
 
       setSubmitStageText("Completed!");
