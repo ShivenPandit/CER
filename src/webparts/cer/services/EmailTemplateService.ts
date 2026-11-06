@@ -27,17 +27,36 @@ function formatAmount(amount?: number | null, currency?: string | null): string 
 
 function renderPortalBanner(): string {
   return `
-    <div style="text-align:center; padding:18px 20px; background:#F1F5F9;">
-      <p style="font-size:13px; color:#475569; margin:0 0 10px;">Access the CER Management Portal</p>
-      <a href="${PORTAL_BASE_URL}" style="color:#012964; font-weight:600; text-decoration:underline;">Open CER Management Portal</a>
+    <div style="text-align:center; padding:18px 20px; background:#F8FAFC; border-top:1px solid #E2E8F0;">
+      <p style="font-size:13px; color:#475569; margin:0 0 10px; font-weight:500;">Access the CER Management Portal</p>
+      <a href="${PORTAL_BASE_URL}" target="_blank" style="display:inline-block; padding:8px 22px; background:#FFFFFF; color:#0078D4 !important; font-family:'Segoe UI', Arial, sans-serif; font-size:13px; font-weight:600; text-decoration:none !important; border-radius:5px; border:1px solid #CBD5E1;">
+        <span style="color:#0078D4 !important; text-decoration:none !important; font-weight:600;">Open CER Management Portal &rarr;</span>
+      </a>
     </div>`;
 }
 
 function renderFooter(): string {
   return `
-    <div style="background:#F8FAFC; padding:16px 30px; border-top:1px solid #E2E8F0; font-size:12px; color:#64748B; text-align:center;">
+    <div style="background:#F8FAFC; padding:16px 30px; border-top:1px solid #E2E8F0; font-size:12px; color:#64748B; text-align:center; line-height:1.5;">
       Automated workflow notification from Vedanta Enterprise CER Management Portal.
     </div>`;
+}
+
+/**
+ * Bulletproof email action button compatible with Outlook Desktop, Outlook Web, Office 365 & Mobile.
+ * Uses inline styles + table wrapper + inner span to guarantee pure white text without link color override.
+ */
+function renderActionButton(url: string, label: string, bgColor: string = "#0078D4"): string {
+  return `
+    <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin:26px auto 12px auto; border-collapse:separate;">
+      <tr>
+        <td align="center" style="border-radius:6px; background-color:${bgColor}; padding:0;">
+          <a href="${url}" target="_blank" style="display:inline-block; padding:13px 34px; font-family:'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; font-size:14px; font-weight:700; color:#FFFFFF !important; text-decoration:none !important; border-radius:6px; background-color:${bgColor}; border:1px solid ${bgColor}; mso-padding-alt:0; text-align:center;">
+            <span style="color:#FFFFFF !important; font-weight:700; font-family:'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; text-decoration:none !important;">${escapeHtml(label)} &rarr;</span>
+          </a>
+        </td>
+      </tr>
+    </table>`;
 }
 
 export class EmailTemplateService {
@@ -90,9 +109,7 @@ export class EmailTemplateService {
         <tr><td class="label">Total Amount:</td><td class="val">${escapeHtml(formatAmount(proposal.amount, proposal.currency))}</td></tr>
       </table>
 
-      <div class="btn-wrap">
-        <a href="${displayUrl}" class="btn">Review &amp; Approve in CER Portal</a>
-      </div>
+      ${renderActionButton(displayUrl, "Review & Approve in CER Portal", "#0078D4")}
     </div>
     ${renderPortalBanner()}
     ${renderFooter()}
@@ -148,9 +165,7 @@ export class EmailTemplateService {
         <tr><td class="label">Pending Level:</td><td class="val">Level 1 — ${escapeHtml(roleTitle)}</td></tr>
       </table>
 
-      <div class="btn-wrap">
-        <a href="${displayUrl}" class="btn">Track Proposal in Portal</a>
-      </div>
+      ${renderActionButton(displayUrl, "Track Proposal in CER Portal", "#0078D4")}
     </div>
     ${renderPortalBanner()}
     ${renderFooter()}
@@ -223,9 +238,7 @@ export class EmailTemplateService {
         <tr><td class="label">Current Stage:</td><td class="val">Level ${nextLevel} — ${escapeHtml(nextRoleTitle)}</td></tr>
       </table>
 
-      <div class="btn-wrap">
-        <a href="${displayUrl}" class="btn">Open Proposal in CER Portal</a>
-      </div>
+      ${renderActionButton(displayUrl, "Review & Take Action in CER Portal", "#0078D4")}
     </div>
     ${renderPortalBanner()}
     ${renderFooter()}
@@ -287,9 +300,7 @@ export class EmailTemplateService {
         <tr><td class="label">Now Pending:</td><td class="val">Level ${nextLevel} — ${escapeHtml(nextRoleTitle)}</td></tr>
       </table>
 
-      <div class="btn-wrap">
-        <a href="${displayUrl}" class="btn">Track Proposal in Portal</a>
-      </div>
+      ${renderActionButton(displayUrl, "Track Proposal in CER Portal", "#0078D4")}
     </div>
     ${renderPortalBanner()}
     ${renderFooter()}
@@ -351,9 +362,7 @@ export class EmailTemplateService {
           : ""
       }
 
-      <div class="btn-wrap">
-        <a href="${displayUrl}" class="btn">View Approved CER Certificate</a>
-      </div>
+      ${renderActionButton(displayUrl, "View Approved CER Certificate", "#107C41")}
     </div>
     ${renderPortalBanner()}
     ${renderFooter()}
@@ -411,9 +420,7 @@ export class EmailTemplateService {
 
       <p>Please log in, review the requested modifications, update the proposal, and submit it again to restart the approval cycle.</p>
 
-      <div class="btn-wrap">
-        <a href="${changeUrl}" class="btn">Edit Proposal Now</a>
-      </div>
+      ${renderActionButton(changeUrl, "Edit Proposal Now", "#0078D4")}
     </div>
     ${renderPortalBanner()}
     ${renderFooter()}
@@ -469,9 +476,7 @@ export class EmailTemplateService {
         "${escapeHtml(remarks || "Proposal was rejected.")}"
       </div>
 
-      <div class="btn-wrap">
-        <a href="${displayUrl}" class="btn">View Decision in Portal</a>
-      </div>
+      ${renderActionButton(displayUrl, "View Decision in CER Portal", "#0078D4")}
     </div>
     ${renderPortalBanner()}
     ${renderFooter()}
