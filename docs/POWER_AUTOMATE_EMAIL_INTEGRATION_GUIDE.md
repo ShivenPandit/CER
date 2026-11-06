@@ -1,538 +1,182 @@
-# CER Management System — Power Automate Email Notifications Guide
+# CER Management System — Power Automate Email Notifications Guide (Outbox Architecture)
 
 **Target Environment:** SharePoint Online UAT & Production (`https://vedanta.sharepoint.com/sites/CERManagementSystemUAT`)  
-**Architecture:** Direct Native Triggers on `CERProposals` & `CERApprovalDecisions` (No intermediate queue lists needed)  
-**Schema Alignment:** Fully aligned with [`SHAREPOINT_LISTS_AND_COLUMNS_SETUP.md`](file:///d:/Git/CER/docs/SHAREPOINT_LISTS_AND_COLUMNS_SETUP.md) (Native `cerOwner` Person column, `pendingWithEmail` Multi-Person `SPFieldUserMulti`, `status`, and `amount`).
+**Architecture:** Single Dedicated Outbox Queue List (`CERMailTrigger`)  
+**Power Automate Setup:** Exactly **ONE** automated cloud flow with **3 actions**  
+**Version:** 4.0 (Outbox Pattern with Individual Success Deletion & Failure Retention)
 
 ---
 
-## 1. Notification Catalog & Routing Matrix
+## 1. System Architecture & How It Works
 
-The system automates all email notifications through **6 core workflow scenarios**:
+The CER Management System utilizes an **Outbox Pattern** to decouple SharePoint list business operations from email delivery:
 
-| # | Notification Scenario | Triggering List | Workflow Trigger Condition | Primary Recipient(s) | CC / Confirmation | Subject Template |
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as CER User (Initiator / Approver)
+    participant SPFx as CER Web Part (SPFx)
+    participant BusinessLists as CERProposals & Decisions
+    participant Outbox as CERMailTrigger (SharePoint List)
+    participant PA as Power Automate Flow
+    participant Outlook as Office 365 Outlook
+
+    User->>SPFx: Submits / Approves / Sends Back / Rejects Proposal
+    SPFx->>BusinessLists: Saves proposal data, updates status & records decision
+    SPFx->>Outbox: Creates 1 record per notification (Subject, To, CC, pre-rendered HTML Body)
+    Note over SPFx,Outbox: Non-blocking write: CER operations succeed even if mail queue is offline
+    Outbox-->>PA: Trigger: When an item is created
+    PA->>Outlook: Action 1: Send an email (V2)
+    alt Email Delivery Succeeded
+        PA->>Outbox: Action 2: Delete item (by ID)
+        Note over Outbox: Item removed — Zero junk storage buildup
+    else Email Delivery Failed (e.g. invalid email / service outage)
+        Note over PA: Execution halts on error
+        Note over Outbox: Item RETAINED in CERMailTrigger for admin inspection
+    end
+```
+
+---
+
+## 2. Notification Catalog & Routing Matrix
+
+All 6 notification scenarios are pre-rendered directly by the SPFx application (`EmailTemplateService`) and sent to `CERMailTrigger` as individual records:
+
+| # | Notification Scenario | Triggering Workflow Event | Primary Recipient (`recipientEmails`) | CC (`ccEmails`) | Subject Template | Importance |
 | :- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1** | **New Proposal Submission** | `CERProposals` | Status = `In Approval` & `currentLevel` = 1 | **Level 1 Approvers** (`pendingWithEmail`) | **CER Owner** (`cerOwner/Email`) | `[CER Action Required] New Proposal {cerPrId} - {prName}` |
-| **2** | **Resubmission (Post Send Back)** | `CERProposals` | Status = `In Approval` & `currentLevel` = 1 (after rework) | **Level 1 Approvers** (`pendingWithEmail`) | **CER Owner** (`cerOwner/Email`) | `[CER Action Required] Proposal {cerPrId} Resubmitted for Approval` |
-| **3** | **Stage Advancement** | `CERApprovalDecisions` | `decision` = `Approved` & Proposal Status = `In Approval` | **Next Stage Approvers** (`pendingWithEmail`) | **CER Owner** (`cerOwner/Email`) | `[CER Action Required] Proposal {cerPrId} Pending Level {currentLevel} Review` |
-| **4** | **Final Executive Sanction** | `CERApprovalDecisions` | `decision` = `Approved` & Proposal Status = `Approved` | **CER Owner** (`cerOwner/Email`) | **Final Approver** (`approver/Email`) | `[CER Final Sanction] Proposal {cerPrId} Approved` |
-| **5** | **Send Back (Rework Requested)** | `CERApprovalDecisions` | `decision` = `Send Back` | **CER Owner** (`cerOwner/Email`) | **Deciding Approver** (`approver/Email`) | `[CER Revision Requested] Proposal {cerPrId} Sent Back by Level {levelId}` |
-| **6** | **Proposal Rejection** | `CERApprovalDecisions` | `decision` = `Rejected` | **CER Owner** (`cerOwner/Email`) | **Deciding Approver** (`approver/Email`) | `[CER Rejected] Proposal {cerPrId} Rejected at Level {levelId}` |
+| **1a** | **New Proposal Submission** | Initiator clicks **Submit** on new CER | **Level 1 Approver(s)** (all assigned users) | _None_ | `[CER Action Required] Proposal {cerPrId} Pending Level 1 ({role}) Review` | `High` |
+| **1b** | **Submission Confirmation** | Initiator clicks **Submit** on new CER | **CER Owner** (`owner_email`) | _None_ | `[CER Submission] Proposal {cerPrId} Submitted for Approval` | `Normal` |
+| **2a** | **Resubmission (Post Send Back)** | Initiator clicks **Submit** after rework | **Level 1 Approver(s)** (all assigned users) | _None_ | `[CER Action Required] Proposal {cerPrId} Pending Level 1 ({role}) Review` | `High` |
+| **2b** | **Resubmission Confirmation** | Initiator clicks **Submit** after rework | **CER Owner** (`owner_email`) | _None_ | `[CER Submission] Proposal {cerPrId} Submitted for Approval` | `Normal` |
+| **3a** | **Stage Advancement** | Approver clicks **Approve** (Levels 1–5) | **Next Level Approver(s)** (all assigned users) | _None_ | `[CER Action Required] Proposal {cerPrId} Pending Level {nextLevel} ({role}) Review` | `High` |
+| **3b** | **Progress Update** | Approver clicks **Approve** (Levels 1–5) | **CER Owner** (`owner_email`) | _None_ | `[CER Update] Proposal {cerPrId} Approved at Level {levelId}` | `Normal` |
+| **4** | **Final Executive Sanction** | Approver clicks **Approve** (Level 6) | **CER Owner** (`owner_email`) | **Final Approver** | `[CER Final Sanction] Proposal {cerPrId} Approved` | `High` |
+| **5** | **Send Back (Rework Requested)** | Approver clicks **Send Back** | **CER Owner** (`owner_email`) | **Deciding Approver** | `[CER Revision Requested] Proposal {cerPrId} Sent Back by Level {levelId}` | `High` |
+| **6** | **Proposal Rejection** | Approver clicks **Reject** | **CER Owner** (`owner_email`) | **Deciding Approver** | `[CER Rejected] Proposal {cerPrId} Rejected at Level {levelId}` | `High` |
 
 ---
 
-## 2. Power Automate Implementation Guide
+## 3. SharePoint List Specification: `CERMailTrigger`
 
-Two lightweight cloud flows in [make.powerautomate.com](https://make.powerautomate.com) cover all 6 scenarios:
+The list is created in your SharePoint site collection:  
+**URL:** `https://vedanta.sharepoint.com/sites/CERManagementSystemUAT`  
+**List Name:** `CERMailTrigger`
 
-```
-Flow 1: CER - Proposal Submissions & Resubmissions   (Triggers on CERProposals)
-Flow 2: CER - Approval Decisions & Workflow Routing  (Triggers on CERApprovalDecisions)
-```
+### Column Definitions
 
----
+| # | Display Name | Internal Name | SharePoint Field Type | Required? | Constraints & Details |
+|---|---|---|---|---|---|
+| **1** | **Title** | `Title` | Single line of text (Built-in) | **Yes** | Stores `cerPrId - Scenario` (e.g. `CER-2026-0001 - Submission`) |
+| **2** | **CER Proposal ID** | `cerPrId` | Single line of text | No | Permanent Proposal ID (`CER-YYYY-NNNN`) |
+| **3** | **Scenario** | `scenario` | Single line of text | No | `Submission`, `Resubmission`, `StageAdvancement`, `FinalSanction`, `SendBack`, `Rejected` |
+| **4** | **Recipient Emails** | `recipientEmails` | Multiple lines of text | No | Plain text. Semicolon-delimited `To` addresses |
+| **5** | **CC Emails** | `ccEmails` | Multiple lines of text | No | Plain text. Semicolon-delimited `CC` addresses |
+| **6** | **Email Subject** | `emailSubject` | Single line of text | No | Complete subject line |
+| **7** | **Email Body** | `emailBody` | Multiple lines of text | No | Plain text (unlimited). Pre-rendered branded HTML |
+| **8** | **Importance** | `importance` | Single line of text | No | `High` or `Normal` |
 
-### Flow 1: CER - Proposal Submissions & Resubmissions
-
-Sends immediate review requests to **Level 1 Approvers** and a confirmation receipt to the **CER Owner** upon submission or resubmission.
-
-```
-[When an item is created or modified (CERProposals)]
-                        │
-                        ▼ (Trigger Condition: status = 'In Approval' and currentLevel = 1)
-         [Select: Extract Approver Emails from pendingWithEmail]
-                        │
-                        ▼
-       [Send an email (V2): To L1 Approvers]
-                        │
-                        ▼
-       [Send an email (V2): Confirmation to CER Owner]
-```
-
-#### Step 1.1: Trigger
-1. Create an **Automated Cloud Flow** named: `CER - 1. Proposal Submissions`.
-2. Choose trigger: **SharePoint — When an item is created or modified**.
-   * **Site Address:** `https://vedanta.sharepoint.com/sites/CERManagementSystemUAT`
-   * **List Name:** `CERProposals`
-
-#### Step 1.2: Trigger Condition (Prevents recursive loops)
-In the trigger card, click **... (Settings) $\rightarrow$ Trigger Conditions $\rightarrow$ Add**:
-```text
-@and(equals(coalesce(triggerOutputs()?['body/status/Value'], triggerOutputs()?['body/status']), 'In Approval'), equals(triggerOutputs()?['body/currentLevel'], 1))
-```
-
-#### Step 1.3: Extract Approver Emails (Handling Multi-Person `pendingWithEmail`)
-Because `pendingWithEmail` allows multiple approvers (`SPFieldUserMulti`), extract their emails cleanly:
-1. Add action: **Data Operation — Select**.
-   * Rename to: `Select Approver Emails`
-   * **From:** `triggerOutputs()?['body/pendingWithEmail']`
-   * **Map (click text mode icon on right):** `item()?['Email']`
-
-#### Step 1.4: Action 1 — Notify Level 1 Approvers
-1. Add action: **Office 365 Outlook — Send an email (V2)**.
-   * Rename to: `Send Email to L1 Approvers`
-   * **To:** `join(body('Select_Approver_Emails'), '; ')`
-   * **Subject:** `[CER Action Required] Proposal @{triggerOutputs()?['body/cerPrId']} Pending Your Review`
-   * **Body (HTML):** Paste **Template 1** below.
-
-#### Step 1.5: Action 2 — Confirmation to CER Owner
-1. Add action: **Office 365 Outlook — Send an email (V2)**.
-   * Rename to: `Send Confirmation to CER Owner`
-   * **To:** `triggerOutputs()?['body/cerOwner']?['Email']`
-   * **Subject:** `[CER Submission] Proposal @{triggerOutputs()?['body/cerPrId']} Submitted for Approval`
-   * **Body (HTML):** Paste **Template 2** below.
+> [!NOTE]
+> All custom columns use plain text and have **"Require that this column contains information: No"**. This eliminates any possibility of `ResponseSwaggerSchemaValidationFailure` in Power Automate.
 
 ---
 
-### Flow 2: CER - Approval Decisions, Advancements & Final Sanction
+## 4. Power Automate Step-by-Step Setup Guide
 
-Triggers whenever an approver clicks **Approve**, **Send Back**, or **Reject** in the CER portal.
+You will create **only ONE automated cloud flow** in [make.powerautomate.com](https://make.powerautomate.com).
 
-```
-[When an item is created (CERApprovalDecisions)]
-                        │
-                        ▼
-[Get item: Fetch current proposal from CERProposals using Title]
-                        │
-                        ▼
-[Switch on triggerOutputs()?['body/decision/Value']]
-      │                         │                      │
-      ├─ Case 'Approved'        ├─ Case 'Send Back'    └─ Case 'Rejected'
-      │    │                    │    │                      │    │
-      │    ▼                    │    ▼                      │    ▼
-      │  [Condition:            │  [Send email to Owner:    │  [Send email to Owner:
-      │   Proposal Status =     │   Rework Requested        │   Proposal Rejected
-      │   'Approved'?]          │   Template 5]             │   Template 6]
-      │    │         │          │                           │
-      │   YES        NO         │                           │
-      │    ▼         ▼          │                           │
-      │ [Final     [Next Stage  │                           │
-      │  Sanction   Approver    │                           │
-      │  Template   Template 3 &│                           │
-      │  4]         Owner Update]                           │
-```
-
-#### Step 2.1: Trigger
-1. Create an **Automated Cloud Flow** named: `CER - 2. Approval Decisions & Workflow`.
-2. Choose trigger: **SharePoint — When an item is created**.
-   * **Site Address:** `https://vedanta.sharepoint.com/sites/CERManagementSystemUAT`
-   * **List Name:** `CERApprovalDecisions`
-
-#### Step 2.2: Action 1 — Get Matching Proposal Details
-1. Add action: **SharePoint — Get items**.
-   * **Site Address:** `https://vedanta.sharepoint.com/sites/CERManagementSystemUAT`
-   * **List Name:** `CERProposals`
-   * **Filter Query:**
-     ```text
-     cerPrId eq '@{triggerOutputs()?['body/cerPrId']}' or Title eq '@{triggerOutputs()?['body/cerPrId']}'
-     ```
-   * **Top Count:** `1`
-2. Add action: **Data Operation — Compose**.
-   * Rename to: `Active Proposal`
-   * **Inputs:** `first(outputs('Get_items')?['body/value'])`
-
-#### Step 2.3: Action 2 — Switch on Decision
-Add a **Switch** control.
-* **On:** `coalesce(triggerOutputs()?['body/decision/Value'], triggerOutputs()?['body/decision'])`
+### Step 4.1: Create the Flow
+1. Go to [make.powerautomate.com](https://make.powerautomate.com).
+2. Click **+ Create** in the left sidebar $\rightarrow$ choose **Automated cloud flow**.
+3. **Flow name:** `CER - Unified Email Dispatcher`.
+4. Under "Choose your flow's trigger", search for: **When an item is created** (SharePoint).
+5. Select it and click **Create**.
 
 ---
 
-#### Case A: `Approved`
-Inside Case `Approved`, add a **Condition**:
-* **Condition:** `coalesce(outputs('Active_Proposal')?['status/Value'], outputs('Active_Proposal')?['status'])` **is equal to** `Approved`
-
-##### IF YES $\rightarrow$ Final Executive Sanction Granted (All Levels Approved)
-* Add action: **Office 365 Outlook — Send an email (V2)**.
-* **To:** `outputs('Active_Proposal')?['cerOwner']?['Email']`
-* **CC:** `triggerOutputs()?['body/approver']?['Email']`
-* **Subject:** `[CER Final Sanction] Proposal @{outputs('Active_Proposal')?['cerPrId']} Approved`
-* **Body:** Use **Template 4 (Final Sanction)** below.
-
-##### IF NO $\rightarrow$ Stage Advanced to Next Level (Intermediate Approval)
-1. **Extract Next Approver Emails (Multi-Person):**
-   * Add action: **Data Operation — Select**.
-     * Rename to: `Select Next Approvers`
-     * **From:** `outputs('Active_Proposal')?['pendingWithEmail']`
-     * **Map (click text mode icon):** `item()?['Email']`
-2. **Send Email to Next Approvers:**
-   * Add action: **Office 365 Outlook — Send an email (V2)**.
-   * **To:** `join(body('Select_Next_Approvers'), '; ')`
-   * **Subject:** `[CER Action Required] Proposal @{outputs('Active_Proposal')?['cerPrId']} Pending Review (Level @{outputs('Active_Proposal')?['currentLevel']})`
-   * **Body:** Use **Template 3 (Next Approver Action Required)** below.
-3. **Send Progress Update to Proposal Owner:**
-   * Add action: **Office 365 Outlook — Send an email (V2)**.
-   * **To:** `outputs('Active_Proposal')?['cerOwner']?['Email']`
-   * **Subject:** `[CER Update] Proposal @{outputs('Active_Proposal')?['cerPrId']} Approved at Level @{triggerOutputs()?['body/levelId']}`
-   * **Body:** Use **Template 2 (Progress Update)** below.
+### Step 4.2: Configure Trigger — `When an item is created`
+In the trigger card:
+* **Site Address:** Select or paste: `https://vedanta.sharepoint.com/sites/CERManagementSystemUAT`
+* **List Name:** Select: `CERMailTrigger`
 
 ---
 
-#### Case B: `Send Back`
-When an approver requests rework or clarification:
-1. Add action: **Office 365 Outlook — Send an email (V2)**.
-2. **To:** `outputs('Active_Proposal')?['cerOwner']?['Email']`
-3. **CC:** `triggerOutputs()?['body/approver']?['Email']`
-4. **Subject:** `[CER Revision Requested] Proposal @{outputs('Active_Proposal')?['cerPrId']} Sent Back by Level @{triggerOutputs()?['body/levelId']}`
-5. **Body:** Use **Template 5 (Send Back / Rework)** below.
+### Step 4.3: Add Action 1 — `Send an email (V2)`
+1. Click **+ New step** (or **+ Add an action**).
+2. Search for: `Send an email (V2)`.
+3. Select the **Office 365 Outlook** connector.
+4. Map the fields using **Dynamic Content** from the trigger:
+
+| Field | Dynamic Content Selection | Notes |
+|---|---|---|
+| **To** | **`recipientEmails`** | Contains single or semicolon-separated approver emails |
+| **Subject** | **`emailSubject`** | Formatted subject line |
+| **Body** | **`emailBody`** | Pre-rendered responsive HTML body |
+| **CC** | **`ccEmails`** | Click _Show advanced options_ to reveal |
+| **Importance** | **`importance`** | Click _Show advanced options_ $\rightarrow$ select `importance` (or leave default) |
+| **Is HTML** | `Yes` | Default is Yes |
 
 ---
 
-#### Case C: `Rejected`
-When an approver formally rejects a proposal:
-1. Add action: **Office 365 Outlook — Send an email (V2)**.
-2. **To:** `outputs('Active_Proposal')?['cerOwner']?['Email']`
-3. **CC:** `triggerOutputs()?['body/approver']?['Email']`
-4. **Subject:** `[CER Rejected] Proposal @{outputs('Active_Proposal')?['cerPrId']} Rejected at Level @{triggerOutputs()?['body/levelId']}`
-5. **Body:** Use **Template 6 (Rejection)** below.
+### Step 4.4: Add Action 2 — `Delete item` (Individual Success Deletion)
+1. Click **+ New step** (or **+ Add an action**) directly beneath the `Send an email (V2)` card.
+2. Search for: `Delete item`.
+3. Select the **SharePoint** connector.
+4. Configure:
+
+| Field | Value |
+|---|---|
+| **Site Address** | `https://vedanta.sharepoint.com/sites/CERManagementSystemUAT` |
+| **List Name** | `CERMailTrigger` |
+| **Id** | In Dynamic Content under the trigger, select: **`ID`** |
+
+5. Click **Save** in the top-right corner.
+
+**Your flow is now completely configured!**
 
 ---
 
-## 3. Branded Responsive Email HTML Templates
+## 5. Architectural Safeguards & Reliability
 
-All email templates use Vedanta brand colors:
-* **Primary Header:** Navy Blue `#012964`
-* **Status Badges:** Blue `#2563EB` (Action Required), Green `#16A34A` (Approved), Amber `#D97706` (Revision), Rose `#E11D48` (Rejected)
-* **Direct Deep-Link:** Buttons navigate directly to `#display/{cerPrId}` or `#change/{cerPrId}`.
+### 1. Automatic Failure Retention
+* In Power Automate, actions run sequentially by default with the execution rule `run after: is successful`.
+* **If `Send an email (V2)` succeeds:** Action 2 (`Delete item`) executes and removes the processed record. `CERMailTrigger` remains clean with near-zero items.
+* **If `Send an email (V2)` fails:** Action 2 **never runs**. The item is retained in `CERMailTrigger` with its full error state, allowing administrators to review the recipient address or investigate Exchange deliverability issues.
 
----
+### 2. Zero Storage Footprint
+* Because successfully delivered records are deleted immediately by ID, the list does not accumulate thousands of redundant rows.
+* You do not need to configure periodic scheduled deletion flows or bulk cleanup scripts.
+* Power Automate automatically maintains a detailed **28-day Run History** showing exact input parameters, output statuses, timestamps, and error codes for every execution.
 
-### Template 1: Action Required — Level 1 Approver
+### 3. Non-Blocking Client Execution
+* In the SPFx web part, queueing an item to `CERMailTrigger` is wrapped in a dedicated `try...catch` block.
+* If SharePoint encounters a transient network glitch while writing to `CERMailTrigger`, the proposal creation, approval decision, or status update **still succeeds and is not rolled back**. A warning is logged to the developer console.
 
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #F8FAFC; margin: 0; padding: 20px; color: #1E293B; }
-    .card { max-width: 650px; background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; margin: 0 auto; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-    .header { background: #012964; padding: 22px 30px; color: #FFFFFF; }
-    .header h1 { margin: 0; font-size: 19px; font-weight: 700; }
-    .header p { margin: 4px 0 0; font-size: 13px; opacity: 0.85; }
-    .badge { display: inline-block; padding: 4px 10px; font-size: 11px; font-weight: 700; border-radius: 16px; text-transform: uppercase; margin-bottom: 10px; background: #2563EB; color: #FFFFFF; }
-    .content { padding: 28px 30px; line-height: 1.6; font-size: 14px; }
-    .grid { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 13px; }
-    .grid td { padding: 8px 12px; border-bottom: 1px solid #F1F5F9; }
-    .grid td.label { font-weight: 600; color: #64748B; width: 38%; }
-    .grid td.val { font-weight: 700; color: #0F172A; }
-    .btn-wrap { text-align: center; margin: 26px 0 10px; }
-    .btn { background: #012964; color: #FFFFFF !important; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block; }
-    .footer { background: #F8FAFC; padding: 16px 30px; border-top: 1px solid #E2E8F0; font-size: 12px; color: #64748B; text-align: center; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="header">
-      <div class="badge">Action Required</div>
-      <h1>Capital Expenditure Request System</h1>
-      <p>Vedanta Limited / Cairn Oil & Gas</p>
-    </div>
-    <div class="content">
-      <p>Dear Approver,</p>
-      <p>A Capital Expenditure Proposal has been submitted and is pending your review and decision at <strong>Level 1 (@{triggerOutputs()?['body/pendingWithRole']})</strong>.</p>
-      
-      <table class="grid">
-        <tr><td class="label">CER Proposal ID:</td><td class="val">@{triggerOutputs()?['body/cerPrId']}</td></tr>
-        <tr><td class="label">Proposal Reference No:</td><td class="val">@{triggerOutputs()?['body/proposalNo']}</td></tr>
-        <tr><td class="label">Project Name:</td><td class="val">@{triggerOutputs()?['body/prName']}</td></tr>
-        <tr><td class="label">CER Owner:</td><td class="val">@{triggerOutputs()?['body/cerOwner']?['DisplayName']}</td></tr>
-        <tr><td class="label">SBU / Block:</td><td class="val">@{coalesce(triggerOutputs()?['body/sbu/Value'], triggerOutputs()?['body/sbu'])}</td></tr>
-        <tr><td class="label">Category:</td><td class="val">@{coalesce(triggerOutputs()?['body/category/Value'], triggerOutputs()?['body/category'])}</td></tr>
-        <tr><td class="label">Total Amount:</td><td class="val">@{coalesce(triggerOutputs()?['body/currency/Value'], triggerOutputs()?['body/currency'], 'USD')} @{formatNumber(triggerOutputs()?['body/amount'], '#,##0')}</td></tr>
-      </table>
-
-      <div class="btn-wrap">
-        <a href="https://vedanta.sharepoint.com/sites/CERManagementSystemUAT/SitePages/CER.aspx#display/@{encodeUriComponent(triggerOutputs()?['body/cerPrId'])}" class="btn">
-          Review & Approve in CER Portal
-        </a>
-      </div>
-    </div>
-    <div class="footer">
-      Automated workflow notification from Vedanta Enterprise CER Management Portal.
-    </div>
-  </div>
-</body>
-</html>
-```
+### 4. Direct Deep Links & Portal Links
+Every email generated by `EmailTemplateService` contains:
+* **Direct Deep-Link Action Button:** Navigates directly to `#display/{cerPrId}` (for review/approvals) or `#change/{cerPrId}` (for rework editing).
+* **Enterprise Portal Banner:** Contains a direct link to the CER Management System home page (`https://vedanta.sharepoint.com/sites/CERManagementSystemUAT`).
+* **Vedanta Navy Branding:** Standard corporate header (`#012964`) and responsive card container.
 
 ---
 
-### Template 2: Confirmation / Progress Update — CER Owner
+## 6. End-to-End Testing & Verification
 
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #F8FAFC; margin: 0; padding: 20px; color: #1E293B; }
-    .card { max-width: 650px; background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; margin: 0 auto; overflow: hidden; }
-    .header { background: #012964; padding: 22px 30px; color: #FFFFFF; }
-    .header h1 { margin: 0; font-size: 19px; font-weight: 700; }
-    .badge { display: inline-block; padding: 4px 10px; font-size: 11px; font-weight: 700; border-radius: 16px; text-transform: uppercase; margin-bottom: 10px; background: #2563EB; color: #FFFFFF; }
-    .content { padding: 28px 30px; line-height: 1.6; font-size: 14px; }
-    .grid { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 13px; }
-    .grid td { padding: 8px 12px; border-bottom: 1px solid #F1F5F9; }
-    .grid td.label { font-weight: 600; color: #64748B; width: 38%; }
-    .grid td.val { font-weight: 700; color: #0F172A; }
-    .btn-wrap { text-align: center; margin: 26px 0 10px; }
-    .btn { background: #012964; color: #FFFFFF !important; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block; }
-    .footer { background: #F8FAFC; padding: 16px 30px; border-top: 1px solid #E2E8F0; font-size: 12px; color: #64748B; text-align: center; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="header">
-      <div class="badge">Workflow Update</div>
-      <h1>Capital Expenditure Request System</h1>
-      <p>Vedanta Limited / Cairn Oil & Gas</p>
-    </div>
-    <div class="content">
-      <p>Dear @{triggerOutputs()?['body/cerOwner']?['DisplayName']},</p>
-      <p>Your proposal <strong>@{triggerOutputs()?['body/cerPrId']} (@{triggerOutputs()?['body/prName']})</strong> has been successfully submitted and is currently routed to <strong>Level @{triggerOutputs()?['body/currentLevel']} (@{triggerOutputs()?['body/pendingWithRole']})</strong>.</p>
-      
-      <table class="grid">
-        <tr><td class="label">CER Proposal ID:</td><td class="val">@{triggerOutputs()?['body/cerPrId']}</td></tr>
-        <tr><td class="label">Project Name:</td><td class="val">@{triggerOutputs()?['body/prName']}</td></tr>
-        <tr><td class="label">Current Status:</td><td class="val">In Approval</td></tr>
-        <tr><td class="label">Pending Level:</td><td class="val">Level @{triggerOutputs()?['body/currentLevel']} — @{triggerOutputs()?['body/pendingWithRole']}</td></tr>
-      </table>
+Follow these steps to test the email notification pipeline:
 
-      <div class="btn-wrap">
-        <a href="https://vedanta.sharepoint.com/sites/CERManagementSystemUAT/SitePages/CER.aspx#display/@{encodeUriComponent(triggerOutputs()?['body/cerPrId'])}" class="btn">
-          Track Proposal in Portal
-        </a>
-      </div>
-    </div>
-    <div class="footer">
-      Automated workflow notification from Vedanta Enterprise CER Management Portal.
-    </div>
-  </div>
-</body>
-</html>
-```
-
----
-
-### Template 3: Next Approver Action Required (Stage Advancement)
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #F8FAFC; margin: 0; padding: 20px; color: #1E293B; }
-    .card { max-width: 650px; background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; margin: 0 auto; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-    .header { background: #012964; padding: 22px 30px; color: #FFFFFF; }
-    .header h1 { margin: 0; font-size: 19px; font-weight: 700; }
-    .badge { display: inline-block; padding: 4px 10px; font-size: 11px; font-weight: 700; border-radius: 16px; text-transform: uppercase; margin-bottom: 10px; background: #2563EB; color: #FFFFFF; }
-    .content { padding: 28px 30px; line-height: 1.6; font-size: 14px; }
-    .quote-box { background: #F1F5F9; border-left: 4px solid #012964; padding: 12px 16px; border-radius: 0 6px 6px 0; font-size: 13px; margin: 16px 0; }
-    .grid { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 13px; }
-    .grid td { padding: 8px 12px; border-bottom: 1px solid #F1F5F9; }
-    .grid td.label { font-weight: 600; color: #64748B; width: 38%; }
-    .grid td.val { font-weight: 700; color: #0F172A; }
-    .btn-wrap { text-align: center; margin: 26px 0 10px; }
-    .btn { background: #012964; color: #FFFFFF !important; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block; }
-    .footer { background: #F8FAFC; padding: 16px 30px; border-top: 1px solid #E2E8F0; font-size: 12px; color: #64748B; text-align: center; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="header">
-      <div class="badge">Action Required</div>
-      <h1>Capital Expenditure Request System</h1>
-      <p>Vedanta Limited / Cairn Oil & Gas</p>
-    </div>
-    <div class="content">
-      <p>Dear Approver,</p>
-      <p>Proposal <strong>@{outputs('Active_Proposal')?['cerPrId']}</strong> was approved at Level @{triggerOutputs()?['body/levelId']} by @{triggerOutputs()?['body/approver']?['DisplayName']} and has advanced to your queue for review: <strong>@{outputs('Active_Proposal')?['pendingWithRole']}</strong>.</p>
-      
-      <div class="quote-box">
-        <strong>Previous Approver Remarks:</strong><br>
-        "@{triggerOutputs()?['body/remarks']}"
-      </div>
-
-      <table class="grid">
-        <tr><td class="label">CER Proposal ID:</td><td class="val">@{outputs('Active_Proposal')?['cerPrId']}</td></tr>
-        <tr><td class="label">Project Name:</td><td class="val">@{outputs('Active_Proposal')?['prName']}</td></tr>
-        <tr><td class="label">CER Owner:</td><td class="val">@{outputs('Active_Proposal')?['cerOwner']?['DisplayName']}</td></tr>
-        <tr><td class="label">Total Amount:</td><td class="val">@{coalesce(outputs('Active_Proposal')?['currency/Value'], outputs('Active_Proposal')?['currency'], 'USD')} @{formatNumber(outputs('Active_Proposal')?['amount'], '#,##0')}</td></tr>
-        <tr><td class="label">Current Stage:</td><td class="val">Level @{outputs('Active_Proposal')?['currentLevel']} — @{outputs('Active_Proposal')?['pendingWithRole']}</td></tr>
-      </table>
-
-      <div class="btn-wrap">
-        <a href="https://vedanta.sharepoint.com/sites/CERManagementSystemUAT/SitePages/CER.aspx#display/@{encodeUriComponent(outputs('Active_Proposal')?['cerPrId'])}" class="btn">
-          Open Proposal in CER Portal
-        </a>
-      </div>
-    </div>
-    <div class="footer">
-      Automated workflow notification from Vedanta Enterprise CER Management Portal.
-    </div>
-  </div>
-</body>
-</html>
-```
-
----
-
-### Template 4: Final Executive Sanction Granted
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #F8FAFC; margin: 0; padding: 20px; color: #1E293B; }
-    .card { max-width: 650px; background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; margin: 0 auto; overflow: hidden; }
-    .header { background: #012964; padding: 22px 30px; color: #FFFFFF; }
-    .header h1 { margin: 0; font-size: 19px; font-weight: 700; }
-    .badge { display: inline-block; padding: 4px 10px; font-size: 11px; font-weight: 700; border-radius: 16px; text-transform: uppercase; margin-bottom: 10px; background: #16A34A; color: #FFFFFF; }
-    .content { padding: 28px 30px; line-height: 1.6; font-size: 14px; }
-    .success-box { background: #F0FDF4; border: 1px solid #BBF7D0; border-left: 4px solid #16A34A; padding: 14px 18px; border-radius: 6px; margin: 18px 0; color: #166534; font-size: 14px; font-weight: 600; }
-    .quote-box { background: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px 16px; border-radius: 6px; font-size: 13px; margin: 16px 0; }
-    .btn-wrap { text-align: center; margin: 26px 0 10px; }
-    .btn { background: #012964; color: #FFFFFF !important; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block; }
-    .footer { background: #F8FAFC; padding: 16px 30px; border-top: 1px solid #E2E8F0; font-size: 12px; color: #64748B; text-align: center; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="header">
-      <div class="badge">Final Sanction Granted</div>
-      <h1>Capital Expenditure Request System</h1>
-      <p>Vedanta Limited / Cairn Oil & Gas</p>
-    </div>
-    <div class="content">
-      <div class="success-box">
-        ✓ Capital Expenditure Proposal @{outputs('Active_Proposal')?['cerPrId']} has received Final Executive Sanction.
-      </div>
-      <p>Proposal <strong>@{outputs('Active_Proposal')?['cerPrId']} (@{outputs('Active_Proposal')?['prName']})</strong> has successfully completed all required approval stages and is sanctioned for project execution.</p>
-      
-      <div class="quote-box">
-        <strong>Final Approver Remarks (@{triggerOutputs()?['body/approver']?['DisplayName']}):</strong><br>
-        "@{triggerOutputs()?['body/remarks']}"
-      </div>
-
-      <div class="btn-wrap">
-        <a href="https://vedanta.sharepoint.com/sites/CERManagementSystemUAT/SitePages/CER.aspx#display/@{encodeUriComponent(outputs('Active_Proposal')?['cerPrId'])}" class="btn">
-          View Approved CER Certificate
-        </a>
-      </div>
-    </div>
-    <div class="footer">
-      Automated workflow notification from Vedanta Enterprise CER Management Portal.
-    </div>
-  </div>
-</body>
-</html>
-```
-
----
-
-### Template 5: Send Back / Revision Requested
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #F8FAFC; margin: 0; padding: 20px; color: #1E293B; }
-    .card { max-width: 650px; background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; margin: 0 auto; overflow: hidden; }
-    .header { background: #012964; padding: 22px 30px; color: #FFFFFF; }
-    .header h1 { margin: 0; font-size: 19px; font-weight: 700; }
-    .badge { display: inline-block; padding: 4px 10px; font-size: 11px; font-weight: 700; border-radius: 16px; text-transform: uppercase; margin-bottom: 10px; background: #D97706; color: #FFFFFF; }
-    .content { padding: 28px 30px; line-height: 1.6; font-size: 14px; }
-    .alert-box { background: #FFFBEB; border: 1px solid #FDE68A; border-left: 4px solid #D97706; padding: 14px 18px; border-radius: 6px; margin: 18px 0; color: #92400E; font-size: 14px; }
-    .btn-wrap { text-align: center; margin: 26px 0 10px; }
-    .btn { background: #012964; color: #FFFFFF !important; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block; }
-    .footer { background: #F8FAFC; padding: 16px 30px; border-top: 1px solid #E2E8F0; font-size: 12px; color: #64748B; text-align: center; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="header">
-      <div class="badge">Revision Required</div>
-      <h1>Capital Expenditure Request System</h1>
-      <p>Vedanta Limited / Cairn Oil & Gas</p>
-    </div>
-    <div class="content">
-      <p>Dear @{outputs('Active_Proposal')?['cerOwner']?['DisplayName']},</p>
-      <p>Your proposal <strong>@{outputs('Active_Proposal')?['cerPrId']} (@{outputs('Active_Proposal')?['prName']})</strong> has been <strong>Sent Back</strong> for revision by <strong>@{triggerOutputs()?['body/approver']?['DisplayName']}</strong> at Level @{triggerOutputs()?['body/levelId']}.</p>
-      
-      <div class="alert-box">
-        <strong>Required Clarifications / Changes:</strong><br>
-        "@{triggerOutputs()?['body/remarks']}"
-      </div>
-
-      <p>Please log in, review the requested modifications, update the proposal, and click <strong>Submit Proposal</strong> to restart the approval cycle.</p>
-
-      <div class="btn-wrap">
-        <a href="https://vedanta.sharepoint.com/sites/CERManagementSystemUAT/SitePages/CER.aspx#change/@{encodeUriComponent(outputs('Active_Proposal')?['cerPrId'])}" class="btn">
-          Edit Proposal Now
-        </a>
-      </div>
-    </div>
-    <div class="footer">
-      Automated workflow notification from Vedanta Enterprise CER Management Portal.
-    </div>
-  </div>
-</body>
-</html>
-```
-
----
-
-### Template 6: Proposal Rejection
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #F8FAFC; margin: 0; padding: 20px; color: #1E293B; }
-    .card { max-width: 650px; background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; margin: 0 auto; overflow: hidden; }
-    .header { background: #012964; padding: 22px 30px; color: #FFFFFF; }
-    .header h1 { margin: 0; font-size: 19px; font-weight: 700; }
-    .badge { display: inline-block; padding: 4px 10px; font-size: 11px; font-weight: 700; border-radius: 16px; text-transform: uppercase; margin-bottom: 10px; background: #E11D48; color: #FFFFFF; }
-    .content { padding: 28px 30px; line-height: 1.6; font-size: 14px; }
-    .reject-box { background: #FFF1F2; border: 1px solid #FECDD3; border-left: 4px solid #E11D48; padding: 14px 18px; border-radius: 6px; margin: 18px 0; color: #9F1239; font-size: 14px; }
-    .btn-wrap { text-align: center; margin: 26px 0 10px; }
-    .btn { background: #012964; color: #FFFFFF !important; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block; }
-    .footer { background: #F8FAFC; padding: 16px 30px; border-top: 1px solid #E2E8F0; font-size: 12px; color: #64748B; text-align: center; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="header">
-      <div class="badge">Proposal Rejected</div>
-      <h1>Capital Expenditure Request System</h1>
-      <p>Vedanta Limited / Cairn Oil & Gas</p>
-    </div>
-    <div class="content">
-      <p>Dear @{outputs('Active_Proposal')?['cerOwner']?['DisplayName']},</p>
-      <p>Your proposal <strong>@{outputs('Active_Proposal')?['cerPrId']} (@{outputs('Active_Proposal')?['prName']})</strong> has been rejected by <strong>@{triggerOutputs()?['body/approver']?['DisplayName']}</strong> at Level @{triggerOutputs()?['body/levelId']}.</p>
-      
-      <div class="reject-box">
-        <strong>Reason for Rejection:</strong><br>
-        "@{triggerOutputs()?['body/remarks']}"
-      </div>
-
-      <div class="btn-wrap">
-        <a href="https://vedanta.sharepoint.com/sites/CERManagementSystemUAT/SitePages/CER.aspx#display/@{encodeUriComponent(outputs('Active_Proposal')?['cerPrId'])}" class="btn">
-          View Decision in Portal
-        </a>
-      </div>
-    </div>
-    <div class="footer">
-      Automated workflow notification from Vedanta Enterprise CER Management Portal.
-    </div>
-  </div>
-</body>
-</html>
-```
+1. **Ensure the Flow Is Turned On:**
+   In [make.powerautomate.com](https://make.powerautomate.com) $\rightarrow$ **My flows** $\rightarrow$ verify `CER - Unified Email Dispatcher` status is **On**.
+2. **Submit a New Test Proposal:**
+   - Open the CER portal: `https://vedanta.sharepoint.com/sites/CERManagementSystemUAT/SitePages/CER.aspx`.
+   - Create and submit a proposal.
+3. **Verify Queue Execution:**
+   - Open the `CERMailTrigger` list in SharePoint: you will see two items created briefly (`Submission` for L1 Approvers, and `Submission_Confirmation` for the Owner).
+   - Within 5–15 seconds, Power Automate picks them up, delivers the emails, and deletes both items.
+   - Refresh the `CERMailTrigger` list: count should return to **0**.
+4. **Verify Outlook Inboxes:**
+   - Level 1 Approvers receive the **[CER Action Required]** email with project details and the "Review & Approve in CER Portal" button.
+   - Proposal Owner receives the **[CER Submission]** confirmation email.
+5. **Test Stage Approval:**
+   - Log in as the assigned Level 1 Approver $\rightarrow$ click **Approve**.
+   - Verify Level 2 Approver receives the **[CER Action Required]** email (including Level 1 approver remarks in the quote box).
+   - Proposal Owner receives the **[CER Update]** progress notification.
+   - `CERMailTrigger` list remains clean at **0 items**.

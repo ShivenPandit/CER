@@ -24,6 +24,7 @@ import { validateAttachment } from "../utils/attachmentValidation";
 import { getCurrentFiscalYearPhasingLabels, formatLocalDate, formatLocalTime, getLocalComponents } from "../utils/dateUtils";
 import { SharePointOperations } from "../hooks/useSharePointOperations";
 import { PersonFieldService } from "./PersonFieldService";
+import { EmailTemplateService } from "./EmailTemplateService";
 import { SP_LISTS, FIXED_6_LEVEL_APPROVAL_STAGES } from "../constants";
 import { sanitizeProposalPayload, escapeODataString, stripAttachmentsManifest } from "../utils/sanitizationUtils";
 
@@ -1042,6 +1043,44 @@ export class SharePointCERDataService implements ICERDataService {
   }
 
   /**
+   * Non-blocking queue helper that writes an email notification record to CERMailTrigger.
+   * Power Automate picks this up, sends the email, and deletes the record upon successful delivery.
+   */
+  private async _triggerEmailNotification(payload: {
+    cerPrId: string;
+    scenario: string;
+    recipientEmails: string;
+    ccEmails?: string;
+    emailSubject: string;
+    emailBody: string;
+    importance?: "High" | "Normal";
+  }): Promise<void> {
+    try {
+      const cleanRecipients = (payload.recipientEmails || "").trim();
+      if (!cleanRecipients) {
+        console.warn(`[SharePointCERDataService] Skipping email trigger: recipientEmails is empty for scenario '${payload.scenario}'.`);
+        return;
+      }
+
+      const itemPayload: Record<string, any> = {
+        Title: `${payload.cerPrId} - ${payload.scenario}`,
+        cerPrId: payload.cerPrId,
+        scenario: payload.scenario,
+        recipientEmails: cleanRecipients,
+        ccEmails: (payload.ccEmails || "").trim(),
+        emailSubject: payload.emailSubject,
+        emailBody: payload.emailBody,
+        importance: payload.importance || "Normal",
+      };
+
+      await this._sp.createListItem(SP_LISTS.CER_MAIL_TRIGGER, itemPayload);
+      console.log(`[SharePointCERDataService] Queued email notification (${payload.scenario}) for ${payload.cerPrId}`);
+    } catch (err) {
+      console.warn(`[SharePointCERDataService] Warning: Failed to queue email notification to CERMailTrigger (${payload.scenario}):`, err);
+    }
+  }
+
+  /**
    * Resolves all assigned approvers for a workflow level into verified SharePoint User IDs.
    * Validates existing user IDs via resolveUserById, and resolves unverified identities via ensureUser.
    * Fails truthfully if any required approver cannot be resolved.
@@ -1361,6 +1400,34 @@ export class SharePointCERDataService implements ICERDataService {
       this._cachedProposals = null;
       this._cachedProposalByNumber.delete(newProposal.cerprno.toUpperCase());
 
+      if (!isDraft) {
+        const cerPrId = newProposal.cer_proposal_id || newProposal.cerprno;
+        const l1Role = activeL1?.role_title || "Finance";
+        const approverEmails = pendingEmailsList.filter(Boolean).join("; ");
+        if (approverEmails) {
+          const approverEmailData = EmailTemplateService.renderSubmissionApproverEmail(newProposal, l1Role);
+          await this._triggerEmailNotification({
+            cerPrId,
+            scenario: "Submission",
+            recipientEmails: approverEmails,
+            emailSubject: approverEmailData.subject,
+            emailBody: approverEmailData.body,
+            importance: "High",
+          });
+        }
+        if (newProposal.owner_email) {
+          const ownerEmailData = EmailTemplateService.renderSubmissionOwnerEmail(newProposal, l1Role);
+          await this._triggerEmailNotification({
+            cerPrId,
+            scenario: "Submission_Confirmation",
+            recipientEmails: newProposal.owner_email,
+            emailSubject: ownerEmailData.subject,
+            emailBody: ownerEmailData.body,
+            importance: "Normal",
+          });
+        }
+      }
+
       return {
         success: true,
         message: isDraft
@@ -1418,6 +1485,34 @@ export class SharePointCERDataService implements ICERDataService {
 
     this._cachedProposals = null;
     this._cachedProposalByNumber.delete(newProposal.cerprno.toUpperCase());
+
+    if (!isDraft) {
+      const cerPrId = newProposal.cer_proposal_id || newProposal.cerprno;
+      const l1Role = activeL1?.role_title || "Finance";
+      const approverEmails = pendingEmailsList.filter(Boolean).join("; ");
+      if (approverEmails) {
+        const approverEmailData = EmailTemplateService.renderSubmissionApproverEmail(newProposal, l1Role);
+        await this._triggerEmailNotification({
+          cerPrId,
+          scenario: "Submission",
+          recipientEmails: approverEmails,
+          emailSubject: approverEmailData.subject,
+          emailBody: approverEmailData.body,
+          importance: "High",
+        });
+      }
+      if (newProposal.owner_email) {
+        const ownerEmailData = EmailTemplateService.renderSubmissionOwnerEmail(newProposal, l1Role);
+        await this._triggerEmailNotification({
+          cerPrId,
+          scenario: "Submission_Confirmation",
+          recipientEmails: newProposal.owner_email,
+          emailSubject: ownerEmailData.subject,
+          emailBody: ownerEmailData.body,
+          importance: "Normal",
+        });
+      }
+    }
 
     return {
       success: true,
@@ -1825,6 +1920,34 @@ export class SharePointCERDataService implements ICERDataService {
     this._cachedProposalByNumber.delete(proposal.cerprno.toUpperCase());
     this._cachedAttachments.clear();
     this._cachedSubmissionsByCerId.clear();
+
+    if (!isDraft && nextStatus === "In Approval") {
+      const cerPrId = updatedProposal.cer_proposal_id || updatedProposal.cerprno || proposal.cerprno;
+      const l1Role = updatedProposal.pending_with_role || "Finance";
+      const approverEmails = pendingEmailsList.filter(Boolean).join("; ");
+      if (approverEmails) {
+        const approverEmailData = EmailTemplateService.renderSubmissionApproverEmail(updatedProposal, l1Role);
+        await this._triggerEmailNotification({
+          cerPrId,
+          scenario: "Resubmission",
+          recipientEmails: approverEmails,
+          emailSubject: approverEmailData.subject,
+          emailBody: approverEmailData.body,
+          importance: "High",
+        });
+      }
+      if (updatedProposal.owner_email) {
+        const ownerEmailData = EmailTemplateService.renderSubmissionOwnerEmail(updatedProposal, l1Role);
+        await this._triggerEmailNotification({
+          cerPrId,
+          scenario: "Resubmission_Confirmation",
+          recipientEmails: updatedProposal.owner_email,
+          emailSubject: ownerEmailData.subject,
+          emailBody: ownerEmailData.body,
+          importance: "Normal",
+        });
+      }
+    }
 
     const hasSecondaryFailures = auditFailedCount > 0;
 
@@ -3431,6 +3554,101 @@ export class SharePointCERDataService implements ICERDataService {
         await this._stampAttachmentsForApprovedVersion(params.cerprno, approvedVerTag, currentAtts);
       } catch (stampErr) {
         console.warn("[SharePointCERDataService] Warning auto-stamping attachments on final approval:", stampErr);
+      }
+    }
+
+    // Trigger Outbox Email Notifications (one queue item per email)
+    const cerPrId = existingProposal.cer_proposal_id || existingProposal.cerprno || params.cerprno;
+
+    if (newStatus === "Approved") {
+      // Final Sanction
+      if (existingProposal.owner_email) {
+        const emailData = EmailTemplateService.renderFinalSanctionEmail(existingProposal, params.approver_name, params.comments);
+        await this._triggerEmailNotification({
+          cerPrId,
+          scenario: "FinalSanction",
+          recipientEmails: existingProposal.owner_email,
+          ccEmails: params.approver_email,
+          emailSubject: emailData.subject,
+          emailBody: emailData.body,
+          importance: "High",
+        });
+      }
+    } else if (newStatus === "In Approval") {
+      // Stage Advancement: notify next level approvers and owner update
+      const nextApproverEmails = nextEmailsList.filter(Boolean).join("; ");
+      if (nextApproverEmails) {
+        const approverEmailData = EmailTemplateService.renderStageAdvancementApproverEmail(
+          existingProposal,
+          params.approver_name,
+          params.comments,
+          nextLevel,
+          nextRole
+        );
+        await this._triggerEmailNotification({
+          cerPrId,
+          scenario: "StageAdvancement",
+          recipientEmails: nextApproverEmails,
+          emailSubject: approverEmailData.subject,
+          emailBody: approverEmailData.body,
+          importance: "High",
+        });
+      }
+
+      if (existingProposal.owner_email) {
+        const ownerEmailData = EmailTemplateService.renderStageAdvancementOwnerEmail(
+          existingProposal,
+          params.approver_name,
+          params.level_id,
+          nextLevel,
+          nextRole
+        );
+        await this._triggerEmailNotification({
+          cerPrId,
+          scenario: "StageAdvancement_Update",
+          recipientEmails: existingProposal.owner_email,
+          emailSubject: ownerEmailData.subject,
+          emailBody: ownerEmailData.body,
+          importance: "Normal",
+        });
+      }
+    } else if (newStatus === "Send Back") {
+      // Revision Requested
+      if (existingProposal.owner_email) {
+        const emailData = EmailTemplateService.renderSendBackEmail(
+          existingProposal,
+          params.approver_name,
+          params.comments,
+          params.level_id
+        );
+        await this._triggerEmailNotification({
+          cerPrId,
+          scenario: "SendBack",
+          recipientEmails: existingProposal.owner_email,
+          ccEmails: params.approver_email,
+          emailSubject: emailData.subject,
+          emailBody: emailData.body,
+          importance: "High",
+        });
+      }
+    } else if (newStatus === "Rejected") {
+      // Proposal Rejected
+      if (existingProposal.owner_email) {
+        const emailData = EmailTemplateService.renderRejectionEmail(
+          existingProposal,
+          params.approver_name,
+          params.comments,
+          params.level_id
+        );
+        await this._triggerEmailNotification({
+          cerPrId,
+          scenario: "Rejected",
+          recipientEmails: existingProposal.owner_email,
+          ccEmails: params.approver_email,
+          emailSubject: emailData.subject,
+          emailBody: emailData.body,
+          importance: "High",
+        });
       }
     }
 

@@ -18,6 +18,7 @@ export const SP_LISTS = {
   CER_REMARKS_HISTORY: "CERRemarksHistory",
   CER_APPROVAL_DECISIONS: "CERApprovalDecisions",
   CER_ATTACHMENTS: "CERAttachments",
+  CER_MAIL_TRIGGER: "CERMailTrigger",
   // Legacy compatibility aliases
   CER_MASTER: "CERProposals",
   CER_WORKFLOW_HISTORY: "CERApprovalDecisions",
