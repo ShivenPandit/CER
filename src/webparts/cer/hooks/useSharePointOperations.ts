@@ -409,7 +409,7 @@ export class SharePointOperations {
     options: ISPGetOptions = {},
   ): Promise<T[]> {
     const query = this._buildQueryString({
-      top: 500,
+      top: 4800,
       ...options,
     });
     const endpoint = this.buildListEndpoint(listName, `/items${query}`);
@@ -430,7 +430,7 @@ export class SharePointOperations {
   ): Promise<T[]> {
     let allItems: T[] = [];
     const query = this._buildQueryString({
-      top: 5000,
+      top: 4800,
       ...options,
     });
     let nextUrl: string | null = this.buildListEndpoint(
