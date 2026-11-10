@@ -772,7 +772,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                       <div className="col-span-2">
                         <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Reason if not / partially budgeted</p>
                         <p className="font-medium text-slate-800 text-sm mt-1 bg-slate-50 p-3 rounded-xl border border-slate-200/80 leading-relaxed">
-                          {selectedProposal.reason || "Within standard budgetary envelope."}
+                          {selectedProposal.reason?.trim() ? selectedProposal.reason : "—"}
                         </p>
                       </div>
                     </div>
@@ -808,7 +808,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                       <div className="col-span-2">
                         <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Reason if not / partially budgeted</p>
                         <p className="font-medium text-slate-800 text-sm mt-1 bg-slate-50 p-3 rounded-xl border border-slate-200/80 leading-relaxed">
-                          {selectedProposal.jv_reason || "Approved by Operating Committee / TCM."}
+                          {selectedProposal.jv_reason?.trim() ? selectedProposal.jv_reason : "—"}
                         </p>
                       </div>
                     </div>

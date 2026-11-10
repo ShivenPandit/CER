@@ -801,7 +801,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                 <div className="col-span-2">
                   <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Reason if not/partially budgeted</p>
                   <p className="font-medium text-slate-800 text-sm mt-1 bg-slate-50 p-3 rounded-xl border border-slate-200/80 leading-relaxed">
-                    {proposal.reason || "Within standard budgetary envelope."}
+                    {proposal.reason?.trim() ? proposal.reason : "—"}
                   </p>
                 </div>
               </div>
@@ -834,7 +834,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                 <div className="col-span-2">
                   <p className="text-xs sm:text-[13px] text-slate-500 font-semibold">Reason if not/partially budgeted</p>
                   <p className="font-medium text-slate-800 text-sm mt-1 bg-slate-50 p-3 rounded-xl border border-slate-200/80 leading-relaxed">
-                    {proposal.jv_reason || "Approved by Operating Committee / TCM."}
+                    {proposal.jv_reason?.trim() ? proposal.jv_reason : "—"}
                   </p>
                 </div>
               </div>

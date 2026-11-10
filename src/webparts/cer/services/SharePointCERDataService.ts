@@ -4587,7 +4587,6 @@ export class SharePointCERDataService implements ICERDataService {
     const propNo = proposal.proposal_no || proposal.cerprno;
 
     const cleanRemarks = stripAttachmentsManifest(proposal.remarks);
-    let finalRemarks = cleanRemarks;
     let activeEntries: any[] | null = null;
     if (Array.isArray(proposal.attachments_manifest)) {
       activeEntries = proposal.attachments_manifest;
@@ -4598,8 +4597,9 @@ export class SharePointCERDataService implements ICERDataService {
       } catch { /* continue */ }
     }
 
-    if (activeEntries !== null) {
-      const activeJson = JSON.stringify(activeEntries.map((a: any) => ({
+    let activeJson = "";
+    if (activeEntries !== null && activeEntries.length > 0) {
+      activeJson = JSON.stringify(activeEntries.map((a: any) => ({
         id: String(a.id || ""),
         name: a.name || "document",
         size: a.size || 0,
@@ -4607,7 +4607,6 @@ export class SharePointCERDataService implements ICERDataService {
         server_relative_url: a.server_relative_url || a.data_url || "",
         version_tag: a.version_tag || a.version || "",
       })));
-      finalRemarks = cleanRemarks ? `${cleanRemarks}\n\n[CER_ATTACHMENTS_ACTIVE_START]${activeJson}[CER_ATTACHMENTS_ACTIVE_END]` : `[CER_ATTACHMENTS_ACTIVE_START]${activeJson}[CER_ATTACHMENTS_ACTIVE_END]`;
     }
 
     return {
@@ -4658,8 +4657,9 @@ export class SharePointCERDataService implements ICERDataService {
       preoperativeCost: Number(proposal.preop || 0),
       otherCosts: Number(proposal.others || 0),
       total: Number(proposal.total || 0),
-      remarks: finalRemarks,
-      Remarks: finalRemarks,
+      remarks: cleanRemarks,
+      Remarks: cleanRemarks,
+      attachmentsManifest: activeJson,
       remarksJv: proposal.remarks_jv,
       currentLevel: Number(proposal.current_level || 1),
       pendingWithRole: proposal.pending_with_role,
