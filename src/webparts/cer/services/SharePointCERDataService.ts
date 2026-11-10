@@ -2224,7 +2224,7 @@ export class SharePointCERDataService implements ICERDataService {
         orderby: "Modified desc",
         expand: "cerOwner,Author,Editor",
         select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
-        top: 100,
+        top: 4800,
       };
       if (filterClause) {
         queryOptions.filter = filterClause;
@@ -2238,14 +2238,14 @@ export class SharePointCERDataService implements ICERDataService {
             orderby: "Modified desc",
             expand: "cerOwner",
             select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name",
-            top: 100,
+            top: 4800,
           };
           if (filterClause) fallbackOptions.filter = filterClause;
           items = await this._sp.getListItems(SP_LISTS.CER_PROPOSALS_HISTORY, fallbackOptions);
         } catch {
           const basicOptions: any = {
             orderby: "Id desc",
-            top: 100,
+            top: 4800,
           };
           if (filterClause) basicOptions.filter = filterClause;
           items = await this._sp.getListItems(SP_LISTS.CER_PROPOSALS_HISTORY, basicOptions);
@@ -2257,7 +2257,7 @@ export class SharePointCERDataService implements ICERDataService {
         try {
           items = await this._sp.getListItems(SP_LISTS.CER_PROPOSALS_HISTORY, {
             filter: `cerPrId eq '${safeCleanId}' or Title eq '${safeCleanId}'`,
-            top: 100,
+            top: 4800,
           });
         } catch {
           // ignore
@@ -2362,7 +2362,7 @@ export class SharePointCERDataService implements ICERDataService {
         const allHist = await this._sp.getListItems<any>(SP_LISTS.CER_PROPOSALS_HISTORY, {
           filter: `cerPrId eq '${safeCerId}'`,
           select: "Id,Title,proposalNo,proposal_no,amount,cerPrId,version,Version",
-          top: 50,
+          top: 4800,
         });
         existingItems = allHist.filter(
           (it: any) => String(it.version || it.Version || "").trim().toUpperCase() === versionTag
@@ -2423,7 +2423,7 @@ export class SharePointCERDataService implements ICERDataService {
         items = await this._sp.getListItems<any>(SP_LISTS.CER_ATTACHMENTS, {
           filter: `cerPrId eq '${cerprno}' or startswith(FileLeafRef, '${cerprno}')`,
           select: `Id,Title,FileLeafRef,cerPrId,${vColName}`,
-          top: 200,
+          top: 4800,
         });
       } catch {
         const allItems = await this._sp.getListItems<any>(SP_LISTS.CER_ATTACHMENTS, {
@@ -2983,7 +2983,7 @@ export class SharePointCERDataService implements ICERDataService {
               filter: `cerPrId eq '${cerprno}' or Title eq '${cerprno}'`,
               select: "Id,Title,cerPrId,levelId,decision,remarks,decidedAt,Created,version,Version,Author/Id,Author/Title,Author/EMail,approver/Id,approver/Title,approver/EMail",
               expand: "Author,approver",
-              top: 100,
+              top: 4800,
               orderby: "Created desc",
             });
           } catch {
@@ -2993,7 +2993,7 @@ export class SharePointCERDataService implements ICERDataService {
                 filter: `cerPrId eq '${cerprno}' or Title eq '${cerprno}'`,
                 select: "Id,Title,cerPrId,levelId,decision,remarks,decidedAt,Created,version,Version,Author/Id,Author/Title,Author/EMail",
                 expand: "Author",
-                top: 100,
+                top: 4800,
                 orderby: "Created desc",
               });
             } catch {
@@ -3002,7 +3002,7 @@ export class SharePointCERDataService implements ICERDataService {
                 const allItems = await this._sp.getListItems<Record<string, any>>(listName, {
                   select: "Id,Title,cerPrId,levelId,decision,remarks,decidedAt,Created,version,Version,Author/Id,Author/Title,Author/EMail",
                   expand: "Author",
-                  top: 100,
+                  top: 4800,
                   orderby: "Created desc",
                 });
                 items = allItems.filter(
@@ -3011,7 +3011,7 @@ export class SharePointCERDataService implements ICERDataService {
               } catch {
                 try {
                   const allItems = await this._sp.getListItems<Record<string, any>>(listName, {
-                    top: 100,
+                    top: 4800,
                     orderby: "Created desc",
                   });
                   items = allItems.filter(
@@ -3698,7 +3698,7 @@ export class SharePointCERDataService implements ICERDataService {
               filter: `cerPrId eq '${cerprno}' or startswith(FileLeafRef, '${cerprno}')`,
               select: "Id,Title,FileLeafRef,FileRef,cerPrId,category,uploadDate,Created,version,Version,File/ServerRelativeUrl,File/Length,uploadedBy/Id,uploadedBy/Title,uploadedBy/EMail",
               expand: "File,uploadedBy",
-              top: 200,
+              top: 4800,
             });
           } catch (t1Err) {
             // Tier 2: Query by cerPrId with only File expanded
@@ -3707,7 +3707,7 @@ export class SharePointCERDataService implements ICERDataService {
                 filter: `cerPrId eq '${cerprno}'`,
                 select: "Id,Title,FileLeafRef,FileRef,cerPrId,category,uploadDate,Created,version,Version,File/ServerRelativeUrl,File/Length",
                 expand: "File",
-                top: 200,
+                top: 4800,
               });
             } catch (t2Err) {
               // Tier 3: Query without filter if column isn't indexed, filter in memory
