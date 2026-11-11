@@ -119,7 +119,7 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
       id: "workflow-config",
       title: "Admin Console",
       description:
-        "Manage user roles, workflow levels, and system administration.",
+        "Configure the Approval Role Matrix and workflow approver assignments.",
       actionLabel: "Open Console",
       bgGradient: "from-[#FFF1F2] via-[#FEECEF] to-[#FDDDE3]",
       borderClass: "border-[#FECDD3] hover:border-[#FDA4AF]",
@@ -144,7 +144,7 @@ export const HomeCardGrid: React.FC<IHomeCardGridProps> = ({
   ];
 
   // Independent permission checks for each dashboard card per role-based access matrix
-  const isAdmin = currentUser ? PermissionService.canAccessAdmin(currentUser) : true;
+  const isAdmin = currentUser ? PermissionService.canAccessAdmin(currentUser) : false;
   const canCreate = currentUser ? PermissionService.canCreateCER(currentUser) : true;
   const canViewMyRequests = currentUser
     ? PermissionService.canViewMyRequests(currentUser, hasOwnedProposals)

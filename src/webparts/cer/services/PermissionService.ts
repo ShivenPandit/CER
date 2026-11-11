@@ -224,45 +224,30 @@ export class PermissionService {
 
   /**
    * Checks if user has permission to view their submitted requests ("my-proposals").
-   * - Initiators and Admins always have access to My CER Requests.
-   * - Approvers and Finance_Audit have access if they have permission to view their own requests
-   *   (e.g., they own one or more CER proposals as verified by hasOwnedProposals or hold Initiator/Admin role).
+   * All authenticated users can view My CER Proposals (filtered to their owned records).
    */
   public static canViewMyRequests(user?: IAppUser | null, hasOwnedProposals?: boolean): boolean {
     if (!user || !user.is_active) return false;
-    if (this.hasRole(user, "Initiator") || this.hasRole(user, "Admin")) {
-      return true;
-    }
-    if (hasOwnedProposals) {
-      return true;
-    }
-    return false;
+    return true;
   }
 
   /**
-   * Checks if user has approval authorization / responsibilities to view "My CER Approvals".
-   * - Approvers and Admins always have approval responsibilities.
-   * - Initiators or Finance_Audit have access only if they also have approval authorization
-   *   (e.g., designated as Project Owner on a pending proposal or hasApprovalAuth is true).
+   * Checks if user has permission to view "Pending Approvals".
+   * All authenticated users can access the Pending Approvals page.
+   * Data-level filtering ensures they only see proposals they are authorized to approve.
    */
   public static canViewApprovals(user?: IAppUser | null, hasApprovalAuth?: boolean): boolean {
     if (!user || !user.is_active) return false;
-    if (this.hasRole(user, "Approver") || this.hasRole(user, "Admin")) {
-      return true;
-    }
-    if (hasApprovalAuth) {
-      return true;
-    }
-    return false;
+    return true;
   }
 
   /**
-   * Checks if user has permission to view Report and Dashboard.
-   * Restricted to Finance_Audit and Admin roles per role-based access matrix.
+   * Checks if user has permission to view Reports & Analytics.
+   * All authenticated users have access to reports.
    */
   public static canViewReports(user?: IAppUser | null): boolean {
     if (!user || !user.is_active) return false;
-    return this.hasRole(user, "Finance_Audit") || this.hasRole(user, "Admin");
+    return true;
   }
 
   /**
@@ -418,18 +403,13 @@ export class PermissionService {
       };
     }
 
-    // 2. Non-Project Owner stage: User MUST have an Approver role (Admin role alone does not grant approval rights)
-    const isApprover = this.hasRole(user, "Approver");
-    if (!isApprover) {
-      return {
-        allowed: false,
-        reason: "Access Denied: You do not hold an active Approver role for this workflow stage.",
-      };
-    }
+    // 2. Non-Project Owner stages (L1, L3, L4, L5, L6):
+    // Single Source of Truth: The Approval Role Matrix.
+    // User can approve only if they are assigned to this level and SBU in the matrix.
+    // Administrators CANNOT approve unless they are explicitly assigned to this level.
+    // Proposal creator and Project Owner CAN approve if explicitly assigned in the matrix.
 
-    // 3. Strict SBU Alignment on non-Project-Owner stages:
-    // Approvers assigned to a specific SBU (not 'All') cannot approve proposals belonging to a different SBU.
-    // Each SBU has its own sequential workflow and approval queue.
+    // SBU Alignment:
     if (
       user.sbu &&
       user.sbu.trim().toLowerCase() !== "all" &&
@@ -462,30 +442,20 @@ export class PermissionService {
       }
     }
 
-    // 4. Segregation of Duties: Proposal initiator/creator strictly cannot approve their own CER on non-owner stages
-    const isCreator = Boolean(
-      (normCreatedBy && (
-        normCreatedBy === normUserEmail ||
-        normCreatedBy === normUserLogin ||
-        (effectiveUserEmail && normCreatedBy === effectiveUserEmail)
-      )) ||
-      (cleanCreatedBy && cleanUserName && cleanCreatedBy === cleanUserName)
-    );
-
-    if (isCreator) {
-      return {
-        allowed: false,
-        reason: "Segregation of Duties Enforcement: You are the initiator/creator of this CER proposal and cannot approve your own request.",
-      };
-    }
-
-    // 4. Designated Stage Approver Email Check:
-    // If the stage configuration explicitly designates approver email(s) or approvers list,
-    // the user MUST match one of them.
+    // Designated Stage Approver Email / Approvers List Check:
+    // The Approval Role Matrix is the single source of truth.
+    // If the stage has no approver email and no approvers configured in the matrix,
+    // the stage is UNASSIGNED in the matrix, and NO ONE can approve it.
     const stageApproverEmail = (currentStageConfig?.approver_email || "").trim();
     const stageApprovers = currentStageConfig?.approvers;
     const stageHasApprovers = Boolean(stageApprovers && stageApprovers.length > 0);
-    const pendingWithEmail = (proposal.pending_with_email || "").trim();
+
+    if (!stageApproverEmail && !stageHasApprovers) {
+      return {
+        allowed: false,
+        reason: `Access Denied: Approval Level ${proposal.current_level} is currently unassigned in the Approval Role Matrix.`,
+      };
+    }
 
     const matchesUser = (target: string) => {
       if (!target) return false;
@@ -497,107 +467,58 @@ export class PermissionService {
       );
     };
 
-    let isStageApproverMatch = false;
+    const stageEmails = stageApproverEmail
+      .split(/[;,]/)
+      .map((e) => norm(e))
+      .filter(Boolean);
 
-    if (stageApproverEmail || stageHasApprovers) {
-      const stageEmails = stageApproverEmail
-        .split(/[;,]/)
-        .map((e) => norm(e))
-        .filter(Boolean);
+    const isStageApproverMatch =
+      stageEmails.some(matchesUser) ||
+      Boolean(
+        stageApprovers &&
+        stageApprovers.some((app) => {
+          const appEmail = norm(app.user_email);
+          const appLogin = norm(app.login_name);
+          const appCleanName = cleanName(app.user_name);
+          return (
+            matchesUser(appEmail) ||
+            matchesUser(appLogin) ||
+            (cleanUserName && appCleanName && cleanUserName === appCleanName)
+          );
+        })
+      );
 
-      const pendingEmails = pendingWithEmail
-        .split(/[;,]/)
-        .map((e) => norm(e))
-        .filter(Boolean);
-
-      isStageApproverMatch =
-        stageEmails.some(matchesUser) ||
-        pendingEmails.some(matchesUser) ||
-        Boolean(
-          stageApprovers &&
-          stageApprovers.some((app) => {
-            const appEmail = norm(app.user_email);
-            const appLogin = norm(app.login_name);
-            const appCleanName = cleanName(app.user_name);
-            return (
-              matchesUser(appEmail) ||
-              matchesUser(appLogin) ||
-              (cleanUserName && appCleanName && cleanUserName === appCleanName)
-            );
-          })
-        );
-
-      if (!isStageApproverMatch) {
-        return {
-          allowed: false,
-          reason: isProjectOwner
-            ? "Segregation of Duties Enforcement: You are the initiator/owner of this CER proposal and cannot approve your own request."
-            : `Access Denied: This approval stage is assigned to designated approver (${stageApproverEmail || "configured approver"}). Only the assigned approver can approve this level.`,
-        };
-      }
-    } else if (pendingWithEmail) {
-      const pendingEmails = pendingWithEmail
-        .split(/[;,]/)
-        .map((e) => norm(e))
-        .filter(Boolean);
-      isStageApproverMatch = pendingEmails.some(matchesUser);
-    }
-
-    // 5. Level number match: if user has a configured approval_level, it must match current level
-    const userLevel = user.approval_level;
-    if (userLevel !== undefined && userLevel !== null && proposal.current_level !== userLevel) {
+    if (!isStageApproverMatch) {
       return {
         allowed: false,
-        reason: `Approval Level Mismatch: This proposal is currently pending at Level ${proposal.current_level}. You are assigned to Level ${userLevel}.`,
+        reason: `Access Denied: This approval stage is assigned to designated approvers in the Approval Role Matrix. You are not assigned to approve Level ${proposal.current_level} for SBU '${proposal.sbu || "All"}'.`,
       };
-    }
-
-    // 6. Non-Project Owner stage: Segregation of Duties for Project Owners
-    if (isProjectOwner) {
-      // Dual-role allowance: If an employee is designated as the Project Owner on a proposal
-      // created by someone else, but they are also the officially assigned Approver for this level
-      // (e.g. Level 1 Finance), allow them to perform their duty at this stage.
-      const isFinanceRole = Boolean(
-        currentStageConfig?.role_title &&
-        currentStageConfig.role_title.toLowerCase().indexOf("finance") !== -1
-      );
-      const isLevelMatch = (user.approval_level || 1) === proposal.current_level;
-      const isExplicitAssignedApprover = (stageApproverEmail || stageHasApprovers)
-        ? isStageApproverMatch
-        : (isFinanceRole && isLevelMatch && !isCreator);
-
-      if (!isExplicitAssignedApprover) {
-        return {
-          allowed: false,
-          reason: "Segregation of Duties Enforcement: You are designated as the Project Owner on this CER and cannot approve subsequent workflow stages.",
-        };
-      }
     }
 
     return { allowed: true };
   }
 
   /**
-   * Admin Console access check
+   * Admin Console access check (Restricted strictly to users with active "Admin" role in CERRoleMatrix)
    */
-  public static canAccessAdmin(user: IAppUser): boolean {
+  public static canAccessAdmin(user?: IAppUser | null): boolean {
     if (!user || !user.is_active) return false;
     return this.hasRole(user, "Admin");
   }
 
   /**
-   * Proposal Creation check
+   * Proposal Creation check (All active authenticated users can create proposals)
    */
-  public static canCreateCER(user: IAppUser): boolean {
+  public static canCreateCER(user?: IAppUser | null): boolean {
     if (!user || !user.is_active) return false;
-    return this.hasRole(user, "Initiator") || this.hasRole(user, "Admin");
+    return true;
   }
 
   /**
    * Role Management authorization check (Admin only)
    */
-  public static canManageRoles(user: IAppUser): boolean {
+  public static canManageRoles(user?: IAppUser | null): boolean {
     if (!user || !user.is_active) return false;
-    return this.hasRole(user, "Admin");
+    return this.canAccessAdmin(user);
   }
 }

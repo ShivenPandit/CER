@@ -325,24 +325,25 @@ export class AuthService {
       };
     }
 
-    // Unregistered User: Strict Zero-Access / Fail-Closed Policy
-    // Users with no entry in CERRoleMatrix possess zero application permissions
+    // Authenticated Portal User without pre-registered matrix entries:
+    // All authenticated users have standard access to common CER pages (Create CER, My Proposals, Pending Approvals, Reports, User Manual).
+    // Admin access is granted STRICTLY via an active "Admin" record in CERRoleMatrix list.
     const defaultUser: IAppUser = {
       id: params.id,
       name: displayName,
       email: email,
       loginName: loginName || email,
       role: "Initiator",
-      roles: [],
+      roles: ["Initiator"],
       department: params.department || "CER Management Portal",
-      is_active: false,
+      is_active: true,
       isSiteAdmin,
       canManageApprovalHierarchy: false,
     };
 
     return {
       user: defaultUser,
-      isRegistered: false,
+      isRegistered: true,
       isFirstAdminBootstrapped: false,
     };
   }

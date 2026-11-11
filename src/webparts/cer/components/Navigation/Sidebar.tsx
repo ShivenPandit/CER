@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Settings,
   ChevronRight,
+  BookOpen,
   X,
 } from "lucide-react";
 import { IAppUser, UserRole } from "../../models/UserModel";
@@ -26,7 +27,8 @@ export type NavView =
   | "display"
   | "cer-submissions"
   | "reports" | "audit-trail"
-  | "workflow-config";
+  | "workflow-config"
+  | "user-manual";
 
 interface ISidebarProps {
   currentView: NavView;
@@ -49,22 +51,12 @@ export const Sidebar: React.FC<ISidebarProps> = ({
   onCloseMobile,
   hasOwnedProposals,
 }) => {
-  // Authorization checks for navigation items
-  const canCreate = currentUser
-    ? PermissionService.canCreateCER(currentUser)
-    : userRole === "Initiator" || userRole === "Admin";
-  const canApprove = currentUser
-    ? PermissionService.canViewApprovals(currentUser, pendingApprovalsCount > 0)
-    : userRole === "Approver" || userRole === "Admin";
+  // Authorization checks for navigation items:
+  // All authenticated users have access to Create CER, My Proposals, Pending Approvals, Reports, User Manual.
+  // Only Admin users can access the Admin Console (workflow-config).
   const canConfigWorkflow = currentUser
     ? PermissionService.canAccessAdmin(currentUser)
     : userRole === "Admin";
-  const canViewMyProposals = currentUser
-    ? PermissionService.canViewMyRequests(currentUser, hasOwnedProposals)
-    : userRole !== "Approver";
-  const canViewReports = currentUser
-    ? PermissionService.canViewReports(currentUser)
-    : userRole === "Finance_Audit" || userRole === "Admin";
 
   const navItems = [
     {
@@ -77,13 +69,13 @@ export const Sidebar: React.FC<ISidebarProps> = ({
       id: "create",
       label: "Create CER",
       icon: PlusCircle,
-      visible: canCreate,
+      visible: true,
     },
     {
       id: "my-proposals",
       label: "My CER Proposals",
       icon: FileText,
-      visible: canViewMyProposals,
+      visible: true,
     },
     {
       id: "all-proposals",
@@ -96,7 +88,7 @@ export const Sidebar: React.FC<ISidebarProps> = ({
       label: "Pending Approvals",
       icon: Clock,
       badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : undefined,
-      visible: canApprove,
+      visible: true,
     },
     {
       id: "approval-history",
@@ -105,15 +97,21 @@ export const Sidebar: React.FC<ISidebarProps> = ({
       visible: true,
     },
     {
-      id: "Reports",
+      id: "reports",
       label: "Reports & Analytics",
       icon: BarChart3,
-      visible: canViewReports,
+      visible: true,
     },
     {
       id: "audit-trail",
       label: "Audit Trail",
       icon: ShieldCheck,
+      visible: true,
+    },
+    {
+      id: "user-manual",
+      label: "User Manual",
+      icon: BookOpen,
       visible: true,
     },
     {

@@ -269,6 +269,11 @@ const CER: React.FC<ICERProps> = (props) => {
     isBackNavigation: boolean = false,
     replaceHistory: boolean = false
   ): void => {
+    if (targetView === "user-manual") {
+      setIsUserManualOpen(true);
+      return;
+    }
+
     let view = (targetView as string) === "all-proposals" ? "my-proposals" : targetView;
     // Revalidate data when navigating into queue or dashboard
     if (view === "pending-approvals" || view === "dashboard") {
@@ -752,7 +757,7 @@ const CER: React.FC<ICERProps> = (props) => {
             <AccessDeniedView
               currentUser={currentUser}
               attemptedView="workflow-config"
-              customMessage="User management is restricted to Administrators."
+              customMessage="The Admin Console and Approval Role Matrix are restricted to Administrators."
               onGoHome={handleGoBack}
             />
           )

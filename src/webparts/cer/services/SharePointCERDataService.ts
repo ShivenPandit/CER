@@ -3152,51 +3152,27 @@ export class SharePointCERDataService implements ICERDataService {
         );
       }
     } else {
-      // Non-Project Owner stage: Segregation of Duties strictly enforced
-      if (isCreator) {
-        throw new Error("Segregation of Duties Enforcement: You cannot approve a CER proposal that you initiated.");
-      }
-
-      if (isOwner) {
-        let isApproverForLevel = false;
-        try {
-          const userRoles = await this.getUserRoles();
-          isApproverForLevel = userRoles.some(
-            (r) =>
-              r.is_active &&
-              r.role === "Approver" &&
-              r.approval_level === params.level_id &&
-              (r.user_email.toLowerCase() === approverEmail ||
-                (r.login_name && r.login_name.toLowerCase() === approverEmail))
-          );
-        } catch {
-          // non-blocking
-        }
-
-        const isAllowedDualOwnerApprover =
-          Boolean(currentLevelConfig) &&
-          isApproverForLevel &&
-          (!stageApproverEmail || stageApproverEmail === approverEmail);
-
-        if (!isAllowedDualOwnerApprover) {
-          throw new Error("Segregation of Duties Enforcement: You cannot approve a CER proposal that you initiated or own on non-Project-Owner stages.");
-        }
-      }
-
+      // Non-Project Owner stage (L1, L3, L4, L5, L6): Controlled strictly by Approval Role Matrix.
+      // Creator self-approval and Project Owner self-approval restrictions are removed:
+      // If the user is assigned in the matrix for this stage, they are authorized to approve.
       const stageApproverEmails = stageApproverEmail
         ? stageApproverEmail.split(/[;,]/).map((e) => e.trim().toLowerCase()).filter(Boolean)
         : [];
-      const proposalPendingEmails = (existingProposal.pending_with_email || "")
-        ? existingProposal.pending_with_email.split(/[;,]/).map((e) => e.trim().toLowerCase()).filter(Boolean)
-        : [];
+      const hasStageApprovers = Boolean(currentLevelConfig?.approvers && currentLevelConfig.approvers.length > 0);
+
+      if (stageApproverEmails.length === 0 && !hasStageApprovers) {
+        throw new Error(
+          `Access Denied: Approval Level ${params.level_id} is currently unassigned in the Approval Role Matrix.`
+        );
+      }
+
       const isApprovedByDesignated =
         stageApproverEmails.indexOf(approverEmail) !== -1 ||
-        proposalPendingEmails.indexOf(approverEmail) !== -1 ||
         Boolean(currentLevelConfig?.approvers && currentLevelConfig.approvers.some((app) => (app.user_email || "").trim().toLowerCase() === approverEmail || (app.login_name || "").trim().toLowerCase() === approverEmail));
 
-      if ((stageApproverEmails.length > 0 || proposalPendingEmails.length > 0) && !isApprovedByDesignated) {
+      if (!isApprovedByDesignated) {
         throw new Error(
-          `Access Denied: This approval stage is assigned to designated approver (${stageApproverEmail || existingProposal.pending_with_email}). Only the assigned approver can approve this level.`
+          `Access Denied: This approval stage is assigned to designated approvers in the Approval Role Matrix. You are not authorized to approve Level ${params.level_id}.`
         );
       }
     }

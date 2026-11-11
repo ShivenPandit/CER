@@ -174,12 +174,12 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
             </div>
           </div>
 
-          {/* Authorization & Segregation of Duties Warning Banner */}
+          {/* Authorization Warning Banner */}
           {!authCheck.allowed && (
             <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-sm flex items-start gap-2.5">
               <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-rose-900">Segregation of Duties Enforcement</p>
+                <p className="font-bold text-rose-900">Authorization Restriction</p>
                 <p className="text-rose-700 mt-0.5 leading-relaxed">{authCheck.reason}</p>
               </div>
             </div>
