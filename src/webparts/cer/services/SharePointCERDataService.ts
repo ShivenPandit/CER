@@ -1783,6 +1783,7 @@ export class SharePointCERDataService implements ICERDataService {
       pending_with_role: nextRole,
       pending_with_email: nextEmail,
       request_date: nextRequestDate,
+      created_by: !isDraft ? user.name : (cleanProposal.created_by || original.created_by || user.name),
       modified_date: now,
       modified_by: user.name,
       revision_count: newRevisionCount,
@@ -4520,6 +4521,38 @@ export class SharePointCERDataService implements ICERDataService {
     const manifestFromRaw = this._extractAttachmentManifest(item);
     const cleanRemarks = stripAttachmentsManifest(rawRemarks);
 
+    // Initiator resolution:
+    // 1. Check for metadata tag in remarks: [CER_INITIATED_BY: Name]
+    const initiatorTagMatch = rawRemarks.match(/\[CER_INITIATED_BY:([\s\S]*?)\]/i);
+    const taggedInitiator = initiatorTagMatch && initiatorTagMatch[1] ? initiatorTagMatch[1].trim() : "";
+
+    // 2. Check for explicit initiator column if present
+    const explicitInitiator =
+      PersonFieldService.extractPersonField(item, "initiator")?.name ||
+      PersonFieldService.extractPersonField(item, "cerInitiator")?.name ||
+      (typeof item.initiator === "string" ? item.initiator : "") ||
+      (typeof item.cerInitiator === "string" ? item.cerInitiator : "") ||
+      (typeof item.initiatedBy === "string" ? item.initiatedBy : "");
+
+    // 3. Retroactive resubmission detection for existing SharePoint records:
+    // When a proposal is in active approval ("In Approval") at Level 1 and was modified by an Editor different from Author,
+    // that Editor is the user who triggered/re-submitted the active approval workflow.
+    const rawStatus = (item.status === "Approval" ? "In Approval" : item.status) || "In Approval";
+    const currentLvl = Number(item.currentLevel ?? item.current_level ?? 1);
+    const editorTitle = item.Editor?.Title || "";
+    const isResubmittedAtL1 =
+      rawStatus === "In Approval" &&
+      currentLvl === 1 &&
+      editorTitle &&
+      editorTitle !== "System" &&
+      editorTitle !== (item.Author?.Title || "");
+
+    const effectiveInitiator =
+      taggedInitiator ||
+      explicitInitiator ||
+      (isResubmittedAtL1 ? editorTitle : "") ||
+      authorName;
+
     return {
       id: String(item.Id || item.id),
       cer_proposal_id: cerId,
@@ -4587,7 +4620,7 @@ export class SharePointCERDataService implements ICERDataService {
       pending_with_email: (multiPendingEmails.length > 0 ? multiPendingEmails.join(";") : (pendingPerson?.email || (typeof item.pendingWithEmail === "string" ? item.pendingWithEmail : "") || (typeof item.pending_with_email === "string" ? item.pending_with_email : "") || (typeof item.pendingWith === "string" ? item.pendingWith : "") || "")),
       request_date: (item.RequestDate || item.requestDate || item.request_date) ? String(item.RequestDate || item.requestDate || item.request_date).split("T")[0] : undefined,
       created_date: item.Created || new Date().toISOString(),
-      created_by: authorName,
+      created_by: effectiveInitiator,
       modified_date: item.Modified || new Date().toISOString(),
       modified_by: item.Editor?.Title || "System",
       revision_count: Number(item.revisionCount ?? item.revision_count ?? 0),
@@ -4627,6 +4660,12 @@ export class SharePointCERDataService implements ICERDataService {
         server_relative_url: a.server_relative_url || a.data_url || "",
         version_tag: a.version_tag || a.version || "",
       })));
+    }
+
+    const initiatorName = proposal.created_by || "";
+    let remarksWithInitiator = cleanRemarks;
+    if (initiatorName) {
+      remarksWithInitiator = `${cleanRemarks}\n[CER_INITIATED_BY:${initiatorName}]`.trim();
     }
 
     return {
@@ -4677,14 +4716,17 @@ export class SharePointCERDataService implements ICERDataService {
       preoperativeCost: Number(proposal.preop || 0),
       otherCosts: Number(proposal.others || 0),
       total: Number(proposal.total || 0),
-      remarks: cleanRemarks,
-      Remarks: cleanRemarks,
+      remarks: remarksWithInitiator,
+      Remarks: remarksWithInitiator,
       attachmentsManifest: activeJson,
       remarksJv: proposal.remarks_jv,
       currentLevel: Number(proposal.current_level || 1),
       pendingWithRole: proposal.pending_with_role,
       RequestDate: formatIsoDate(proposal.request_date),
       revisionCount: Number(proposal.revision_count || 0),
+      initiator: initiatorName || undefined,
+      cerInitiator: initiatorName || undefined,
+      initiatedBy: initiatorName || undefined,
     };
   }
 

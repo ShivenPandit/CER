@@ -124,6 +124,7 @@ export function stripAttachmentsManifest(text?: string | null): string {
   clean = clean.replace(/\[CER_ATTACHMENTS_MANIFEST:[\s\S]*?\]/gi, "");
   clean = clean.replace(/<!--\s*CER_ATTACHMENTS_MANIFEST:[\s\S]*?-->/gi, "");
   clean = clean.replace(/\[CER_ATTACHMENTS_MANIFEST[\s\S]*$/gi, "");
+  clean = clean.replace(/\[CER_INITIATED_BY:[\s\S]*?\]/gi, "");
   clean = clean.replace(/^\s*\]+\s*$/, "");
   clean = clean.replace(/\s*\]+\s*$/, "");
 

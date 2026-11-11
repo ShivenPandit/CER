@@ -1,24 +1,23 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useCallback, useLayoutEffect, useEffect } from "react";
 import {
-  Search,
-  Filter,
-  FileSpreadsheet,
-  ArrowUpDown,
-  RotateCcw,
   ArrowLeft,
-  Eye,
+  LayoutDashboard,
+  ListFilter,
+  Filter,
   ChevronDown,
   X,
+  RotateCcw,
+  Search,
+  FileSpreadsheet,
 } from "lucide-react";
-import { ICERProposal, SBU_OPTIONS, IFieldChoices } from "../../models/CERModel";
+import { ICERProposal, IFieldChoices, SBU_OPTIONS } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
-import { StatusBadge } from "../Shared/StatusBadge";
-import { ExcelExportService } from "../../services/ExcelExportService";
 import { ICERDataService } from "../../services/ICERDataService";
-import { useDynamicPagination } from "../../hooks/useDynamicPagination";
-import { DataTablePagination } from "../Shared/DataTablePagination";
+import { ExcelExportService } from "../../services/ExcelExportService";
+import { ReportDashboard } from "./ReportDashboard";
+import { ReportProposalList } from "./ReportProposalList";
 
-interface IReportsViewProps {
+export interface IReportsViewProps {
   proposals: ICERProposal[];
   currentUser: IAppUser;
   onNavigateToDisplay: (cerprno: string) => void;
@@ -28,6 +27,8 @@ interface IReportsViewProps {
   fieldChoices?: IFieldChoices;
   onCancel?: () => void;
 }
+
+export type ReportTabType = "dashboard" | "proposal-list";
 
 export const ReportsView: React.FC<IReportsViewProps> = ({
   proposals,
@@ -39,59 +40,143 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
   fieldChoices,
   onCancel,
 }) => {
-  // Quick Search & Status Pills
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  // Tab Navigation: Default to Report Dashboard
+  const [activeTab, setActiveTab] = useState<ReportTabType>("dashboard");
 
-  // Advanced Filters (in collapsible drawer)
-  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
-  const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
-  const [sbuFilter, setSbuFilter] = useState<string>("ALL");
-  const [ownerFilter, setOwnerFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  // Dashboard Filters State (preserved across tab switches)
+  const [isDashboardFiltersOpen, setIsDashboardFiltersOpen] = useState(false);
+  const [dashDateFrom, setDashDateFrom] = useState("");
+  const [dashDateTo, setDashDateTo] = useState("");
+  const [dashSbuFilter, setDashSbuFilter] = useState("ALL");
+  const [dashStatusFilter, setDashStatusFilter] = useState("ALL");
+
+  const handleResetDashboardFilters = () => {
+    setDashDateFrom("");
+    setDashDateTo("");
+    setDashSbuFilter("ALL");
+    setDashStatusFilter("ALL");
+  };
+
+  const dashboardFilterCount = useMemo(() => {
+    let count = 0;
+    if (dashDateFrom) count++;
+    if (dashDateTo) count++;
+    if (dashSbuFilter !== "ALL") count++;
+    if (dashStatusFilter !== "ALL") count++;
+    return count;
+  }, [dashDateFrom, dashDateTo, dashSbuFilter, dashStatusFilter]);
+
+  // Proposal List Filters State
+  const [isListFiltersOpen, setIsListFiltersOpen] = useState(false);
+  const [listSearchTerm, setListSearchTerm] = useState("");
+  const [listStatusFilter, setListStatusFilter] = useState<string>("ALL");
+  const [listCategoryFilter, setListCategoryFilter] = useState<string>("ALL");
+  const [listSbuFilter, setListSbuFilter] = useState<string>("ALL");
+  const [listOwnerFilter, setListOwnerFilter] = useState("");
+  const [listDateFrom, setListDateFrom] = useState("");
+  const [listDateTo, setListDateTo] = useState("");
+
   const [isExporting, setIsExporting] = useState(false);
   const [exportStatusText, setExportStatusText] = useState("");
 
-  // Sorting
-  const [sortField, setSortField] = useState<keyof ICERProposal>("created_date");
-  const [sortAsc, setSortAsc] = useState(false);
+  const handleResetListFilters = () => {
+    setListSearchTerm("");
+    setListStatusFilter("ALL");
+    setListCategoryFilter("ALL");
+    setListSbuFilter("ALL");
+    setListOwnerFilter("");
+    setListDateFrom("");
+    setListDateTo("");
+  };
+
+  const listActiveFilterCount = useMemo(() => {
+    let count = 0;
+    if (listCategoryFilter !== "ALL") count++;
+    if (listSbuFilter !== "ALL") count++;
+    if (listOwnerFilter.trim()) count++;
+    if (listDateFrom) count++;
+    if (listDateTo) count++;
+    return count;
+  }, [listCategoryFilter, listSbuFilter, listOwnerFilter, listDateFrom, listDateTo]);
+
+  // Dynamic non-cropping dropdown positioning refs and styles
+  const dashFilterButtonRef = useRef<HTMLDivElement>(null);
+  const listFilterButtonRef = useRef<HTMLDivElement>(null);
+  const [dashDropdownStyle, setDashDropdownStyle] = useState<React.CSSProperties>({
+    top: "100%",
+    marginTop: "8px",
+    maxHeight: "340px",
+  });
+  const [listDropdownStyle, setListDropdownStyle] = useState<React.CSSProperties>({
+    top: "100%",
+    marginTop: "8px",
+    maxHeight: "340px",
+  });
+
+  const updateDropdownPositions = useCallback(() => {
+    const viewportHeight = window.innerHeight;
+    if (isDashboardFiltersOpen && dashFilterButtonRef.current) {
+      const rect = dashFilterButtonRef.current.getBoundingClientRect();
+      const spaceBelow = viewportHeight - rect.bottom - 12;
+      const spaceAbove = rect.top - 12;
+      if (spaceBelow < 220 && spaceAbove > spaceBelow) {
+        setDashDropdownStyle({
+          bottom: "100%",
+          marginBottom: "8px",
+          maxHeight: `${Math.max(160, Math.floor(spaceAbove))}px`,
+        });
+      } else {
+        setDashDropdownStyle({
+          top: "100%",
+          marginTop: "8px",
+          maxHeight: `${Math.max(160, Math.floor(spaceBelow))}px`,
+        });
+      }
+    }
+    if (isListFiltersOpen && listFilterButtonRef.current) {
+      const rect = listFilterButtonRef.current.getBoundingClientRect();
+      const spaceBelow = viewportHeight - rect.bottom - 12;
+      const spaceAbove = rect.top - 12;
+      if (spaceBelow < 220 && spaceAbove > spaceBelow) {
+        setListDropdownStyle({
+          bottom: "100%",
+          marginBottom: "8px",
+          maxHeight: `${Math.max(160, Math.floor(spaceAbove))}px`,
+        });
+      } else {
+        setListDropdownStyle({
+          top: "100%",
+          marginTop: "8px",
+          maxHeight: `${Math.max(160, Math.floor(spaceBelow))}px`,
+        });
+      }
+    }
+  }, [isDashboardFiltersOpen, isListFiltersOpen]);
+
+  useLayoutEffect(() => {
+    updateDropdownPositions();
+  }, [updateDropdownPositions, isDashboardFiltersOpen, isListFiltersOpen]);
+
+  useEffect(() => {
+    if (!isDashboardFiltersOpen && !isListFiltersOpen) return;
+    window.addEventListener("resize", updateDropdownPositions);
+    window.addEventListener("scroll", updateDropdownPositions, true);
+    return () => {
+      window.removeEventListener("resize", updateDropdownPositions);
+      window.removeEventListener("scroll", updateDropdownPositions, true);
+    };
+  }, [isDashboardFiltersOpen, isListFiltersOpen, updateDropdownPositions]);
 
   // In Reports & Analytics, strictly exclude unsubmitted Draft proposals
   const nonDraftProposals = useMemo(() => {
     return proposals.filter((p) => p.status !== "Draft");
   }, [proposals]);
 
-  // Status KPI counts (strictly excluding drafts)
-  const counts = useMemo(() => {
-    return {
-      all: nonDraftProposals.length,
-      inApproval: nonDraftProposals.filter((p) =>
-        ["Pending Approval", "In Approval", "Submitted"].indexOf(p.status) !== -1
-      ).length,
-      approved: nonDraftProposals.filter((p) => p.status === "Approved").length,
-      revised: nonDraftProposals.filter((p) => p.status === "Send Back" || p.status === "Revised" || p.status === "Sent Back").length,
-      rejected: nonDraftProposals.filter((p) => p.status === "Rejected").length,
-    };
-  }, [nonDraftProposals]);
-
-  // Active advanced filter count badge
-  const activeAdvancedFilterCount = useMemo(() => {
-    let count = 0;
-    if (categoryFilter !== "ALL") count++;
-    if (sbuFilter !== "ALL") count++;
-    if (ownerFilter.trim()) count++;
-    if (dateFrom) count++;
-    if (dateTo) count++;
-    return count;
-  }, [categoryFilter, sbuFilter, ownerFilter, dateFrom, dateTo]);
-
-  // Filter logic (operating strictly on non-draft proposals)
-  const filteredProposals = useMemo(() => {
+  // Dataset matching list search & advanced filters (for export & status counting)
+  const matchingCriteriaListProposals = useMemo(() => {
     return nonDraftProposals.filter((p) => {
-      // Search term (Proposal #, Project Name, Owner, SBU)
-      if (searchTerm.trim()) {
-        const query = searchTerm.toLowerCase();
+      if (listSearchTerm.trim()) {
+        const query = listSearchTerm.toLowerCase();
         const matchesId = (p.cer_proposal_id || "").toLowerCase().includes(query);
         const matchesPropNo = (p.proposal_no || "").toLowerCase().includes(query);
         const matchesCerNo = (p.cerprno || "").toLowerCase().includes(query);
@@ -99,111 +184,49 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
         const matchesOwner = (p.owname || "").toLowerCase().includes(query);
         const matchesSbu = (p.sbu || "").toLowerCase().includes(query);
         const matchesInitiator = (p.created_by || "").toLowerCase().includes(query);
-        if (!matchesId && !matchesPropNo && !matchesCerNo && !matchesName && !matchesOwner && !matchesSbu && !matchesInitiator) {
+        if (
+          !matchesId &&
+          !matchesPropNo &&
+          !matchesCerNo &&
+          !matchesName &&
+          !matchesOwner &&
+          !matchesSbu &&
+          !matchesInitiator
+        ) {
           return false;
         }
       }
 
-      // Status Pill Filter
-      if (statusFilter === "IN_APPROVAL") {
-        if (["Pending Approval", "In Approval", "Submitted"].indexOf(p.status) === -1) return false;
-      } else if (statusFilter === "APPROVED") {
-        if (p.status !== "Approved") return false;
-      } else if (statusFilter === "REVISED" || statusFilter === "SEND_BACK") {
-        if (p.status !== "Send Back" && p.status !== "Revised" && p.status !== "Sent Back") return false;
-      } else if (statusFilter === "REJECTED") {
-        if (p.status !== "Rejected") return false;
-      }
-
-      // Advanced Filters
-      if (categoryFilter !== "ALL" && p.cat !== categoryFilter) return false;
-      if (sbuFilter !== "ALL" && p.sbu !== sbuFilter) return false;
-      if (ownerFilter.trim() && !p.owname.toLowerCase().includes(ownerFilter.toLowerCase())) {
+      if (listCategoryFilter !== "ALL" && p.cat !== listCategoryFilter) return false;
+      if (listSbuFilter !== "ALL" && p.sbu !== listSbuFilter) return false;
+      if (listOwnerFilter.trim() && !p.owname.toLowerCase().includes(listOwnerFilter.toLowerCase())) {
         return false;
       }
-      if (dateFrom && p.st_date < dateFrom) return false;
-      if (dateTo && p.com_date > dateTo) return false;
+      if (listDateFrom && p.st_date < listDateFrom) return false;
+      if (listDateTo && p.com_date > listDateTo) return false;
 
       return true;
     });
-  }, [proposals, searchTerm, statusFilter, categoryFilter, sbuFilter, ownerFilter, dateFrom, dateTo]);
+  }, [nonDraftProposals, listSearchTerm, listCategoryFilter, listSbuFilter, listOwnerFilter, listDateFrom, listDateTo]);
 
-  // Sorting logic
-  const sortedProposals = useMemo(() => {
-    const list = [...filteredProposals];
-    list.sort((a, b) => {
-      const valA = a[sortField];
-      const valB = b[sortField];
-
-      if (valA === valB) return 0;
-      if (valA === undefined || valA === null) return 1;
-      if (valB === undefined || valB === null) return -1;
-
-      if (typeof valA === "number" && typeof valB === "number") {
-        return sortAsc ? valA - valB : valB - valA;
+  const filteredListProposals = useMemo(() => {
+    if (listStatusFilter === "ALL") return matchingCriteriaListProposals;
+    return matchingCriteriaListProposals.filter((p) => {
+      if (listStatusFilter === "IN_APPROVAL") {
+        return ["Pending Approval", "In Approval", "Submitted"].indexOf(p.status) !== -1;
       }
-      return sortAsc
-        ? String(valA).localeCompare(String(valB))
-        : String(valB).localeCompare(String(valA));
+      if (listStatusFilter === "APPROVED") {
+        return p.status === "Approved";
+      }
+      if (listStatusFilter === "REVISED" || listStatusFilter === "SEND_BACK") {
+        return p.status === "Send Back" || p.status === "Revised" || p.status === "Sent Back";
+      }
+      if (listStatusFilter === "REJECTED") {
+        return p.status === "Rejected";
+      }
+      return true;
     });
-    return list;
-  }, [filteredProposals, sortField, sortAsc]);
-
-  // Dynamic Table Pagination
-  const pagination = useDynamicPagination({
-    totalItems: sortedProposals.length,
-    defaultRowHeight: 52,
-    bufferBottom: 24,
-  });
-
-  const visibleProposals = pagination.paginateItems(sortedProposals);
-
-  const handleSort = (field: keyof ICERProposal) => {
-    if (sortField === field) {
-      setSortAsc(!sortAsc);
-    } else {
-      setSortField(field);
-      setSortAsc(true);
-    }
-  };
-
-  const handleResetFilters = () => {
-    setSearchTerm("");
-    setStatusFilter("ALL");
-    setCategoryFilter("ALL");
-    setSbuFilter("ALL");
-    setOwnerFilter("");
-    setDateFrom("");
-    setDateTo("");
-    pagination.setCurrentPage(1);
-  };
-
-  const handleRowClick = (prop: ICERProposal) => {
-    const targetId = prop.cer_proposal_id || prop.cerprno || prop.proposal_no;
-    if (onNavigateToDisplay && targetId) {
-      onNavigateToDisplay(targetId);
-    }
-  };
-
-  const getInitials = (name?: string): string => {
-    if (!name) return "U";
-    const clean = name.replace(/\(.*?\)/g, "").replace(/\[.*?\]/g, "").replace(/[^a-zA-Z\s]/g, " ").trim();
-    const parts = clean.split(/\s+/).filter(Boolean);
-    if (parts.length === 0) {
-      const alphaOnly = name.replace(/[^a-zA-Z]/g, "");
-      return (alphaOnly.substring(0, 2) || "U").toUpperCase();
-    }
-    if (parts.length === 1) {
-      return parts[0].substring(0, Math.min(2, parts[0].length)).toUpperCase();
-    }
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  };
-
-  const truncateProjectName = (name?: string, maxChars: number = 24): string => {
-    if (!name) return "";
-    const trimmed = name.trim();
-    return trimmed.length > maxChars ? `${trimmed.substring(0, maxChars)}...` : trimmed;
-  };
+  }, [matchingCriteriaListProposals, listStatusFilter]);
 
   const handleExportExcel = async () => {
     try {
@@ -213,19 +236,19 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
         await ExcelExportService.exportAllMatchingProposalsAsync(
           dataService,
           {
-            searchTerm,
-            status: statusFilter,
-            category: categoryFilter,
-            sbu: sbuFilter,
-            owner: ownerFilter,
-            dateFrom,
-            dateTo,
+            searchTerm: listSearchTerm,
+            status: listStatusFilter,
+            category: listCategoryFilter,
+            sbu: listSbuFilter,
+            owner: listOwnerFilter,
+            dateFrom: listDateFrom,
+            dateTo: listDateTo,
           },
           "CERProposals_Report",
           (statusMsg) => setExportStatusText(statusMsg)
         );
       } else {
-        await ExcelExportService.exportProposalListAsync(sortedProposals, "CERProposals_Report");
+        await ExcelExportService.exportProposalListAsync(filteredListProposals, "CERProposals_Report");
       }
     } catch (err: any) {
       alert("Error exporting Excel: " + (err?.message || String(err)));
@@ -236,9 +259,10 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Header & Controls Bar matching My CER Proposals */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-4 sm:space-y-5">
+      {/* 1. Unified Page Header: Title on Left, Standardized Action Controls + Divider + Tabs on Right */}
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+        {/* Left: Back button & Title */}
         <div className="flex items-center gap-3">
           {onCancel && (
             <button
@@ -254,564 +278,429 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
               Reports &amp; Analytics
             </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Capital expenditure intelligence, performance analytics, and proposal register
+            </p>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto">
-          {/* Quick Search */}
-          <div className="relative w-full sm:w-60 md:w-64 lg:w-72">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                pagination.setCurrentPage(1);
-              }}
-              placeholder="Search proposals..."
-              className="w-full min-h-[40px] pl-9 pr-3.5 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
-            />
-          </div>
-
-          {/* Action Controls: Filters & Export Excel */}
-          <div className="flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
-            {/* Filters Toggle Button */}
-            <button
-              onClick={() => setIsFilterDrawerOpen((prev) => !prev)}
-              className={`flex-1 sm:flex-initial min-h-[40px] flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold border transition-all cursor-pointer whitespace-nowrap ${
-                isFilterDrawerOpen || activeAdvancedFilterCount > 0
-                  ? "bg-[#012964]/10 border-[#012964]/30 text-[#012964]"
-                  : "bg-white border-slate-300 hover:bg-slate-50 text-slate-700"
-              }`}
-              title="Toggle advanced filter criteria"
-            >
-              <Filter className="w-4 h-4 shrink-0" />
-              <span>Filters</span>
-              {activeAdvancedFilterCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-[#012964] text-white">
-                  {activeAdvancedFilterCount}
-                </span>
-              )}
-              <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${isFilterDrawerOpen ? "rotate-180" : ""}`} />
-            </button>
-
-            {/* Export to Excel Button */}
-            <button
-              onClick={handleExportExcel}
-              disabled={(sortedProposals.length === 0 && !dataService) || isExporting}
-              className="flex-1 sm:flex-initial min-h-[40px] flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs shadow-emerald-600/20 transition-all disabled:opacity-50 whitespace-nowrap cursor-pointer"
-            >
-              <FileSpreadsheet className="w-4 h-4 shrink-0" />
-              <span className="truncate">
-                {isExporting ? (exportStatusText || "Exporting...") : `Export Excel (${sortedProposals.length})`}
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* KPI Status Filter Strip matching My CER Proposals */}
-      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pb-1">
-        <button
-          onClick={() => {
-            setStatusFilter("ALL");
-            pagination.setCurrentPage(1);
-          }}
-          className={`shrink-0 whitespace-nowrap px-3 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 ${
-            statusFilter === "ALL"
-              ? "bg-[#012964] text-white shadow-sm"
-              : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
-          }`}
-        >
-          <span>All</span>
-          <span
-            className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-              statusFilter === "ALL" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700"
-            }`}
-          >
-            {counts.all}
-          </span>
-        </button>
-
-        <button
-          onClick={() => {
-            setStatusFilter("IN_APPROVAL");
-            pagination.setCurrentPage(1);
-          }}
-          className={`shrink-0 whitespace-nowrap px-3 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 ${
-            statusFilter === "IN_APPROVAL"
-              ? "bg-blue-600 text-white shadow-sm"
-              : "bg-white text-slate-700 hover:bg-blue-50 hover:text-blue-700 border border-slate-200"
-          }`}
-        >
-          <span>In Approval</span>
-          <span
-            className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-              statusFilter === "IN_APPROVAL" ? "bg-white/20 text-white" : "bg-blue-100 text-blue-800"
-            }`}
-          >
-            {counts.inApproval}
-          </span>
-        </button>
-
-        <button
-          onClick={() => {
-            setStatusFilter("APPROVED");
-            pagination.setCurrentPage(1);
-          }}
-          className={`shrink-0 whitespace-nowrap px-3 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 ${
-            statusFilter === "APPROVED"
-              ? "bg-emerald-600 text-white shadow-sm"
-              : "bg-white text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 border border-slate-200"
-          }`}
-        >
-          <span>Approved</span>
-          <span
-            className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-              statusFilter === "APPROVED" ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800"
-            }`}
-          >
-            {counts.approved}
-          </span>
-        </button>
-
-        {counts.revised > 0 && (
-          <button
-            onClick={() => {
-              setStatusFilter("REVISED");
-              pagination.setCurrentPage(1);
-            }}
-            className={`shrink-0 whitespace-nowrap px-3 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 ${
-              statusFilter === "REVISED" || statusFilter === "SEND_BACK"
-                ? "bg-amber-600 text-white shadow-sm"
-                : "bg-white text-slate-700 hover:bg-amber-50 hover:text-amber-700 border border-slate-200"
-            }`}
-          >
-            <span>Send Back</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                statusFilter === "REVISED" || statusFilter === "SEND_BACK" ? "bg-white/20 text-white" : "bg-amber-100 text-amber-800"
-              }`}
-            >
-              {counts.revised}
-            </span>
-          </button>
-        )}
-
-        {counts.rejected > 0 && (
-          <button
-            onClick={() => {
-              setStatusFilter("REJECTED");
-              pagination.setCurrentPage(1);
-            }}
-            className={`shrink-0 whitespace-nowrap px-3 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 ${
-              statusFilter === "REJECTED"
-                ? "bg-rose-600 text-white shadow-sm"
-                : "bg-white text-slate-700 hover:bg-rose-50 hover:text-rose-700 border border-slate-200"
-            }`}
-          >
-            <span>Rejected</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                statusFilter === "REJECTED" ? "bg-white/20 text-white" : "bg-rose-100 text-rose-800"
-              }`}
-            >
-              {counts.rejected}
-            </span>
-          </button>
-        )}
-      </div>
-
-      {/* Collapsible Advanced Filters Drawer */}
-      {isFilterDrawerOpen && (
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-subtle space-y-4 animate-fade-in">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-800 pb-2 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-[#012964]" />
-              <span>Filters</span>
-            </div>
-            <div className="flex items-center gap-3">
+        {/* Right: Actions aligned with Tabs on same horizontal line */}
+        <div className="flex flex-wrap items-center gap-3 sm:gap-3.5 self-start xl:self-auto">
+          {/* Action Slot 1: Dashboard Filters Button & Uncroppable Popover */}
+          {activeTab === "dashboard" && (
+            <div ref={dashFilterButtonRef} className="relative">
               <button
-                onClick={handleResetFilters}
-                className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-[#012964] transition-colors cursor-pointer"
+                onClick={() => setIsDashboardFiltersOpen((prev) => !prev)}
+                className={`h-9 flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer whitespace-nowrap shadow-2xs ${
+                  isDashboardFiltersOpen || dashboardFilterCount > 0
+                    ? "bg-[#012964]/10 border-[#012964]/40 text-[#012964] font-bold"
+                    : "bg-white border-slate-300 hover:bg-slate-50 text-slate-700 hover:border-slate-400"
+                }`}
+                title="Toggle dashboard filters"
               >
-                <RotateCcw className="w-3 h-3" /> Reset All
-              </button>
-              <button
-                onClick={() => setIsFilterDrawerOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
-                title="Close filters drawer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
-            {/* Category Filter */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Category</label>
-              <select
-                value={categoryFilter}
-                onChange={(e) => {
-                  setCategoryFilter(e.target.value);
-                  pagination.setCurrentPage(1);
-                }}
-                className="w-full px-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
-              >
-                <option value="ALL">All Categories</option>
-                {(fieldChoices?.cat && fieldChoices.cat.length > 0
-                  ? fieldChoices.cat
-                  : ["Vital", "Essential", "Desirable"]
-                ).map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* SBU Filter */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">SBU</label>
-              <select
-                value={sbuFilter}
-                onChange={(e) => {
-                  setSbuFilter(e.target.value);
-                  pagination.setCurrentPage(1);
-                }}
-                className="w-full px-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
-              >
-                <option value="ALL">All SBUs</option>
-                {(fieldChoices?.sbu && fieldChoices.sbu.length > 0 ? fieldChoices.sbu : SBU_OPTIONS).map(
-                  (opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  )
+                <Filter className="w-3.5 h-3.5 shrink-0" />
+                <span>Dashboard Filters</span>
+                {dashboardFilterCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-[#012964] text-white">
+                    {dashboardFilterCount}
+                  </span>
                 )}
-              </select>
-            </div>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${
+                    isDashboardFiltersOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
 
-            {/* Owner Filter */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">CER Owner</label>
-              <input
-                type="text"
-                value={ownerFilter}
-                onChange={(e) => {
-                  setOwnerFilter(e.target.value);
-                  pagination.setCurrentPage(1);
-                }}
-                placeholder="Search owner..."
-                className="w-full px-3 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
-              />
-            </div>
+              {/* Backdrop */}
+              {isDashboardFiltersOpen && (
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setIsDashboardFiltersOpen(false)}
+                />
+              )}
 
-            {/* Start Date From */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Start Date From</label>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => {
-                  setDateFrom(e.target.value);
-                  pagination.setCurrentPage(1);
-                }}
-                className="w-full px-2.5 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
-              />
-            </div>
-
-            {/* Completion Date To */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Completion Date To</label>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => {
-                  setDateTo(e.target.value);
-                  pagination.setCurrentPage(1);
-                }}
-                className="w-full px-2.5 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Main Results Table Container */}
-      <div
-        ref={pagination.tableContainerRef}
-        className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden flex flex-col"
-      >
-        {/* Desktop / Tablet Table View */}
-        <div data-role="list-wrapper" className="hidden sm:block overflow-x-auto">
-          <table className="w-full text-left border-collapse table-fixed">
-            <colgroup>
-              <col style={{ width: "135px" }} />
-              <col style={{ width: "175px" }} />
-              <col style={{ width: "165px" }} />
-              <col style={{ width: "85px" }} />
-              <col style={{ width: "165px" }} />
-              <col style={{ width: "105px" }} />
-              <col style={{ width: "95px" }} />
-              <col style={{ width: "140px" }} />
-              <col style={{ width: "165px" }} />
-            </colgroup>
-            <thead>
-              <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-700 font-bold uppercase text-xs sm:text-[13px] tracking-wider select-none">
-                <th
-                  onClick={() => handleSort("cerprno")}
-                  className="py-3.5 px-4 text-left cursor-pointer hover:text-slate-900 whitespace-nowrap"
+              {/* Floating Anchored Popover: Compact Non-Cropping Layout */}
+              {isDashboardFiltersOpen && (
+                <div
+                  style={{
+                    width: "370px",
+                    maxWidth: "calc(100vw - 32px)",
+                    ...dashDropdownStyle,
+                  }}
+                  className="absolute right-0 bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
                 >
-                  <div className="flex items-center gap-1.5">
-                    <span>Proposal ID</span>
-                    <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort("pr_name")}
-                  className="py-3.5 px-4 text-left cursor-pointer hover:text-slate-900 whitespace-nowrap"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <span>Project Name</span>
-                    <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3.5 px-4 text-left whitespace-nowrap">CER Owner</th>
-                <th className="py-3.5 px-3 text-center whitespace-nowrap">SBU</th>
-                <th className="py-3.5 px-4 text-left whitespace-nowrap">Initiated By</th>
-                <th
-                  onClick={() => handleSort("amount")}
-                  className="py-3.5 px-4 text-right cursor-pointer hover:text-slate-900 whitespace-nowrap"
-                >
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>Amount</span>
-                    <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3.5 px-3 text-center whitespace-nowrap">Status</th>
-                <th className="py-3.5 px-4 text-left whitespace-nowrap">Pending Level</th>
-                <th className="py-3.5 px-3 text-center whitespace-nowrap">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {visibleProposals.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400 text-sm">
-                    No proposals found.
-                  </td>
-                </tr>
-              ) : (
-                visibleProposals.map((prop) => (
-                  <tr
-                    key={prop.id}
-                    data-role="list-item"
-                    className="hover:bg-slate-50/70 transition-colors select-none"
-                  >
-                    <td className="py-3.5 px-4 text-left align-middle whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => handleRowClick(prop)}
-                        className="font-mono font-bold text-sm text-[#012964] hover:underline cursor-pointer text-left focus:outline-none"
-                        title={`View ${prop.cer_proposal_id || prop.cerprno}`}
-                      >
-                        {prop.cer_proposal_id || prop.cerprno}
-                      </button>
-                    </td>
-                    <td className="py-3.5 px-4 text-left align-middle overflow-hidden whitespace-nowrap">
-                      <span
-                        className="block truncate font-semibold text-sm text-slate-900 group-hover:text-[#012964] transition-colors"
-                        title={prop.pr_name}
-                      >
-                        {truncateProjectName(prop.pr_name, 22)}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-left align-middle overflow-hidden whitespace-nowrap">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-7 h-7 rounded-full bg-blue-50 text-[#012964] font-bold text-[11px] leading-none flex items-center justify-center shrink-0 border border-blue-200/80 shadow-2xs group-hover:border-[#012964]/40">
-                          {getInitials(prop.owname)}
-                        </div>
-                        <span className="font-medium text-sm text-slate-800 truncate" title={prop.owname}>
-                          {prop.owname}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-3 text-center align-middle whitespace-nowrap">
-                      <span className="inline-block text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md">
-                        {prop.sbu}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-left align-middle overflow-hidden whitespace-nowrap">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 font-bold text-[11px] leading-none flex items-center justify-center shrink-0 border border-slate-200/90 shadow-2xs">
-                          {getInitials(prop.created_by || "System")}
-                        </div>
-                        <span className="font-medium text-sm text-slate-800 truncate" title={prop.created_by || "System"}>
-                          {prop.created_by || "System"}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 text-right align-middle font-bold text-sm text-slate-900 whitespace-nowrap">
-                      {prop.currency} {prop.amount.toLocaleString()}
-                    </td>
-                    <td className="py-3.5 px-3 text-center align-middle whitespace-nowrap">
-                      <StatusBadge status={prop.status} size="sm" />
-                    </td>
-                    <td className="py-3.5 px-4 text-left align-middle whitespace-nowrap text-sm font-medium">
-                      {prop.status === "Approved" ? (
-                        <span className="text-emerald-700 font-semibold">Approved</span>
-                      ) : prop.status === "Rejected" ? (
-                        <span className="text-rose-700 font-semibold">Rejected</span>
-                      ) : (prop.status === "Send Back" || prop.status === "Revised" || prop.status === "Sent Back") ? (
-                        <span className="text-amber-700 font-semibold">Initiator (Rework)</span>
-                      ) : prop.status === "Draft" ? (
-                        <span className="text-slate-600 font-semibold">Draft</span>
-                      ) : (
-                        <span className="text-slate-700">
-                          L{prop.current_level} - {String(prop.pending_with_role || "").replace(/Project Owner/g, "CER Owner")}
+                  {/* Popover Header: Fixed at top */}
+                  <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-slate-100 bg-slate-50/70 shrink-0">
+                    <div className="flex items-center gap-2">
+                      <Filter className="w-4 h-4 text-[#012964] shrink-0" />
+                      <h4 className="font-bold text-slate-900 text-xs sm:text-sm whitespace-nowrap">
+                        Filter Dashboard Analytics
+                      </h4>
+                      {dashboardFilterCount > 0 && (
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 whitespace-nowrap">
+                          {dashboardFilterCount} Active
                         </span>
                       )}
-                    </td>
-                    <td className="py-3.5 px-3 text-center align-middle whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                        {/* Reports & Analytics View action */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const targetId = prop.cerprno || prop.proposal_no || prop.cer_proposal_id;
-                            if (onNavigateToDisplay && targetId) onNavigateToDisplay(targetId);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-[#012964] bg-blue-50/80 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer border border-blue-200/60 shadow-2xs"
-                          title="View proposal details"
+                    </div>
+                    <button
+                      onClick={() => setIsDashboardFiltersOpen(false)}
+                      className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+                      title="Close filters"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Popover Form Body: Compact 2-column flow */}
+                  <div className="p-3.5 space-y-2.5 text-xs overflow-y-auto flex-1 min-h-0">
+                    {/* Row 1: Date Range: From / To */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                        Date Range
+                      </label>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block mb-0.5">From</span>
+                          <input
+                            type="date"
+                            value={dashDateFrom}
+                            onChange={(e) => setDashDateFrom(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#012964]/20"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block mb-0.5">To</span>
+                          <input
+                            type="date"
+                            value={dashDateTo}
+                            onChange={(e) => setDashDateTo(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#012964]/20"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Row 2: SBU / Block and Proposal Status side-by-side */}
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          SBU / Block
+                        </label>
+                        <select
+                          value={dashSbuFilter}
+                          onChange={(e) => setDashSbuFilter(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#012964]/20"
                         >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>View</span>
-                        </button>
+                          <option value="ALL">All SBUs</option>
+                          {SBU_OPTIONS.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                    </td>
-                  </tr>
-                ))
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Proposal Status
+                        </label>
+                        <select
+                          value={dashStatusFilter}
+                          onChange={(e) => setDashStatusFilter(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#012964]/20"
+                        >
+                          <option value="ALL">All Statuses</option>
+                          <option value="IN_APPROVAL">In Approval</option>
+                          <option value="APPROVED">Approved</option>
+                          <option value="SEND_BACK">Send Back</option>
+                          <option value="REJECTED">Rejected</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Popover Footer: Fixed at bottom */}
+                  <div className="shrink-0 flex items-center justify-between gap-3 px-3.5 py-2.5 bg-slate-50/90 border-t border-slate-100">
+                    <button
+                      onClick={handleResetDashboardFilters}
+                      disabled={dashboardFilterCount === 0}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap cursor-pointer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Reset Filters</span>
+                    </button>
+                    <button
+                      onClick={() => setIsDashboardFiltersOpen(false)}
+                      className="inline-flex items-center px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#012964] hover:bg-[#012964]/90 transition whitespace-nowrap cursor-pointer shadow-xs"
+                    >
+                      Apply &amp; Close
+                    </button>
+                  </div>
+                </div>
               )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Mobile View (< 640px) */}
-        <div data-role="list-wrapper" className="sm:hidden divide-y divide-slate-100">
-          {visibleProposals.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 text-sm px-4">
-              No proposals found matching the selected criteria.
             </div>
-          ) : (
-            visibleProposals.map((prop) => (
-              <div
-                key={prop.id}
-                data-role="list-item"
-                className="p-4 space-y-3 hover:bg-slate-50/80 transition-colors"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleRowClick(prop)}
-                    className="font-mono font-bold text-sm text-[#012964] bg-blue-50/80 px-2.5 py-1 rounded-lg border border-blue-200/60 hover:underline cursor-pointer"
-                    title={`View ${prop.cer_proposal_id || prop.cerprno}`}
-                  >
-                    {prop.cer_proposal_id || prop.cerprno}
-                  </button>
-                  <div className="flex items-center gap-1.5">
-                    <StatusBadge status={prop.status} size="sm" />
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold text-slate-900 text-sm leading-snug group-hover:text-[#012964] transition-colors truncate">
-                    {prop.pr_name}
-                  </h4>
-                  <div className="flex items-center gap-2 text-xs text-slate-600 mt-1 flex-wrap">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] text-slate-400 font-medium">Owner:</span>
-                      <div className="w-5 h-5 rounded-full bg-blue-50 text-[#012964] font-bold text-[9px] leading-none flex items-center justify-center shrink-0 border border-blue-200/80 shadow-2xs">
-                        {getInitials(prop.owname)}
-                      </div>
-                      <span className="truncate max-w-[110px]">{prop.owname}</span>
-                    </div>
-                    <span>•</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] text-slate-400 font-medium">Initiator:</span>
-                      <div className="w-5 h-5 rounded-full bg-slate-100 text-slate-700 font-bold text-[9px] leading-none flex items-center justify-center shrink-0 border border-slate-200 shadow-2xs">
-                        {getInitials(prop.created_by)}
-                      </div>
-                      <span className="truncate max-w-[110px]">{prop.created_by || "System"}</span>
-                    </div>
-                    <span>•</span>
-                    <span className="font-medium bg-slate-100 px-1.5 py-0.5 rounded text-[11px] text-slate-600">
-                      {prop.sbu}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">Amount</span>
-                    <span className="font-bold text-sm text-slate-900">
-                      {prop.currency} {prop.amount.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">Stage</span>
-                    <span className="text-slate-700 text-xs font-medium">
-                      {prop.status === "Approved"
-                        ? "Approved"
-                        : prop.status === "Rejected"
-                        ? "Rejected"
-                        : (prop.status === "Send Back" || prop.status === "Revised" || prop.status === "Sent Back")
-                        ? "Initiator (Rework)"
-                        : prop.status === "Draft"
-                        ? "Draft"
-                        : `L${prop.current_level} - ${prop.pending_with_role}`}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Mobile Card Action Row */}
-                <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 text-xs">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const targetId = prop.cerprno || prop.proposal_no || prop.cer_proposal_id;
-                      if (onNavigateToDisplay && targetId) onNavigateToDisplay(targetId);
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 font-semibold text-xs text-[#012964] bg-blue-50/80 hover:bg-blue-100 rounded-lg border border-blue-200/60 shadow-2xs cursor-pointer transition-colors"
-                    title="View proposal details"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>View</span>
-                  </button>
-                </div>
-              </div>
-            ))
           )}
-        </div>
 
-        {/* Dynamic Pagination Footer */}
-        <DataTablePagination
-          currentPage={pagination.currentPage}
-          totalPages={pagination.totalPages}
-          totalItems={filteredProposals.length}
-          startIndex={pagination.startIndex}
-          endIndex={pagination.endIndex}
-          pageSizeSetting={pagination.pageSizeSetting}
-          effectivePageSize={pagination.effectivePageSize}
-          onPageChange={pagination.setCurrentPage}
-          onPageSizeChange={pagination.setPageSizeSetting}
-          onPrevPage={pagination.goToPrevPage}
-          onNextPage={pagination.goToNextPage}
-          onFirstPage={pagination.goToFirstPage}
-          onLastPage={pagination.goToLastPage}
-          itemName="proposals"
-        />
+          {/* Action Slot 2: Proposal List Search, Filters, and Export Excel */}
+          {activeTab === "proposal-list" && (
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+              {/* Quick Search: h-9, w-44 sm:w-56 lg:w-64, pl-9 pr-4 */}
+              <div className="relative w-40 sm:w-52 lg:w-64">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={listSearchTerm}
+                  onChange={(e) => setListSearchTerm(e.target.value)}
+                  placeholder="Search proposals..."
+                  className="w-full h-9 pl-9 pr-4 bg-white border border-slate-300 hover:border-slate-400 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
+                />
+              </div>
+
+              {/* Filters Toggle Button & Non-Cropping Popover: h-9, px-3.5 py-2 */}
+              <div ref={listFilterButtonRef} className="relative">
+                <button
+                  onClick={() => setIsListFiltersOpen((prev) => !prev)}
+                  className={`h-9 flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer whitespace-nowrap shadow-2xs ${
+                    isListFiltersOpen || listActiveFilterCount > 0
+                      ? "bg-[#012964]/10 border-[#012964]/40 text-[#012964] font-bold"
+                      : "bg-white border-slate-300 hover:bg-slate-50 text-slate-700 hover:border-slate-400"
+                  }`}
+                  title="Toggle advanced filter criteria"
+                >
+                  <Filter className="w-3.5 h-3.5 shrink-0" />
+                  <span>Filters</span>
+                  {listActiveFilterCount > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-[#012964] text-white">
+                      {listActiveFilterCount}
+                    </span>
+                  )}
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 shrink-0 transition-transform ${
+                      isListFiltersOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {/* Backdrop */}
+                {isListFiltersOpen && (
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsListFiltersOpen(false)}
+                  />
+                )}
+
+                {/* Popover with Non-Cropping Flexbox Layout */}
+                {isListFiltersOpen && (
+                  <div
+                    style={{
+                      width: "370px",
+                      maxWidth: "calc(100vw - 32px)",
+                      ...listDropdownStyle,
+                    }}
+                    className="absolute right-0 bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+                  >
+                    {/* Popover Header: Fixed at top */}
+                    <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-slate-100 bg-slate-50/70 shrink-0">
+                      <div className="flex items-center gap-2">
+                        <Filter className="w-4 h-4 text-[#012964] shrink-0" />
+                        <h3 className="font-bold text-slate-900 text-xs sm:text-sm whitespace-nowrap">
+                          Advanced Search Criteria
+                        </h3>
+                        {listActiveFilterCount > 0 && (
+                          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 whitespace-nowrap">
+                            {listActiveFilterCount} Active
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => setIsListFiltersOpen(false)}
+                        className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+                        title="Close filter panel"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Popover Form Body: Compact 2-column layout */}
+                    <div className="p-3.5 space-y-2.5 text-xs overflow-y-auto flex-1 min-h-0">
+                      {/* Row 1: Category & SBU side-by-side */}
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                            Category
+                          </label>
+                          <select
+                            value={listCategoryFilter}
+                            onChange={(e) => setListCategoryFilter(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#012964]/20"
+                          >
+                            <option value="ALL">All Categories</option>
+                            <option value="Vital">Vital</option>
+                            <option value="Essential">Essential</option>
+                            <option value="Desirable">Desirable</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                            SBU / Block
+                          </label>
+                          <select
+                            value={listSbuFilter}
+                            onChange={(e) => setListSbuFilter(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#012964]/20"
+                          >
+                            <option value="ALL">All SBUs</option>
+                            {SBU_OPTIONS.map((sbu) => (
+                              <option key={sbu} value={sbu}>
+                                {sbu}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Row 2: CER Owner */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          CER Owner
+                        </label>
+                        <input
+                          type="text"
+                          value={listOwnerFilter}
+                          onChange={(e) => setListOwnerFilter(e.target.value)}
+                          placeholder="Filter by owner name..."
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#012964]/20"
+                        />
+                      </div>
+
+                      {/* Row 3: Start Date (From / To) */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Start Date (From / To)
+                        </label>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <input
+                            type="date"
+                            value={listDateFrom}
+                            onChange={(e) => setListDateFrom(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#012964]/20"
+                          />
+                          <input
+                            type="date"
+                            value={listDateTo}
+                            onChange={(e) => setListDateTo(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#012964]/20"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Popover Footer: Fixed at bottom */}
+                    <div className="shrink-0 flex items-center justify-between gap-3 px-3.5 py-2.5 bg-slate-50/90 border-t border-slate-100">
+                      <button
+                        onClick={handleResetListFilters}
+                        disabled={listActiveFilterCount === 0}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap cursor-pointer"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Reset All</span>
+                      </button>
+                      <button
+                        onClick={() => setIsListFiltersOpen(false)}
+                        className="inline-flex items-center px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#012964] hover:bg-[#012964]/90 transition whitespace-nowrap cursor-pointer shadow-xs"
+                      >
+                        Apply &amp; Close
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Export to Excel Button: h-9, px-3.5 py-2 */}
+              <button
+                onClick={handleExportExcel}
+                disabled={(filteredListProposals.length === 0 && !dataService) || isExporting}
+                className="h-9 flex items-center justify-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-xs shadow-emerald-600/20 transition-all disabled:opacity-50 whitespace-nowrap cursor-pointer"
+              >
+                <FileSpreadsheet className="w-4 h-4 shrink-0" />
+                <span className="truncate">
+                  {isExporting
+                    ? exportStatusText || "Exporting..."
+                    : `Export Excel (${filteredListProposals.length})`}
+                </span>
+              </button>
+            </div>
+          )}
+
+          {/* Vertical Divider */}
+          <div className="h-6 w-px bg-slate-200 hidden sm:block mx-1" />
+
+          {/* Right: View Navigation Tabs */}
+          <div className="flex items-center gap-6 sm:gap-8 border-b border-slate-200">
+            {/* Tab 1: Report Dashboard */}
+            <button
+              onClick={() => setActiveTab("dashboard")}
+              className={`px-1 pb-2.5 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+                activeTab === "dashboard"
+                  ? "border-[#012964] text-[#012964]"
+                  : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300"
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4 shrink-0" />
+              <span>Report Dashboard</span>
+            </button>
+
+            {/* Tab 2: Report CER Proposal List */}
+            <button
+              onClick={() => setActiveTab("proposal-list")}
+              className={`px-1 pb-2.5 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+                activeTab === "proposal-list"
+                  ? "border-[#012964] text-[#012964]"
+                  : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300"
+              }`}
+            >
+              <ListFilter className="w-4 h-4 shrink-0" />
+              <span>Report CER Proposal List</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Tab Contents */}
+      <div className="transition-all duration-150">
+        {activeTab === "dashboard" && (
+          <ReportDashboard
+            proposals={nonDraftProposals}
+            dateFrom={dashDateFrom}
+            dateTo={dashDateTo}
+            sbuFilter={dashSbuFilter}
+            statusFilter={dashStatusFilter}
+            onResetFilters={handleResetDashboardFilters}
+          />
+        )}
+
+        {activeTab === "proposal-list" && (
+          <ReportProposalList
+            proposals={nonDraftProposals}
+            searchTerm={listSearchTerm}
+            statusFilter={listStatusFilter}
+            setStatusFilter={setListStatusFilter}
+            categoryFilter={listCategoryFilter}
+            sbuFilter={listSbuFilter}
+            ownerFilter={listOwnerFilter}
+            dateFrom={listDateFrom}
+            dateTo={listDateTo}
+            onResetFilters={handleResetListFilters}
+            currentUser={currentUser}
+            onNavigateToDisplay={onNavigateToDisplay}
+            onNavigateToChange={onNavigateToChange}
+            onNavigateToSubmissions={onNavigateToSubmissions}
+            dataService={dataService}
+            fieldChoices={fieldChoices}
+          />
+        )}
       </div>
     </div>
   );

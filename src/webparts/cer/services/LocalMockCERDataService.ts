@@ -1128,6 +1128,7 @@ export class LocalMockCERDataService implements ICERDataService {
       pending_with_role: isDraft ? "Draft" : (activeL1 ? activeL1.role_title : "L1 Approver"),
       pending_with_email: isDraft ? "" : (isL1PO ? (updatedProposal.owner_email || "") : (activeL1 ? (activeL1.approver_email || "") : "")),
       request_date: nextRequestDate,
+      created_by: !isDraft ? user.name : (updatedProposal.created_by || oldProposal.created_by || user.name),
       modified_date: now.toISOString(),
       modified_by: user.name,
       revision_count: newRevisionCount,
