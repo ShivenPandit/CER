@@ -30,6 +30,7 @@ import { UserAvatar } from "../Common/UserAvatar";
 import { calculateExactDays, getCurrentFiscalYearPhasingLabels } from "../../utils/dateUtils";
 import { stripAttachmentsManifest } from "../../utils/sanitizationUtils";
 import { useModalScrollLock } from "../../hooks/useModalScrollLock";
+import { PDFExportService } from "../../services/PDFExportService";
 
 interface IProposalHistoryModalProps {
   isOpen: boolean;
@@ -51,6 +52,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
   const [selectedAttachments, setSelectedAttachments] = useState<ICERAttachment[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(!initialHistory?.length);
   const [isLoadingAttachments, setIsLoadingAttachments] = useState<boolean>(false);
+  const [downloadingVersionId, setDownloadingVersionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Lock background scrolling across SharePoint page containers while modal is open
@@ -182,6 +184,54 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
     }
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
+
+  const activeVTag =
+    (selectedProposal as any)?.version ||
+    (sortedHistory.length > 0 && activeVersionIndex >= 0
+      ? `V${sortedHistory.length - activeVersionIndex}`
+      : "V1");
+
+  const handleDownloadHistoricalPdf = async (
+    targetProposal: ICERProposal,
+    versionTag: string
+  ): Promise<void> => {
+    const downloadKey = targetProposal.id || targetProposal.cerprno || versionTag;
+    try {
+      setDownloadingVersionId(downloadKey);
+      const targetCerId = (
+        targetProposal.cer_proposal_id ||
+        targetProposal.cerprno ||
+        targetProposal.proposal_no ||
+        cerProposalId ||
+        ""
+      ).trim();
+
+      const [decisions, wfLevels] = await Promise.all([
+        targetCerId ? dataService.getApprovalDecisions(targetCerId).catch(() => []) : Promise.resolve([]),
+        targetProposal.sbu ? dataService.getWorkflowLevels(targetProposal.sbu).catch(() => []) : Promise.resolve([]),
+      ]);
+
+      // Match decisions for this version if tagged, or fall back to all decisions
+      const matchingDecisions = decisions.filter(
+        (d) => !d.version || d.version.toUpperCase() === versionTag.toUpperCase()
+      );
+      const effectiveDecisions = matchingDecisions.length > 0 ? matchingDecisions : decisions;
+
+      await PDFExportService.generateCERPdf(
+        targetProposal,
+        effectiveDecisions,
+        historyProposals,
+        versionTag,
+        true, // isArchivedSnapshot: true -> ensures status renders RESUBMITTED
+        wfLevels
+      );
+    } catch (err: any) {
+      console.error("[ProposalHistoryModal] Error exporting historical PDF:", err);
+      alert(err.message || "Failed to generate PDF for this historical version.");
+    } finally {
+      setDownloadingVersionId(null);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -367,11 +417,28 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                         <StatusBadge status="Approved" size="sm" />
                       </div>
 
-                      {/* Proposal No Reference */}
+                      {/* Proposal No Reference & Download Shortcut */}
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-mono font-bold text-sm sm:text-[15px] text-[#012964]">
                           {effectiveNo}
                         </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleDownloadHistoricalPdf(prop, `V${revNum}`);
+                          }}
+                          disabled={downloadingVersionId !== null}
+                          className="p-1 rounded text-slate-400 hover:text-[#e11d48] hover:bg-rose-50 transition-colors cursor-pointer"
+                          title={`Download PDF for V${revNum}`}
+                          aria-label={`Download PDF for V${revNum}`}
+                        >
+                          {downloadingVersionId === (prop.id || prop.cerprno || `V${revNum}`) ? (
+                            <div className="w-3.5 h-3.5 border border-[#e11d48] border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Download className="w-3.5 h-3.5" />
+                          )}
+                        </button>
                       </div>
 
                       {/* Metadata: Amount & Archive Date */}
@@ -460,12 +527,36 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Sanction Amount */}
-                    <div className="text-left md:text-right shrink-0">
-                      <p className="text-xs sm:text-[13px] font-semibold text-slate-500">Approved Sanction Amount</p>
-                      <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-0.5">
-                        {selectedProposal.currency} {Number(selectedProposal.amount || 0).toLocaleString()}
-                      </p>
+                    {/* Sanction Amount & Download PDF */}
+                    <div className="flex flex-row md:flex-col items-start md:items-end justify-between md:justify-start gap-2.5 shrink-0">
+                      <div className="text-left md:text-right">
+                        <p className="text-xs sm:text-[13px] font-semibold text-slate-500">Approved Sanction Amount</p>
+                        <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-0.5">
+                          {selectedProposal.currency} {Number(selectedProposal.amount || 0).toLocaleString()}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void handleDownloadHistoricalPdf(selectedProposal, activeVTag);
+                        }}
+                        disabled={downloadingVersionId !== null}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-[#e11d48] hover:bg-[#be123c] text-white shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                        title={`Download official PDF for ${activeVTag}`}
+                      >
+                        {downloadingVersionId === (selectedProposal.id || selectedProposal.cerprno || activeVTag) ? (
+                          <>
+                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Generating PDF...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-4 h-4" />
+                            <span>Download PDF ({activeVTag})</span>
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
 

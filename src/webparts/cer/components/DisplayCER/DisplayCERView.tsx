@@ -161,7 +161,14 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
     if (!proposal) return;
     try {
       setExportNotice("Generating official CER PDF document...");
-      await PDFExportService.generateCERPdf(proposal, decisions);
+      await PDFExportService.generateCERPdf(
+        proposal,
+        decisions,
+        historyProposals,
+        undefined,
+        false,
+        workflowLevels
+      );
       setExportNotice(null);
     } catch (e: any) {
       setExportNotice(null);

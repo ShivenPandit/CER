@@ -55,7 +55,7 @@ interface IMatrixLevelConfig {
 const MATRIX_LEVELS: readonly IMatrixLevelConfig[] = [
   { level: 1, label: "L1 - Finance", roleTitle: "Finance" },
   { level: 2, label: "L2 - Project Owner", roleTitle: "Project Owner", isDynamic: true },
-  { level: 3, label: "L3 - BU CEO", roleTitle: "BU CEO" },
+  { level: 3, label: "L3 - BU CFO", roleTitle: "BU CFO" },
   { level: 4, label: "L4 - BU Director", roleTitle: "BU Director" },
   { level: 5, label: "L5 - VOGL CFO", roleTitle: "VOGL CFO" },
   { level: 6, label: "L6 - VOGL CEO", roleTitle: "VOGL CEO" },
@@ -237,7 +237,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
       case 2:
         return "Project Owner";
       case 3:
-        return "BU CEO";
+        return "BU CFO";
       case 4:
         return "BU Director";
       case 5:
@@ -932,7 +932,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                     </th>
                     <th className="py-3 px-3 min-w-[140px]">L1 - Finance</th>
                     <th className="py-3 px-3 min-w-[150px] bg-slate-50/50">L2 - Project Owner</th>
-                    <th className="py-3 px-3 min-w-[140px]">L3 - BU CEO</th>
+                    <th className="py-3 px-3 min-w-[140px]">L3 - BU CFO</th>
                     <th className="py-3 px-3 min-w-[140px]">L4 - BU Director</th>
                     <th className="py-3 px-3 min-w-[140px]">L5 - VOGL CFO</th>
                     <th className="py-3 px-3 min-w-[140px]">L6 - VOGL CEO</th>
@@ -969,7 +969,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                           </span>
                         </td>
 
-                        {/* 4. L3 - BU CEO */}
+                        {/* 4. L3 - BU CFO */}
                         <td className="py-3 px-3">
                           {renderMatrixApproverCell(getApproversForBlockAndLevel(block, 3))}
                         </td>
@@ -1488,7 +1488,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] font-medium"
                     >
                       <option value={1}>Stage L1 — Finance</option>
-                      <option value={3}>Stage L3 — BU CEO</option>
+                      <option value={3}>Stage L3 — BU CFO</option>
                       <option value={4}>Stage L4 — BU Director</option>
                       <option value={5}>Stage L5 — VOGL CFO</option>
                       <option value={6}>Stage L6 — VOGL CEO</option>
@@ -1635,7 +1635,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] font-medium"
                     >
                       <option value={1}>Stage L1 — Finance</option>
-                      <option value={3}>Stage L3 — BU CEO</option>
+                      <option value={3}>Stage L3 — BU CFO</option>
                       <option value={4}>Stage L4 — BU Director</option>
                       <option value={5}>Stage L5 — VOGL CFO</option>
                       <option value={6}>Stage L6 — VOGL CEO</option>
