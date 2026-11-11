@@ -191,6 +191,25 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
     try {
       setOpeningProposalId(prop.cerprno);
       setSelectedProposal(prop);
+
+      // Refresh approval levels for proposal's exact SBU in real-time
+      const targetSbu = prop.sbu ? prop.sbu.trim() : "";
+      if (targetSbu && dataService.getWorkflowLevels) {
+        try {
+          const freshLevels = await dataService.getWorkflowLevels(targetSbu, true);
+          if (freshLevels && freshLevels.length > 0) {
+            setLevels((prev) => {
+              const others = prev.filter(
+                (l) => (l.sbu || "").trim().toLowerCase() !== targetSbu.toLowerCase()
+              );
+              return [...others, ...freshLevels];
+            });
+          }
+        } catch (levelErr) {
+          console.warn("[PendingApprovalsView] Failed to refresh SBU-specific workflow levels:", levelErr);
+        }
+      }
+
       const atts = await dataService.getAttachments(prop.cerprno, { proposal: prop, forceRefresh: true });
       setSelectedAttachments(atts);
       setIsDecisionModalOpen(true);
@@ -427,11 +446,19 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
         <ApprovalDecisionModal
           key={`${selectedProposal.cerprno}-${selectedProposal.current_level}-${isDecisionModalOpen}`}
           proposal={selectedProposal}
-          currentLevelConfig={levels.find(
-            (l) =>
-              (l.sbu || "").trim().toLowerCase() === (selectedProposal.sbu || "").trim().toLowerCase() &&
-              l.level_id === selectedProposal.current_level
-          )}
+          currentLevelConfig={
+            levels.find(
+              (l) =>
+                (l.sbu || "").trim().toLowerCase() === (selectedProposal.sbu || "").trim().toLowerCase() &&
+                l.level_id === selectedProposal.current_level
+            ) ||
+            levels.find(
+              (l) =>
+                (l.sbu || "").trim().toLowerCase() === "all" &&
+                l.level_id === selectedProposal.current_level
+            ) ||
+            levels.find((l) => l.level_id === selectedProposal.current_level)
+          }
           attachments={selectedAttachments}
           currentUser={currentUser}
           isOpen={isDecisionModalOpen}

@@ -240,6 +240,19 @@ async function runTests(): Promise<void> {
                   Name: "i:0#.f|membership|finance.all@vedanta.co.in",
                 },
               },
+              {
+                Id: 3,
+                role: "Approver",
+                sbu: "All",
+                approverLevel: 6,
+                approverRoleTitle: "VOGL CEO",
+                User: {
+                  Id: 503,
+                  Title: "CEO",
+                  EMail: "ceo@vedanta.co.in",
+                  Name: "i:0#.f|membership|ceo@vedanta.co.in",
+                },
+              },
             ],
           }),
         };
@@ -265,6 +278,18 @@ async function runTests(): Promise<void> {
             Title: "Finance Central Approver",
             Email: "finance.all@vedanta.co.in",
             LoginName: "i:0#.f|membership|finance.all@vedanta.co.in",
+          }),
+        };
+      }
+      if (url.includes("getUserById(503)")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            Id: 503,
+            Title: "CEO",
+            Email: "ceo@vedanta.co.in",
+            LoginName: "i:0#.f|membership|ceo@vedanta.co.in",
           }),
         };
       }

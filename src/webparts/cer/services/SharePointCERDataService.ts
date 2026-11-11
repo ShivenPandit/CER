@@ -25,7 +25,7 @@ import { getCurrentFiscalYearPhasingLabels, formatLocalDate, formatLocalTime, ge
 import { SharePointOperations } from "../hooks/useSharePointOperations";
 import { PersonFieldService } from "./PersonFieldService";
 import { EmailTemplateService } from "./EmailTemplateService";
-import { SP_LISTS, FIXED_6_LEVEL_APPROVAL_STAGES } from "../constants";
+import { SP_LISTS, FIXED_6_LEVEL_APPROVAL_STAGES, ROLE_MATRIX_SBUS } from "../constants";
 import { sanitizeProposalPayload, escapeODataString, stripAttachmentsManifest } from "../utils/sanitizationUtils";
 
 /**
@@ -2895,82 +2895,88 @@ export class SharePointCERDataService implements ICERDataService {
           console.warn("[SharePointCERDataService] Failed to load roles for workflow levels:", e);
         }
 
-        const targetSbu = sbu ? sbu.trim() : "";
+        const buildLevelsForSbu = (targetSbu: string): IWorkflowLevel[] => {
+          return FIXED_6_LEVEL_APPROVAL_STAGES.map((stage) => {
+            const lid = stage.level;
+            const isPO = stage.isProjectOwnerStage;
 
-        // Fixed Six-Level Sequential Approval Workflow:
-        // L1: Finance (from CERRoleMatrix matching proposal SBU)
-        // L2: Project Owner (Auto-fetched dynamically from CER Proposal)
-        // L3: BU CFO (from CERRoleMatrix matching proposal SBU)
-        // L4: BU Director (from CERRoleMatrix matching proposal SBU)
-        // L5: VOGL CFO (from CERRoleMatrix matching proposal SBU / All)
-        // L6: VOGL CEO (from CERRoleMatrix matching proposal SBU / All)
-        const levels: IWorkflowLevel[] = FIXED_6_LEVEL_APPROVAL_STAGES.map((stage) => {
-          const lid = stage.level;
-          const isPO = stage.isProjectOwnerStage;
+            let matchedUsers: IUserRoleAssignment[] = [];
+            if (!isPO) {
+              // Retrieve active Approvers assigned to this level in CERRoleMatrix
+              const eligibleForLevel = approverRoles.filter(
+                (u) =>
+                  u.is_active !== false &&
+                  u.approval_level !== undefined &&
+                  u.approval_level !== null &&
+                  Number(u.approval_level) === Number(lid)
+              );
 
-          let matchedUsers: IUserRoleAssignment[] = [];
-          if (!isPO) {
-            // Retrieve active Approvers assigned to this level in CERRoleMatrix
-            const eligibleForLevel = approverRoles.filter(
-              (u) =>
-                u.is_active !== false &&
-                u.approval_level !== undefined &&
-                u.approval_level !== null &&
-                Number(u.approval_level) === Number(lid)
-            );
+              let candidates: IUserRoleAssignment[] = [];
+              if (targetSbu && targetSbu.toLowerCase() !== "all") {
+                const exactSbuUsers = eligibleForLevel.filter((u) => Boolean(u.sbu && u.sbu.toLowerCase() === targetSbu.toLowerCase()));
+                const allSbuUsers = eligibleForLevel.filter((u) => Boolean(u.sbu && u.sbu.toLowerCase() === "all"));
+                candidates = exactSbuUsers.concat(allSbuUsers);
+              } else {
+                candidates = eligibleForLevel;
+              }
 
-            let candidates: IUserRoleAssignment[] = [];
-            if (targetSbu) {
-              const exactSbuUsers = eligibleForLevel.filter((u) => Boolean(u.sbu && u.sbu.toLowerCase() === targetSbu.toLowerCase()));
-              const allSbuUsers = eligibleForLevel.filter((u) => Boolean(u.sbu && u.sbu.toLowerCase() === "all"));
-              candidates = exactSbuUsers.concat(allSbuUsers);
-            } else {
-              candidates = eligibleForLevel;
-            }
-
-            // Deduplicate: by verified user_id if present, otherwise by normalized login / email
-            const seenKeys: string[] = [];
-            for (const u of candidates) {
-              const dedupKey = u.user_id && u.user_id > 0
-                ? `id:${u.user_id}`
-                : `login:${PersonFieldService.normalizeLogon(u.login_name || u.user_email)}`;
-              if (dedupKey && seenKeys.indexOf(dedupKey) === -1) {
-                seenKeys.push(dedupKey);
-                matchedUsers.push(u);
+              // Deduplicate: by verified user_id if present, otherwise by normalized login / email
+              const seenKeys: string[] = [];
+              for (const u of candidates) {
+                const dedupKey = u.user_id && u.user_id > 0
+                  ? `id:${u.user_id}`
+                  : `login:${PersonFieldService.normalizeLogon(u.login_name || u.user_email)}`;
+                if (dedupKey && seenKeys.indexOf(dedupKey) === -1) {
+                  seenKeys.push(dedupKey);
+                  matchedUsers.push(u);
+                }
               }
             }
+
+            const allEmails = matchedUsers.map((u) => u.user_email).filter(Boolean);
+            const allNames = matchedUsers.map((u) => u.user_name).filter(Boolean);
+
+            return {
+              id: `L${lid}-${targetSbu || "ALL"}`,
+              level_id: lid,
+              level_name: stage.name,
+              role_title: stage.roleTitle,
+              sbu: targetSbu || "All",
+              is_active: true,
+              assignment_type: stage.assignmentType,
+              is_project_owner_stage: isPO,
+              approver_name: isPO
+                ? "Project Owner (Auto-fetched from CER Proposal)"
+                : allNames.length > 0
+                ? allNames.join(", ")
+                : "",
+              approver_email: isPO
+                ? ""
+                : allEmails.length > 0
+                ? allEmails.join(";")
+                : "",
+              approvers: matchedUsers,
+              created_by: matchedUsers[0] ? matchedUsers[0].assigned_by : "System",
+              created_date: matchedUsers[0] ? matchedUsers[0].assigned_date : "",
+            };
+          });
+        };
+
+        let resultLevels: IWorkflowLevel[] = [];
+        const trimmedSbu = sbu ? sbu.trim() : "";
+        if (trimmedSbu && trimmedSbu.toLowerCase() !== "all") {
+          resultLevels = buildLevelsForSbu(trimmedSbu);
+        } else {
+          // When no specific SBU or "All" is requested, build levels for ALL known SBUs so that
+          // find operations matching any SBU (RJ North, RJ South, CBOS, RAVA) succeed, plus "All" fallback.
+          for (const sbuName of ROLE_MATRIX_SBUS) {
+            resultLevels.push(...buildLevelsForSbu(sbuName));
           }
+          resultLevels.push(...buildLevelsForSbu("All"));
+        }
 
-          const allEmails = matchedUsers.map((u) => u.user_email).filter(Boolean);
-          const allNames = matchedUsers.map((u) => u.user_name).filter(Boolean);
-
-          return {
-            id: `L${lid}-${targetSbu || "ALL"}`,
-            level_id: lid,
-            level_name: stage.name,
-            role_title: stage.roleTitle,
-            sbu: targetSbu || "All",
-            is_active: true,
-            assignment_type: stage.assignmentType,
-            is_project_owner_stage: isPO,
-            approver_name: isPO
-              ? "Project Owner (Auto-fetched from CER Proposal)"
-              : allNames.length > 0
-              ? allNames.join(", ")
-              : "",
-            approver_email: isPO
-              ? ""
-              : allEmails.length > 0
-              ? allEmails.join(";")
-              : "",
-            approvers: matchedUsers,
-            created_by: matchedUsers[0] ? matchedUsers[0].assigned_by : "System",
-            created_date: matchedUsers[0] ? matchedUsers[0].assigned_date : "",
-          };
-        });
-
-        this._cachedWorkflowLevels.set(cacheKey, { data: levels, timestamp: Date.now() });
-        return levels;
+        this._cachedWorkflowLevels.set(cacheKey, { data: resultLevels, timestamp: Date.now() });
+        return resultLevels;
       } finally {
         this._inFlightWorkflowLevels.delete(cacheKey);
       }

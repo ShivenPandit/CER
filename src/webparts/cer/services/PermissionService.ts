@@ -491,7 +491,7 @@ export class PermissionService {
     if (!isStageApproverMatch) {
       return {
         allowed: false,
-        reason: `Access Denied: This approval stage is assigned to designated approvers in the Approval Role Matrix. You are not assigned to approve Level ${proposal.current_level} for SBU '${proposal.sbu || "All"}'.`,
+        reason: `Access Denied: This approval stage is assigned to designated approvers in the Approval Role Matrix. You are not an assigned approver for Level ${proposal.current_level} for SBU '${proposal.sbu || "All"}'.`,
       };
     }
 
