@@ -1038,7 +1038,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
                         : "bg-white/90 hover:bg-white border border-slate-200/90 hover:border-slate-300 shadow-2xs"
                     }`}
                   >
-                    {/* Top Header: Serial No, Version tag & Status */}
+                    {/* Top Header: Version & Status */}
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span
@@ -1048,7 +1048,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
                               : "bg-slate-100 text-slate-700 border border-slate-200"
                           }`}
                         >
-                          Serial No. {ver.serialNo}
+                          V{ver.serialNo}
                         </span>
                         <span
                           className={`text-xs font-semibold px-2 py-0.5 rounded border ${

@@ -287,22 +287,25 @@ export class AuthService {
         new Set(activeAssignments.map((a) => normalizeRole(a.role)))
       );
 
-      // Resolve primary role in hierarchical priority: Admin > Approver > Finance_Audit > Initiator
+      // Check if user is assigned to an approval stage in CERRoleMatrix
+      const approverAssignment = activeAssignments.find(
+        (a) => a.approval_level !== undefined && a.approval_level !== null
+      );
+      if (approverAssignment && roles.indexOf("Approver") === -1) {
+        roles.push("Approver");
+      }
+
+      // Resolve primary role in hierarchical priority: Admin > Approver > Initiator
       let primaryRole: UserRole = "Initiator";
       if (roles.indexOf("Admin") !== -1) {
         primaryRole = "Admin";
-      } else if (roles.indexOf("Approver") !== -1) {
+      } else if (approverAssignment || roles.indexOf("Approver") !== -1) {
         primaryRole = "Approver";
       } else if (roles.indexOf("Finance_Audit") !== -1) {
         primaryRole = "Finance_Audit";
       } else if (roles.indexOf("Initiator") !== -1) {
         primaryRole = "Initiator";
       }
-
-      // Resolve approval level if approver
-      const approverAssignment = activeAssignments.find(
-        (a) => normalizeRole(a.role) === "Approver" && a.approval_level !== undefined
-      );
 
       const resolvedUser: IAppUser = {
         id: params.id,
@@ -334,7 +337,7 @@ export class AuthService {
       email: email,
       loginName: loginName || email,
       role: "Initiator",
-      roles: ["Initiator"],
+      roles: [],
       department: params.department || "CER Management Portal",
       is_active: true,
       isSiteAdmin,

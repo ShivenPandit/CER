@@ -1217,8 +1217,8 @@ export class LocalMockCERDataService implements ICERDataService {
         const matchedUser = this._userRoles.find(
           (u) =>
             u.is_active &&
-            u.role === "Approver" &&
-            u.approval_level === lvl.level_id &&
+            u.approval_level !== undefined &&
+            Number(u.approval_level) === Number(lvl.level_id) &&
             (effectiveSbu && effectiveSbu !== "all"
               ? Boolean(u.sbu && (u.sbu.toLowerCase() === effectiveSbu || u.sbu.toLowerCase() === "all"))
               : true)
@@ -1261,7 +1261,11 @@ export class LocalMockCERDataService implements ICERDataService {
       let matchedUsers: IUserRoleAssignment[] = [];
       if (!isPO) {
         const eligible = this._userRoles.filter(
-          (u) => u.is_active && u.role === "Approver" && u.approval_level === lid
+          (u) =>
+            u.is_active &&
+            u.approval_level !== undefined &&
+            u.approval_level !== null &&
+            Number(u.approval_level) === Number(lid)
         );
         let candidates: IUserRoleAssignment[] = [];
         if (targetSbu) {
@@ -1948,16 +1952,39 @@ export class LocalMockCERDataService implements ICERDataService {
 
   public async searchDirectoryUsers(query: string): Promise<IDirectoryUser[]> {
     const q = (query || "").trim().toLowerCase();
-    if (!q) {
-      return [...MOCK_DIRECTORY_USERS];
+    if (!q || q.length < 1) {
+      return [];
     }
-    return MOCK_DIRECTORY_USERS.filter((user) => {
+    const filtered = MOCK_DIRECTORY_USERS.filter((user) => {
       const matchName = user.displayName.toLowerCase().indexOf(q) !== -1;
       const matchMail = (user.mail || "").toLowerCase().indexOf(q) !== -1;
       const matchUpn = (user.userPrincipalName || "").toLowerCase().indexOf(q) !== -1;
       const matchTitle = (user.jobTitle || "").toLowerCase().indexOf(q) !== -1;
       return matchName || matchMail || matchUpn || matchTitle;
     });
+
+    const computeRelevance = (user: IDirectoryUser): number => {
+      const name = (user.displayName || "").toLowerCase().trim();
+      const email = (user.mail || "").toLowerCase().trim();
+      const cleanName = name.replace(/\(.*?\)/g, "").replace(/\[.*?\]/g, "").trim();
+      let score = 0;
+      if (cleanName === q || name === q) score += 2000;
+      else if (cleanName.startsWith(q)) score += 1000;
+      else if (cleanName.split(/\s+/).some((w) => w.startsWith(q))) score += 600;
+      else if (cleanName.includes(q)) score += 300;
+      if (email.startsWith(q)) score += 800;
+      else if (email.includes(q)) score += 200;
+      return score;
+    };
+
+    filtered.sort((a, b) => {
+      const sa = computeRelevance(a);
+      const sb = computeRelevance(b);
+      if (sb !== sa) return sb - sa;
+      return a.displayName.localeCompare(b.displayName);
+    });
+
+    return filtered;
   }
 
   public clearCache(): void {
@@ -2035,26 +2062,19 @@ export class LocalMockCERDataService implements ICERDataService {
     assignment: IUserRoleAssignment,
     actor: { name: string; email: string }
   ): Promise<void> {
-    if (assignment.role === "Admin" && actor.name !== "SYSTEM_INITIAL_BOOTSTRAP" && actor.name !== "SYSTEM_DESIGNATED_ADMIN_PROVISION") {
-      throw new Error(
-        "Security Restriction: System Admin accounts cannot be modified through the web interface. System Admin permissions must be managed directly in SharePoint CERRoleMatrix list."
-      );
-    }
-
-    const actorEmail = (actor.email || "").trim().toLowerCase();
-    const isAdminActor = this._userRoles.some(
-      r => r.user_email.trim().toLowerCase() === actorEmail && r.role === "Admin" && r.is_active
-    );
-    if (!isAdminActor && actorEmail.indexOf("Admin") === -1) {
-      throw new Error(`Unauthorized: Only an active Administrator can update roles. Actor '${actor.name}' does not possess Admin privileges.`);
-    }
-
     const index = this._userRoles.findIndex(r => r.id === assignment.id);
     if (index === -1) {
       throw new Error(`Role assignment '${assignment.id}' not found.`);
     }
 
     const old = this._userRoles[index];
+
+    // Security check: System Admin privilege cannot be demoted through the UI
+    if (old && old.role === "Admin" && assignment.role !== "Admin") {
+      throw new Error(
+        "Security Restriction: System Admin accounts cannot be demoted through the web interface. System Admin permissions must be managed directly in SharePoint CERRoleMatrix list."
+      );
+    }
 
     // Protection rule: Prevent accidental deactivation of the last active Administrator
     if (old.role === "Admin" && old.is_active && !assignment.is_active) {

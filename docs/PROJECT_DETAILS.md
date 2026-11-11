@@ -13,6 +13,7 @@
 The **Capital Expenditure Request (CER) Management System** is an enterprise-grade digital workflow platform built for **Vedanta Limited / Cairn Oil & Gas**. It automates, standardizes, and enforces governance over large capital investment proposals—such as new drilling machinery, oil & gas processing plant upgrades, pipeline infrastructure, and field equipment.
 
 ### Core Objectives:
+
 1. **End-to-End Governance**: Replace paper/manual approval forms with an auditable, digital workflow integrated into Microsoft 365 SharePoint Online.
 2. **SBU-Specific Multi-Tier Approval**: Route proposals dynamically across Strategic Business Units (SBUs)—**RJ North**, **RJ South**, **CBOS**, and **RAVA**—through sequential approval stages configured per SBU.
 3. **Dynamic Project Owner Resolution**: Evaluate Project Owner approval stages dynamically per proposal without hardcoding or schema alterations.
@@ -26,6 +27,7 @@ The **Capital Expenditure Request (CER) Management System** is an enterprise-gra
 ## 2. System Architecture & Technology Stack
 
 ### 2.1 Technology Stack
+
 - **Framework**: SharePoint Framework (SPFx) v1.20.0
 - **UI Library**: React 18.2.0 & React DOM 18.2.0
 - **Language**: TypeScript 5.5+ (strict mode, 0 compilation errors)
@@ -36,7 +38,9 @@ The **Capital Expenditure Request (CER) Management System** is an enterprise-gra
 - **Testing & Verification**: tsx (TypeScript Execute), Jest/Heft build rig
 
 ### 2.2 Dual-Engine Data Architecture
+
 The application uses the **Factory Pattern** (`DataServiceFactory.ts`) to seamlessly switch between environments:
+
 - **Production Mode (`SharePointCERDataService`)**: Connected to SharePoint Online REST APIs, supporting live lists, OData queries, batch operations, pagination, `ensureUser` resolution, and file library uploads.
 - **Local Development & Testing Mode (`LocalMockCERDataService`)**: Provides an in-memory and `localStorage`-backed mock database seeded with realistic SBU hierarchies, sample CERs, and verified users for 100% offline development and instant automated test execution.
 
@@ -80,19 +84,19 @@ sequenceDiagram
 
 The application implements client-side URL hash routing (`#view/proposalId`), enabling direct bookmarking, email deep linking, and full browser history integration:
 
-| URL Hash | Target View Component | Required Role / Access |
-|---|---|---|
-| `#dashboard` | `Home/HomeView.tsx` | All authenticated users |
-| `#create` | `CreateCER/CreateCERView.tsx` | Initiator or Admin role |
-| `#change/{cerprno}` | `ChangeCER/ChangeCERView.tsx` | Proposal Owner, Initiator, or Admin |
-| `#display/{cerprno}` | `DisplayCER/DisplayCERView.tsx` | All authenticated users |
-| `#my-proposals` | `MyProposals/ProposalListView.tsx` (mode="my") | All authenticated users |
-| `#all-proposals` | `MyProposals/ProposalListView.tsx` (mode="all") | All authenticated users |
-| `#pending-approvals` | `PendingApprovals/PendingApprovalsView.tsx` | Approver or Admin role |
-| `#approval-history` | `ApprovalWorkflow/ApprovalHistoryView.tsx` | All authenticated users |
-| `#reports` | `Reports/ReportsView.tsx` | Finance, Audit, or Admin role |
-| `#audit-trail` | `Audit/AuditTrailView.tsx` | All authenticated users |
-| `#workflow-config` | `Admin/AdminConsoleView.tsx` | System Administrator only |
+| URL Hash             | Target View Component                           | Required Role / Access              |
+| -------------------- | ----------------------------------------------- | ----------------------------------- |
+| `#dashboard`         | `Home/HomeView.tsx`                             | All authenticated users             |
+| `#create`            | `CreateCER/CreateCERView.tsx`                   | Initiator or Admin role             |
+| `#change/{cerprno}`  | `ChangeCER/ChangeCERView.tsx`                   | Proposal Owner, Initiator, or Admin |
+| `#display/{cerprno}` | `DisplayCER/DisplayCERView.tsx`                 | All authenticated users             |
+| `#my-proposals`      | `MyProposals/ProposalListView.tsx` (mode="my")  | All authenticated users             |
+| `#all-proposals`     | `MyProposals/ProposalListView.tsx` (mode="all") | All authenticated users             |
+| `#pending-approvals` | `PendingApprovals/PendingApprovalsView.tsx`     | Approver or Admin role              |
+| `#approval-history`  | `ApprovalWorkflow/ApprovalHistoryView.tsx`      | All authenticated users             |
+| `#reports`           | `Reports/ReportsView.tsx`                       | Finance, Audit, or Admin role       |
+| `#audit-trail`       | `Audit/AuditTrailView.tsx`                      | All authenticated users             |
+| `#workflow-config`   | `Admin/AdminConsoleView.tsx`                    | System Administrator only           |
 
 ---
 
@@ -236,28 +240,42 @@ D:/Git/CER/
 ## 5. Business Rules & Governance Matrix
 
 ### 5.1 SBU-Specific Sequential Approval Engine
-Proposals follow a strict Fixed Six-Level Sequential Approval Workflow with approvers dynamically resolved per SBU from `CERRoleMatrix`. Proposals follow strict contiguous stage progression (Level 1 → Level 2 → Level 3..) tailored to that SBU's operational requirements without any hardcoded corporate roles.
+
+Proposals follow a strict Fixed Six-Level Sequential Approval Workflow:
+
+1. **L1 - Finance**: SBU-wise designated approver in `CERRoleMatrix` (`approverLevel = "1"`).
+2. **L2 - Project Owner**: **Dynamic Automatic Resolution** resolved per proposal from `cerOwner` (`owner_email`).
+3. **L3 - BU CFO**: SBU-wise designated approver in `CERRoleMatrix` (`approverLevel = "3"`).
+4. **L4 - BU Director**: SBU-wise designated approver in `CERRoleMatrix` (`approverLevel = "4"`).
+5. **L5 - VOGL CFO**: Corporate / SBU designated approver in `CERRoleMatrix` (`approverLevel = "5"`).
+6. **L6 - VOGL CEO**: Corporate / SBU designated approver in `CERRoleMatrix` (`approverLevel = "6"`).
+
+Proposals follow strict contiguous stage progression (Level 1 → Level 2 → Level 3 → Level 4 → Level 5 → Level 6).
 
 ### 5.2 Dynamic Project Owner Resolution (`ProjectOwnerAuto`)
-- In standard approval stages, approver identity is dynamically resolved from `CERRoleMatrix` matching `role = 'Approver'` and `approvalLevel = levelId`.
-- When a stage has `assignmentType = 'ProjectOwnerAuto'` (or role title matches "Project Owner" / "Proposal Owner"):
-  - The approver identity is **dynamically extracted** from the proposal's `cerOwner` Person field (or fallback `owname` / `owner_email`).
-  - No static email is configured in `CERRoleMatrix`.
-  - Proposals within the same SBU dynamically route to their respective project owners.
 
-### 5.3 Segregation of Duties (SoD)
-- **Initiator Exclusion**: An employee who creates a proposal or is designated as the CER Owner (`cerOwner` / `owner_email`) is **strictly forbidden** from approving that proposal at non-Project-Owner stages (e.g. Discipline Lead, SBU Head, etc.).
-- If an initiator holds an `Approver` role at Level 2, the system automatically detects the conflict, disables the approve button, and displays:
-  > *"Segregation of Duties Enforcement: You are the initiator/owner of this CER proposal and cannot approve your own request."*
-- Administrators can intervene as governance auditors to advance proposals if an operational deadlock occurs.
+- For Level 2, the approver identity is **dynamically extracted** from the proposal's `cerOwner` Person field (or fallback `owner_email`).
+- No static email or user is configured for Level 2 in `CERRoleMatrix` (displayed as `Dynamic (Project Owner)`).
+- Proposals within the same SBU dynamically route to their respective proposal owners for Level 2 endorsement.
+
+### 5.3 Approval Authority & Matrix as Single Source of Truth
+
+- **Single Source of Truth**: The Approval Role Matrix (`CERRoleMatrix`) is the authoritative source for sequential approval permissions at non-Project-Owner stages (L1, L3, L4, L5, L6).
+- **Authorization Criteria**: A user can approve a proposal only when:
+  1. Proposal status is `In Approval`.
+  2. Proposal is currently pending at that approval level.
+  3. The user is explicitly assigned to that exact approval level and matching SBU (or `All`) in `CERRoleMatrix` (or is the dynamic Project Owner for Level 2).
+- **Matrix-Driven Governance**: Legacy blanket restrictions (e.g. proposal creator cannot approve an assigned stage) have been removed. If a user is designated in the matrix for that stage and SBU, that matrix assignment governs.
+- Being an administrator or having access to the Pending Approvals page does not automatically grant approval rights if unassigned.
 
 ### 5.4 Re-Approval on Revision Workflow
-- If a proposal is rejected at any level (e.g. Level 3), the initiator can modify the proposal in **Change CER**.
-- Saving the edited proposal automatically:
+
+- If an approver selects "Send Back", the proposal reverts to `Send Back` status and returns to the Initiator for rework.
+- Resubmitting the edited proposal automatically:
   1. Increments `revisionCount` by 1.
   2. Resets proposal status to `In Approval`.
-  3. Resets `currentLevel` back to **Level 1** to ensure all approvers re-validate modified figures.
-  4. Preserves all previous approval history in `CERApprovalDecisions` and remarks in `CERRemarksHistory`.
+  3. Resets `currentLevel` back to **Level 1 (Finance)** to ensure all approvers re-validate modified figures.
+  4. Preserves all previous approval history in `CERApprovalDecisions`.
 
 ---
 
@@ -266,11 +284,13 @@ Proposals follow a strict Fixed Six-Level Sequential Approval Workflow with appr
 The application implements automatic expenditure phasing based on the **Indian Fiscal Year (April 1 through March 31)**:
 
 ### Dynamic Label Generation:
+
 1. **Prior Period (`phTillLabel`)**: `Till Mar'YY` (Cumulative capital spent before current fiscal year).
 2. **Current FY (`phFyLabel`)**: `FY YY-ZZ` (Projected expenditure during active fiscal year).
 3. **Beyond Period (`phBeyondLabel`)**: `Beyond FY'ZZ` (Expenditure in subsequent financial years).
 
 ### Fiscal Year Rollover Examples:
+
 - **October 2026**:
   - `phTillLabel`: **Till Mar'26**
   - `phFyLabel`: **FY 26-27**
@@ -285,13 +305,16 @@ The application implements automatic expenditure phasing based on the **Indian F
 ## 7. Directory People Picker & Person Field Architecture
 
 ### 7.1 `DirectoryPeoplePicker.tsx` & `UserAvatar.tsx`
+
 - **1-Character Instant Lookup**: Typing a single character immediately triggers directory suggestions with a 150ms debounce.
 - **Instant Focus Suggestions**: Clicking into the search input immediately surfaces active directory members.
 - **Real-Time Photos**: Renders Microsoft 365 profile photos via `/_layouts/15/userphoto.aspx?size=M&accountname=${email}` with initials fallback badges.
 - **Outside-Click Dismissal**: Clicking outside the input cleanly closes suggestions.
 
 ### 7.2 `PersonFieldService.ts` Engine
+
 Provides complete, typed abstraction over SharePoint Person columns:
+
 - **Identity Normalization**: Strips claims prefixes (`i:0#.f|membership|`) and trims emails.
 - **REST User Resolution**: Calls `POST {siteUrl}/_api/web/ensureUser` to obtain site collection integer user IDs.
 - **Site-Context Caching**: 10-minute in-memory cache keyed by `${siteUrl}::${normLogon}` to eliminate redundant network roundtrips.
@@ -300,41 +323,47 @@ Provides complete, typed abstraction over SharePoint Person columns:
 
 ---
 
-## 8. Role-Based Access Control (RBAC) & Governance
+## 8. Role-Based Access Control (RBAC) & Approval Matrix Governance
 
-The system enforces 4 enterprise roles:
-1. **Initiator**:
-   - Create new CER proposals across assigned SBUs.
-   - Edit draft proposals and revise rejected proposals.
-   - View personal submissions in "My CER Proposals".
-2. **Approver**:
-   - Access "Pending Approvals" inbox for assigned SBU and level.
-   - Endorse (Approve) or Return with Remarks (Reject) proposals.
-   - Enforced by Segregation of Duties checks.
-3. **Admin**:
-   - Manage Fixed 6-Level Approval Matrix in Admin Console (`CERRoleMatrix`).
-   - Assign and revoke user roles (`CERRoleMatrix`).
-   - Configure Indian FY phasing and system settings.
-   - Full governance override to prevent approval deadlocks.
-   - **Designated Bootstrap Admin**: `70007144@cairnindia.com` has automatic, guaranteed administrative access.
-4. **Finance_Audit**:
-   - Read-only access across all SBUs and proposals.
-   - Access granular change logs (`CERAuditTrail`) and compliance reports.
-   - Generate executive PDF briefs and export comprehensive Excel datasets.
+The system enforces a simplified access model where all authenticated users have open access to standard CER capabilities, while privileged administration is restricted strictly to administrators.
+
+### 8.1 Common Page Access (All Authenticated Users)
+
+Every authenticated user can access the 5 standard CER pages without requiring any specific application role:
+
+1. **Create CER**: Any authenticated employee can author and submit a new CER proposal.
+2. **My CER Proposals**: Users track proposals they authored or where they are designated as Project Owner.
+3. **Pending Approvals**: Inbox displaying proposals awaiting the logged-in user's approval. A proposal appears here only when the proposal is in `In Approval` status at the stage assigned to the user in `CERRoleMatrix` (or at Level 2 if the user is the proposal's Project Owner).
+4. **Reports & Analytics**: Full portfolio visibility, financial charts, and Excel exports.
+5. **User Manual**: Process guide and user documentation.
+
+### 8.2 Admin Console & Approval Role Matrix (Admin Only)
+
+- **Restricted Access**: Access to the Admin Console is restricted strictly to users who hold an active `role = "Admin"` assignment in `CERRoleMatrix`. Normal users and unassigned users receive an Access Denied barrier.
+- **Approval Role Matrix Only**: The Admin Console contains exclusively the **Approval Role Matrix** (8 columns $\times$ 4 SBU rows). The legacy Employee Directory and user listing features have been completely removed.
+- **Matrix Dimensions**:
+  - **4 Rows (SBUs)**: `RJ North`, `RJ South`, `CBOS`, `RAVA`.
+  - **8 Columns**: `Block/SBU/Field`, `L1 - Finance`, `L2 - Project Owner (Dynamic)`, `L3 - BU CFO`, `L4 - BU Director`, `L5 - VOGL CFO`, `L6 - VOGL CEO`, `Action`.
+- **Fixed Choice Columns**:
+  - `approverLevel`: Configured as a **Choice** column (`1`, `3`, `4`, `5`, `6`) in SharePoint because approval stages are fixed.
+  - `approverRoleTitle`: Configured as a **Choice** column (`Finance`, `BU CFO`, `BU Director`, `VOGL CFO`, `VOGL CEO`) because role titles are fixed standards. (`Project Owner` is excluded because Level 2 is dynamic and never assigned in the matrix).
+  - `role`: Choice column with single option `Admin`. Left blank for normal stage approvers.
+  - Level 2 is dynamic per proposal and auto-routes to each proposal's Project Owner (`cerOwner` / `owner_email`).
 
 ---
 
-## 9. Master 7 Lists & Naming Standards Reference
+## 9. Master Lists & Naming Standards Reference
 
-The application communicates exclusively with 7 lists in clean CamelCase (no underscores `_`):
+The application communicates exclusively with 6 lists/libraries in clean CamelCase (no underscores `_`):
 
-| # | List / Library Name | Type | Purpose |
-|---|---|---|---|
-| 1 | **`CERProposals`** | Custom List | Master repository for all active CER proposal records (Sections A through G). |
-| 2 | **`CERProposalsHistory`** | Custom List | Archive repository for approved proposal snapshots prior to post-approval amendments. |
-| 3 | **`CERApprovalDecisions`** | Custom List | Formal sign-off records (Approved / Rejected / Send Back) with timestamps. |
-| 4 | **`CERAttachments`** | Document Library | Associated technical and financial PDF/Excel documentation. |
-| 5 | **`CERRoleMatrix`** | Custom List | Modern SBU-wise Role-Based Access Control (RBAC) and Fixed 6-Level Approval Matrix. |
+| #   | List / Library Name        | Type             | Purpose                                                                                                                               |
+| --- | -------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **`CERProposals`**         | Custom List      | Master repository for all active CER proposal records (Sections A through G).                                                         |
+| 2   | **`CERProposalsHistory`**  | Custom List      | Archive repository for approved proposal snapshots prior to post-approval amendments.                                                 |
+| 3   | **`CERApprovalDecisions`** | Custom List      | Formal sign-off records (Approved / Rejected / Send Back) with timestamps and version cycle tags.                                     |
+| 4   | **`CERAttachments`**       | Document Library | Associated technical and financial PDF/Excel documentation.                                                                           |
+| 5   | **`CERRoleMatrix`**        | Custom List      | Modern SBU-wise Role-Based Access Control (RBAC) and Fixed 6-Level Approval Matrix (`approverLevel` & `approverRoleTitle` as Choice). |
+| 6   | **`CERMailTrigger`**       | Custom List      | Transient outbox queue for Power Automate email dispatch.                                                                             |
 
 > For the complete schema specification, field types, and step-by-step manual creation instructions, refer to [SHAREPOINT_LISTS_AND_COLUMNS_SETUP.md](file:///d:/Git/CER/docs/SHAREPOINT_LISTS_AND_COLUMNS_SETUP.md).
 
@@ -365,5 +394,6 @@ npx tsc --noEmit
 ```
 
 ### Verification Results Summary:
+
 - **TypeScript Compiler (`tsc`)**: 0 errors across all source files.
 - **Automated Tests**: **410 Passed | 0 Failed (100% Pass Rate)**.

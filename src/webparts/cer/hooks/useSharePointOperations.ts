@@ -763,17 +763,21 @@ export class SharePointOperations {
   }
 
   /**
-   * Search users using the ClientPeoplePickerSearchUser endpoint.
-   * Scoped to users with permission to this SharePoint site.
+   * Search users using ClientPeoplePickerSearchUser endpoint with tenant search fallback.
+   * Searches across tenant directory, Azure AD, UserInfoList, and SharePoint Search.
    *
-   * @param queryString - The search query text
-   * @param maxSuggestions - Maximum suggestions to return (default: 15)
+   * @param queryString - Search string
+   * @param maxSuggestions - Maximum suggestions to return (default: 30)
    */
   public async searchPeoplePicker(
     queryString: string,
-    maxSuggestions: number = 15,
+    maxSuggestions: number = 30,
   ): Promise<Record<string, unknown>[]> {
-    const endpoint = `${this._siteUrl}/_api/SP.UI.ApplicationPages.ClientPeoplePickerWebServiceInterface.ClientPeoplePickerSearchUser`;
+    const endpoints = [
+      `${this._siteUrl}/_api/SP.UI.ApplicationPages.ClientPeoplePickerWebServiceInterface.clientPeoplePickerSearchUser`,
+      `${this._siteUrl}/_api/SP.UI.ApplicationPages.ClientPeoplePickerWebServiceInterface.ClientPeoplePickerSearchUser`,
+    ];
+
     const payload = {
       queryParams: {
         __metadata: {
@@ -783,44 +787,97 @@ export class SharePointOperations {
         AllowMultipleEntities: false,
         AllUrlZones: false,
         MaximumEntitySuggestions: maxSuggestions,
-        PrincipalSource: 1, // SPWeb only
-        PrincipalType: 1, // Users
+        PrincipalSource: 15, // All sources: SPWeb (1) + UserInfoList (2) + Windows (4) + Directory/Tenant (8)
+        PrincipalType: 15,   // All types: Users (1) + DL (2) + SecGroup (4) + SPGroup (8)
         QueryString: queryString,
       },
     };
 
-    // PeoplePicker requires odata=verbose format
-    const response: SPHttpClientResponse = await this._client.post(
-      endpoint,
-      SPHttpClient.configurations.v1,
-      {
-        headers: {
-          Accept: "application/json;odata=verbose",
-          "Content-Type": "application/json;odata=verbose",
-        },
-        body: JSON.stringify(payload),
-      },
-    );
+    let rawResults: any = null;
 
-    if (!response.ok) {
-      throw new Error(
-        `[SPOperations] PeoplePicker search failed (${response.status})`,
-      );
-    }
-
-    const json = await response.json();
-    const rawResults = json?.d?.ClientPeoplePickerSearchUser;
-    if (!rawResults) return [];
-
-    let parsed: any = rawResults;
-    if (typeof rawResults === "string") {
+    for (const endpoint of endpoints) {
       try {
-        parsed = JSON.parse(rawResults);
-      } catch {
-        parsed = [];
+        const response: SPHttpClientResponse = await this._client.post(
+          endpoint,
+          SPHttpClient.configurations.v1,
+          {
+            headers: {
+              Accept: "application/json;odata=verbose",
+              "Content-Type": "application/json;odata=verbose",
+            },
+            body: JSON.stringify(payload),
+          },
+        );
+
+        if (response.ok) {
+          const json = await response.json();
+          rawResults =
+            json?.d?.ClientPeoplePickerSearchUser ||
+            json?.d?.clientPeoplePickerSearchUser ||
+            json?.ClientPeoplePickerSearchUser ||
+            json?.clientPeoplePickerSearchUser ||
+            (typeof json?.d === "string" ? json.d : undefined) ||
+            json?.value;
+          if (rawResults) break;
+        } else {
+          console.warn(`[SPOperations] PeoplePicker endpoint returned status ${response.status}`);
+        }
+      } catch (err) {
+        console.warn(`[SPOperations] PeoplePicker request failed:`, err);
       }
     }
-    return Array.isArray(parsed) ? parsed : [];
+
+    if (rawResults) {
+      let parsed: any = rawResults;
+      if (typeof rawResults === "string") {
+        try {
+          parsed = JSON.parse(rawResults);
+        } catch {
+          parsed = [];
+        }
+      }
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+
+    // Secondary fallback: SharePoint People Search query across entire tenant
+    try {
+      const searchUrl = `${this._siteUrl}/_api/search/query?querytext='${encodeURIComponent(queryString)}*'&sourceid='b09a7990-d1ab-4943-ac63-c66848625ba7'&rowlimit=${maxSuggestions}&selectproperties='PreferredName,WorkEmail,AccountName,JobTitle,Department'`;
+      const searchResp = await this._client.get(searchUrl, SPHttpClient.configurations.v1, {
+        headers: { Accept: "application/json;odata=nometadata" },
+      });
+      if (searchResp.ok) {
+        const searchJson = await searchResp.json();
+        const rows = searchJson?.PrimaryQueryResult?.RelevantResults?.Table?.Rows;
+        if (Array.isArray(rows) && rows.length > 0) {
+          return rows.map((row: any) => {
+            const cells = row.Cells || [];
+            const getCell = (key: string): string => {
+              const c = cells.find((cell: any) => cell.Key === key);
+              return c && c.Value ? String(c.Value) : "";
+            };
+            const name = getCell("PreferredName");
+            const email = getCell("WorkEmail");
+            const account = getCell("AccountName");
+            return {
+              DisplayText: name || account || email,
+              Key: account || email,
+              Description: email,
+              EntityData: {
+                Email: email,
+                Title: getCell("JobTitle"),
+                Department: getCell("Department"),
+              },
+            };
+          });
+        }
+      }
+    } catch (searchErr) {
+      console.warn("[SPOperations] SharePoint People Search fallback failed:", searchErr);
+    }
+
+    return [];
   }
 
   /**

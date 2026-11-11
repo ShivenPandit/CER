@@ -200,9 +200,11 @@ export const AppHeader: React.FC<IAppHeaderProps> = ({
                         </p>
                         {/* Compact Role Badge(s) on Top */}
                         <div className="flex items-center gap-1 shrink-0">
-                          {(currentUser.roles && currentUser.roles.length > 0
+                          {((currentUser.roles && currentUser.roles.length > 0
                             ? currentUser.roles
                             : [currentUser.role]
+                          )
+                            .filter((r) => r === "Admin" || r === "Approver")
                           ).map((r) => (
                             <span
                               key={r}

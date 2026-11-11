@@ -17,10 +17,25 @@ export const AccessDeniedView: React.FC<IAccessDeniedViewProps> = ({
   onGoHome,
 }) => {
   const getReadableRole = () => {
-    if (currentUser.roles && currentUser.roles.length > 0) {
-      return currentUser.roles.map((r) => r.replace("_", " & ")).join(", ");
+    const validRoles = (currentUser.roles || []).filter(
+      (r) => r === "Admin" || r === "Approver"
+    );
+    if (validRoles.length > 0) {
+      return validRoles
+        .map((r) =>
+          r === "Approver" && currentUser.approval_level
+            ? `Approver (L${currentUser.approval_level})`
+            : r
+        )
+        .join(", ");
     }
-    return currentUser.role ? currentUser.role.replace("_", " & ") : "Unregistered";
+    if (currentUser.role === "Admin") return "Admin";
+    if (currentUser.role === "Approver") {
+      return currentUser.approval_level
+        ? `Approver (L${currentUser.approval_level})`
+        : "Approver";
+    }
+    return "Standard User";
   };
 
   return (

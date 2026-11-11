@@ -179,31 +179,68 @@ export class SharePointCERDataService implements ICERDataService {
     }
   }
 
-  private async _getApprovalLevelFieldName(): Promise<string> {
+  private async _getApprovalLevelFieldInfo(): Promise<{ name: string; isChoice: boolean }> {
     try {
       const fields = await this.getRoleMatrixFields();
       const candidate = (fields || []).find((f) => {
         const intName = (f.InternalName || "").toLowerCase();
         const title = (f.Title || "").toLowerCase();
         return (
-          intName === "approvallevel" ||
           intName === "approverlevel" ||
+          intName === "approvallevel" ||
           intName === "approval_level" ||
           intName === "approvallevelstage" ||
+          title === "approver level" ||
           title === "approval level stage" ||
           title === "approval level" ||
-          title === "approver level" ||
           intName === "stage" ||
           intName === "level"
         );
       });
       if (candidate && candidate.InternalName) {
-        return candidate.InternalName;
+        return {
+          name: candidate.InternalName,
+          isChoice: (candidate.TypeAsString || "").toLowerCase() === "choice",
+        };
       }
     } catch {
       // ignore
     }
-    return "approverLevel";
+    return { name: "approverLevel", isChoice: true };
+  }
+
+  private async _getApprovalRoleTitleFieldInfo(): Promise<{ name: string; isChoice: boolean }> {
+    try {
+      const fields = await this.getRoleMatrixFields();
+      const candidate = (fields || []).find((f) => {
+        const intName = (f.InternalName || "").toLowerCase();
+        const title = (f.Title || "").toLowerCase();
+        return (
+          intName === "approverroletitle" ||
+          intName === "approvalroletitle" ||
+          intName === "approver_role_title" ||
+          intName === "approval_role_title" ||
+          intName === "roletitle" ||
+          title === "approver role title" ||
+          title === "approval role title" ||
+          title === "role title"
+        );
+      });
+      if (candidate && candidate.InternalName) {
+        return {
+          name: candidate.InternalName,
+          isChoice: (candidate.TypeAsString || "").toLowerCase() === "choice",
+        };
+      }
+    } catch {
+      // ignore
+    }
+    return { name: "approverRoleTitle", isChoice: true };
+  }
+
+  private async _getApprovalLevelFieldName(): Promise<string> {
+    const info = await this._getApprovalLevelFieldInfo();
+    return info.name;
   }
 
   // ---------------------------------------------------------------------------
@@ -2873,12 +2910,13 @@ export class SharePointCERDataService implements ICERDataService {
 
           let matchedUsers: IUserRoleAssignment[] = [];
           if (!isPO) {
-            // Retrieve active Approvers assigned to this level
+            // Retrieve active Approvers assigned to this level in CERRoleMatrix
             const eligibleForLevel = approverRoles.filter(
               (u) =>
                 u.is_active !== false &&
-                u.role === "Approver" &&
-                u.approval_level === lid
+                u.approval_level !== undefined &&
+                u.approval_level !== null &&
+                Number(u.approval_level) === Number(lid)
             );
 
             let candidates: IUserRoleAssignment[] = [];
@@ -4646,15 +4684,98 @@ export class SharePointCERDataService implements ICERDataService {
 
   // ---------------------------------------------------------------------------
   // ---------------------------------------------------------------------------
-  // Directory Search (Real Portal Users with Permissions to this Site)
+  // Directory Search (Tenant Directory & Site Users)
   // ---------------------------------------------------------------------------
 
   public async searchDirectoryUsers(query: string): Promise<IDirectoryUser[]> {
     const trimmed = (query || "").trim().toLowerCase();
+    if (!trimmed || trimmed.length < 1) {
+      return [];
+    }
 
-    // 1. Query REAL users who have permission to this SharePoint portal
-    try {
-      const siteUsersRaw = await this._sp.getSiteUsers<{
+    const candidateMap = new Map<string, IDirectoryUser>();
+
+    // Helper to compute relevance score for a directory user against query
+    const computeRelevance = (user: IDirectoryUser): number => {
+      const name = (user.displayName || "").toLowerCase().trim();
+      const email = (user.mail || "").toLowerCase().trim();
+      const upn = (user.userPrincipalName || "").toLowerCase().trim();
+      // Remove company / vendor tags like "(STL Digital)" or "(Microlink)" for clean name scoring
+      const cleanName = name.replace(/\(.*?\)/g, "").replace(/\[.*?\]/g, "").trim();
+
+      let score = 0;
+
+      // 1. Exact match on display name
+      if (cleanName === trimmed || name === trimmed) {
+        score += 2000;
+      } else if (cleanName.startsWith(trimmed)) {
+        // First name starts with query (e.g. "Shiven" starts with "s") -> highest priority
+        score += 1000;
+      } else {
+        const words = cleanName.split(/\s+/).filter(Boolean);
+        // Any word in name starts with query (e.g. "Sharma" or "Singh" starts with "s")
+        if (words.some((w) => w.startsWith(trimmed))) {
+          score += 600;
+        } else if (cleanName.includes(trimmed)) {
+          score += 300;
+        } else if (name.includes(trimmed)) {
+          score += 150;
+        }
+      }
+
+      // 2. Email / UPN matches
+      const emailPrefix = email.split("@")[0] || "";
+      const upnPrefix = upn.split("@")[0] || "";
+      if (email === trimmed || upn === trimmed) {
+        score += 1500;
+      } else if (emailPrefix.startsWith(trimmed) || upnPrefix.startsWith(trimmed)) {
+        score += 800;
+      } else if (email.includes(trimmed) || upn.includes(trimmed)) {
+        score += 200;
+      }
+
+      return score;
+    };
+
+    // Graph search promise (if context is present and has msGraphClientFactory)
+    const ctx = this._context;
+    const graphPromise: Promise<any[]> = (ctx?.msGraphClientFactory
+      ? (async () => {
+          try {
+            const client = await ctx.msGraphClientFactory.getClient("3");
+            const safeQuery = trimmed.replace(/'/g, "''");
+            const filterQuery = [
+              `startswith(displayName,'${safeQuery}')`,
+              `startswith(givenName,'${safeQuery}')`,
+              `startswith(surname,'${safeQuery}')`,
+              `startswith(mail,'${safeQuery}')`,
+              `startswith(userPrincipalName,'${safeQuery}')`,
+              `startswith(employeeId,'${safeQuery}')`,
+            ].join(" or ");
+
+            const res = await client
+              .api("/users")
+              .filter(filterQuery)
+              .select("id,displayName,givenName,surname,mail,userPrincipalName,jobTitle,employeeId,department")
+              .top(30)
+              .get();
+
+            return (res && Array.isArray(res.value)) ? res.value : [];
+          } catch (graphErr) {
+            console.warn("[SharePointCERDataService] Graph search failed:", graphErr);
+            return [];
+          }
+        })()
+      : Promise.resolve([]));
+
+    // Run Microsoft Graph, People Picker, and site users in parallel
+    const [graphUsers, peoplePickerUsers, siteUsers] = await Promise.all([
+      graphPromise,
+      this._sp.searchPeoplePicker(trimmed, 30).catch((err) => {
+        console.warn("[SharePointCERDataService] PeoplePicker search failed:", err);
+        return [] as Record<string, unknown>[];
+      }),
+      this._sp.getSiteUsers<{
         Id: number;
         Title: string;
         Email: string;
@@ -4663,69 +4784,127 @@ export class SharePointCERDataService implements ICERDataService {
       }>({
         filter: "PrincipalType eq 1 and Email ne ''",
         select: "Id,Title,Email,LoginName,IsSiteAdmin",
-      });
+      }).catch((err) => {
+        console.warn("[SharePointCERDataService] Querying siteusers failed:", err);
+        return [];
+      }),
+    ]);
 
-      if (siteUsersRaw.length > 0) {
-        const siteUsers: IDirectoryUser[] = siteUsersRaw.map((u) => {
-          const email = (u.Email || "").trim();
-          const upn = (u.LoginName && u.LoginName.indexOf("|") !== -1)
-            ? u.LoginName.split("|").pop()
-            : email;
-          return {
-            id: String(u.Id || email || u.Title),
-            displayName: u.Title || "",
+    // 0. Process Microsoft Graph users (direct Microsoft Entra ID / Azure AD)
+    if (Array.isArray(graphUsers)) {
+      for (const gu of graphUsers) {
+        const email = (gu.mail || gu.userPrincipalName || "").trim();
+        const upn = (gu.userPrincipalName || gu.mail || "").trim();
+        const displayName = (gu.displayName || "").trim();
+        const key = (email || upn || displayName).toLowerCase().trim();
+        if (!key) continue;
+
+        candidateMap.set(key, {
+          id: gu.id || email || displayName,
+          displayName: displayName,
+          mail: email,
+          userPrincipalName: upn,
+          jobTitle: gu.jobTitle || undefined,
+          department: gu.department || undefined,
+        });
+      }
+    }
+
+    // 1. Process People Picker results (full tenant directory)
+    if (Array.isArray(peoplePickerUsers)) {
+      for (const item of peoplePickerUsers as any[]) {
+        const email = (item.EntityData?.Email || (item.Description && item.Description.indexOf("@") !== -1 ? item.Description : "") || "").trim();
+        const upn = ((item.Key && item.Key.indexOf("|") !== -1)
+          ? item.Key.split("|").pop()
+          : (email || item.DisplayText || "")).trim();
+        const displayName = (item.DisplayText || "").trim();
+        const key = (email || upn || displayName).toLowerCase().trim();
+        if (!key) continue;
+
+        // Skip claim/group entities like "Everyone except external users" so only individual employees are returned
+        const lowerName = displayName.toLowerCase();
+        if (
+          lowerName.includes("everyone except external users") ||
+          lowerName === "everyone" ||
+          (lowerName.includes("members") && !email)
+        ) {
+          continue;
+        }
+
+        const rawTitle = (item.EntityData?.Title || "").trim();
+        const rawDept = (item.EntityData?.Department || "").trim();
+        const isGenericTitle = rawTitle.toLowerCase().includes("portal member") || rawTitle.toLowerCase().includes("site administrator");
+        const isGenericDept = rawDept.toLowerCase().includes("cer management portal");
+
+        const jobTitle = (!isGenericTitle && rawTitle) ? rawTitle : undefined;
+        const department = (!isGenericDept && rawDept) ? rawDept : undefined;
+
+        candidateMap.set(key, {
+          id: item.Key || email || displayName,
+          displayName: displayName,
+          mail: email,
+          userPrincipalName: upn || email,
+          jobTitle,
+          department,
+        });
+      }
+    }
+
+    // 2. Process Site Users (local SharePoint site users)
+    if (Array.isArray(siteUsers)) {
+      for (const u of siteUsers) {
+        const email = (u.Email || "").trim();
+        const upn = (u.LoginName && u.LoginName.indexOf("|") !== -1)
+          ? u.LoginName.split("|").pop()
+          : email;
+        const displayName = (u.Title || "").trim();
+        const key = (email || upn || displayName).toLowerCase().trim();
+        if (!key) continue;
+
+        // Skip claims and group objects
+        const lowerTitle = displayName.toLowerCase();
+        if (
+          lowerTitle.includes("everyone except external users") ||
+          lowerTitle === "everyone" ||
+          (lowerTitle.includes("members") && !email)
+        ) {
+          continue;
+        }
+
+        const existing = candidateMap.get(key);
+        if (existing) {
+          if (!existing.mail && email) existing.mail = email;
+          if (!existing.userPrincipalName && upn) existing.userPrincipalName = upn;
+        } else {
+          candidateMap.set(key, {
+            id: String(u.Id || email || displayName),
+            displayName: displayName,
             mail: email,
             userPrincipalName: upn || email,
-            jobTitle: u.IsSiteAdmin ? "Site Administrator" : "Portal Member",
-            department: "CER Management Portal",
-          };
-        });
-
-        // Filter by search query if provided, or return all portal users if empty
-        const filtered = !trimmed
-          ? siteUsers
-          : siteUsers.filter((u) => {
-              const matchName = u.displayName.toLowerCase().indexOf(trimmed) !== -1;
-              const matchMail = (u.mail || "").toLowerCase().indexOf(trimmed) !== -1;
-              const matchUpn = (u.userPrincipalName || "").toLowerCase().indexOf(trimmed) !== -1;
-              return matchName || matchMail || matchUpn;
-            });
-
-        if (filtered.length > 0 || !trimmed) {
-          return filtered;
+            jobTitle: undefined,
+            department: undefined,
+          });
         }
       }
-    } catch (siteUsersError) {
-      console.warn(
-        "[SharePointCERDataService] Querying siteusers failed, falling back to directory search:",
-        siteUsersError
-      );
     }
 
-    // 2. Query ClientPeoplePickerSearchUser scoped to SharePoint site permissions (PrincipalSource: 1 = SPWeb)
-    try {
-      const rawResults = await this._sp.searchPeoplePicker(trimmed, 15);
-      if (rawResults.length > 0) {
-        return rawResults.map((item: any) => {
-          const email = item.EntityData?.Email || (item.Description && item.Description.indexOf("@") !== -1 ? item.Description : "");
-          const upn = (item.Key && item.Key.indexOf("|") !== -1)
-            ? item.Key.split("|").pop()
-            : (email || item.DisplayText);
-          return {
-            id: item.Key || email || item.DisplayText,
-            displayName: item.DisplayText || "",
-            mail: email || "",
-            userPrincipalName: upn || email || "",
-            jobTitle: item.EntityData?.Title || "Portal Member",
-            department: item.EntityData?.Department || "CER Management Portal",
-          };
-        });
+    // STRICT FILTER: ONLY include users whose name, email, or account actually matches the query (score > 0)
+    const scoredList: Array<{ user: IDirectoryUser; score: number }> = [];
+    for (const user of Array.from(candidateMap.values())) {
+      const score = computeRelevance(user);
+      if (score > 0) {
+        scoredList.push({ user, score });
       }
-    } catch (spError) {
-      console.warn("[SharePointCERDataService] ClientPeoplePickerSearchUser failed:", spError);
     }
 
-    return [];
+    scoredList.sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+      return a.user.displayName.localeCompare(b.user.displayName);
+    });
+
+    return scoredList.map((item) => item.user);
   }
 
   // ---------------------------------------------------------------------------
@@ -4840,6 +5019,35 @@ export class SharePointCERDataService implements ICERDataService {
               ? item.Level
               : item.level;
 
+          let parsedLevel: number | undefined;
+          if (rawLevel !== undefined && rawLevel !== null && rawLevel !== "") {
+            const levelVal = typeof rawLevel === "object" && rawLevel.Value !== undefined ? rawLevel.Value : rawLevel;
+            const strVal = String(levelVal).trim();
+            const match = strVal.match(/\d+/);
+            if (match) {
+              parsedLevel = parseInt(match[0], 10);
+            } else if (!isNaN(Number(strVal))) {
+              parsedLevel = Number(strVal);
+            }
+          }
+
+          const rawRoleTitle =
+            item.approverRoleTitle !== undefined
+              ? item.approverRoleTitle
+              : item.approvalRoleTitle !== undefined
+              ? item.approvalRoleTitle
+              : item.approver_role_title !== undefined
+              ? item.approver_role_title
+              : item.approval_role_title !== undefined
+              ? item.approval_role_title
+              : item.ApproverRoleTitle !== undefined
+              ? item.ApproverRoleTitle
+              : item.ApprovalRoleTitle;
+          const parsedRoleTitle =
+            typeof rawRoleTitle === "object" && rawRoleTitle?.Value !== undefined
+              ? String(rawRoleTitle.Value)
+              : String(rawRoleTitle || "");
+
           return {
             id: String(item.ID !== undefined ? item.ID : item.Id !== undefined ? item.Id : item.id || Date.now()),
             user_name: userName,
@@ -4847,8 +5055,8 @@ export class SharePointCERDataService implements ICERDataService {
             login_name: loginName,
             user_id: userId,
             role: item.role || "Initiator",
-            approval_level: rawLevel !== undefined && rawLevel !== null ? Number(rawLevel) : undefined,
-            approver_role_title: item.approverRoleTitle || item.approver_role_title || "",
+            approval_level: parsedLevel,
+            approver_role_title: parsedRoleTitle,
             department: item.department || undefined,
             sbu: item.sbu || "",
             is_active: item.isActive !== undefined ? !!item.isActive : true, // Presence in CERRoleMatrix represents active authorization
@@ -5000,18 +5208,23 @@ export class SharePointCERDataService implements ICERDataService {
       }
 
       // Base payload targeting CERRoleMatrix list columns
+      const isTargetAdmin = String(assignment.role || "").toLowerCase() === "admin";
       const payload: Record<string, any> = {
         Title: assignment.user_name,
-        role: assignment.role,
-        sbu: assignment.sbu || "",
+        role: isTargetAdmin ? "Admin" : null,
+        sbu: assignment.sbu || null,
       };
 
-      const levelFieldName = await this._getApprovalLevelFieldName();
+      const levelInfo = await this._getApprovalLevelFieldInfo();
+      const roleTitleInfo = await this._getApprovalRoleTitleFieldInfo();
+
       if (assignment.approval_level !== undefined && assignment.approval_level !== null) {
-        payload[levelFieldName] = assignment.approval_level;
+        payload[levelInfo.name] = levelInfo.isChoice
+          ? String(assignment.approval_level)
+          : Number(assignment.approval_level);
       }
       if (assignment.approver_role_title) {
-        payload.approverRoleTitle = assignment.approver_role_title;
+        payload[roleTitleInfo.name] = assignment.approver_role_title;
       }
       if (spUserId) {
         payload.UserId = spUserId;
@@ -5100,6 +5313,17 @@ export class SharePointCERDataService implements ICERDataService {
 
           // Known optional column fallbacks
           if ((errStr.indexOf("approvallevel") !== -1 || errStr.indexOf("approverlevel") !== -1) && assignment.approval_level) {
+            // Type mismatch fallback: Choice (Edm.String) vs Number (Edm.Double)
+            if (errStr.indexOf("edm.string") !== -1 || errStr.indexOf("edm.double") !== -1 || errStr.indexOf("convert") !== -1) {
+              const activeKey = currentPayload.approverLevel !== undefined ? "approverLevel" : "approvalLevel";
+              if (typeof currentPayload[activeKey] === "number") {
+                currentPayload[activeKey] = String(assignment.approval_level);
+                continue;
+              } else if (typeof currentPayload[activeKey] === "string") {
+                currentPayload[activeKey] = Number(assignment.approval_level);
+                continue;
+              }
+            }
             const hadApproval = currentPayload.approvalLevel !== undefined;
             const hadApprover = currentPayload.approverLevel !== undefined;
             delete currentPayload.approvalLevel;
@@ -5112,9 +5336,18 @@ export class SharePointCERDataService implements ICERDataService {
               continue;
             }
           }
-          if (errStr.indexOf("approverroletitle") !== -1 && currentPayload.approverRoleTitle !== undefined) {
+          if (errStr.indexOf("approverroletitle") !== -1 || errStr.indexOf("approvalroletitle") !== -1) {
+            const hadApprover = currentPayload.approverRoleTitle !== undefined;
+            const hadApproval = currentPayload.approvalRoleTitle !== undefined;
             delete currentPayload.approverRoleTitle;
-            continue;
+            delete currentPayload.approvalRoleTitle;
+            if (hadApprover && !hadApproval && assignment.approver_role_title) {
+              currentPayload.approvalRoleTitle = assignment.approver_role_title;
+              continue;
+            } else if (hadApproval && !hadApprover && assignment.approver_role_title) {
+              currentPayload.approverRoleTitle = assignment.approver_role_title;
+              continue;
+            }
           }
 
           break;
@@ -5161,12 +5394,8 @@ export class SharePointCERDataService implements ICERDataService {
     actor: { name: string; email: string }
   ): Promise<void> {
     this.clearCache();
-    // Security restriction: System Admin accounts cannot be modified via the UI
-    if (assignment.role === "Admin") {
-      throw new Error(
-        "Security Restriction: System Admin accounts cannot be modified through the web interface. System Admin permissions must be managed directly in SharePoint CERRoleMatrix list."
-      );
-    }
+    // Ensure System Admin privilege is preserved if the account is an Admin
+    const isTargetAdmin = assignment.role === "Admin";
 
     try {
       // 1. Resolve SharePoint user ID using ensureUser
@@ -5187,20 +5416,24 @@ export class SharePointCERDataService implements ICERDataService {
 
       const payload: Record<string, any> = {
         Title: assignment.user_name,
-        role: assignment.role,
-        sbu: assignment.sbu || "",
+        role: isTargetAdmin ? "Admin" : null,
+        sbu: assignment.sbu || null,
       };
 
-      const levelFieldName = await this._getApprovalLevelFieldName();
+      const levelInfo = await this._getApprovalLevelFieldInfo();
+      const roleTitleInfo = await this._getApprovalRoleTitleFieldInfo();
+
       if (assignment.approval_level !== undefined && assignment.approval_level !== null) {
-        payload[levelFieldName] = assignment.approval_level;
+        payload[levelInfo.name] = levelInfo.isChoice
+          ? String(assignment.approval_level)
+          : Number(assignment.approval_level);
       } else {
-        payload[levelFieldName] = null;
+        payload[levelInfo.name] = null;
       }
       if (assignment.approver_role_title !== undefined && assignment.approver_role_title !== null && assignment.approver_role_title.trim() !== "") {
-        payload.approverRoleTitle = assignment.approver_role_title;
+        payload[roleTitleInfo.name] = assignment.approver_role_title;
       } else {
-        payload.approverRoleTitle = null;
+        payload[roleTitleInfo.name] = null;
       }
       if (spUserId) {
         payload.UserId = spUserId;
@@ -5243,6 +5476,17 @@ export class SharePointCERDataService implements ICERDataService {
             }
           }
           if ((errStr.indexOf("approvallevel") !== -1 || errStr.indexOf("approverlevel") !== -1) && assignment.approval_level) {
+            // Type mismatch fallback: Choice (Edm.String) vs Number (Edm.Double)
+            if (errStr.indexOf("edm.string") !== -1 || errStr.indexOf("edm.double") !== -1 || errStr.indexOf("convert") !== -1) {
+              const activeKey = currentPayload.approverLevel !== undefined ? "approverLevel" : "approvalLevel";
+              if (typeof currentPayload[activeKey] === "number") {
+                currentPayload[activeKey] = String(assignment.approval_level);
+                continue;
+              } else if (typeof currentPayload[activeKey] === "string") {
+                currentPayload[activeKey] = Number(assignment.approval_level);
+                continue;
+              }
+            }
             const hadApproval = currentPayload.approvalLevel !== undefined;
             const hadApprover = currentPayload.approverLevel !== undefined;
             delete currentPayload.approvalLevel;
@@ -5255,9 +5499,18 @@ export class SharePointCERDataService implements ICERDataService {
               continue;
             }
           }
-          if (errStr.indexOf("approverroletitle") !== -1 && currentPayload.approverRoleTitle !== undefined) {
+          if (errStr.indexOf("approverroletitle") !== -1 || errStr.indexOf("approvalroletitle") !== -1) {
+            const hadApprover = currentPayload.approverRoleTitle !== undefined;
+            const hadApproval = currentPayload.approvalRoleTitle !== undefined;
             delete currentPayload.approverRoleTitle;
-            continue;
+            delete currentPayload.approvalRoleTitle;
+            if (hadApprover && !hadApproval && assignment.approver_role_title) {
+              currentPayload.approvalRoleTitle = assignment.approver_role_title;
+              continue;
+            } else if (hadApproval && !hadApprover && assignment.approver_role_title) {
+              currentPayload.approverRoleTitle = assignment.approver_role_title;
+              continue;
+            }
           }
           break;
         }

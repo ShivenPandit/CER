@@ -123,8 +123,8 @@ export const DirectoryPeoplePicker: React.FC<IDirectoryPeoplePickerProps> = ({
     if (inputValue.trim().length >= 1) {
       void triggerSearch(inputValue);
     } else {
-      // Trigger default search or open state
-      void triggerSearch("");
+      setIsOpen(false);
+      setResults([]);
     }
   };
 
@@ -175,7 +175,9 @@ export const DirectoryPeoplePicker: React.FC<IDirectoryPeoplePickerProps> = ({
     if (!isOpen) {
       if (e.key === "ArrowDown" || e.key === "Enter") {
         e.preventDefault();
-        void triggerSearch(inputValue);
+        if (inputValue.trim().length >= 1) {
+          void triggerSearch(inputValue);
+        }
         return;
       }
     }
@@ -308,7 +310,7 @@ export const DirectoryPeoplePicker: React.FC<IDirectoryPeoplePickerProps> = ({
       )}
 
       {/* Dropdown Menu */}
-      {isOpen && !disabled && (
+      {isOpen && !disabled && inputValue.trim().length >= 1 && (
         <div
           id={`${id}-dropdown`}
           role="listbox"

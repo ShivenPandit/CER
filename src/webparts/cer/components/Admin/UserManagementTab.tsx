@@ -165,7 +165,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
     if (openDropdownLevel === null || !updateModalBlock) return;
     const query = (approverSearchQueries[openDropdownLevel] || "").trim();
 
-    if (query.length < 2) {
+    if (query.length < 1) {
       setDirectoryResultsByLevel((prev) => ({ ...prev, [openDropdownLevel]: [] }));
       setIsSearchingDirectory(false);
       return;
@@ -254,12 +254,24 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
   const handleAddDirectoryUserToLevel = (level: number, dirUser: IDirectoryUser) => {
     const email = dirUser.mail || dirUser.userPrincipalName || "";
+    const existingAdmin = roles.find((r) => {
+      const rEmail = (r.user_email || "").trim().toLowerCase();
+      const rLogin = (r.login_name || "").trim().toLowerCase();
+      const targetEmail = email.trim().toLowerCase();
+      const targetLogin = (dirUser.userPrincipalName || "").trim().toLowerCase();
+      return (
+        r.role === "Admin" &&
+        ((rEmail && (rEmail === targetEmail || rEmail === targetLogin)) ||
+          (rLogin && (rLogin === targetEmail || rLogin === targetLogin)))
+      );
+    });
+
     const newApprover: IUserRoleAssignment = {
       id: `dir-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       user_name: dirUser.displayName,
       user_email: email,
       login_name: dirUser.userPrincipalName || email,
-      role: "Approver",
+      role: existingAdmin ? "Admin" : ("" as any),
       sbu: updateModalBlock || "",
       approval_level: level,
       approver_role_title: getApproverRoleTitle(level),
@@ -328,21 +340,18 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
         const currentItem = currentInBlockList[i];
         if (!stagedInBlockKeys.has(currentItem.key)) {
           const rem = currentItem.approver;
-          const userRows = roles.filter((r) => getUserKey(r) === currentItem.key);
-          if (userRows.length > 1 && rem.id) {
-            await dataService.revokeUserRole(rem.id, actor);
-          } else {
-            await dataService.updateUserRole(
-              {
-                ...rem,
-                sbu: "",
-                approval_level: undefined,
-                approver_role_title: undefined,
-                is_active: true,
-              },
-              actor
-            );
-          }
+          const isAdmin = rem.role === "Admin";
+          await dataService.updateUserRole(
+            {
+              ...rem,
+              role: isAdmin ? "Admin" : ("" as any),
+              sbu: "",
+              approval_level: undefined,
+              approver_role_title: undefined,
+              is_active: true,
+            },
+            actor
+          );
         }
       }
 
@@ -364,11 +373,14 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
             (staged.user_id && r.user_id && Number(r.user_id) === Number(staged.user_id))
         );
 
+        const isAdmin = (existingRole && existingRole.role === "Admin") || (staged && staged.role === "Admin");
+        const roleToSave = isAdmin ? "Admin" : ("" as any);
+
         if (existingRole) {
           await dataService.updateUserRole(
             {
               ...existingRole,
-              role: "Approver",
+              role: roleToSave,
               sbu: block,
               approval_level: stagedItem.level,
               approver_role_title: title,
@@ -383,7 +395,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               user_email: staged.user_email,
               login_name: staged.login_name || staged.user_email,
               user_id: staged.user_id,
-              role: "Approver",
+              role: roleToSave,
               sbu: block,
               approval_level: stagedItem.level,
               approver_role_title: title,
@@ -639,28 +651,54 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                   stagedForLevel.map((a) => (a.user_email || a.login_name || a.user_name).trim().toLowerCase())
                 );
 
-                // Candidates from registered user pool
-                const selectableCandidates = eligibleApproverPool.filter((u) => {
-                  const key = (u.user_email || u.login_name || u.user_name).trim().toLowerCase();
-                  if (stagedKeys.has(key)) return false;
-                  if (!searchQuery.trim()) return true;
-                  const q = searchQuery.trim().toLowerCase();
-                  return (
-                    u.user_name.toLowerCase().includes(q) ||
-                    (u.user_email && u.user_email.toLowerCase().includes(q))
-                  );
-                });
+                const q = searchQuery.trim().toLowerCase();
 
-                // Candidates from live directory search
-                const dirCandidates = (directoryResultsByLevel[lvl] || []).filter((d) => {
-                  const dEmail = (d.mail || d.userPrincipalName || "").toLowerCase().trim();
-                  const dName = (d.displayName || "").toLowerCase().trim();
-                  if (stagedKeys.has(dEmail) || stagedKeys.has(dName)) return false;
-                  // Don't duplicate if already in selectableCandidates
-                  return !selectableCandidates.some(
-                    (c) => (c.user_email && c.user_email.toLowerCase() === dEmail) || c.user_name.toLowerCase() === dName
-                  );
-                });
+                // Candidates from registered user pool (only if at least 1 character typed)
+                const selectableCandidates = q.length < 1
+                  ? []
+                  : eligibleApproverPool.filter((u) => {
+                      const key = (u.user_email || u.login_name || u.user_name).trim().toLowerCase();
+                      if (stagedKeys.has(key)) return false;
+                      return (
+                        u.user_name.toLowerCase().includes(q) ||
+                        (u.user_email && u.user_email.toLowerCase().includes(q))
+                      );
+                    });
+
+                // Rank selectableCandidates by relevance
+                if (selectableCandidates.length > 0) {
+                  const computeScore = (name: string, email?: string) => {
+                    const n = (name || "").toLowerCase().trim();
+                    const em = (email || "").toLowerCase().trim();
+                    const clean = n.replace(/\(.*?\)/g, "").replace(/\[.*?\]/g, "").trim();
+                    let s = 0;
+                    if (clean === q || n === q) s += 2000;
+                    else if (clean.startsWith(q)) s += 1000;
+                    else if (clean.split(/\s+/).some((w) => w.startsWith(q))) s += 600;
+                    else if (clean.includes(q)) s += 300;
+                    if (em.startsWith(q)) s += 800;
+                    else if (em.includes(q)) s += 200;
+                    return s;
+                  };
+                  selectableCandidates.sort((a, b) => {
+                    const diff = computeScore(b.user_name, b.user_email) - computeScore(a.user_name, a.user_email);
+                    if (diff !== 0) return diff;
+                    return a.user_name.localeCompare(b.user_name);
+                  });
+                }
+
+                // Candidates from live directory search (searches everyone in tenant)
+                const dirCandidates = q.length < 1
+                  ? []
+                  : (directoryResultsByLevel[lvl] || []).filter((d) => {
+                      const dEmail = (d.mail || d.userPrincipalName || "").toLowerCase().trim();
+                      const dName = (d.displayName || "").toLowerCase().trim();
+                      if (stagedKeys.has(dEmail) || stagedKeys.has(dName)) return false;
+                      // Don't duplicate if already in selectableCandidates
+                      return !selectableCandidates.some(
+                        (c) => (c.user_email && c.user_email.toLowerCase() === dEmail) || c.user_name.toLowerCase() === dName
+                      );
+                    });
 
                 return (
                   <div key={stage.label} className="space-y-1.5">
@@ -715,15 +753,23 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                             onChange={(e) => {
                               const val = e.target.value;
                               setApproverSearchQueries((prev) => ({ ...prev, [lvl]: val }));
-                              setOpenDropdownLevel(lvl);
+                              if (val.trim().length >= 1) {
+                                setOpenDropdownLevel(lvl);
+                              } else {
+                                setOpenDropdownLevel(null);
+                              }
                             }}
-                            onFocus={() => setOpenDropdownLevel(lvl)}
+                            onFocus={() => {
+                              if (searchQuery.trim().length >= 1) {
+                                setOpenDropdownLevel(lvl);
+                              }
+                            }}
                             placeholder={`Search and select approvers for ${stage.label}...`}
                             className="w-full pl-8 pr-8 py-1.5 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] focus:outline-none"
                           />
                           {isSearchingDirectory ? (
                             <Loader2 className="w-3.5 h-3.5 text-[#012964] animate-spin absolute right-2.5 top-1/2 -translate-y-1/2" />
-                          ) : (
+                          ) : searchQuery.trim().length >= 1 ? (
                             <button
                               type="button"
                               onClick={() => setOpenDropdownLevel(isDropdownOpenForThisLevel ? null : lvl)}
@@ -731,18 +777,21 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                             >
                               <ChevronDown className="w-4 h-4" />
                             </button>
-                          )}
+                          ) : null}
                         </div>
                       </div>
 
                       {/* Dropdown Options List */}
-                      {isDropdownOpenForThisLevel && (
+                      {isDropdownOpenForThisLevel && searchQuery.trim().length >= 1 && (
                         <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-elevated max-h-52 overflow-y-auto z-50 divide-y divide-slate-100">
-                          {selectableCandidates.length === 0 && dirCandidates.length === 0 ? (
+                          {isSearchingDirectory && selectableCandidates.length === 0 && dirCandidates.length === 0 ? (
+                            <div className="p-3 text-center text-slate-400 text-xs flex items-center justify-center gap-1.5">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#012964]" />
+                              <span>Searching organization directory...</span>
+                            </div>
+                          ) : selectableCandidates.length === 0 && dirCandidates.length === 0 ? (
                             <div className="p-3 text-center text-slate-400 text-xs">
-                              {searchQuery.trim()
-                                ? `No users match "${searchQuery.trim()}"`
-                                : "All registered users are already selected."}
+                              {`No users match "${searchQuery.trim()}"`}
                             </div>
                           ) : (
                             <>

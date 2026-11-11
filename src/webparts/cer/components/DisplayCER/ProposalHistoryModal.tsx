@@ -398,7 +398,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                           : "bg-white/90 hover:bg-white border border-slate-200/90 hover:border-slate-300 shadow-2xs"
                       }`}
                     >
-                      {/* Top Header: Serial No & Status */}
+                      {/* Top Header: Version & Status */}
                       <div className="flex items-center justify-between gap-2 mb-1.5">
                         <div className="flex items-center gap-1.5">
                           <span
@@ -408,10 +408,16 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                                 : "bg-slate-100 text-slate-700 border border-slate-200"
                             }`}
                           >
-                            Serial No. {serialNo}
+                            V{serialNo}
                           </span>
-                          <span className="text-xs font-semibold text-slate-500">
-                            v{revNum} Snapshot
+                          <span
+                            className={`text-xs font-semibold px-2 py-0.5 rounded border ${
+                              isSelected
+                                ? "bg-slate-100 text-slate-700 border-slate-200"
+                                : "bg-slate-100 text-slate-600 border-slate-200"
+                            }`}
+                          >
+                            Archived
                           </span>
                         </div>
                         <StatusBadge status="Approved" size="sm" />

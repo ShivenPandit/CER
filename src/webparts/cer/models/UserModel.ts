@@ -167,5 +167,21 @@ export const MOCK_DIRECTORY_USERS: IDirectoryUser[] = [
     jobTitle: "Contractor",
     department: "External",
   },
+  {
+    id: "usr-shiven-01",
+    displayName: "Shiven Pandit (Microlink)",
+    mail: "Shiven.Pandit@cairnindia.com",
+    userPrincipalName: "Shiven.Pandit@cairnindia.com",
+    jobTitle: "System Specialist",
+    department: "IT Infrastructure",
+  },
+  {
+    id: "usr-swaranjali-01",
+    displayName: "Swaranjali",
+    mail: "Swaranjali@cairnindia.com",
+    userPrincipalName: "Swaranjali@cairnindia.com",
+    jobTitle: "Finance Specialist",
+    department: "Finance",
+  },
 ];
 
