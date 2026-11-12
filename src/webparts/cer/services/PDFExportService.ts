@@ -49,7 +49,7 @@ export class PDFExportService {
       if (propNo && propNo !== cerId) {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
-        doc.text(`Ref: ${propNo}`, pageWidth - margin - 6, currentY + 17, { align: "right" });
+        doc.text(`CER Proposal No.: ${propNo}`, pageWidth - margin - 6, currentY + 17, { align: "right" });
       }
 
       currentY += 28;
@@ -100,7 +100,7 @@ export class PDFExportService {
         body: [
           ["Proposal Name", (proposal as any).prName || proposal.pr_name],
           ["CER Proposal ID", proposal.cer_proposal_id || (proposal as any).cerPrNo || proposal.cerprno],
-          ["CER Proposal No", proposal.proposal_no || (proposal as any).proposalNo || proposal.cerprno],
+          ["CER Proposal No.", proposal.proposal_no || (proposal as any).proposalNo || proposal.cerprno],
           ["CER Owner", `${(proposal as any).cerOwner || proposal.owname} (${(proposal as any).ownerEmail || proposal.owner_email})`],
           ["Initiated By", proposal.created_by || proposal.owname],
           ["SBU", proposal.sbu],
@@ -337,7 +337,7 @@ export class PDFExportService {
               styles: { halign: "left" },
             },
           ],
-          ["Version Tag", "Proposal Reference", "Sanction Amount", "Status", "Date"],
+          ["Version Tag", "CER Proposal No.", "Sanction Amount", "Status", "Date"],
         ],
         body: versionRows,
         theme: "grid",

@@ -78,7 +78,7 @@ export class ExcelExportService {
     return {
       // 1. Basic Identification
       "CER Proposal ID": this.sanitizeFormula(cerProposalId),
-      "Proposal Reference No": this.sanitizeFormula(proposalNo),
+      "CER Proposal No.": this.sanitizeFormula(proposalNo),
       "Project Name": this.sanitizeFormula(projectName),
       "Status": this.sanitizeFormula(raw.status || ""),
       "Category": this.sanitizeFormula(raw.cat || raw.category || ""),

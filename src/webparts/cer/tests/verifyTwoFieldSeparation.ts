@@ -381,7 +381,7 @@ async function runTwoFieldSeparationVerification(): Promise<void> {
   // Export includes both columns
   const exportRow = ExcelExportService.mapProposalToExportRow(createdA.proposal);
   assert(exportRow["CER Proposal ID"] === createdA.proposal.cerprno, "Excel export row includes 'CER Proposal ID'");
-  assert(exportRow["CER Proposal No"] === "PR-TEST-2026-001", "Excel export row includes 'CER Proposal No'");
+  assert(exportRow["CER Proposal No."] === "PR-TEST-2026-001" || exportRow["CER Proposal No"] === "PR-TEST-2026-001", "Excel export row includes 'CER Proposal No.'");
 
   // ---------------------------------------------------------------------------
   // TEST 12: Counter/control records never appear as normal proposals

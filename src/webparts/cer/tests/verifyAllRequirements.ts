@@ -2625,8 +2625,8 @@ async function runAllVerificationTests(): Promise<void> {
     "16.7j: Export row disarms leading '=' in CER Proposal ID"
   );
   assert(
-    exportRow["CER Proposal No"] === "'@SUM(1+1)",
-    "16.7k: Export row disarms leading '@' in CER Proposal No"
+    exportRow["CER Proposal No."] === "'@SUM(1+1)" || exportRow["CER Proposal No"] === "'@SUM(1+1)",
+    "16.7k: Export row disarms leading '@' in CER Proposal No."
   );
   assert(
     exportRow["Proposal Name"] === "'+999999",

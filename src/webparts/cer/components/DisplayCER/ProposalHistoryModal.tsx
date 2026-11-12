@@ -521,9 +521,9 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                             (selectedProposal.cer_proposal_id || selectedProposal.cerprno) && (
                             <span
                               className="inline-flex items-center px-2.5 py-0.5 rounded text-xs sm:text-[13px] font-mono font-bold bg-slate-100 text-slate-800 border border-slate-200"
-                              title="Business Reference Proposal Number"
+                              title="CER Proposal No."
                             >
-                              No: {selectedProposal.proposal_no}
+                              CER Proposal No.: {selectedProposal.proposal_no}
                             </span>
                           )}
                         <StatusBadge status="Approved" size="sm" />

@@ -36,13 +36,62 @@ const CER: React.FC<ICERProps> = (props) => {
   const [proposals, setProposals] = useState<ICERProposal[]>([]);
   const [workflowLevels, setWorkflowLevels] = useState<IWorkflowLevel[]>([]);
   const [fieldChoices, setFieldChoices] = useState<IFieldChoices>(DEFAULT_FIELD_CHOICES);
+  interface IParsedRoute {
+    view: NavView;
+    proposalId?: string;
+    originView?: NavView;
+  }
+
   // Helper to parse current URL hash into view & proposalId for deep-linking
-  const parseHash = (): { view: NavView; proposalId?: string } => {
+  const parseHash = (): IParsedRoute => {
     const rawHash = window.location.hash.replace(/^#\/?/, "");
     if (!rawHash) return { view: "dashboard" };
-    const parts = rawHash.split("/");
-    const viewName = parts[0] as NavView;
-    const propId = parts.length > 1 ? decodeURIComponent(parts.slice(1).join("/")) : undefined;
+
+    // Clean and parse query parameters from hash (e.g. #display/CER-2026-0018?from=pending-approvals)
+    let cleanHash = rawHash;
+    let queryOrigin: NavView | undefined = undefined;
+    if (cleanHash.includes("?")) {
+      const [hashPath, hashQuery] = cleanHash.split("?");
+      cleanHash = hashPath;
+      const params = new URLSearchParams(hashQuery);
+      const originParam = params.get("origin") || params.get("from");
+      if (
+        originParam === "pending-approvals" ||
+        originParam === "my-proposals" ||
+        originParam === "dashboard" ||
+        originParam === "reports"
+      ) {
+        queryOrigin = originParam as NavView;
+      }
+    }
+
+    const parts = cleanHash.split("/").map((p) => decodeURIComponent(p.trim())).filter(Boolean);
+    if (parts.length === 0) return { view: "dashboard" };
+
+    const firstSegment = parts[0] as NavView;
+    const propId = parts.length > 1 ? parts.slice(1).join("/") : undefined;
+
+    // Approver deep-link: #pending-approvals/CER-2026-xxxx -> Display view with pending-approvals origin!
+    if (firstSegment === "pending-approvals" && propId) {
+      return { view: "display", proposalId: propId, originView: "pending-approvals" };
+    }
+
+    // Owner deep-link: #my-proposals/CER-2026-xxxx -> Display view with my-proposals origin!
+    if (firstSegment === "my-proposals" && propId) {
+      return { view: "display", proposalId: propId, originView: "my-proposals" };
+    }
+
+    // Generic display link: #display/CER-2026-xxxx (with optional query origin or trailing segment)
+    if (firstSegment === "display") {
+      let resolvedPropId = propId;
+      let originView = queryOrigin;
+      if (parts.length > 2 && (parts[2] === "pending-approvals" || parts[2] === "my-proposals")) {
+        resolvedPropId = parts[1];
+        originView = parts[2] as NavView;
+      }
+      return { view: "display", proposalId: resolvedPropId, originView };
+    }
+
     const validViews: NavView[] = [
       "dashboard",
       "create",
@@ -57,11 +106,11 @@ const CER: React.FC<ICERProps> = (props) => {
       "audit-trail",
       "workflow-config",
     ];
-    if (viewName === "all-proposals") {
+    if (firstSegment === "all-proposals") {
       return { view: "my-proposals", proposalId: propId };
     }
-    if (validViews.indexOf(viewName) !== -1) {
-      return { view: viewName, proposalId: propId };
+    if (validViews.indexOf(firstSegment) !== -1) {
+      return { view: firstSegment, proposalId: propId, originView: queryOrigin };
     }
     return { view: "dashboard" };
   };
@@ -74,11 +123,19 @@ const CER: React.FC<ICERProps> = (props) => {
     view: NavView;
     proposalId?: string;
   }
-  const [historyStack, setHistoryStack] = useState<IHistoryEntry[]>([]);
+  const [historyStack, setHistoryStack] = useState<IHistoryEntry[]>(() => {
+    if (initialRoute.originView) {
+      return [{ view: initialRoute.originView }];
+    }
+    return [];
+  });
 
   // Track origin navigation view so when displaying/changing a proposal,
-  // the corresponding parent list (e.g. "all-proposals" or "my-proposals") remains highlighted in the sidebar
+  // the corresponding parent list (e.g. "pending-approvals" or "my-proposals") remains highlighted in the sidebar
   const [activeParentView, setActiveParentView] = useState<NavView>(() => {
+    if (initialRoute.originView) {
+      return initialRoute.originView;
+    }
     if (initialRoute.view === "display" || initialRoute.view === "change" || (initialRoute.view as string) === "all-proposals") {
       return "my-proposals";
     }
@@ -190,7 +247,10 @@ const CER: React.FC<ICERProps> = (props) => {
       const route = parseHash();
       setCurrentView(route.view);
       setActiveProposalId(route.proposalId);
-      if (route.view !== "display" && route.view !== "change") {
+      if (route.originView) {
+        setActiveParentView(route.originView);
+        setHistoryStack((prev) => (prev.length === 0 ? [{ view: route.originView! }] : prev));
+      } else if (route.view !== "display" && route.view !== "change") {
         setActiveParentView(route.view);
       }
       const spScrollRegion = document.querySelector('div[data-automation-id="contentScrollRegion"]');
@@ -203,6 +263,40 @@ const CER: React.FC<ICERProps> = (props) => {
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
+
+  // Retroactive approver context detection for legacy/plain #display/CER-xxxx links:
+  // If an approver opens a proposal that is "In Approval" and they are NOT the owner or initiator,
+  // automatically route back to "pending-approvals" instead of a blank "my-proposals"
+  useEffect(() => {
+    if (
+      currentView === "display" &&
+      activeProposalId &&
+      activeParentView === "my-proposals" &&
+      proposals.length > 0 &&
+      currentUser.email
+    ) {
+      const match = proposals.find((p) => {
+        const idLower = (activeProposalId || "").toLowerCase();
+        return (
+          (p.cer_proposal_id && p.cer_proposal_id.toLowerCase() === idLower) ||
+          (p.proposal_no && p.proposal_no.toLowerCase() === idLower) ||
+          (p.cerprno && p.cerprno.toLowerCase() === idLower)
+        );
+      });
+      if (match && match.status === "In Approval") {
+        const isOwner = PermissionService.isProjectOwner(match, currentUser);
+        const isInitiator =
+          (match.created_by && match.created_by.toLowerCase().includes(currentUser.name.toLowerCase())) ||
+          (match.owner_email && currentUser.email && match.owner_email.toLowerCase() === currentUser.email.toLowerCase());
+
+        // If not the owner or initiator, this user is reviewing as an approver!
+        if (!isOwner && !isInitiator) {
+          setActiveParentView("pending-approvals");
+          setHistoryStack((prev) => (prev.length === 0 ? [{ view: "pending-approvals" }] : prev));
+        }
+      }
+    }
+  }, [currentView, activeProposalId, activeParentView, proposals, currentUser]);
 
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
@@ -287,19 +381,29 @@ const CER: React.FC<ICERProps> = (props) => {
       }
     }
 
+    let nextParentView = activeParentView;
     if (view === "display" || view === "change") {
       // Retain parent list if navigating into proposal display or change
       if (currentView !== "display" && currentView !== "change") {
+        nextParentView = currentView;
         setActiveParentView(currentView);
       }
     } else {
+      nextParentView = view;
       setActiveParentView(view);
     }
 
     setCurrentView(view);
     setActiveProposalId(proposalId);
     // Sync browser address bar URL hash
-    const targetHash = proposalId ? `#${view}/${encodeURIComponent(proposalId)}` : `#${view}`;
+    let targetHash = `#${view}`;
+    if (proposalId) {
+      if (view === "display" && nextParentView === "pending-approvals") {
+        targetHash = `#pending-approvals/${encodeURIComponent(proposalId)}`;
+      } else {
+        targetHash = `#${view}/${encodeURIComponent(proposalId)}`;
+      }
+    }
     if (replaceHistory && window.history && window.history.replaceState) {
       window.history.replaceState(null, "", targetHash);
     } else if (window.location.hash !== targetHash) {

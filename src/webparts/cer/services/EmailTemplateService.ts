@@ -66,7 +66,7 @@ export class EmailTemplateService {
   public static renderSubmissionApproverEmail(proposal: ICERProposal, roleTitle: string): { subject: string; body: string } {
     const cerPrId = proposal.cer_proposal_id || proposal.cerprno || "";
     const subject = `[CER Action Required] Proposal ${cerPrId} Pending Level 1 (${roleTitle}) Review`;
-    const displayUrl = `${APP_PAGE_URL}#display/${encodeURIComponent(cerPrId)}`;
+    const displayUrl = `${APP_PAGE_URL}#pending-approvals/${encodeURIComponent(cerPrId)}`;
 
     const body = `<!DOCTYPE html>
 <html>
@@ -101,7 +101,7 @@ export class EmailTemplateService {
       
       <table class="grid">
         <tr><td class="label">CER Proposal ID:</td><td class="val">${escapeHtml(cerPrId)}</td></tr>
-        <tr><td class="label">Proposal Reference No:</td><td class="val">${escapeHtml(proposal.proposal_no || proposal.cerprno)}</td></tr>
+        <tr><td class="label">CER Proposal No.:</td><td class="val">${escapeHtml(proposal.proposal_no || proposal.cerprno)}</td></tr>
         <tr><td class="label">Project Name:</td><td class="val">${escapeHtml(proposal.pr_name || "")}</td></tr>
         <tr><td class="label">CER Owner:</td><td class="val">${escapeHtml(proposal.owname || proposal.owner_email)}</td></tr>
         <tr><td class="label">SBU / Block:</td><td class="val">${escapeHtml(proposal.sbu)}</td></tr>
@@ -188,7 +188,7 @@ export class EmailTemplateService {
   ): { subject: string; body: string } {
     const cerPrId = proposal.cer_proposal_id || proposal.cerprno || "";
     const subject = `[CER Action Required] Proposal ${cerPrId} Pending Level ${nextLevel} (${nextRoleTitle}) Review`;
-    const displayUrl = `${APP_PAGE_URL}#display/${encodeURIComponent(cerPrId)}`;
+    const displayUrl = `${APP_PAGE_URL}#pending-approvals/${encodeURIComponent(cerPrId)}`;
 
     const body = `<!DOCTYPE html>
 <html>
