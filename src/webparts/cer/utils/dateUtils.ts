@@ -92,6 +92,63 @@ export function getCurrentFiscalYearPhasingLabels(referenceDate: Date = new Date
 }
 
 /**
+ * Returns the current Indian Fiscal Year string (e.g. "FY 2026-27").
+ */
+export function getCurrentFiscalYearString(referenceDate: Date = new Date()): string {
+  const month = referenceDate.getMonth(); // 0 = Jan, 3 = Apr
+  const fullYear = referenceDate.getFullYear();
+  const fyStartYear = month >= 3 ? fullYear : fullYear - 1;
+  const endYear2Digit = ("0" + ((fyStartYear + 1) % 100)).slice(-2);
+  return `FY ${fyStartYear}-${endYear2Digit}`;
+}
+
+/**
+ * Computes the Indian Fiscal Year (e.g. "FY 2026-27") for a CER proposal based on its
+ * created date, start date, ph_fy_label, or proposal number.
+ */
+export function getProposalFiscalYear(proposal: {
+  created_date?: string;
+  st_date?: string;
+  ph_fy_label?: string;
+  proposal_no?: string;
+  cerprno?: string;
+}): string {
+  // Priority 1: ph_fy_label (e.g. "FY 26-27" -> "FY 2026-27")
+  if (proposal.ph_fy_label) {
+    const m = proposal.ph_fy_label.match(/FY\s*(\d{2,4})[-/](\d{2,4})/i);
+    if (m) {
+      let start = parseInt(m[1], 10);
+      let end = parseInt(m[2], 10);
+      if (start < 100) start += 2000;
+      if (end < 100) end += 2000;
+      const end2Digit = ("0" + (end % 100)).slice(-2);
+      return `FY ${start}-${end2Digit}`;
+    }
+  }
+
+  // Priority 2: created_date or st_date
+  const rawDate = proposal.created_date || proposal.st_date;
+  if (rawDate) {
+    const d = new Date(rawDate);
+    if (!isNaN(d.getTime())) {
+      return getCurrentFiscalYearString(d);
+    }
+  }
+
+  // Priority 3: 4-digit year from proposal_no or cerprno (e.g. CER-2026-0001)
+  const noStr = proposal.proposal_no || proposal.cerprno || "";
+  const yearMatch = noStr.match(/20\d{2}/);
+  if (yearMatch) {
+    const year = parseInt(yearMatch[0], 10);
+    const end2Digit = ("0" + ((year + 1) % 100)).slice(-2);
+    return `FY ${year}-${end2Digit}`;
+  }
+
+  // Fallback to Current Fiscal Year
+  return getCurrentFiscalYearString();
+}
+
+/**
  * Formats an ISO timestamp or date/time string to the user's local 24-hour time (HH:mm:ss).
  * If the string is in UTC format (e.g. ISO string ending in Z or from SharePoint), it converts
  * it accurately to the user's browser local timezone.

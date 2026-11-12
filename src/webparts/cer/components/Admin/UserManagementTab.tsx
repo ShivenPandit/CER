@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   Search,
@@ -11,6 +11,8 @@ import {
   ShieldCheck,
   ChevronDown,
   Info,
+  Sparkles,
+  Lock,
 } from "lucide-react";
 import {
   IAppUser,
@@ -98,6 +100,9 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
   // Modal Scroll Lock
   useModalScrollLock(Boolean(updateModalBlock));
 
+  // Hovered tooltip for +N more assignees
+  const [hoveredTooltipCell, setHoveredTooltipCell] = useState<{ block: string; level: number } | null>(null);
+
   // ---------------------------------------------------------------------------
   // Helper Queries & Lookups
   // ---------------------------------------------------------------------------
@@ -143,6 +148,34 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
       }
     }
     return deduped;
+  };
+
+  // Count how many assignable levels (1, 3, 4, 5, 6) have at least 1 approver assigned for a given block
+  const getAssignedCountForBlock = (block: string): number => {
+    let count = 0;
+    for (const lvl of [1, 3, 4, 5, 6]) {
+      if (getApproversForBlockAndLevel(block, lvl).length > 0) {
+        count++;
+      }
+    }
+    return count;
+  };
+
+  const modalAssignedCount = useMemo(() => {
+    let count = 0;
+    for (const lvl of [1, 3, 4, 5, 6]) {
+      if ((stagedApproversByLevel[lvl] || []).length > 0) {
+        count++;
+      }
+    }
+    return count;
+  }, [stagedApproversByLevel]);
+
+  const handleClearAllApproversForLevel = (level: number) => {
+    setStagedApproversByLevel((prev) => ({
+      ...prev,
+      [level]: [],
+    }));
   };
 
   // Distinct pool of active users available for immediate selection
@@ -453,8 +486,92 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
     }
   };
 
+  // -----------------------------------------------------------------------------
+  // Matrix Approver Cell Renderer (Pills + +N more badge with Hover Popover)
+  // -----------------------------------------------------------------------------
+  const renderMatrixApproverCell = (
+    approvers: IUserRoleAssignment[],
+    block: string,
+    level: number
+  ): React.ReactNode => {
+    if (!approvers || approvers.length === 0) {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-amber-50/60 text-amber-800 border border-dashed border-amber-300">
+          <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+          <span>Unassigned</span>
+        </span>
+      );
+    }
+
+    const isHovered =
+      hoveredTooltipCell?.block === block && hoveredTooltipCell?.level === level;
+
+    if (approvers.length <= 2) {
+      return (
+        <div className="flex flex-col gap-1.5">
+          {approvers.map((a) => (
+            <div
+              key={a.id || a.user_email || a.user_name}
+              className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-800 border border-slate-200 px-2 py-1 rounded-lg text-xs font-semibold shadow-2xs hover:bg-slate-200/70 transition"
+              title={`${a.user_name} (${a.user_email || ""})`}
+            >
+              <UserAvatar name={a.user_name} email={a.user_email} size="xs" />
+              <span className="truncate max-w-[145px]">{a.user_name}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // 3+ assignees: Show first user pill + "+N more" badge with sleek popover
+    const firstUser = approvers[0];
+    const moreCount = approvers.length - 1;
+
+    return (
+      <div
+        className="relative inline-flex items-center gap-1.5"
+        onMouseEnter={() => setHoveredTooltipCell({ block, level })}
+        onMouseLeave={() => setHoveredTooltipCell(null)}
+      >
+        <div
+          className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-800 border border-slate-200 px-2 py-1 rounded-lg text-xs font-semibold shadow-2xs"
+          title={`${firstUser.user_name} (${firstUser.user_email || ""})`}
+        >
+          <UserAvatar name={firstUser.user_name} email={firstUser.user_email} size="xs" />
+          <span className="truncate max-w-[110px]">{firstUser.user_name}</span>
+        </div>
+        <span className="inline-flex items-center px-2 py-1 rounded-lg text-[11px] font-bold bg-[#012964]/10 text-[#012964] border border-[#012964]/20 cursor-pointer hover:bg-[#012964]/20 transition shadow-2xs">
+          +{moreCount} more
+        </span>
+
+        {/* Hover Popover Tooltip */}
+        {isHovered && (
+          <div className="absolute left-0 top-full mt-1.5 w-64 bg-slate-900 text-white rounded-xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150 border border-slate-700/80">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-1.5 border-b border-slate-800 mb-2 flex items-center justify-between">
+              <span>All Approvers ({approvers.length})</span>
+              <span className="text-emerald-400 font-medium">Any 1 approves</span>
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {approvers.map((a) => (
+                <div key={a.id || a.user_email || a.user_name} className="flex items-center gap-2">
+                  <UserAvatar name={a.user_name} email={a.user_email} size="xs" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-white truncate">{a.user_name}</p>
+                    {a.user_email && (
+                      <p className="text-[10px] text-slate-400 truncate">{a.user_email}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {/* Success Notification Banner */}
       {successMessage && (
         <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs flex items-center justify-between shadow-xs">
@@ -519,89 +636,111 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
       {/* ======================================================================= */}
       {/* APPROVAL LEVEL ASSIGNMENT MATRIX TABLE                                 */}
-      {/* Exactly 8 Columns and 4 Data Rows for RJ North, RJ South, CBOS, RAVA    */}
+      {/* Sticky First & Last Columns with Responsive Horizontal Scrolling       */}
       {/* ======================================================================= */}
       <div className="space-y-3 animate-fade-in">
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto relative">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-[11px]">
-                  <th className="py-3 px-4 w-[160px] min-w-[150px] bg-slate-100/80 border-r border-slate-200">
+                  <th className="py-3.5 px-4 min-w-[170px] sticky left-0 bg-slate-100 z-30 border-r border-slate-200 shadow-[4px_0_10px_-2px_rgba(0,0,0,0.05)]">
                     Block/SBU/Field *
                   </th>
-                  <th className="py-3 px-3 min-w-[140px]">L1 - Finance</th>
-                  <th className="py-3 px-3 min-w-[150px] bg-slate-50/50">L2 - Project Owner</th>
-                  <th className="py-3 px-3 min-w-[140px]">L3 - BU CFO</th>
-                  <th className="py-3 px-3 min-w-[140px]">L4 - BU Director</th>
-                  <th className="py-3 px-3 min-w-[140px]">L5 - VOGL CFO</th>
-                  <th className="py-3 px-3 min-w-[140px]">L6 - VOGL CEO</th>
-                  <th className="py-3 px-4 w-[110px] min-w-[100px] text-right border-l border-slate-200">
+                  <th className="py-3.5 px-3 min-w-[160px]">L1 - Finance</th>
+                  <th className="py-3.5 px-3 min-w-[170px] bg-slate-50/50">L2 - Project Owner</th>
+                  <th className="py-3.5 px-3 min-w-[160px]">L3 - BU CFO</th>
+                  <th className="py-3.5 px-3 min-w-[160px]">L4 - BU Director</th>
+                  <th className="py-3.5 px-3 min-w-[160px]">L5 - VOGL CFO</th>
+                  <th className="py-3.5 px-3 min-w-[160px]">L6 - VOGL CEO</th>
+                  <th className="py-3.5 px-4 min-w-[110px] text-right sticky right-0 bg-slate-100 z-30 border-l border-slate-200 shadow-[-4px_0_10px_-2px_rgba(0,0,0,0.05)]">
                     Action
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {MATRIX_BLOCKS.map((block) => {
+                  const assignedCount = getAssignedCountForBlock(block);
                   return (
-                    <tr key={block} className="hover:bg-slate-50/50 transition-colors">
-                      {/* 1. First Column: Block/SBU/Field * */}
-                      <td className="py-3 px-4 font-bold text-slate-900 bg-slate-50/80 border-r border-slate-200">
-                        <div className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-[#012964]" />
-                          <span>{block}</span>
-                        </div>
-                      </td>
+                      <tr key={block} className="hover:bg-slate-50/80 transition-colors group">
+                        {/* 1. SBU Column (Sticky Left) */}
+                        <td className="py-4 px-4 font-bold text-slate-900 sticky left-0 bg-white group-hover:bg-slate-50/90 z-20 border-r border-slate-200 shadow-[4px_0_10px_-2px_rgba(0,0,0,0.05)]">
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                                  assignedCount === 5 ? "bg-emerald-500 shadow-xs" : "bg-[#012964]"
+                                }`}
+                              />
+                              <span className="font-bold text-slate-900 text-xs sm:text-sm">
+                                {block}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60">
+                                <div
+                                  className={`h-full transition-all duration-300 ${
+                                    assignedCount === 5 ? "bg-emerald-500" : "bg-[#012964]"
+                                  }`}
+                                  style={{ width: `${(assignedCount / 5) * 100}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] font-semibold text-slate-500">
+                                {assignedCount}/5 levels
+                              </span>
+                            </div>
+                          </div>
+                        </td>
 
-                      {/* 2. L1 - Finance */}
-                      <td className="py-3 px-3">
-                        {renderMatrixApproverCell(getApproversForBlockAndLevel(block, 1))}
-                      </td>
+                        {/* 2. L1 - Finance */}
+                        <td className="py-4 px-3">
+                          {renderMatrixApproverCell(getApproversForBlockAndLevel(block, 1), block, 1)}
+                        </td>
 
-                      {/* 3. L2 - Project Owner (Dynamic) */}
-                      <td className="py-3 px-3 bg-slate-50/30">
-                        <span
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-900 border border-amber-200/80 cursor-help"
-                          title="Stage L2 is dynamic: resolved per proposal from the designated CER Owner upon submission."
-                        >
-                          <Info className="w-3 h-3 text-amber-700" />
-                          <span>Dynamic (Project Owner)</span>
-                        </span>
-                      </td>
+                        {/* 3. L2 - Project Owner (Dynamic) */}
+                        <td className="py-4 px-3 bg-slate-50/30">
+                          <span
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-amber-50/80 text-amber-800 border border-amber-200 cursor-help"
+                            title="Stage L2 is dynamic: resolved per proposal from the designated CER Owner upon submission."
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            <span>Dynamic (Project Owner)</span>
+                          </span>
+                        </td>
 
-                      {/* 4. L3 - BU CFO */}
-                      <td className="py-3 px-3">
-                        {renderMatrixApproverCell(getApproversForBlockAndLevel(block, 3))}
-                      </td>
+                        {/* 4. L3 - BU CFO */}
+                        <td className="py-4 px-3">
+                          {renderMatrixApproverCell(getApproversForBlockAndLevel(block, 3), block, 3)}
+                        </td>
 
-                      {/* 5. L4 - BU Director */}
-                      <td className="py-3 px-3">
-                        {renderMatrixApproverCell(getApproversForBlockAndLevel(block, 4))}
-                      </td>
+                        {/* 5. L4 - BU Director */}
+                        <td className="py-4 px-3">
+                          {renderMatrixApproverCell(getApproversForBlockAndLevel(block, 4), block, 4)}
+                        </td>
 
-                      {/* 6. L5 - VOGL CFO */}
-                      <td className="py-3 px-3">
-                        {renderMatrixApproverCell(getApproversForBlockAndLevel(block, 5))}
-                      </td>
+                        {/* 6. L5 - VOGL CFO */}
+                        <td className="py-4 px-3">
+                          {renderMatrixApproverCell(getApproversForBlockAndLevel(block, 5), block, 5)}
+                        </td>
 
-                      {/* 7. L6 - VOGL CEO */}
-                      <td className="py-3 px-3">
-                        {renderMatrixApproverCell(getApproversForBlockAndLevel(block, 6))}
-                      </td>
+                        {/* 7. L6 - VOGL CEO */}
+                        <td className="py-4 px-3">
+                          {renderMatrixApproverCell(getApproversForBlockAndLevel(block, 6), block, 6)}
+                        </td>
 
-                      {/* 8. Action: Update */}
-                      <td className="py-3 px-4 text-right border-l border-slate-200">
-                        <button
-                          onClick={() => handleOpenUpdateModal(block)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#012964] hover:bg-[#001f4d] text-white text-xs font-semibold rounded-xl shadow-subtle hover:shadow-hover transition-all cursor-pointer"
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                          <span>Update</span>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        {/* 8. Action (Sticky Right) */}
+                        <td className="py-4 px-4 text-right sticky right-0 bg-white group-hover:bg-slate-50/90 z-20 border-l border-slate-200 shadow-[-4px_0_10px_-2px_rgba(0,0,0,0.05)]">
+                          <button
+                            onClick={() => handleOpenUpdateModal(block)}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#012964] hover:bg-[#001f4d] text-white text-xs font-semibold rounded-xl shadow-subtle hover:shadow-hover transition-all cursor-pointer"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                            <span>Update</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
@@ -609,322 +748,399 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
       </div>
 
       {/* ======================================================================= */}
-      {/* MODAL: UPDATE APPROVAL ASSIGNMENT (Matrix Row Update Modal)             */}
+      {/* MODAL: UPDATE APPROVAL ASSIGNMENT (Enterprise Stepper Modal)            */}
       {/* ======================================================================= */}
       {updateModalBlock && createPortal(
         <div
-          className="fixed inset-0 !m-0 !top-0 !left-0 !right-0 !bottom-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm overscroll-contain animate-fade-in overflow-y-auto"
+          className="fixed inset-0 !m-0 !top-0 !left-0 !right-0 !bottom-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs overscroll-contain animate-fade-in overflow-y-auto"
           style={{ overscrollBehavior: "contain" }}
           onWheel={(e) => {
             if (e.target === e.currentTarget) e.preventDefault();
           }}
         >
-          <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] my-auto">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/70 shrink-0">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">
-                  Update Approval Assignment
-                </h3>
-                <p className="text-xs text-slate-500 font-medium mt-0.5 flex items-center gap-1">
-                  <span>Strategic Business Unit / Block:</span>
-                  <span className="font-bold text-[#012964] bg-[#012964]/10 px-2 py-0.5 rounded border border-[#012964]/20">
+          <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] my-auto">
+            {/* Sticky Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/90 shrink-0">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-[#012964]" />
+                  <h3 className="text-base font-bold text-slate-900">
+                    Update Approval Assignment
+                  </h3>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                  <span className="text-xs text-slate-500 font-medium">
+                    Strategic Business Unit / Block:
+                  </span>
+                  <span className="font-bold text-xs text-[#012964] bg-[#012964]/10 px-2.5 py-0.5 rounded-lg border border-[#012964]/20">
                     {updateModalBlock}
                   </span>
-                </p>
+                  <span
+                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+                      modalAssignedCount === 5
+                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                        : "bg-blue-50 text-blue-800 border-blue-200"
+                    }`}
+                  >
+                    {modalAssignedCount} of 5 Assignable Levels Configured
+                  </span>
+                </div>
               </div>
               <button
                 onClick={handleCloseUpdateModal}
                 disabled={isSubmitting}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer disabled:opacity-50"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition cursor-pointer disabled:opacity-50"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Modal Content */}
-            <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
+            {/* Modal Body: Sequential Stepper Timeline */}
+            <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0 bg-slate-50/40">
               {updateModalError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-start gap-2">
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-start gap-2 mb-3">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
                   <span className="leading-relaxed font-medium">{updateModalError}</span>
                 </div>
               )}
 
-              {MATRIX_LEVELS.map((stage) => {
-                const lvl = stage.level;
+              {/* Sequential Stepper Container */}
+              <div className="relative pl-8 sm:pl-9 space-y-4">
+                {/* Visual vertical connector line */}
+                <div className="absolute left-3 sm:left-3.5 top-5 bottom-6 w-0.5 bg-slate-200" />
 
-                // Field 2: L2 Project Owner (Dynamic Presentation)
-                if (stage.isDynamic) {
+                {MATRIX_LEVELS.map((stage) => {
+                  const lvl = stage.level;
+                  const stagedForLevel = stagedApproversByLevel[lvl] || [];
+                  const isAssigned = stage.isDynamic || stagedForLevel.length > 0;
+
                   return (
-                    <div
-                      key={stage.label}
-                      className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1"
-                    >
-                      <div className="flex items-center justify-between">
-                        <label className="font-bold text-slate-900">
-                          {stage.label}
-                        </label>
-                        <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                          Dynamic Resolution
-                        </span>
+                    <div key={stage.label} className="relative">
+                      {/* Step Circle Indicator */}
+                      <div
+                        className={`absolute -left-8 sm:-left-9 top-3.5 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold border-2 transition-all shadow-2xs z-10 ${
+                          stage.isDynamic
+                            ? "bg-amber-100 text-amber-800 border-amber-300"
+                            : isAssigned
+                            ? "bg-[#012964] text-white border-white ring-2 ring-[#012964]/20"
+                            : "bg-white text-slate-400 border-slate-300"
+                        }`}
+                      >
+                        {stage.isDynamic ? (
+                          <Sparkles className="w-3 h-3 text-amber-700" />
+                        ) : (
+                          stage.level
+                        )}
                       </div>
-                      <p className="text-[11px] text-slate-500 leading-relaxed">
-                        Project Owner is resolved dynamically from each CER proposal upon submission based on the project initiator.
-                      </p>
+
+                      {/* Level Card */}
+                      <div
+                        className={`rounded-xl border transition-all ${
+                          stage.isDynamic
+                            ? "bg-amber-50/40 border-amber-200/80 p-4"
+                            : "bg-white border-slate-200/90 hover:border-slate-300 p-4 shadow-2xs"
+                        }`}
+                      >
+                        {/* Dynamic L2 (Project Owner) */}
+                        {stage.isDynamic ? (
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Lock className="w-4 h-4 text-amber-700" />
+                                <h4 className="font-bold text-slate-900 text-xs sm:text-sm">
+                                  {stage.label}
+                                </h4>
+                              </div>
+                              <span className="text-[10px] font-bold text-amber-800 bg-amber-100/80 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <Sparkles className="w-3 h-3 text-amber-700" />
+                                <span>Dynamic Resolution</span>
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-600 leading-relaxed">
+                              Project Owner is resolved dynamically from each CER proposal upon submission based on the project initiator.
+                            </p>
+                          </div>
+                        ) : (
+                          /* Assignable Levels L1, L3, L4, L5, L6 */
+                          <div>
+                            {/* Card Header: Title & Counter / Routing Logic */}
+                            <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold text-slate-900 text-xs sm:text-sm">
+                                  {stage.label}
+                                </h4>
+                                <span className="text-rose-500 font-bold">*</span>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                {stagedForLevel.length === 0 ? (
+                                  <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
+                                    Required
+                                  </span>
+                                ) : stagedForLevel.length === 1 ? (
+                                  <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                                    1 Approver Assigned
+                                  </span>
+                                ) : (
+                                  <>
+                                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full flex items-center gap-1.5">
+                                      <span>{stagedForLevel.length} Approvers Assigned</span>
+                                      <span className="text-slate-300">•</span>
+                                      <span className="text-indigo-600 font-medium">Any 1 can approve</span>
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleClearAllApproversForLevel(lvl)}
+                                      className="text-[10px] font-semibold text-slate-400 hover:text-rose-600 cursor-pointer transition ml-1"
+                                    >
+                                      Clear all
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Chips Display Area (Removable User Chips) */}
+                            <div className="min-h-[42px] p-2 bg-slate-50/70 border border-slate-200 rounded-xl flex flex-wrap items-center gap-1.5 mb-2.5">
+                              {stagedForLevel.length === 0 ? (
+                                <span className="text-slate-400 text-xs italic px-1">
+                                  No approvers assigned to this level yet. Search below to add approvers.
+                                </span>
+                              ) : (
+                                stagedForLevel.map((approver) => {
+                                  const chipKey = (approver.user_email || approver.login_name || approver.user_name).trim().toLowerCase();
+                                  return (
+                                    <span
+                                      key={chipKey}
+                                      className="inline-flex items-center gap-1.5 bg-white text-[#012964] border border-[#012964]/20 pl-1.5 pr-2 py-1 rounded-lg text-xs font-semibold shadow-2xs hover:border-[#012964]/40 transition"
+                                    >
+                                      <UserAvatar
+                                        name={approver.user_name}
+                                        email={approver.user_email}
+                                        size="xs"
+                                      />
+                                      <span className="truncate max-w-[170px]">
+                                        {approver.user_name}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveApproverFromLevel(lvl, approver)}
+                                        className="text-slate-400 hover:text-rose-600 transition-colors p-0.5 rounded cursor-pointer"
+                                        title={`Remove ${approver.user_name}`}
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    </span>
+                                  );
+                                })
+                              )}
+                            </div>
+
+                            {/* Search & Add Input */}
+                            <div className="relative">
+                              <div className="relative">
+                                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                <input
+                                  type="text"
+                                  value={approverSearchQueries[lvl] || ""}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setApproverSearchQueries((prev) => ({ ...prev, [lvl]: val }));
+                                    if (val.trim().length >= 1) {
+                                      setOpenDropdownLevel(lvl);
+                                    } else {
+                                      setOpenDropdownLevel(null);
+                                    }
+                                  }}
+                                  onFocus={() => {
+                                    if ((approverSearchQueries[lvl] || "").trim().length >= 1) {
+                                      setOpenDropdownLevel(lvl);
+                                    }
+                                  }}
+                                  placeholder={`+ Search and add multiple approvers for ${stage.label}...`}
+                                  className="w-full pl-8 pr-8 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] focus:outline-none transition"
+                                />
+                                {isSearchingDirectory ? (
+                                  <Loader2 className="w-3.5 h-3.5 text-[#012964] animate-spin absolute right-2.5 top-1/2 -translate-y-1/2" />
+                                ) : (approverSearchQueries[lvl] || "").trim().length >= 1 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setOpenDropdownLevel(openDropdownLevel === lvl ? null : lvl)}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                                  >
+                                    <ChevronDown className="w-4 h-4" />
+                                  </button>
+                                ) : null}
+                              </div>
+
+                              {/* Dropdown Options List */}
+                              {openDropdownLevel === lvl && (approverSearchQueries[lvl] || "").trim().length >= 1 && (() => {
+                                const q = (approverSearchQueries[lvl] || "").trim().toLowerCase();
+                                const stagedKeys = new Set(
+                                  stagedForLevel.map((a) => (a.user_email || a.login_name || a.user_name).trim().toLowerCase())
+                                );
+
+                                const selectableCandidates = eligibleApproverPool.filter((u) => {
+                                  const key = (u.user_email || u.login_name || u.user_name).trim().toLowerCase();
+                                  if (stagedKeys.has(key)) return false;
+                                  return (
+                                    u.user_name.toLowerCase().includes(q) ||
+                                    (u.user_email && u.user_email.toLowerCase().includes(q))
+                                  );
+                                });
+
+                                if (selectableCandidates.length > 0) {
+                                  const computeScore = (name: string, email?: string) => {
+                                    const n = (name || "").toLowerCase().trim();
+                                    const em = (email || "").toLowerCase().trim();
+                                    const clean = n.replace(/\(.*?\)/g, "").replace(/\[.*?\]/g, "").trim();
+                                    let s = 0;
+                                    if (clean === q || n === q) s += 2000;
+                                    else if (clean.startsWith(q)) s += 1000;
+                                    else if (clean.split(/\s+/).some((w) => w.startsWith(q))) s += 600;
+                                    else if (clean.includes(q)) s += 300;
+                                    if (em.startsWith(q)) s += 800;
+                                    else if (em.includes(q)) s += 200;
+                                    return s;
+                                  };
+                                  selectableCandidates.sort((a, b) => {
+                                    const diff = computeScore(b.user_name, b.user_email) - computeScore(a.user_name, a.user_email);
+                                    if (diff !== 0) return diff;
+                                    return a.user_name.localeCompare(b.user_name);
+                                  });
+                                }
+
+                                const dirCandidates = (directoryResultsByLevel[lvl] || []).filter((d) => {
+                                  const dEmail = (d.mail || d.userPrincipalName || "").toLowerCase().trim();
+                                  const dName = (d.displayName || "").toLowerCase().trim();
+                                  if (stagedKeys.has(dEmail) || stagedKeys.has(dName)) return false;
+                                  return !selectableCandidates.some(
+                                    (c) => (c.user_email && c.user_email.toLowerCase() === dEmail) || c.user_name.toLowerCase() === dName
+                                  );
+                                });
+
+                                return (
+                                  <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-elevated max-h-52 overflow-y-auto z-50 divide-y divide-slate-100">
+                                    {isSearchingDirectory && selectableCandidates.length === 0 && dirCandidates.length === 0 ? (
+                                      <div className="p-3 text-center text-slate-400 text-xs flex items-center justify-center gap-1.5">
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-[#012964]" />
+                                        <span>Searching organization directory...</span>
+                                      </div>
+                                    ) : selectableCandidates.length === 0 && dirCandidates.length === 0 ? (
+                                      <div className="p-3 text-center text-slate-400 text-xs">
+                                        {`No users match "${q}"`}
+                                      </div>
+                                    ) : (
+                                      <>
+                                        {selectableCandidates.map((cand) => {
+                                          const candKey = (cand.user_email || cand.login_name || cand.user_name).trim().toLowerCase();
+                                          return (
+                                            <div
+                                              key={candKey}
+                                              onClick={() => handleAddApproverToLevel(lvl, cand)}
+                                              className="p-2.5 hover:bg-[#012964]/5 cursor-pointer flex items-center justify-between transition-colors gap-2"
+                                            >
+                                              <div className="flex items-center gap-2 min-w-0">
+                                                <UserAvatar
+                                                  name={cand.user_name}
+                                                  email={cand.user_email}
+                                                  size="xs"
+                                                />
+                                                <div className="min-w-0">
+                                                  <p className="font-semibold text-slate-900 truncate">
+                                                    {cand.user_name}
+                                                  </p>
+                                                  {cand.user_email && (
+                                                    <p className="text-[11px] text-slate-500 font-mono truncate">
+                                                      {cand.user_email}
+                                                    </p>
+                                                  )}
+                                                </div>
+                                              </div>
+                                              <span className="text-[10px] font-semibold text-[#012964] bg-[#012964]/10 px-2 py-0.5 rounded border border-[#012964]/20 shrink-0">
+                                                + Add
+                                              </span>
+                                            </div>
+                                          );
+                                        })}
+
+                                        {dirCandidates.map((dirUser) => {
+                                          const email = dirUser.mail || dirUser.userPrincipalName || "";
+                                          return (
+                                            <div
+                                              key={dirUser.id || email}
+                                              onClick={() => handleAddDirectoryUserToLevel(lvl, dirUser)}
+                                              className="p-2.5 hover:bg-emerald-50/50 cursor-pointer flex items-center justify-between transition-colors gap-2"
+                                            >
+                                              <div className="flex items-center gap-2 min-w-0">
+                                                <UserAvatar
+                                                  name={dirUser.displayName}
+                                                  email={email}
+                                                  size="xs"
+                                                />
+                                                <div className="min-w-0">
+                                                  <p className="font-semibold text-slate-900 truncate">
+                                                    {dirUser.displayName}
+                                                  </p>
+                                                  <p className="text-[11px] text-emerald-700 font-mono truncate">
+                                                    {email} (Directory)
+                                                  </p>
+                                                </div>
+                                              </div>
+                                              <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded shrink-0">
+                                                + Add from Directory
+                                              </span>
+                                            </div>
+                                          );
+                                        })}
+                                      </>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
-                }
-
-                // Fields 1, 3, 4, 5, 6: Multi-Select Approver Dropdown with Chips
-                const stagedForLevel = stagedApproversByLevel[lvl] || [];
-                const searchQuery = approverSearchQueries[lvl] || "";
-                const isDropdownOpenForThisLevel = openDropdownLevel === lvl;
-
-                const stagedKeys = new Set(
-                  stagedForLevel.map((a) => (a.user_email || a.login_name || a.user_name).trim().toLowerCase())
-                );
-
-                const q = searchQuery.trim().toLowerCase();
-
-                // Candidates from registered user pool (only if at least 1 character typed)
-                const selectableCandidates = q.length < 1
-                  ? []
-                  : eligibleApproverPool.filter((u) => {
-                      const key = (u.user_email || u.login_name || u.user_name).trim().toLowerCase();
-                      if (stagedKeys.has(key)) return false;
-                      return (
-                        u.user_name.toLowerCase().includes(q) ||
-                        (u.user_email && u.user_email.toLowerCase().includes(q))
-                      );
-                    });
-
-                // Rank selectableCandidates by relevance
-                if (selectableCandidates.length > 0) {
-                  const computeScore = (name: string, email?: string) => {
-                    const n = (name || "").toLowerCase().trim();
-                    const em = (email || "").toLowerCase().trim();
-                    const clean = n.replace(/\(.*?\)/g, "").replace(/\[.*?\]/g, "").trim();
-                    let s = 0;
-                    if (clean === q || n === q) s += 2000;
-                    else if (clean.startsWith(q)) s += 1000;
-                    else if (clean.split(/\s+/).some((w) => w.startsWith(q))) s += 600;
-                    else if (clean.includes(q)) s += 300;
-                    if (em.startsWith(q)) s += 800;
-                    else if (em.includes(q)) s += 200;
-                    return s;
-                  };
-                  selectableCandidates.sort((a, b) => {
-                    const diff = computeScore(b.user_name, b.user_email) - computeScore(a.user_name, a.user_email);
-                    if (diff !== 0) return diff;
-                    return a.user_name.localeCompare(b.user_name);
-                  });
-                }
-
-                // Candidates from live directory search (searches everyone in tenant)
-                const dirCandidates = q.length < 1
-                  ? []
-                  : (directoryResultsByLevel[lvl] || []).filter((d) => {
-                      const dEmail = (d.mail || d.userPrincipalName || "").toLowerCase().trim();
-                      const dName = (d.displayName || "").toLowerCase().trim();
-                      if (stagedKeys.has(dEmail) || stagedKeys.has(dName)) return false;
-                      // Don't duplicate if already in selectableCandidates
-                      return !selectableCandidates.some(
-                        (c) => (c.user_email && c.user_email.toLowerCase() === dEmail) || c.user_name.toLowerCase() === dName
-                      );
-                    });
-
-                return (
-                  <div key={stage.label} className="space-y-1.5">
-                    <label className="block font-bold text-slate-900">
-                      {stage.label} <span className="text-rose-500">*</span>
-                    </label>
-
-                    {/* Chips Display Area */}
-                    <div className="min-h-[42px] p-2 bg-slate-50 border border-slate-300 rounded-xl flex flex-wrap items-center gap-1.5">
-                      {stagedForLevel.length === 0 ? (
-                        <span className="text-slate-400 text-xs italic px-1">
-                          No approvers assigned to this level yet.
-                        </span>
-                      ) : (
-                        stagedForLevel.map((approver) => {
-                          const chipKey = (approver.user_email || approver.login_name || approver.user_name).trim().toLowerCase();
-                          return (
-                            <span
-                              key={chipKey}
-                              className="inline-flex items-center gap-1.5 bg-white text-[#012964] border border-[#012964]/20 px-2.5 py-1 rounded-lg text-xs font-semibold shadow-2xs"
-                            >
-                              <UserAvatar
-                                name={approver.user_name}
-                                email={approver.user_email}
-                                size="sm"
-                              />
-                              <span className="truncate max-w-[160px]">
-                                {approver.user_name}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveApproverFromLevel(lvl, approver)}
-                                className="text-slate-400 hover:text-rose-600 transition-colors p-0.5 rounded cursor-pointer"
-                                title={`Remove ${approver.user_name}`}
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            </span>
-                          );
-                        })
-                      )}
-                    </div>
-
-                    {/* Search & Add Dropdown */}
-                    <div className="relative">
-                      <div className="flex items-center gap-2">
-                        <div className="relative flex-1">
-                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                          <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setApproverSearchQueries((prev) => ({ ...prev, [lvl]: val }));
-                              if (val.trim().length >= 1) {
-                                setOpenDropdownLevel(lvl);
-                              } else {
-                                setOpenDropdownLevel(null);
-                              }
-                            }}
-                            onFocus={() => {
-                              if (searchQuery.trim().length >= 1) {
-                                setOpenDropdownLevel(lvl);
-                              }
-                            }}
-                            placeholder={`Search and select approvers for ${stage.label}...`}
-                            className="w-full pl-8 pr-8 py-1.5 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] focus:outline-none"
-                          />
-                          {isSearchingDirectory ? (
-                            <Loader2 className="w-3.5 h-3.5 text-[#012964] animate-spin absolute right-2.5 top-1/2 -translate-y-1/2" />
-                          ) : searchQuery.trim().length >= 1 ? (
-                            <button
-                              type="button"
-                              onClick={() => setOpenDropdownLevel(isDropdownOpenForThisLevel ? null : lvl)}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                            >
-                              <ChevronDown className="w-4 h-4" />
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      {/* Dropdown Options List */}
-                      {isDropdownOpenForThisLevel && searchQuery.trim().length >= 1 && (
-                        <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-elevated max-h-52 overflow-y-auto z-50 divide-y divide-slate-100">
-                          {isSearchingDirectory && selectableCandidates.length === 0 && dirCandidates.length === 0 ? (
-                            <div className="p-3 text-center text-slate-400 text-xs flex items-center justify-center gap-1.5">
-                              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#012964]" />
-                              <span>Searching organization directory...</span>
-                            </div>
-                          ) : selectableCandidates.length === 0 && dirCandidates.length === 0 ? (
-                            <div className="p-3 text-center text-slate-400 text-xs">
-                              {`No users match "${searchQuery.trim()}"`}
-                            </div>
-                          ) : (
-                            <>
-                              {selectableCandidates.map((cand) => {
-                                const candKey = (cand.user_email || cand.login_name || cand.user_name).trim().toLowerCase();
-                                return (
-                                  <div
-                                    key={candKey}
-                                    onClick={() => handleAddApproverToLevel(lvl, cand)}
-                                    className="p-2.5 hover:bg-[#012964]/5 cursor-pointer flex items-center justify-between transition-colors gap-2"
-                                  >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <UserAvatar
-                                        name={cand.user_name}
-                                        email={cand.user_email}
-                                        size="sm"
-                                      />
-                                      <div className="min-w-0">
-                                        <p className="font-semibold text-slate-900 truncate">
-                                          {cand.user_name}
-                                        </p>
-                                        {cand.user_email && (
-                                          <p className="text-[11px] text-slate-500 font-mono truncate">
-                                            {cand.user_email}
-                                          </p>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <span className="text-[10px] font-semibold text-[#012964] bg-[#012964]/10 px-2 py-0.5 rounded border border-[#012964]/20 shrink-0">
-                                      + Add
-                                    </span>
-                                  </div>
-                                );
-                              })}
-
-                              {dirCandidates.map((dirUser) => {
-                                const email = dirUser.mail || dirUser.userPrincipalName || "";
-                                return (
-                                  <div
-                                    key={dirUser.id || email}
-                                    onClick={() => handleAddDirectoryUserToLevel(lvl, dirUser)}
-                                    className="p-2.5 hover:bg-emerald-50/50 cursor-pointer flex items-center justify-between transition-colors gap-2"
-                                  >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <UserAvatar
-                                        name={dirUser.displayName}
-                                        email={email}
-                                        size="sm"
-                                      />
-                                      <div className="min-w-0">
-                                        <p className="font-semibold text-slate-900 truncate">
-                                          {dirUser.displayName}
-                                        </p>
-                                        <p className="text-[11px] text-emerald-700 font-mono truncate">
-                                          {email} (Directory)
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded shrink-0">
-                                      + Add from Directory
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                })}
+              </div>
             </div>
 
-            {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-2.5 px-6 py-3.5 border-t border-slate-100 bg-slate-50/70 shrink-0">
-              <button
-                type="button"
-                onClick={handleCloseUpdateModal}
-                disabled={isSubmitting}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveApprovalAssignments}
-                disabled={isSubmitting}
-                className="flex items-center gap-1.5 px-5 py-2 bg-[#012964] hover:bg-[#001f4d] text-white text-xs font-semibold rounded-xl shadow-subtle hover:shadow-hover transition-all disabled:opacity-50 cursor-pointer"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Saving Changes...</span>
-                  </>
-                ) : (
-                  <span>Save Changes</span>
-                )}
-              </button>
+            {/* Sticky Modal Footer */}
+            <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-100 bg-slate-50/90 shrink-0">
+              <span className="text-[11px] text-slate-500 font-medium">
+                * Indicates mandatory sequential approval tier
+              </span>
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleCloseUpdateModal}
+                  disabled={isSubmitting}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-xl border border-slate-200 hover:border-slate-300 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveApprovalAssignments}
+                  disabled={isSubmitting}
+                  className="flex items-center gap-2 px-5 py-2 bg-[#012964] hover:bg-[#001f4d] text-white text-xs font-semibold rounded-xl shadow-subtle hover:shadow-hover transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving Changes...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Save Changes</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>,
@@ -933,42 +1149,3 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
     </div>
   );
 };
-
-// -----------------------------------------------------------------------------
-// Matrix Approver Cell Renderer (Compact names + +N badge on overflow)
-// -----------------------------------------------------------------------------
-function renderMatrixApproverCell(approvers: IUserRoleAssignment[]): React.ReactNode {
-  if (!approvers || approvers.length === 0) {
-    return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50/70 border border-amber-200/60 px-2 py-0.5 rounded-md">
-        ⚠️ Unassigned
-      </span>
-    );
-  }
-
-  const MAX_DISPLAY = 2;
-  const visible = approvers.slice(0, MAX_DISPLAY);
-  const overflow = approvers.length - MAX_DISPLAY;
-  const allNames = approvers.map((a) => a.user_name).join(", ");
-
-  return (
-    <div className="flex flex-wrap items-center gap-1" title={allNames}>
-      {visible.map((a) => (
-        <span
-          key={a.id || a.user_email}
-          className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#012964] bg-[#012964]/10 border border-[#012964]/20 px-2 py-0.5 rounded-md truncate max-w-[130px]"
-        >
-          {a.user_name}
-        </span>
-      ))}
-      {overflow > 0 && (
-        <span
-          className="inline-flex items-center text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded-md cursor-help"
-          title={`+${overflow} more: ${approvers.slice(MAX_DISPLAY).map((a) => a.user_name).join(", ")}`}
-        >
-          +{overflow}
-        </span>
-      )}
-    </div>
-  );
-}

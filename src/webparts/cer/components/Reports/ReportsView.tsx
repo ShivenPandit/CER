@@ -10,11 +10,14 @@ import {
   Search,
   FileSpreadsheet,
   Loader2,
+  Calendar,
+  Check,
 } from "lucide-react";
 import { ICERProposal, IFieldChoices, SBU_OPTIONS } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
 import { ICERDataService } from "../../services/ICERDataService";
 import { ExcelExportService } from "../../services/ExcelExportService";
+import { getCurrentFiscalYearString, getProposalFiscalYear } from "../../utils/dateUtils";
 import { ReportDashboard } from "./ReportDashboard";
 import { ReportProposalList } from "./ReportProposalList";
 
@@ -44,28 +47,49 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
   // Tab Navigation: Default to Report Dashboard
   const [activeTab, setActiveTab] = useState<ReportTabType>("dashboard");
 
-  // Dashboard Filters State (preserved across tab switches)
-  const [isDashboardFiltersOpen, setIsDashboardFiltersOpen] = useState(false);
-  const [dashDateFrom, setDashDateFrom] = useState("");
-  const [dashDateTo, setDashDateTo] = useState("");
-  const [dashSbuFilter, setDashSbuFilter] = useState("ALL");
-  const [dashStatusFilter, setDashStatusFilter] = useState("ALL");
+  // In Reports & Analytics, strictly exclude unsubmitted Draft proposals
+  const nonDraftProposals = useMemo(() => {
+    return proposals.filter((p) => p.status !== "Draft");
+  }, [proposals]);
 
-  const handleResetDashboardFilters = () => {
-    setDashDateFrom("");
-    setDashDateTo("");
-    setDashSbuFilter("ALL");
-    setDashStatusFilter("ALL");
-  };
+  // Financial Year Filter State for Dashboard
+  const currentFY = useMemo(() => getCurrentFiscalYearString(), []);
+  const [selectedFinancialYear, setSelectedFinancialYear] = useState<string>(currentFY);
+  const [isFyDropdownOpen, setIsFyDropdownOpen] = useState(false);
+  const fyDropdownRef = useRef<HTMLDivElement>(null);
 
-  const dashboardFilterCount = useMemo(() => {
-    let count = 0;
-    if (dashDateFrom) count++;
-    if (dashDateTo) count++;
-    if (dashSbuFilter !== "ALL") count++;
-    if (dashStatusFilter !== "ALL") count++;
-    return count;
-  }, [dashDateFrom, dashDateTo, dashSbuFilter, dashStatusFilter]);
+  // Pre-generate a list of standard fiscal years surrounding current FY (e.g. 3 years past to 3 years future)
+  // plus any other FY extracted from proposals, sorted chronologically for calendar-style picking
+  const displayFiscalYears = useMemo(() => {
+    const set = new Set<string>();
+    const match = currentFY.match(/(\d{4})/);
+    const baseYear = match ? parseInt(match[1], 10) : new Date().getFullYear();
+
+    for (let y = baseYear - 3; y <= baseYear + 3; y++) {
+      const nextY = (y + 1) % 100;
+      const nextYStr = nextY < 10 ? "0" + nextY : String(nextY);
+      set.add(`FY ${y}-${nextYStr}`);
+    }
+
+    nonDraftProposals.forEach((p) => {
+      const fy = getProposalFiscalYear(p);
+      if (fy) set.add(fy);
+    });
+
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [currentFY, nonDraftProposals]);
+
+  // Count proposals per FY for visual activity indicators in the year picker
+  const proposalCountByFY = useMemo(() => {
+    const counts: Record<string, number> = {};
+    nonDraftProposals.forEach((p) => {
+      const fy = getProposalFiscalYear(p);
+      if (fy) {
+        counts[fy] = (counts[fy] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [nonDraftProposals]);
 
   // Proposal List Filters State
   const [isListFiltersOpen, setIsListFiltersOpen] = useState(false);
@@ -101,13 +125,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
   }, [listCategoryFilter, listSbuFilter, listOwnerFilter, listDateFrom, listDateTo]);
 
   // Dynamic non-cropping dropdown positioning refs and styles
-  const dashFilterButtonRef = useRef<HTMLDivElement>(null);
   const listFilterButtonRef = useRef<HTMLDivElement>(null);
-  const [dashDropdownStyle, setDashDropdownStyle] = useState<React.CSSProperties>({
-    top: "100%",
-    marginTop: "8px",
-    maxHeight: "340px",
-  });
   const [listDropdownStyle, setListDropdownStyle] = useState<React.CSSProperties>({
     top: "100%",
     marginTop: "8px",
@@ -116,24 +134,6 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
 
   const updateDropdownPositions = useCallback(() => {
     const viewportHeight = window.innerHeight;
-    if (isDashboardFiltersOpen && dashFilterButtonRef.current) {
-      const rect = dashFilterButtonRef.current.getBoundingClientRect();
-      const spaceBelow = viewportHeight - rect.bottom - 12;
-      const spaceAbove = rect.top - 12;
-      if (spaceBelow < 220 && spaceAbove > spaceBelow) {
-        setDashDropdownStyle({
-          bottom: "100%",
-          marginBottom: "8px",
-          maxHeight: `${Math.max(160, Math.floor(spaceAbove))}px`,
-        });
-      } else {
-        setDashDropdownStyle({
-          top: "100%",
-          marginTop: "8px",
-          maxHeight: `${Math.max(160, Math.floor(spaceBelow))}px`,
-        });
-      }
-    }
     if (isListFiltersOpen && listFilterButtonRef.current) {
       const rect = listFilterButtonRef.current.getBoundingClientRect();
       const spaceBelow = viewportHeight - rect.bottom - 12;
@@ -152,26 +152,21 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
         });
       }
     }
-  }, [isDashboardFiltersOpen, isListFiltersOpen]);
+  }, [isListFiltersOpen]);
 
   useLayoutEffect(() => {
     updateDropdownPositions();
-  }, [updateDropdownPositions, isDashboardFiltersOpen, isListFiltersOpen]);
+  }, [updateDropdownPositions, isListFiltersOpen]);
 
   useEffect(() => {
-    if (!isDashboardFiltersOpen && !isListFiltersOpen) return;
+    if (!isListFiltersOpen) return;
     window.addEventListener("resize", updateDropdownPositions);
     window.addEventListener("scroll", updateDropdownPositions, true);
     return () => {
       window.removeEventListener("resize", updateDropdownPositions);
       window.removeEventListener("scroll", updateDropdownPositions, true);
     };
-  }, [isDashboardFiltersOpen, isListFiltersOpen, updateDropdownPositions]);
-
-  // In Reports & Analytics, strictly exclude unsubmitted Draft proposals
-  const nonDraftProposals = useMemo(() => {
-    return proposals.filter((p) => p.status !== "Draft");
-  }, [proposals]);
+  }, [isListFiltersOpen, updateDropdownPositions]);
 
   // Dataset matching list search & advanced filters (for export & status counting)
   const matchingCriteriaListProposals = useMemo(() => {
@@ -287,159 +282,146 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
 
         {/* Right: Actions aligned with Tabs on same horizontal line */}
         <div className="flex flex-wrap items-center gap-3 sm:gap-3.5 self-start xl:self-auto">
-          {/* Action Slot 1: Dashboard Filters Button & Uncroppable Popover */}
+          {/* Action Slot 1: Financial Year Filter Button with Current FY Label on its Left */}
           {activeTab === "dashboard" && (
-            <div ref={dashFilterButtonRef} className="relative">
-              <button
-                onClick={() => setIsDashboardFiltersOpen((prev) => !prev)}
-                className={`h-9 flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer whitespace-nowrap shadow-2xs ${
-                  isDashboardFiltersOpen || dashboardFilterCount > 0
-                    ? "bg-[#012964]/10 border-[#012964]/40 text-[#012964] font-bold"
-                    : "bg-white border-slate-300 hover:bg-slate-50 text-slate-700 hover:border-slate-400"
-                }`}
-                title="Toggle dashboard filters"
-              >
-                <Filter className="w-3.5 h-3.5 shrink-0" />
-                <span>Dashboard Filters</span>
-                {dashboardFilterCount > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-[#012964] text-white">
-                    {dashboardFilterCount}
-                  </span>
-                )}
-                <ChevronDown
-                  className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${
-                    isDashboardFiltersOpen ? "rotate-180" : ""
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              {/* Left of button: shows which Financial Year is currently showing */}
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/90 px-3 py-1.5 rounded-xl shadow-2xs">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                  Financial Year:
+                </span>
+                <span className="text-xs font-bold text-[#012964]">
+                  {selectedFinancialYear === "ALL" ? "All Financial Years" : selectedFinancialYear}
+                </span>
+              </div>
+
+              {/* Financial Year Filter Button */}
+              <div ref={fyDropdownRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsFyDropdownOpen((prev) => !prev)}
+                  className={`h-9 flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer whitespace-nowrap shadow-2xs ${
+                    isFyDropdownOpen || selectedFinancialYear !== "ALL"
+                      ? "bg-[#012964]/10 border-[#012964]/40 text-[#012964] font-bold"
+                      : "bg-white border-slate-300 hover:bg-slate-50 text-slate-700 hover:border-slate-400"
                   }`}
-                />
-              </button>
-
-              {/* Backdrop */}
-              {isDashboardFiltersOpen && (
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setIsDashboardFiltersOpen(false)}
-                />
-              )}
-
-              {/* Floating Anchored Popover: Compact Non-Cropping Layout */}
-              {isDashboardFiltersOpen && (
-                <div
-                  style={{
-                    width: "370px",
-                    maxWidth: "calc(100vw - 32px)",
-                    ...dashDropdownStyle,
-                  }}
-                  className="absolute right-0 bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+                  title="Filter by Financial Year"
                 >
-                  {/* Popover Header: Fixed at top */}
-                  <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-slate-100 bg-slate-50/70 shrink-0">
-                    <div className="flex items-center gap-2">
-                      <Filter className="w-4 h-4 text-[#012964] shrink-0" />
-                      <h4 className="font-bold text-slate-900 text-xs sm:text-sm whitespace-nowrap">
-                        Filter Dashboard Analytics
-                      </h4>
-                      {dashboardFilterCount > 0 && (
-                        <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 whitespace-nowrap">
-                          {dashboardFilterCount} Active
+                  <Calendar className="w-3.5 h-3.5 shrink-0 text-[#012964]" />
+                  <span>Financial Year</span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${
+                      isFyDropdownOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {/* Financial Year Picker Card */}
+                {isFyDropdownOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setIsFyDropdownOpen(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-4 animate-in fade-in zoom-in-95 duration-150">
+                      {/* Picker Header */}
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-[#012964]/10 flex items-center justify-center text-[#012964] shrink-0">
+                            <Calendar className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-900 leading-tight">
+                              Financial Year Picker
+                            </h4>
+                            <p className="text-[10px] text-slate-400">
+                              Indian FY: Apr 1 – Mar 31
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                          {displayFiscalYears.length} Years
                         </span>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => setIsDashboardFiltersOpen(false)}
-                      className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
-                      title="Close filters"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Popover Form Body: Compact 2-column flow */}
-                  <div className="p-3.5 space-y-2.5 text-xs overflow-y-auto flex-1 min-h-0">
-                    {/* Row 1: Date Range: From / To */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                        Date Range
-                      </label>
-                      <div className="grid grid-cols-2 gap-2.5">
-                        <div>
-                          <span className="text-[10px] text-slate-400 block mb-0.5">From</span>
-                          <input
-                            type="date"
-                            value={dashDateFrom}
-                            onChange={(e) => setDashDateFrom(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#012964]/20"
-                          />
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-slate-400 block mb-0.5">To</span>
-                          <input
-                            type="date"
-                            value={dashDateTo}
-                            onChange={(e) => setDashDateTo(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#012964]/20"
-                          />
-                        </div>
                       </div>
-                    </div>
 
-                    {/* Row 2: SBU / Block and Proposal Status side-by-side */}
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                          SBU / Block
-                        </label>
-                        <select
-                          value={dashSbuFilter}
-                          onChange={(e) => setDashSbuFilter(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#012964]/20"
+                      {/* 3-Column Year Grid */}
+                      <div className="grid grid-cols-3 gap-2 my-3 max-h-56 overflow-y-auto p-0.5">
+                        {displayFiscalYears.map((fy) => {
+                          const isSelected = selectedFinancialYear === fy;
+                          const isCurrent = fy === currentFY;
+                          const count = proposalCountByFY[fy] || 0;
+                          return (
+                            <button
+                              key={fy}
+                              type="button"
+                              onClick={() => {
+                                setSelectedFinancialYear(fy);
+                                setIsFyDropdownOpen(false);
+                              }}
+                              className={`relative p-2.5 rounded-xl text-xs font-semibold text-center border transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                                isSelected
+                                  ? "bg-[#012964] text-white border-[#012964] shadow-md ring-2 ring-[#012964]/20 font-bold"
+                                  : "bg-slate-50/80 hover:bg-blue-50/60 border-slate-200/90 text-slate-800 hover:border-[#012964]/30"
+                              }`}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span>{fy}</span>
+                                {isSelected && <Check className="w-3 h-3 text-white shrink-0" />}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {isCurrent && (
+                                  <span
+                                    className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${
+                                      isSelected
+                                        ? "bg-emerald-400/30 text-emerald-100 border border-emerald-300/40"
+                                        : "bg-emerald-100 text-emerald-800"
+                                    }`}
+                                  >
+                                    Current
+                                  </span>
+                                )}
+                                {count > 0 && !isSelected && (
+                                  <span className="text-[9px] font-medium text-slate-400">
+                                    {count} {count === 1 ? "CER" : "CERs"}
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Picker Quick Action Footer */}
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedFinancialYear("ALL");
+                            setIsFyDropdownOpen(false);
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                            selectedFinancialYear === "ALL"
+                              ? "bg-[#012964] text-white font-bold shadow-xs"
+                              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                          }`}
                         >
-                          <option value="ALL">All SBUs</option>
-                          {SBU_OPTIONS.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                          Proposal Status
-                        </label>
-                        <select
-                          value={dashStatusFilter}
-                          onChange={(e) => setDashStatusFilter(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#012964]/20"
+                          All Financial Years
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedFinancialYear(currentFY);
+                            setIsFyDropdownOpen(false);
+                          }}
+                          className="text-[11px] font-semibold text-[#012964] hover:underline cursor-pointer"
                         >
-                          <option value="ALL">All Statuses</option>
-                          <option value="IN_APPROVAL">In Approval</option>
-                          <option value="APPROVED">Approved</option>
-                          <option value="SEND_BACK">Send Back</option>
-                          <option value="REJECTED">Rejected</option>
-                        </select>
+                          Reset to Current ({currentFY})
+                        </button>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Popover Footer: Fixed at bottom */}
-                  <div className="shrink-0 flex items-center justify-between gap-3 px-3.5 py-2.5 bg-slate-50/90 border-t border-slate-100">
-                    <button
-                      onClick={handleResetDashboardFilters}
-                      disabled={dashboardFilterCount === 0}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap cursor-pointer"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Reset Filters</span>
-                    </button>
-                    <button
-                      onClick={() => setIsDashboardFiltersOpen(false)}
-                      className="inline-flex items-center px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#012964] hover:bg-[#012964]/90 transition whitespace-nowrap cursor-pointer shadow-xs"
-                    >
-                      Apply &amp; Close
-                    </button>
-                  </div>
-                </div>
-              )}
+                  </>
+                )}
+              </div>
             </div>
           )}
 
@@ -684,11 +666,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
         {activeTab === "dashboard" && (
           <ReportDashboard
             proposals={nonDraftProposals}
-            dateFrom={dashDateFrom}
-            dateTo={dashDateTo}
-            sbuFilter={dashSbuFilter}
-            statusFilter={dashStatusFilter}
-            onResetFilters={handleResetDashboardFilters}
+            financialYearFilter={selectedFinancialYear}
           />
         )}
 

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo } from "react";
 import {
   FileText,
   Clock,
@@ -6,11 +6,9 @@ import {
   RotateCcw,
   XCircle,
   DollarSign,
-  Filter,
-  ChevronDown,
-  X,
 } from "lucide-react";
-import { ICERProposal, SBU_OPTIONS } from "../../models/CERModel";
+import { ICERProposal } from "../../models/CERModel";
+import { getProposalFiscalYear } from "../../utils/dateUtils";
 import {
   StatusDoughnutChart,
   MonthlyTrendChart,
@@ -21,66 +19,20 @@ import {
 
 export interface IReportDashboardProps {
   proposals: ICERProposal[];
-  dateFrom?: string;
-  dateTo?: string;
-  sbuFilter?: string;
-  statusFilter?: string;
-  onResetFilters?: () => void;
+  financialYearFilter?: string;
 }
 
 export const ReportDashboard: React.FC<IReportDashboardProps> = ({
   proposals,
-  dateFrom = "",
-  dateTo = "",
-  sbuFilter = "ALL",
-  statusFilter = "ALL",
-  onResetFilters,
+  financialYearFilter = "ALL",
 }) => {
-  const activeFilterCount = useMemo(() => {
-    let count = 0;
-    if (dateFrom) count++;
-    if (dateTo) count++;
-    if (sbuFilter !== "ALL") count++;
-    if (statusFilter !== "ALL") count++;
-    return count;
-  }, [dateFrom, dateTo, sbuFilter, statusFilter]);
-
-  const hasActiveFilters = activeFilterCount > 0;
-
-  // Filtered dataset for dashboard
+  // Filtered dataset for dashboard based on selected Financial Year
   const filteredProposals = useMemo(() => {
-    return proposals.filter((p) => {
-      // Date Range (based on proposal created_date or st_date)
-      if (dateFrom) {
-        const pDate = p.created_date ? p.created_date.split("T")[0] : p.st_date;
-        if (pDate && pDate < dateFrom) return false;
-      }
-      if (dateTo) {
-        const pDate = p.created_date ? p.created_date.split("T")[0] : p.st_date;
-        if (pDate && pDate > dateTo) return false;
-      }
-
-      // SBU Filter
-      if (sbuFilter !== "ALL") {
-        if ((p.sbu || "").trim().toLowerCase() !== sbuFilter.toLowerCase()) {
-          return false;
-        }
-      }
-
-      // Status Filter
-      if (statusFilter === "IN_APPROVAL") {
-        if (["Pending Approval", "In Approval", "Submitted"].indexOf(p.status) === -1) return false;
-      } else if (statusFilter === "APPROVED") {
-        if (p.status !== "Approved") return false;
-      } else if (statusFilter === "SEND_BACK") {
-        if (["Send Back", "Revised", "Sent Back"].indexOf(p.status) === -1) return false;
-      } else if (statusFilter === "REJECTED") {
-        if (p.status !== "Rejected") return false;
-      }
-
-      return true;
-    });
-  }, [proposals, dateFrom, dateTo, sbuFilter, statusFilter]);
+    if (!financialYearFilter || financialYearFilter === "ALL") {
+      return proposals;
+    }
+    return proposals.filter((p) => getProposalFiscalYear(p) === financialYearFilter);
+  }, [proposals, financialYearFilter]);
 
   // KPI calculations
   const kpis = useMemo(() => {
@@ -113,47 +65,7 @@ export const ReportDashboard: React.FC<IReportDashboardProps> = ({
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      {/* 1. Sub-Header: Executive Performance Overview and Active Filter Pills */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-          <h3 className="text-xs sm:text-sm font-bold text-slate-800">
-            Executive Performance Overview
-          </h3>
-          <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
-            {filteredProposals.length} of {proposals.length} proposals
-          </span>
-
-          {/* Active Filter Badges */}
-          {sbuFilter !== "ALL" && (
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
-              SBU: {sbuFilter}
-            </span>
-          )}
-          {statusFilter !== "ALL" && (
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
-              Status: {statusFilter.replace("_", " ")}
-            </span>
-          )}
-          {(dateFrom || dateTo) && (
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
-              Dates: {dateFrom || "Start"} → {dateTo || "Latest"}
-            </span>
-          )}
-
-          {hasActiveFilters && onResetFilters && (
-            <button
-              onClick={onResetFilters}
-              className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer ml-1"
-            >
-              <RotateCcw className="w-3 h-3" />
-              <span>Reset Filters</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* 2. Compact 6-KPI Summary Grid */}
+      {/* 1. Compact 6-KPI Summary Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         {/* Card 1: Total Proposals */}
         <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col justify-between">
