@@ -14,17 +14,12 @@
     "build:tailwind": "tailwindcss -i ./src/webparts/cer/tailwind.css -o ./src/tailwind.generated.css --watch",
     "serve": "fast-serve",
     "serve:debug": "fast-serve --debug",
-    "test:requirements": "tsx src/webparts/cer/tests/verifyAllRequirements.ts",
-    "test:admin-perf": "tsx src/webparts/cer/tests/verifyAdminPerformance.ts",
-    "test:persistence": "tsx src/webparts/cer/tests/verifySharePointPersistence.ts",
     "trust-dev-cert": "heft trust-dev-cert",
-    "test:identity-schema": "tsx src/webparts/cer/tests/verifyIdentityColumnSchema.ts",
-    "test:person-fields": "tsx src/webparts/cer/tests/verifyPersonFieldService.ts",
-    "test:approval-hierarchy": "tsx src/webparts/cer/tests/verifyApprovalHierarchyAccess.ts",
-    "test:concurrency": "tsx src/webparts/cer/tests/verifyConcurrencyAndThrottling.ts",
-    "test:phase4": "tsx src/webparts/cer/tests/verifyPhase4Hardening.ts",
-    "test:two-fields": "tsx src/webparts/cer/tests/verifyTwoFieldSeparation.ts",
-    "test:request-date": "tsx src/webparts/cer/tests/verifyRequestDate.ts"
+    "test": "heft test",
+    "test:security": "tsx src/webparts/cer/tests/verifySecurityAndPermissions.ts",
+    "test:workflow": "tsx src/webparts/cer/tests/verifyApprovalWorkflow.ts",
+    "test:reports": "tsx src/webparts/cer/tests/verifyReportsAndAnalytics.ts",
+    "test:all": "tsx src/webparts/cer/tests/verifySecurityAndPermissions.ts && tsx src/webparts/cer/tests/verifyApprovalWorkflow.ts && tsx src/webparts/cer/tests/verifyReportsAndAnalytics.ts"
   },
   "dependencies": {
     "@fluentui/react": "^8.106.4",
