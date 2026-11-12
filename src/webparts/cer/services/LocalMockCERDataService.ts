@@ -3,7 +3,8 @@ import { ICERProposal, IFieldChoices, DEFAULT_FIELD_CHOICES } from "../models/CE
 import { ICERAuditRecord, ICERRemarksVersion, AUDIT_FIELD_DESCRIPTIONS, EXCLUDED_AUDIT_FIELDS } from "../models/AuditModel";
 import { IWorkflowLevel, IApprovalDecision, INotificationLog, isProjectOwnerStage, ApproverAssignmentType, isValidEmail } from "../models/WorkflowModel";
 import { ICERAttachment, ICERAttachmentManifestEntry } from "../models/AttachmentModel";
-import { IDirectoryUser, MOCK_DIRECTORY_USERS, IUserRoleAssignment, IAdminAuditRecord } from "../models/UserModel";
+import { IDirectoryUser, MOCK_DIRECTORY_USERS, IUserRoleAssignment, IAdminAuditRecord, IAppUser } from "../models/UserModel";
+import { PermissionService } from "./PermissionService";
 import { validateAttachment } from "../utils/attachmentValidation";
 import { getCurrentFiscalYearPhasingLabels, getLocalComponents } from "../utils/dateUtils";
 import { FIXED_6_LEVEL_APPROVAL_STAGES } from "../constants";
@@ -965,23 +966,27 @@ export class LocalMockCERDataService implements ICERDataService {
       throw new Error(`Proposal Number ${effectiveProposalNo} already exists. Please enter or generate a unique proposal number.`);
     }
 
-    // Enterprise RBAC: Only designated CER Owner or Administrator can edit proposals
+    // Enterprise RBAC: Designated CER Owner, proposal Initiator/Creator, or Administrator can edit proposals
+    const userAppUser: IAppUser = {
+      id: 0,
+      name: user.name || "",
+      email: user.email || "",
+      loginName: (user as any).loginName || user.email || "",
+      role: "Initiator",
+      roles: ["Initiator"],
+      is_active: true,
+    };
+
+    const isProposalOwnerOrInitiator = PermissionService.isProposalOwner(oldProposal, userAppUser);
+
     const userEmail = (user.email || "").trim().toLowerCase();
-    const ownerEmail = (oldProposal.owner_email || "").trim().toLowerCase();
-    const isEmailOwner = userEmail && ownerEmail && userEmail === ownerEmail;
-
-    const userName = (user.name || "").trim().toLowerCase();
-    const ownerName = (oldProposal.owname || "").trim().toLowerCase();
-    const isNameOwner = userName && ownerName && userName === ownerName;
-
     const isAuthorizedActor =
-      isEmailOwner ||
-      isNameOwner ||
-      userEmail.indexOf("Admin") !== -1 ||
+      isProposalOwnerOrInitiator ||
+      userEmail.indexOf("admin") !== -1 ||
       userEmail.indexOf("auditor") !== -1;
 
     if (!isAuthorizedActor) {
-      throw new Error(`Unauthorized: Only the designated CER Owner (${oldProposal.owname}) or Administrator can edit this proposal.`);
+      throw new Error(`Unauthorized: Only the proposal Initiator (${oldProposal.created_by || "Initiator"}), designated CER Owner (${oldProposal.owname || "CER Owner"}), or Administrator can modify this proposal.`);
     }
 
     const now = new Date();

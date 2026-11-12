@@ -119,6 +119,9 @@ export class PermissionService {
     const ownerName = (proposal.owname || "").trim().toLowerCase();
     const createdBy = (proposal.created_by || "").trim().toLowerCase();
     const normCreatedBy = norm(proposal.created_by);
+    const createdByEmail = (proposal.created_by_email || (proposal as any).Author?.EMail || "").trim().toLowerCase();
+    const normCreatedByEmail = norm(createdByEmail);
+    const authorTitle = ((proposal as any).Author?.Title || "").trim().toLowerCase();
 
     const cleanName = (val: string): string =>
       val
@@ -131,6 +134,7 @@ export class PermissionService {
     const cleanUserName = cleanName(userName);
     const cleanOwnerName = cleanName(ownerName);
     const cleanCreatedBy = cleanName(createdBy);
+    const cleanAuthorTitle = cleanName(authorTitle);
 
     // 1. Project Owner Match via Email or Login
     if (normUserEmail && normOwnerEmail && normUserEmail === normOwnerEmail) {
@@ -144,7 +148,12 @@ export class PermissionService {
     const userPrefix = normUserEmail ? normUserEmail.split("@")[0] : (normUserLogin ? normUserLogin.split("@")[0] : "");
     const ownerPrefix = normOwnerEmail ? normOwnerEmail.split("@")[0] : "";
     const createdByPrefix = normCreatedBy ? normCreatedBy.split("@")[0] : "";
-    if (userPrefix && ((ownerPrefix && userPrefix === ownerPrefix) || (createdByPrefix && userPrefix === createdByPrefix))) {
+    const createdByEmailPrefix = normCreatedByEmail ? normCreatedByEmail.split("@")[0] : "";
+    if (userPrefix && (
+      (ownerPrefix && userPrefix === ownerPrefix) ||
+      (createdByPrefix && userPrefix === createdByPrefix) ||
+      (createdByEmailPrefix && userPrefix === createdByEmailPrefix)
+    )) {
       return true;
     }
 
@@ -153,8 +162,17 @@ export class PermissionService {
       return true;
     }
 
-    // 4. Initiator Match (Created By)
+    // 4. Initiator Match (Created By display name, email, login, or Author)
     if (cleanUserName && cleanCreatedBy && cleanUserName === cleanCreatedBy) {
+      return true;
+    }
+    if (cleanUserName && cleanAuthorTitle && cleanUserName === cleanAuthorTitle) {
+      return true;
+    }
+    if (normUserEmail && normCreatedByEmail && normUserEmail === normCreatedByEmail) {
+      return true;
+    }
+    if (normUserLogin && normCreatedByEmail && normUserLogin === normCreatedByEmail) {
       return true;
     }
     if (normUserEmail && normCreatedBy && normUserEmail === normCreatedBy) {

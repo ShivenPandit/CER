@@ -93,6 +93,7 @@ export interface ICERProposal {
   request_date?: string; // Latest submission date for approval (SharePoint RequestDate)
   created_date: string;
   created_by: string;
+  created_by_email?: string; // Email of proposal creator / initiator
   modified_date: string;
   modified_by: string;
   revision_count: number;

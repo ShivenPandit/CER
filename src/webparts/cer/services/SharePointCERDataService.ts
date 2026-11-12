@@ -19,7 +19,8 @@ import {
   isValidEmail,
 } from "../models/WorkflowModel";
 import { ICERAttachment, ICERAttachmentManifestEntry } from "../models/AttachmentModel";
-import { IDirectoryUser, IUserRoleAssignment, IAdminAuditRecord } from "../models/UserModel";
+import { IDirectoryUser, IUserRoleAssignment, IAdminAuditRecord, IAppUser } from "../models/UserModel";
+import { PermissionService } from "./PermissionService";
 import { validateAttachment } from "../utils/attachmentValidation";
 import { getCurrentFiscalYearPhasingLabels, formatLocalDate, formatLocalTime, getLocalComponents } from "../utils/dateUtils";
 import { SharePointOperations } from "../hooks/useSharePointOperations";
@@ -35,6 +36,11 @@ import { sanitizeProposalPayload, escapeODataString, stripAttachmentsManifest } 
 export function formatUserFriendlySharePointError(error: any, defaultContext: string = "An error occurred while communicating with SharePoint."): string {
   const errMsg = String(error?.message || error || "");
   const lower = errMsg.toLowerCase();
+
+  // Preserve specific domain business explanations:
+  if (errMsg.indexOf("Only the") !== -1 || errMsg.indexOf("not permitted") !== -1 || errMsg.indexOf("not authorized to") !== -1) {
+    return errMsg.replace(/^Error:\s*/i, "").trim();
+  }
 
   if (lower.indexOf("412") !== -1 || lower.indexOf("concurrency") !== -1 || lower.indexOf("etag") !== -1) {
     return "Concurrency conflict: This proposal was modified by another user or session. Please refresh the proposal to review the latest changes before saving.";
@@ -1593,23 +1599,39 @@ export class SharePointCERDataService implements ICERDataService {
     const existing = isOriginalSupplied ? originalProposal : await this.getProposalByNumber(cleanProposal.cerprno, true);
     const original = originalProposal || existing || cleanProposal;
 
-    // Enterprise RBAC: Only designated CER Owner or Administrator can edit proposals
-    const userEmail = (user.email || "").trim().toLowerCase();
-    const ownerEmail = (original.owner_email || "").trim().toLowerCase();
-    const isEmailOwner = userEmail && ownerEmail && userEmail === ownerEmail;
+    // Enterprise RBAC: Designated CER Owner, proposal Initiator/Creator, or Administrator can edit proposals
+    const userAppUser: IAppUser = {
+      id: 0,
+      name: user.name || "",
+      email: user.email || "",
+      loginName: (user as any).loginName || user.email || "",
+      role: "Initiator",
+      roles: ["Initiator"],
+      is_active: true,
+    };
 
-    const userName = (user.name || "").trim().toLowerCase();
-    const ownerName = (original.owname || "").trim().toLowerCase();
-    const isNameOwner = userName && ownerName && userName === ownerName;
+    const isProposalOwnerOrInitiator = PermissionService.isProposalOwner(original, userAppUser);
+
+    let isAdminUser = false;
+    const userEmail = (user.email || "").trim().toLowerCase();
+    try {
+      const allRoles = await this.getUserRoles();
+      const adminEmails = allRoles
+        .filter((r) => (r.role === "Admin" || (r as any).role === "System Admin") && r.is_active !== false)
+        .map((r) => (r.user_email || r.login_name || "").trim().toLowerCase());
+      isAdminUser = adminEmails.some((a) => a && a === userEmail);
+    } catch {
+      // Fallback
+    }
 
     const isAuthorizedActor =
-      isEmailOwner ||
-      isNameOwner ||
-      userEmail.indexOf("Admin") !== -1 ||
+      isProposalOwnerOrInitiator ||
+      isAdminUser ||
+      userEmail.indexOf("admin") !== -1 ||
       userEmail.indexOf("auditor") !== -1;
 
     if (!isAuthorizedActor) {
-      throw new Error(`Unauthorized: Only the designated CER Owner (${original.owname}) or Administrator can edit this proposal.`);
+      throw new Error(`Unauthorized: Only the proposal Initiator (${original.created_by || "Initiator"}), designated CER Owner (${original.owname || "CER Owner"}), or Administrator can modify this proposal.`);
     }
 
     // 1. Calculate field-level deltas for CERAuditTrail
@@ -4621,6 +4643,7 @@ export class SharePointCERDataService implements ICERDataService {
       request_date: (item.RequestDate || item.requestDate || item.request_date) ? String(item.RequestDate || item.requestDate || item.request_date).split("T")[0] : undefined,
       created_date: item.Created || new Date().toISOString(),
       created_by: effectiveInitiator,
+      created_by_email: authorPerson?.email || item.Author?.EMail || undefined,
       modified_date: item.Modified || new Date().toISOString(),
       modified_by: item.Editor?.Title || "System",
       revision_count: Number(item.revisionCount ?? item.revision_count ?? 0),
