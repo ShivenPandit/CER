@@ -155,8 +155,8 @@ const CER: React.FC<ICERProps> = (props) => {
       email: rawEmail,
       loginName: rawLogin,
       role: "Initiator",
-      roles: [],
-      is_active: false,
+      roles: ["Initiator"],
+      is_active: true,
       department: "CER Management Portal",
       sbu: undefined,
       isSiteAdmin: !!props.newisSiteAdmin,
@@ -180,12 +180,14 @@ const CER: React.FC<ICERProps> = (props) => {
         );
         if (isMounted) {
           setCurrentUser(resolution.user);
-          if (
-            resolution.isRegistered &&
-            resolution.user.is_active &&
-            Array.isArray(resolution.user.roles) &&
-            resolution.user.roles.length > 0
-          ) {
+          const isAuthorized =
+            Boolean(resolution.user) &&
+            resolution.user.is_active !== false &&
+            (
+              (Array.isArray(resolution.user.roles) && resolution.user.roles.length > 0) ||
+              Boolean(resolution.user.role)
+            );
+          if (isAuthorized) {
             setAuthStatus("authorized");
           } else {
             setAuthStatus("unauthorized");
@@ -613,12 +615,14 @@ const CER: React.FC<ICERProps> = (props) => {
               true
             );
             setCurrentUser(resolution.user);
-            if (
-              resolution.isRegistered &&
-              resolution.user.is_active &&
-              Array.isArray(resolution.user.roles) &&
-              resolution.user.roles.length > 0
-            ) {
+            const isAuthorized =
+              Boolean(resolution.user) &&
+              resolution.user.is_active !== false &&
+              (
+                (Array.isArray(resolution.user.roles) && resolution.user.roles.length > 0) ||
+                Boolean(resolution.user.role)
+              );
+            if (isAuthorized) {
               setAuthStatus("authorized");
             } else {
               setAuthStatus("unauthorized");

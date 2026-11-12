@@ -294,6 +294,9 @@ export class AuthService {
       if (approverAssignment && roles.indexOf("Approver") === -1) {
         roles.push("Approver");
       }
+      if (roles.length === 0) {
+        roles.push("Initiator");
+      }
 
       // Resolve primary role in hierarchical priority: Admin > Approver > Initiator
       let primaryRole: UserRole = "Initiator";
@@ -337,7 +340,7 @@ export class AuthService {
       email: email,
       loginName: loginName || email,
       role: "Initiator",
-      roles: [],
+      roles: ["Initiator"],
       department: params.department || "CER Management Portal",
       is_active: true,
       isSiteAdmin,
@@ -346,7 +349,7 @@ export class AuthService {
 
     return {
       user: defaultUser,
-      isRegistered: true,
+      isRegistered: false,
       isFirstAdminBootstrapped: false,
     };
   }

@@ -80,7 +80,9 @@ export const UnauthorizedAccessView: React.FC<IUnauthorizedAccessViewProps> = ({
                   Access Authorization Required
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
-                  Your account is not registered for CER access.
+                  {currentUser.is_active === false
+                    ? "Your account has been deactivated in the CER system. Please contact the administrator."
+                    : "Your account is not authorized for CER access."}
                 </p>
               </div>
             </div>
@@ -93,7 +95,7 @@ export const UnauthorizedAccessView: React.FC<IUnauthorizedAccessViewProps> = ({
                   <span>User Profile</span>
                 </span>
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">
-                  🔴 Unregistered
+                  {currentUser.is_active === false ? "🔴 Deactivated" : "🔴 Restricted"}
                 </span>
               </div>
 
