@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Search,
   FileSpreadsheet,
+  Loader2,
 } from "lucide-react";
 import { ICERProposal, IFieldChoices, SBU_OPTIONS } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
@@ -618,18 +619,28 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                 )}
               </div>
 
-              {/* Export to Excel Button: h-9, px-3.5 py-2 */}
+              {/* Export to Excel Button: Stable size, never stretches toolbar */}
               <button
                 onClick={handleExportExcel}
                 disabled={(filteredListProposals.length === 0 && !dataService) || isExporting}
-                className="h-9 flex items-center justify-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-xs shadow-emerald-600/20 transition-all disabled:opacity-50 whitespace-nowrap cursor-pointer"
+                title={
+                  isExporting
+                    ? exportStatusText || "Exporting proposals to Excel..."
+                    : "Export filtered proposals to Excel"
+                }
+                className="h-9 min-w-[136px] flex items-center justify-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-xs shadow-emerald-600/20 transition-all disabled:opacity-60 whitespace-nowrap cursor-pointer"
               >
-                <FileSpreadsheet className="w-4 h-4 shrink-0" />
-                <span className="truncate">
-                  {isExporting
-                    ? exportStatusText || "Exporting..."
-                    : `Export Excel (${filteredListProposals.length})`}
-                </span>
+                {isExporting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
+                    <span>Exporting...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileSpreadsheet className="w-4 h-4 shrink-0" />
+                    <span>Export Excel ({filteredListProposals.length})</span>
+                  </>
+                )}
               </button>
             </div>
           )}
@@ -702,6 +713,14 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
           />
         )}
       </div>
+
+      {/* Non-intrusive floating progress toast during background Excel export */}
+      {isExporting && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900/95 text-white text-xs font-medium px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-3 border border-slate-700/80 animate-in fade-in slide-in-from-bottom-2 duration-150 backdrop-blur-xs">
+          <Loader2 className="w-4 h-4 text-emerald-400 shrink-0 animate-spin" />
+          <span>{exportStatusText || "Exporting proposals to Excel..."}</span>
+        </div>
+      )}
     </div>
   );
 };
