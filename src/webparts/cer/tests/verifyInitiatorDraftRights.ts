@@ -1,8 +1,18 @@
-import assert from "assert";
 import { LocalMockCERDataService } from "../services/LocalMockCERDataService";
 import { ICERProposal } from "../models/CERModel";
 import { PermissionService } from "../services/PermissionService";
 import { IAppUser } from "../models/UserModel";
+
+declare const process: any;
+
+function assert(condition: boolean, msg: string): void {
+  if (condition) {
+    console.log(`  ✔ [PASS] ${msg}`);
+  } else {
+    console.error(`  ❌ [FAIL] ${msg}`);
+    throw new Error(`Assertion failed: ${msg}`);
+  }
+}
 
 async function runInitiatorRightsTests(): Promise<void> {
   console.log("================================================================================");
