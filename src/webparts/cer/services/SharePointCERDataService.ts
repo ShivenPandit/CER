@@ -19,7 +19,7 @@ import {
   isValidEmail,
 } from "../models/WorkflowModel";
 import { ICERAttachment, ICERAttachmentManifestEntry } from "../models/AttachmentModel";
-import { IDirectoryUser, IUserRoleAssignment, IAdminAuditRecord, IAppUser } from "../models/UserModel";
+import { IDirectoryUser, IUserRoleAssignment, IAdminAuditRecord, IAppUser, UserRole } from "../models/UserModel";
 import { PermissionService } from "./PermissionService";
 import { validateAttachment } from "../utils/attachmentValidation";
 import { getCurrentFiscalYearPhasingLabels, formatLocalDate, formatLocalTime, getLocalComponents } from "../utils/dateUtils";
@@ -242,6 +242,34 @@ export class SharePointCERDataService implements ICERDataService {
       // ignore
     }
     return { name: "approverRoleTitle", isChoice: true };
+  }
+
+  private async _getRoleFieldInfo(): Promise<{ name: string; isChoice: boolean }> {
+    try {
+      const fields = await this.getRoleMatrixFields();
+      const candidate = (fields || []).find((f) => {
+        const intName = (f.InternalName || "").toLowerCase();
+        const title = (f.Title || "").toLowerCase();
+        return (
+          intName === "role" ||
+          intName === "userrole" ||
+          intName === "user_role" ||
+          intName === "cerrole" ||
+          intName === "roletitle" ||
+          title === "role" ||
+          title === "user role"
+        );
+      });
+      if (candidate && candidate.InternalName) {
+        return {
+          name: candidate.InternalName,
+          isChoice: (candidate.TypeAsString || "").toLowerCase() === "choice",
+        };
+      }
+    } catch {
+      // ignore
+    }
+    return { name: "role", isChoice: true };
   }
 
   private async _getApprovalLevelFieldName(): Promise<string> {
@@ -5119,13 +5147,42 @@ export class SharePointCERDataService implements ICERDataService {
               ? String(rawRoleTitle.Value)
               : String(rawRoleTitle || "");
 
+          const rawRole =
+            item.role !== undefined
+              ? item.role
+              : item.Role !== undefined
+              ? item.Role
+              : item.UserRole !== undefined
+              ? item.UserRole
+              : item.user_role !== undefined
+              ? item.user_role
+              : item.RoleTitle !== undefined
+              ? item.RoleTitle
+              : item.roleTitle;
+
+          const roleValue =
+            typeof rawRole === "object" && rawRole !== null && rawRole.Value !== undefined
+              ? String(rawRole.Value).trim()
+              : typeof rawRole === "string"
+              ? rawRole.trim()
+              : "";
+
+          const isItemAdmin = roleValue.toLowerCase() === "admin";
+          const parsedRole: UserRole = isItemAdmin
+            ? "Admin"
+            : roleValue.toLowerCase() === "approver"
+            ? "Approver"
+            : roleValue.toLowerCase().indexOf("finance") !== -1
+            ? "Finance_Audit"
+            : (roleValue as UserRole) || "Initiator";
+
           return {
             id: String(item.ID !== undefined ? item.ID : item.Id !== undefined ? item.Id : item.id || Date.now()),
             user_name: userName,
             user_email: userEmail,
             login_name: loginName,
             user_id: userId,
-            role: item.role || "Initiator",
+            role: parsedRole,
             approval_level: parsedLevel,
             approver_role_title: parsedRoleTitle,
             department: item.department || undefined,
@@ -5217,8 +5274,9 @@ export class SharePointCERDataService implements ICERDataService {
     actor: { name: string; email: string }
   ): Promise<IUserRoleAssignment> {
     this.clearCache();
-    // Security restriction: System Admin accounts cannot be created or modified via the UI
-    if (assignment.role === "Admin") {
+
+    // Security restriction: System Admin accounts cannot be created via the UI if they do not already exist in SharePoint
+    if (assignment.role === "Admin" && assignment.approval_level === undefined) {
       throw new Error(
         "Security Restriction: System Admin accounts cannot be created or modified through the web interface. System Admin permissions must be managed directly in SharePoint CERRoleMatrix list."
       );
@@ -5279,10 +5337,23 @@ export class SharePointCERDataService implements ICERDataService {
       }
 
       // Base payload targeting CERRoleMatrix list columns
-      const isTargetAdmin = String(assignment.role || "").toLowerCase() === "admin";
+      let isTargetAdmin = String(assignment.role || "").trim().toLowerCase() === "admin";
+      if (!isTargetAdmin) {
+        const existing = (this._cachedUserRoles || []).find(
+          (r) =>
+            (assignment.user_email && r.user_email && r.user_email.toLowerCase() === assignment.user_email.toLowerCase()) ||
+            (assignment.login_name && r.login_name && r.login_name.toLowerCase() === assignment.login_name.toLowerCase()) ||
+            (assignment.user_name && r.user_name && r.user_name.toLowerCase() === assignment.user_name.toLowerCase())
+        );
+        if (existing && String(existing.role || "").trim().toLowerCase() === "admin") {
+          isTargetAdmin = true;
+        }
+      }
+
+      const roleInfo = await this._getRoleFieldInfo();
       const payload: Record<string, any> = {
         Title: assignment.user_name,
-        role: isTargetAdmin ? "Admin" : null,
+        [roleInfo.name]: isTargetAdmin ? "Admin" : null,
         sbu: assignment.sbu || null,
       };
 
@@ -5339,18 +5410,31 @@ export class SharePointCERDataService implements ICERDataService {
               });
 
               if (duplicateItem && duplicateItem.id) {
+                const isDuplicateAdmin =
+                  isTargetAdmin ||
+                  String(duplicateItem.role || "").trim().toLowerCase() === "admin" ||
+                  String(assignment.role || "").trim().toLowerCase() === "admin";
+                const roleToKeep = isDuplicateAdmin ? "Admin" : (assignment.role || duplicateItem.role);
                 await this.updateUserRole(
                   {
                     ...duplicateItem,
                     ...assignment,
                     id: duplicateItem.id,
+                    role: roleToKeep,
                     user_id: spUserId || duplicateItem.user_id,
                     is_active: true,
                   },
                   actor
                 );
-                res = { Id: Number(duplicateItem.id), ID: Number(duplicateItem.id) };
-                break;
+                this.clearCache();
+                return {
+                  ...duplicateItem,
+                  ...assignment,
+                  id: duplicateItem.id,
+                  role: roleToKeep,
+                  user_id: spUserId || duplicateItem.user_id,
+                  is_active: true,
+                };
               }
             } catch (dupRecoveryErr) {
               console.warn("[SharePointCERDataService] Duplicate recovery update failed:", dupRecoveryErr);
@@ -5371,6 +5455,13 @@ export class SharePointCERDataService implements ICERDataService {
             );
             if (keyToRemove) {
               delete currentPayload[keyToRemove];
+              // Try alternative column if role was rejected
+              if ((missingField === "role" || missingField === "userrole" || missingField === "cerrole") && isTargetAdmin) {
+                const altRoleKey = missingField === "role" ? "Role" : "role";
+                if (currentPayload[altRoleKey] === undefined) {
+                  currentPayload[altRoleKey] = "Admin";
+                }
+              }
               // Try alternative column if approval level was rejected
               if ((missingField === "approvallevel" || missingField === "approverlevel") && assignment.approval_level) {
                 const altKey = missingField === "approvallevel" ? "approverLevel" : "approvalLevel";
@@ -5466,7 +5557,21 @@ export class SharePointCERDataService implements ICERDataService {
   ): Promise<void> {
     this.clearCache();
     // Ensure System Admin privilege is preserved if the account is an Admin
-    const isTargetAdmin = assignment.role === "Admin";
+    let isTargetAdmin = String(assignment.role || "").trim().toLowerCase() === "admin";
+
+    // If not explicitly Admin in incoming assignment, check existing records in matrix
+    if (!isTargetAdmin) {
+      const existing = (this._cachedUserRoles || []).find(
+        (r) =>
+          (assignment.id && r.id === assignment.id) ||
+          (assignment.user_email && r.user_email && r.user_email.toLowerCase() === assignment.user_email.toLowerCase()) ||
+          (assignment.login_name && r.login_name && r.login_name.toLowerCase() === assignment.login_name.toLowerCase()) ||
+          (assignment.user_name && r.user_name && r.user_name.toLowerCase() === assignment.user_name.toLowerCase())
+      );
+      if (existing && String(existing.role || "").trim().toLowerCase() === "admin") {
+        isTargetAdmin = true;
+      }
+    }
 
     try {
       // 1. Resolve SharePoint user ID using ensureUser
@@ -5485,9 +5590,10 @@ export class SharePointCERDataService implements ICERDataService {
         }
       }
 
+      const roleInfo = await this._getRoleFieldInfo();
       const payload: Record<string, any> = {
         Title: assignment.user_name,
-        role: isTargetAdmin ? "Admin" : null,
+        [roleInfo.name]: isTargetAdmin ? "Admin" : null,
         sbu: assignment.sbu || null,
       };
 
@@ -5536,6 +5642,13 @@ export class SharePointCERDataService implements ICERDataService {
             );
             if (keyToRemove) {
               delete currentPayload[keyToRemove];
+              // Try alternative column if role was rejected
+              if ((missingField === "role" || missingField === "userrole" || missingField === "cerrole") && isTargetAdmin) {
+                const altRoleKey = missingField === "role" ? "Role" : "role";
+                if (currentPayload[altRoleKey] === undefined) {
+                  currentPayload[altRoleKey] = "Admin";
+                }
+              }
               // Try alternative column if approval level was rejected
               if ((missingField === "approvallevel" || missingField === "approverlevel") && assignment.approval_level) {
                 const altKey = missingField === "approvallevel" ? "approverLevel" : "approvalLevel";

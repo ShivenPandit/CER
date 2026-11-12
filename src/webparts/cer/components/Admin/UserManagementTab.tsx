@@ -254,24 +254,41 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
   const handleAddDirectoryUserToLevel = (level: number, dirUser: IDirectoryUser) => {
     const email = dirUser.mail || dirUser.userPrincipalName || "";
-    const existingAdmin = roles.find((r) => {
+    const cleanDirName = (dirUser.displayName || "")
+      .replace(/\s*\([^)]*\)/g, "")
+      .replace(/[^a-zA-Z0-9\s]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+
+    // Find any existing entry for this directory user in CERRoleMatrix
+    const existingUser = roles.find((r) => {
       const rEmail = (r.user_email || "").trim().toLowerCase();
       const rLogin = (r.login_name || "").trim().toLowerCase();
+      const rCleanName = (r.user_name || "")
+        .replace(/\s*\([^)]*\)/g, "")
+        .replace(/[^a-zA-Z0-9\s]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
       const targetEmail = email.trim().toLowerCase();
       const targetLogin = (dirUser.userPrincipalName || "").trim().toLowerCase();
       return (
-        r.role === "Admin" &&
-        ((rEmail && (rEmail === targetEmail || rEmail === targetLogin)) ||
-          (rLogin && (rLogin === targetEmail || rLogin === targetLogin)))
+        (targetEmail && (rEmail === targetEmail || rLogin === targetEmail)) ||
+        (targetLogin && (rLogin === targetLogin || rEmail === targetLogin)) ||
+        (cleanDirName && rCleanName && cleanDirName === rCleanName)
       );
     });
 
+    const isExistingAdmin = existingUser && String(existingUser.role || "").trim().toLowerCase() === "admin";
+
     const newApprover: IUserRoleAssignment = {
-      id: `dir-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: existingUser ? existingUser.id : `dir-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       user_name: dirUser.displayName,
-      user_email: email,
-      login_name: dirUser.userPrincipalName || email,
-      role: existingAdmin ? "Admin" : ("" as any),
+      user_email: email || existingUser?.user_email || "",
+      login_name: dirUser.userPrincipalName || email || existingUser?.login_name || "",
+      user_id: existingUser?.user_id,
+      role: isExistingAdmin ? "Admin" : ((existingUser?.role || "") as any),
       sbu: updateModalBlock || "",
       approval_level: level,
       approver_role_title: getApproverRoleTitle(level),
@@ -340,7 +357,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
         const currentItem = currentInBlockList[i];
         if (!stagedInBlockKeys.has(currentItem.key)) {
           const rem = currentItem.approver;
-          const isAdmin = rem.role === "Admin";
+          const isAdmin = String(rem.role || "").trim().toLowerCase() === "admin";
           await dataService.updateUserRole(
             {
               ...rem,
@@ -366,15 +383,32 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
         const title = getApproverRoleTitle(stagedItem.level);
         const staged = stagedItem.approver;
 
-        const existingRole = roles.find(
-          (r) =>
+        const stagedCleanName = (staged.user_name || "")
+          .replace(/\s*\([^)]*\)/g, "")
+          .replace(/[^a-zA-Z0-9\s]/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+
+        const existingRole = roles.find((r) => {
+          const rCleanName = (r.user_name || "")
+            .replace(/\s*\([^)]*\)/g, "")
+            .replace(/[^a-zA-Z0-9\s]/g, "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .toLowerCase();
+          return (
             (staged.id && r.id === staged.id) ||
             getUserKey(r) === stagedItem.key ||
-            (staged.user_id && r.user_id && Number(r.user_id) === Number(staged.user_id))
-        );
+            (staged.user_id && r.user_id && Number(r.user_id) === Number(staged.user_id)) ||
+            (stagedCleanName && rCleanName && stagedCleanName === rCleanName)
+          );
+        });
 
-        const isAdmin = (existingRole && existingRole.role === "Admin") || (staged && staged.role === "Admin");
-        const roleToSave = isAdmin ? "Admin" : ("" as any);
+        const isAdmin =
+          (existingRole && String(existingRole.role || "").trim().toLowerCase() === "admin") ||
+          (staged && String(staged.role || "").trim().toLowerCase() === "admin");
+        const roleToSave = isAdmin ? "Admin" : (existingRole?.role || staged?.role || ("" as any));
 
         if (existingRole) {
           await dataService.updateUserRole(

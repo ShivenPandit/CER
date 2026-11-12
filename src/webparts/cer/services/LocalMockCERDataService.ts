@@ -2018,6 +2018,22 @@ export class LocalMockCERDataService implements ICERDataService {
     assignment: Omit<IUserRoleAssignment, "id">,
     actor: { name: string; email: string }
   ): Promise<IUserRoleAssignment> {
+    // If target user is an existing Admin, preserve their Admin role and update their approval assignment in place
+    const normEmail = (assignment.user_email || "").trim().toLowerCase();
+    const existingAdmin = this._userRoles.find(
+      r => r.user_email.trim().toLowerCase() === normEmail && r.role === "Admin" && r.is_active
+    );
+    if (existingAdmin) {
+      const updated: IUserRoleAssignment = {
+        ...existingAdmin,
+        ...assignment,
+        id: existingAdmin.id,
+        role: "Admin",
+      };
+      await this.updateUserRole(updated, actor);
+      return updated;
+    }
+
     if (assignment.role === "Admin" && actor.name !== "SYSTEM_INITIAL_BOOTSTRAP" && actor.name !== "SYSTEM_DESIGNATED_ADMIN_PROVISION") {
       throw new Error(
         "Security Restriction: System Admin accounts cannot be created or modified through the web interface. System Admin permissions must be managed directly in SharePoint CERRoleMatrix list."
@@ -2032,7 +2048,6 @@ export class LocalMockCERDataService implements ICERDataService {
       throw new Error(`Unauthorized: Only an active Administrator can assign roles. Actor '${actor.name}' does not possess Admin privileges.`);
     }
 
-    const normEmail = assignment.user_email.trim().toLowerCase();
     const existing = this._userRoles.find(
       r => r.user_email.trim().toLowerCase() === normEmail && r.role === assignment.role && r.is_active
     );
@@ -2077,9 +2092,7 @@ export class LocalMockCERDataService implements ICERDataService {
 
     // Security check: System Admin privilege cannot be demoted through the UI
     if (old && old.role === "Admin" && assignment.role !== "Admin") {
-      throw new Error(
-        "Security Restriction: System Admin accounts cannot be demoted through the web interface. System Admin permissions must be managed directly in SharePoint CERRoleMatrix list."
-      );
+      assignment.role = "Admin";
     }
 
     // Protection rule: Prevent accidental deactivation of the last active Administrator
