@@ -333,12 +333,13 @@ export const ReportProposalList: React.FC<IReportProposalListProps> = ({
         )}
       </div>
 
-      {/* 3. Proposal Data Table */}
+      {/* 3. Proposal Data Table & Mobile Cards */}
       <div
         ref={pagination.tableContainerRef}
         className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden flex flex-col"
       >
-        <div className="overflow-x-auto min-h-[300px]">
+        {/* Desktop Table View (>= 640px) */}
+        <div className="hidden sm:block overflow-x-auto min-h-[300px]">
           <table className="w-full text-left border-collapse min-w-[980px]">
             <thead>
               <tr className="border-b border-slate-200/80 bg-slate-50/50 text-slate-500 text-[11px] font-bold uppercase tracking-wider select-none">
@@ -475,6 +476,7 @@ export const ReportProposalList: React.FC<IReportProposalListProps> = ({
                   return (
                     <tr
                       key={prop.id || displayId}
+                      data-role="list-item"
                       onClick={() => handleRowClick(prop)}
                       className="hover:bg-slate-50/80 cursor-pointer transition-colors group"
                     >
@@ -566,6 +568,158 @@ export const ReportProposalList: React.FC<IReportProposalListProps> = ({
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Adaptive Cards View (active on < 640px) */}
+        <div data-role="list-wrapper" className="sm:hidden divide-y divide-slate-100">
+          {visibleProposals.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 text-sm px-4">
+              No proposals match your filter criteria.
+            </div>
+          ) : (
+            visibleProposals.map((prop) => {
+              const displayId =
+                prop.cer_proposal_id || prop.proposal_no || prop.cerprno || `CER-${prop.id}`;
+              const isApproved = prop.status === "Approved";
+              const isSendBack =
+                prop.status === "Send Back" || prop.status === "Revised" || prop.status === "Sent Back";
+
+              let pendingLevelDisplay = "";
+              if (isApproved) {
+                pendingLevelDisplay = "Approved";
+              } else if (isSendBack) {
+                pendingLevelDisplay = "Initiator (Rework)";
+              } else if (prop.status === "Rejected") {
+                pendingLevelDisplay = "Rejected";
+              } else {
+                const lvl = resolveProposalStageLevel(prop);
+                const stageNames: Record<number, string> = {
+                  1: "L1 - Finance",
+                  2: "L2 - CER Owner",
+                  3: "L3 - BU CFO",
+                  4: "L4 - BU Director",
+                  5: "L5 - VOGL CFO",
+                  6: "L6 - VOGL CEO",
+                };
+                const sanitizedRole = prop.pending_with_role
+                  ? prop.pending_with_role.replace(/Project Owner/g, "CER Owner")
+                  : undefined;
+                pendingLevelDisplay =
+                  sanitizedRole ||
+                  stageNames[lvl] ||
+                  `Level ${lvl}`;
+              }
+
+              return (
+                <div
+                  key={prop.id || displayId}
+                  data-role="list-item"
+                  onClick={() => handleRowClick(prop)}
+                  className="p-4 space-y-3 hover:bg-slate-50/80 transition-colors cursor-pointer"
+                >
+                  {/* Row 1: ID & Status Badge */}
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRowClick(prop);
+                      }}
+                      className="font-mono font-bold text-xs text-[#012964] bg-blue-50/80 px-2.5 py-1 rounded-lg border border-blue-200/60 hover:underline cursor-pointer"
+                      title={`View ${displayId}`}
+                    >
+                      {displayId}
+                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <StatusBadge status={prop.status} size="sm" />
+                    </div>
+                  </div>
+
+                  {/* Row 2: Project Title */}
+                  <div>
+                    <h4
+                      className="font-semibold text-slate-900 text-sm leading-snug group-hover:text-[#012964] transition-colors truncate"
+                      title={prop.pr_name}
+                    >
+                      {truncateProjectName(prop.pr_name, 32)}
+                    </h4>
+
+                    {/* Metadata tags: Owner, Initiator, SBU */}
+                    <div className="flex items-center gap-2 text-xs text-slate-600 mt-2 flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-slate-400 font-medium">Owner:</span>
+                        <div className="w-5 h-5 rounded-full bg-blue-50 text-[#012964] font-bold text-[9px] leading-none flex items-center justify-center shrink-0 border border-blue-200/80 shadow-2xs">
+                          {getInitials(prop.owname)}
+                        </div>
+                        <span className="truncate max-w-[110px]" title={prop.owname}>
+                          {prop.owname || "—"}
+                        </span>
+                      </div>
+                      <span>•</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-slate-400 font-medium">Initiator:</span>
+                        <div className="w-5 h-5 rounded-full bg-slate-100 text-slate-700 font-bold text-[9px] leading-none flex items-center justify-center shrink-0 border border-slate-200 shadow-2xs">
+                          {getInitials(prop.created_by)}
+                        </div>
+                        <span className="truncate max-w-[110px]" title={prop.created_by}>
+                          {prop.created_by || "—"}
+                        </span>
+                      </div>
+                      <span>•</span>
+                      <span className="font-semibold text-[11px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">
+                        {prop.sbu || "—"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Row 3: Amount & Pending Level */}
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
+                        Amount
+                      </span>
+                      <span className="font-bold text-sm text-slate-900">
+                        {prop.currency || "USD"} {Number(prop.amount || 0).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
+                        Pending
+                      </span>
+                      <span
+                        className={`text-xs font-semibold ${
+                          isApproved
+                            ? "text-emerald-700"
+                            : isSendBack
+                            ? "text-amber-700"
+                            : prop.status === "Rejected"
+                            ? "text-rose-700"
+                            : "text-blue-700"
+                        }`}
+                      >
+                        {pendingLevelDisplay}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Row 4: Action button */}
+                  <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 text-xs">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRowClick(prop);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 font-semibold text-xs text-[#012964] bg-blue-50/80 hover:bg-blue-100 rounded-lg border border-blue-200/60 cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>View</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Dynamic Pagination Bar */}
