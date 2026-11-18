@@ -1,6 +1,7 @@
 import { LocalMockCERDataService } from "../services/LocalMockCERDataService";
 import { ICERProposal, CATEGORY_DEFINITIONS, SBU_OPTIONS } from "../models/CERModel";
 import { AUDIT_FIELD_DESCRIPTIONS, EXCLUDED_AUDIT_FIELDS } from "../models/AuditModel";
+import { getFirstActiveError, FormErrors, validateField } from "../utils/cerValidation";
 
 // Standalone runner fallback for tsx / Node execution
 const _global: any = typeof globalThis !== "undefined" ? globalThis : {};
@@ -373,5 +374,45 @@ describe("CER Management System - Business Logic & Requirements Tests", () => {
 
     expect(CATEGORY_DEFINITIONS.Desirable.label).toBe("Desirable");
     expect(CATEGORY_DEFINITIONS.Desirable.description).toContain("can be deferred");
+  });
+
+  // UI-01: Real-time top error message banner resolution
+  test("UI-01: Top validation message updates in real time according to field display order", () => {
+    // State 1: All required fields empty (Image 1)
+    const errors: FormErrors = {
+      pr_name: "Name of the Project is required.",
+      proposal_no: "CER Proposal No is required.",
+      owname: "CER Owner Name is required. Please select a user from the directory.",
+      st_date: "Start Date of the Project is required.",
+      object: "Objective of CER is required.",
+    };
+    expect(getFirstActiveError(errors)).toBe("Name of the Project is required.");
+
+    // State 2: User fills in Name of Project (Image 2)
+    delete errors.pr_name;
+    expect(getFirstActiveError(errors)).toBe("CER Proposal No is required.");
+
+    // State 3: User fills in CER Proposal No
+    delete errors.proposal_no;
+    expect(getFirstActiveError(errors)).toBe("CER Owner Name is required. Please select a user from the directory.");
+
+    // State 4: User selects CER Owner
+    delete errors.owname;
+    expect(getFirstActiveError(errors)).toBe("Start Date of the Project is required.");
+
+    // State 5: User fills Start Date
+    delete errors.st_date;
+    expect(getFirstActiveError(errors)).toBe("Objective of CER is required.");
+
+    // State 6: User fills Objectives
+    delete errors.object;
+    expect(getFirstActiveError(errors)).toBeUndefined();
+  });
+
+  // UI-02: Clean validation messages without legacy section letters
+  test("UI-02: Validation error message for Amount of CER does not reference legacy section letters", () => {
+    const amountErr = validateField("amount", 0, {} as ICERProposal, false);
+    expect(amountErr).toBe("Capex ($mm) is mandatory. Please enter Capex phasing to set the Amount of CER.");
+    expect(amountErr).not.toContain("Section C");
   });
 });

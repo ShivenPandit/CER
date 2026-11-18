@@ -54,6 +54,74 @@ export const MANDATORY_CER_FIELDS: (keyof ICERProposal)[] = [
 ];
 
 /**
+ * Visual display order of form fields across Sections A through F.
+ * Used to determine the first active error displayed in the top banner in real time.
+ */
+export const FORM_FIELD_DISPLAY_ORDER: (keyof ICERProposal | "phasing_mismatch" | "cost_mismatch")[] = [
+  "pr_name",
+  "proposal_no",
+  "cerprno",
+  "sbu",
+  "cat",
+  "owname",
+  "owner_email",
+  "st_date",
+  "com_date",
+  "object",
+  "amount",
+  "currency",
+  "payable",
+  "payback_quarters",
+  "cbudget",
+  "cb_amnt",
+  "reason",
+  "jv",
+  "jv_recoverable",
+  "jv_budget",
+  "jv_cost",
+  "jv_amnt",
+  "jv_reason",
+  "remarks_jv",
+  "ben_npv",
+  "ben_irr",
+  "capex_till",
+  "capex_fy",
+  "capex_beyond",
+  "opex_till",
+  "opex_fy",
+  "opex_beyond",
+  "prod_till",
+  "prod_fy",
+  "prod_beyond",
+  "engineer",
+  "s_fac",
+  "comis",
+  "preop",
+  "others",
+  "total",
+  "cost_mismatch",
+  "remarks",
+];
+
+/**
+ * Resolves the first active validation error message according to visual form layout order.
+ * Returns the error message string, or undefined if no validation errors exist.
+ */
+export function getFirstActiveError(errors: FormErrors): string | undefined {
+  if (!errors || Object.keys(errors).length === 0) return undefined;
+  for (const field of FORM_FIELD_DISPLAY_ORDER) {
+    if (errors[field]) {
+      return errors[field];
+    }
+  }
+  const keys = Object.keys(errors) as (keyof ICERProposal | "phasing_mismatch" | "cost_mismatch")[];
+  for (const k of keys) {
+    if (errors[k]) return errors[k];
+  }
+  return undefined;
+}
+
+/**
  * Validates a single field given the current form state.
  * Returns error string if invalid, or undefined if valid.
  */
@@ -212,7 +280,7 @@ export function validateField(
     case "amount": {
       const num = Number(value);
       if (value === undefined || value === null || value === "" || isNaN(num) || num <= 0) {
-        return "Capex ($mm) is mandatory. Please enter Capex phasing in Section C to set the Amount of CER.";
+        return "Capex ($mm) is mandatory. Please enter Capex phasing to set the Amount of CER.";
       }
       return undefined;
     }
@@ -536,7 +604,7 @@ export function validateAll(formData: ICERProposal, isDraft: boolean = false): {
 
   const errorKeys = Object.keys(errors) as (keyof ICERProposal | "phasing_mismatch" | "cost_mismatch")[];
   const isValid = errorKeys.length === 0;
-  const firstErrorField = errorKeys[0];
+  const firstErrorField = FORM_FIELD_DISPLAY_ORDER.find((f) => !!errors[f]) || errorKeys[0];
 
   return { errors, isValid, firstErrorField };
 }

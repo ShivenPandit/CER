@@ -60,7 +60,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
               <span>Amount of CER</span>
               <span className="text-rose-500">*</span>
             </label>
-            <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200" title="Auto-fetched from Capex phasing in Section C">
+            <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200" title="Auto-calculated from Capex phasing under Expenditure Phasing">
               Auto-calculated
             </span>
           </div>
@@ -78,7 +78,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
               className={`flex-1 h-10 px-3 font-mono font-bold text-sm bg-slate-50 text-slate-800 cursor-not-allowed focus:outline-none ${
                 getFieldError("amount") ? "text-rose-900 bg-rose-50/20" : ""
               }`}
-              title="Auto-fetched total from Section C Capex ($mm). Read-only."
+              title="Auto-calculated total from Capex ($mm) under Expenditure Phasing. Read-only."
               aria-readonly="true"
             />
           </div>

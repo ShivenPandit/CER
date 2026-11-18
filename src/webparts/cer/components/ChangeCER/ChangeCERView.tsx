@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, Save, Send, ArrowLeft, CheckCircle2, AlertCircle, ShieldAlert, RotateCcw, Lock, History, Loader2 } from "lucide-react";
+import { Search, Save, Send, ArrowLeft, CheckCircle2, AlertCircle, ShieldAlert, RotateCcw, Lock, History, Loader2, X } from "lucide-react";
 import { ICERProposal, IFieldChoices } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
 import { ICERAttachment } from "../../models/AttachmentModel";
@@ -13,7 +13,7 @@ import { CostBreakdownSection } from '../CreateCER/CostBreakdownSection';
 import { RemarksSection } from '../CreateCER/RemarksSection';
 import { AttachmentSection } from '../CreateCER/AttachmentSection';
 import { CategoryDefinitionSection } from '../Shared/CategoryDefinitionSection';
-import { FormErrors, validateField, validateAll, hasEnteredCostBreakdown } from "../../utils/cerValidation";
+import { FormErrors, validateField, validateAll, hasEnteredCostBreakdown, getFirstActiveError } from "../../utils/cerValidation";
 import { sanitizeSingleLineText, sanitizeMultiLineText, sanitizeProposalPayload } from "../../utils/sanitizationUtils";
 import { MAX_TOTAL_SIZE_BYTES, formatBytes } from "../../utils/attachmentValidation";
 import { PermissionService } from "../../services/PermissionService";
@@ -47,12 +47,22 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [secondaryWarning, setSecondaryWarning] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [submitStageText, setSubmitStageText] = useState<string>("");
   const [isCheckingCerNo, setIsCheckingCerNo] = useState(false);
   const cerNoDebounceTimer = React.useRef<any>(null);
   const initialAttachmentsRef = React.useRef<ICERAttachment[]>([]);
+
+  // Derive active top validation or submission error message in real time
+  const activeTopError = React.useMemo(() => {
+    if (errorMessage) return errorMessage;
+    if (hasAttemptedSubmit) {
+      return getFirstActiveError(errors) || null;
+    }
+    return null;
+  }, [errorMessage, hasAttemptedSubmit, errors]);
 
   const loadProposal = async (cerprno: string): Promise<void> => {
     // Specific mandatory validation as required by FR-02:
@@ -216,6 +226,11 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
 
   const handleFieldChange = (field: keyof ICERProposal, value: any) => {
     if (!formData) return;
+    // If a static error message was displayed, clear it so real-time validation takes over
+    if (errorMessage) {
+      setErrorMessage(null);
+    }
+
     setFormData((prev) => {
       if (!prev) return null;
       const updated = { ...prev, [field]: value };
@@ -235,7 +250,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         updated.amount = hasAnyCapex ? capexTotal : ("" as any);
       }
 
-      if (touched[field] || errors[field]) {
+      if (hasAttemptedSubmit || touched[field] || errors[field]) {
         const error = validateField(field, value, updated, false);
         setErrors((prevErrors) => {
           const newErrors = { ...prevErrors };
@@ -244,8 +259,31 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           } else {
             delete newErrors[field];
           }
+          if ((field === "proposal_no" || field === "cerprno") && !error) {
+            delete newErrors.proposal_no;
+            delete newErrors.cerprno;
+          }
+          if (field === "owname" && !error && updated.owner_email) {
+            delete newErrors.owner_email;
+          }
           return newErrors;
         });
+      }
+
+      // Re-validate date range
+      if (field === "st_date" || field === "com_date") {
+        if (updated.com_date && updated.st_date) {
+          const comDateErr = validateField("com_date", updated.com_date, updated, false);
+          setErrors((prevErrors) => {
+            const newErrors = { ...prevErrors };
+            if (comDateErr) {
+              newErrors.com_date = comDateErr;
+            } else {
+              delete newErrors.com_date;
+            }
+            return newErrors;
+          });
+        }
       }
 
       // Re-validate amount when capex changes
@@ -266,7 +304,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
       if (
         ["engineer", "s_fac", "comis", "preop", "others", "capex_till", "capex_fy", "capex_beyond"].indexOf(field as string) !== -1
       ) {
-        if (errors.total || errors.cost_mismatch || touched.total) {
+        if (errors.total || errors.cost_mismatch || touched.total || hasAttemptedSubmit) {
           const totalErr = validateField("total", updated.total, updated, false);
           setErrors((prevErrors) => {
             const newErrors = { ...prevErrors };
@@ -442,15 +480,14 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
     const { errors: validationErrors, isValid, firstErrorField } = validateAll(sanitizedData, isDraft);
 
     if (!isValid) {
+      setHasAttemptedSubmit(true);
       setErrors(validationErrors);
       const newTouched: Record<string, boolean> = { ...touched };
       Object.keys(validationErrors).forEach((key) => {
         newTouched[key] = true;
       });
       setTouched(newTouched);
-
-      const firstErr = firstErrorField ? validationErrors[firstErrorField] : "Please correct validation errors.";
-      setErrorMessage(firstErr || "Please review the form for invalid or missing required entries.");
+      setErrorMessage(null);
 
       if (firstErrorField) {
         scrollToFirstError(firstErrorField);
@@ -461,9 +498,11 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
     // Verify CER Proposal No. uniqueness before saving
     const trimmedNo = (sanitizedData.proposal_no || sanitizedData.cerprno || "").trim();
     if (!trimmedNo) {
-      setErrors((prev) => ({ ...prev, proposal_no: "CER Proposal Number is required." }));
-      setTouched((prev) => ({ ...prev, proposal_no: true }));
-      setErrorMessage("Make an entry in mandatory field 'CER Proposal No.'");
+      setHasAttemptedSubmit(true);
+      const reqMsg = "CER Proposal No is required.";
+      setErrors((prev) => ({ ...prev, proposal_no: reqMsg, cerprno: reqMsg }));
+      setTouched((prev) => ({ ...prev, proposal_no: true, cerprno: true }));
+      setErrorMessage(null);
       scrollToFirstError("proposal_no");
       return;
     }
@@ -475,12 +514,15 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
       try {
         const existing = await dataService.getProposalByNumber(trimmedNo);
         if (existing && existing.id !== originalProposal?.id) {
+          setHasAttemptedSubmit(true);
+          const dupMsg = `CER Proposal No. '${trimmedNo}' already exists on another project. Please enter a unique number.`;
           setErrors((prev) => ({
             ...prev,
-            proposal_no: `CER Proposal No. '${trimmedNo}' already exists on another project. Please enter a unique number.`,
+            proposal_no: dupMsg,
+            cerprno: dupMsg,
           }));
-          setTouched((prev) => ({ ...prev, proposal_no: true }));
-          setErrorMessage(`CER Proposal No. '${trimmedNo}' already exists on another project. Please choose a unique proposal number.`);
+          setTouched((prev) => ({ ...prev, proposal_no: true, cerprno: true }));
+          setErrorMessage(null);
           scrollToFirstError("proposal_no");
           return;
         }
@@ -716,10 +758,23 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
       </div>
 
       {/* Mandatory Validation Error / Notice as required by FR-02 */}
-      {errorMessage && (
-        <div className="p-3 sm:p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2.5 animate-shake">
-          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-          <span className="font-semibold">{errorMessage}</span>
+      {activeTopError && (
+        <div className="p-3 sm:p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between gap-2.5 animate-shake">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+            <span className="font-semibold truncate">{activeTopError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setErrorMessage(null);
+              setHasAttemptedSubmit(false);
+            }}
+            className="text-rose-400 hover:text-rose-700 transition-colors shrink-0 p-0.5 rounded cursor-pointer"
+            title="Dismiss error notice"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
