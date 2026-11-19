@@ -93,6 +93,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     pending_with_email: "",
     created_date: new Date().toISOString(),
     created_by: currentUser.name,
+    created_by_email: currentUser.email,
     modified_date: new Date().toISOString(),
     modified_by: currentUser.name,
     revision_count: 0,
@@ -467,6 +468,8 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     try {
       const payload: ICERProposal = {
         ...sanitizedData,
+        created_by: sanitizedData.created_by || currentUser.name,
+        created_by_email: sanitizedData.created_by_email || currentUser.email,
         status: isDraft ? "Draft" : "In Approval",
       };
 

@@ -45,14 +45,18 @@ All 6 notification scenarios are pre-rendered directly by the SPFx application (
 | # | Notification Scenario | Triggering Workflow Event | Primary Recipient (`recipientEmails`) | CC (`ccEmails`) | Subject Template | Importance |
 | :- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **1a** | **New Proposal Submission** | Initiator clicks **Submit** on new CER | **Level 1 Approver(s)** (all assigned users) | _None_ | `[CER Action Required] Proposal {cerPrId} Pending Level 1 ({role}) Review` | `High` |
-| **1b** | **Submission Confirmation** | Initiator clicks **Submit** on new CER | **CER Owner** (`owner_email`) | _None_ | `[CER Submission] Proposal {cerPrId} Submitted for Approval` | `Normal` |
+| **1b** | **Submission Confirmation** | Initiator clicks **Submit** on new CER | **CER Owner** (`owner_email`) &amp; **Initiator** (`created_by_email`) _(both if different persons)_ | _None_ | `[CER Submission] Proposal {cerPrId} Submitted for Approval` | `Normal` |
 | **2a** | **Resubmission (Post Send Back)** | Initiator clicks **Submit** after rework | **Level 1 Approver(s)** (all assigned users) | _None_ | `[CER Action Required] Proposal {cerPrId} Pending Level 1 ({role}) Review` | `High` |
-| **2b** | **Resubmission Confirmation** | Initiator clicks **Submit** after rework | **CER Owner** (`owner_email`) | _None_ | `[CER Submission] Proposal {cerPrId} Submitted for Approval` | `Normal` |
+| **2b** | **Resubmission Confirmation** | Initiator clicks **Submit** after rework | **CER Owner** (`owner_email`) &amp; **Initiator** (`created_by_email`) _(both if different persons)_ | _None_ | `[CER Submission] Proposal {cerPrId} Submitted for Approval` | `Normal` |
 | **3a** | **Stage Advancement** | Approver clicks **Approve** (Levels 1–5) | **Next Level Approver(s)** (all assigned users) | _None_ | `[CER Action Required] Proposal {cerPrId} Pending Level {nextLevel} ({role}) Review` | `High` |
-| **3b** | **Progress Update** | Approver clicks **Approve** (Levels 1–5) | **CER Owner** (`owner_email`) | _None_ | `[CER Update] Proposal {cerPrId} Approved at Level {levelId}` | `Normal` |
-| **4** | **Final Executive Sanction** | Approver clicks **Approve** (Level 6) | **CER Owner** (`owner_email`) | **Final Approver** | `[CER Final Sanction] Proposal {cerPrId} Approved` | `High` |
-| **5** | **Send Back (Rework Requested)** | Approver clicks **Send Back** | **CER Owner** (`owner_email`) | **Deciding Approver** | `[CER Revision Requested] Proposal {cerPrId} Sent Back by Level {levelId}` | `High` |
-| **6** | **Proposal Rejection** | Approver clicks **Reject** | **CER Owner** (`owner_email`) | **Deciding Approver** | `[CER Rejected] Proposal {cerPrId} Rejected at Level {levelId}` | `High` |
+| **3b** | **Progress Update** | Approver clicks **Approve** (Levels 1–5) | **CER Owner** (`owner_email`) &amp; **Initiator** (`created_by_email`) _(both if different persons)_ | _None_ | `[CER Update] Proposal {cerPrId} Approved at Level {levelId}` | `Normal` |
+| **4** | **Final Executive Sanction** | Approver clicks **Approve** (Level 6) | **CER Owner** (`owner_email`) &amp; **Initiator** (`created_by_email`) _(both if different persons)_ | **Final Approver** | `[CER Final Sanction] Proposal {cerPrId} Approved` | `High` |
+| **5** | **Send Back (Rework Requested)** | Approver clicks **Send Back** | **CER Owner** (`owner_email`) &amp; **Initiator** (`created_by_email`) _(both if different persons)_ | **Deciding Approver** | `[CER Revision Requested] Proposal {cerPrId} Sent Back by Level {levelId}` | `High` |
+| **6** | **Proposal Rejection** | Approver clicks **Reject** | **CER Owner** (`owner_email`) &amp; **Initiator** (`created_by_email`) _(both if different persons)_ | **Deciding Approver** | `[CER Rejected] Proposal {cerPrId} Rejected at Level {levelId}` | `High` |
+
+> [!TIP]
+> **Dual Stakeholder Delivery (Scenarios 1b, 2b, 3b, 4, 5, 6):**
+> If the proposal Initiator and designated CER Owner are different persons, `recipientEmails` is populated with both addresses separated by a semicolon (e.g. `owner@vedanta.co.in; initiator@company.com`). If the Initiator and Owner are the same individual (or match case-insensitively), `recipientEmails` contains only their address once, preventing redundant delivery. Power Automate's `Send an email (V2)` natively parses semicolon-separated emails in the `To` field.
 
 ---
 

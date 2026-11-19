@@ -2,6 +2,7 @@ import { LocalMockCERDataService } from "../services/LocalMockCERDataService";
 import { ICERProposal, CATEGORY_DEFINITIONS, SBU_OPTIONS } from "../models/CERModel";
 import { AUDIT_FIELD_DESCRIPTIONS, EXCLUDED_AUDIT_FIELDS } from "../models/AuditModel";
 import { getFirstActiveError, FormErrors, validateField } from "../utils/cerValidation";
+import { EmailTemplateService } from "../services/EmailTemplateService";
 
 // Standalone runner fallback for tsx / Node execution
 const _global: any = typeof globalThis !== "undefined" ? globalThis : {};
@@ -414,5 +415,72 @@ describe("CER Management System - Business Logic & Requirements Tests", () => {
     const amountErr = validateField("amount", 0, {} as ICERProposal, false);
     expect(amountErr).toBe("Capex ($mm) is mandatory. Please enter Capex phasing to set the Amount of CER.");
     expect(amountErr).not.toContain("Section C");
+  });
+
+  // NOTIF-01: Dual stakeholder email resolution deduplicates when Owner and Initiator are the same person
+  test("NOTIF-01: Dual stakeholder email resolution deduplicates when Owner and Initiator are the same person", () => {
+    const proposal: Partial<ICERProposal> = {
+      owner_email: "shiven.pandit@microlink.com",
+      created_by_email: "shiven.pandit@microlink.com",
+    };
+    const recipients = EmailTemplateService.resolveStakeholderEmails(proposal);
+    expect(recipients).toBe("shiven.pandit@microlink.com");
+  });
+
+  // NOTIF-02: Dual stakeholder email resolution includes both Owner and Initiator when they are different persons
+  test("NOTIF-02: Dual stakeholder email resolution includes both Owner and Initiator when they are different persons", () => {
+    const proposal: Partial<ICERProposal> = {
+      owner_email: "arun.kulkarni@vedanta.co.in",
+      created_by_email: "shiven.pandit@microlink.com",
+    };
+    const recipients = EmailTemplateService.resolveStakeholderEmails(proposal);
+    expect(recipients).toBe("arun.kulkarni@vedanta.co.in; shiven.pandit@microlink.com");
+  });
+
+  // NOTIF-03: Dual stakeholder email resolution handles SharePoint claims prefix and case normalization
+  test("NOTIF-03: Dual stakeholder email resolution handles SharePoint claims prefix and case normalization", () => {
+    const proposal: Partial<ICERProposal> = {
+      owner_email: "Arun.Kulkarni@vedanta.co.in",
+      created_by_email: "i:0#.f|membership|arun.kulkarni@vedanta.co.in",
+    };
+    const sameUserRecipients = EmailTemplateService.resolveStakeholderEmails(proposal);
+    expect(sameUserRecipients).toBe("Arun.Kulkarni@vedanta.co.in");
+
+    const diffProposal: Partial<ICERProposal> = {
+      owner_email: "arun.kulkarni@vedanta.co.in",
+      created_by_email: "i:0#.f|membership|shiven.pandit@microlink.com",
+    };
+    const diffRecipients = EmailTemplateService.resolveStakeholderEmails(diffProposal);
+    expect(diffRecipients).toBe("arun.kulkarni@vedanta.co.in; shiven.pandit@microlink.com");
+  });
+
+  // NOTIF-04: Stakeholder salutation properly addresses single person or dual persons
+  test("NOTIF-04: Stakeholder salutation properly addresses single person or dual persons", () => {
+    // Same person
+    const sameProposal: Partial<ICERProposal> = {
+      owname: "Shiven Pandit",
+      created_by: "Shiven Pandit",
+      owner_email: "shiven@test.com",
+      created_by_email: "shiven@test.com",
+    };
+    expect(EmailTemplateService.getStakeholderSalutation(sameProposal)).toBe("Shiven Pandit");
+
+    // Different persons
+    const diffProposal: Partial<ICERProposal> = {
+      owname: "Arun Kulkarni",
+      created_by: "Shiven Pandit",
+      owner_email: "arun@vedanta.co.in",
+      created_by_email: "shiven@test.com",
+    };
+    expect(EmailTemplateService.getStakeholderSalutation(diffProposal)).toBe("Arun Kulkarni & Shiven Pandit");
+  });
+
+  // NOTIF-05: Fallback initiator email support
+  test("NOTIF-05: Fallback initiator email support when created_by_email is missing", () => {
+    const proposal: Partial<ICERProposal> = {
+      owner_email: "arun.kulkarni@vedanta.co.in",
+    };
+    const recipients = EmailTemplateService.resolveStakeholderEmails(proposal, "initiator@vedanta.co.in");
+    expect(recipients).toBe("arun.kulkarni@vedanta.co.in; initiator@vedanta.co.in");
   });
 });

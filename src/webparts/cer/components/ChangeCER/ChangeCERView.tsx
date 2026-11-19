@@ -572,6 +572,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         current_level: 1,
         attachments_manifest: finalRemainingActive as any,
         created_by: !isDraft ? currentUser.name : (sanitizedData.created_by || currentUser.name),
+        created_by_email: originalProposal?.created_by_email || sanitizedData.created_by_email || currentUser.email,
       };
 
       const isApprovedOriginal = Boolean(originalProposal && originalProposal.status === "Approved");

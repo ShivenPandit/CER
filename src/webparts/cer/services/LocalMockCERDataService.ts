@@ -5,6 +5,7 @@ import { IWorkflowLevel, IApprovalDecision, INotificationLog, isProjectOwnerStag
 import { ICERAttachment, ICERAttachmentManifestEntry } from "../models/AttachmentModel";
 import { IDirectoryUser, MOCK_DIRECTORY_USERS, IUserRoleAssignment, IAdminAuditRecord, IAppUser } from "../models/UserModel";
 import { PermissionService } from "./PermissionService";
+import { EmailTemplateService } from "./EmailTemplateService";
 import { validateAttachment } from "../utils/attachmentValidation";
 import { getCurrentFiscalYearPhasingLabels, getLocalComponents } from "../utils/dateUtils";
 import { FIXED_6_LEVEL_APPROVAL_STAGES } from "../constants";
@@ -917,8 +918,17 @@ export class LocalMockCERDataService implements ICERDataService {
 
     // Trigger Notification to Creator & L1 Approver (only when submitted for approval)
     if (!isDraft) {
-      const recipients = [newProposal.owner_email];
-      if (activeL1?.approver_email) recipients.push(activeL1.approver_email);
+      const stakeholderList = EmailTemplateService.resolveStakeholderEmails(newProposal)
+        .split(";")
+        .map((e) => e.trim())
+        .filter(Boolean);
+      const recipients = [...stakeholderList];
+      if (
+        activeL1?.approver_email &&
+        recipients.map((r) => r.toLowerCase()).indexOf(activeL1.approver_email.toLowerCase()) === -1
+      ) {
+        recipients.push(activeL1.approver_email);
+      }
 
       this._recordNotification({
         cerprno: newProposal.cerprno,
@@ -1151,8 +1161,12 @@ export class LocalMockCERDataService implements ICERDataService {
     this._proposals[index] = savedProposal;
     this._saveToStorage(STORAGE_KEYS.PROPOSALS, this._proposals);
 
-    // Notify stakeholders (Creator + L1 Approver)
-    const rawRecipients = [savedProposal.owner_email, activeL1?.approver_email].filter(Boolean);
+    // Notify stakeholders (Creator + Owner + L1 Approver)
+    const stakeholderList = EmailTemplateService.resolveStakeholderEmails(savedProposal, user.email)
+      .split(";")
+      .map((e) => e.trim())
+      .filter(Boolean);
+    const rawRecipients = [...stakeholderList, activeL1?.approver_email].filter(Boolean);
     const recipients = Array.from(new Set(rawRecipients.map(e => (e as string).trim().toLowerCase())));
 
     let proposalAttachments: ICERAttachment[] = [];
@@ -1462,10 +1476,13 @@ export class LocalMockCERDataService implements ICERDataService {
     // 3. The next-level approver
     const priorDecisions = this._decisions.filter(d => d.cerprno.toUpperCase() === proposal.cerprno.toUpperCase());
     const priorEmails = priorDecisions.map(d => d.approver_email).filter(Boolean);
-    const creatorEmail = proposal.owner_email || "";
+    const stakeholderList = EmailTemplateService.resolveStakeholderEmails(proposal)
+      .split(";")
+      .map((e) => e.trim())
+      .filter(Boolean);
     const nextApproverEmail = (params.decision === "APPROVED" && nextLevelConfig) ? (nextLevelConfig.approver_email || "") : "";
 
-    const rawRecipients = [creatorEmail, ...priorEmails, nextApproverEmail].filter(Boolean);
+    const rawRecipients = [...stakeholderList, ...priorEmails, nextApproverEmail].filter(Boolean);
     const notificationRecipients = Array.from(new Set(rawRecipients.map(e => ((e as string) || "").trim().toLowerCase())));
 
     let proposalAttachments: ICERAttachment[] = [];

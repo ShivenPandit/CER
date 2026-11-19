@@ -59,7 +59,94 @@ function renderActionButton(url: string, label: string, bgColor: string = "#0078
     </table>`;
 }
 
+function renderStakeholderGridRows(proposal: ICERProposal): string {
+  const owner = proposal.owname || proposal.owner_email || "";
+  const initiator = proposal.created_by || proposal.created_by_email || "";
+  const ownerEmail = (proposal.owner_email || "").trim().toLowerCase();
+  const initiatorEmail = (proposal.created_by_email || "").trim().toLowerCase();
+  const isDifferent = (initiator && owner && initiator.toLowerCase() !== owner.toLowerCase()) ||
+                      (initiatorEmail && ownerEmail && initiatorEmail !== ownerEmail);
+
+  let rows = `<tr><td class="label">CER Owner:</td><td class="val">${escapeHtml(owner)}</td></tr>`;
+  if (isDifferent && initiator) {
+    rows += `<tr><td class="label">Initiated By:</td><td class="val">${escapeHtml(initiator)}</td></tr>`;
+  }
+  return rows;
+}
+
 export class EmailTemplateService {
+  /**
+   * Resolves the primary recipients for proposal confirmation/update notifications (Scenarios 1b, 2b, 3b, 4, 5, 6).
+   * Combines the designated CER Owner (owner_email) and the Initiator (created_by_email / fallbackInitiatorEmail).
+   * If they are the same person (case-insensitive email match or missing initiator), returns only the owner's email.
+   * If they are different persons, returns both semicolon-separated: "owner@company.com; initiator@company.com".
+   */
+  public static resolveStakeholderEmails(
+    proposal: Partial<ICERProposal>,
+    fallbackInitiatorEmail?: string
+  ): string {
+    const emails: string[] = [];
+    const seen = new Set<string>();
+
+    const add = (candidate?: string | null) => {
+      if (!candidate) return;
+      let clean = String(candidate).trim();
+      // Strip claims prefix if present (e.g. i:0#.f|membership|user@company.com)
+      clean = clean.replace(/^i:0#\.f\|membership\|/i, "").replace(/^membership\|/i, "").trim();
+      if (!clean) return;
+
+      const atIndex = clean.indexOf("@");
+      if (atIndex <= 0 || clean.indexOf(".", atIndex) === -1) {
+        return;
+      }
+
+      const key = clean.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        emails.push(clean);
+      }
+    };
+
+    // 1. Primary Recipient: CER Owner
+    add(proposal.owner_email);
+
+    // 2. Co-Recipient: Initiator
+    add(proposal.created_by_email);
+    add(fallbackInitiatorEmail);
+
+    // Fallback: Check if created_by itself is formatted as an email address
+    if (proposal.created_by && proposal.created_by.indexOf("@") !== -1) {
+      add(proposal.created_by);
+    }
+
+    return emails.join("; ");
+  }
+
+  /**
+   * Returns a polite salutation addressing both stakeholders when they differ.
+   * e.g., "Arun Kulkarni & Shiven Pandit" if different, or "Arun Kulkarni" if same.
+   */
+  public static getStakeholderSalutation(proposal: Partial<ICERProposal>): string {
+    const owner = (proposal.owname || "").trim();
+    const initiator = (proposal.created_by || "").trim();
+    const ownerEmail = (proposal.owner_email || "").trim().toLowerCase();
+    const initiatorEmail = (proposal.created_by_email || "").trim().toLowerCase();
+
+    const isSamePerson =
+      Boolean(ownerEmail && initiatorEmail && ownerEmail === initiatorEmail) ||
+      Boolean(owner && initiator && owner.toLowerCase() === initiator.toLowerCase());
+
+    if (isSamePerson) {
+      return owner || initiator || "CER Owner";
+    }
+
+    if (owner && initiator) {
+      return `${owner} & ${initiator}`;
+    }
+
+    return owner || initiator || "CER Owner / Initiator";
+  }
+
   /**
    * Template 1: Action Required — Level 1 Approver on Submission / Resubmission
    */
@@ -121,7 +208,7 @@ export class EmailTemplateService {
   }
 
   /**
-   * Template 2: Submission Confirmation — Proposal Owner
+   * Template 2: Submission Confirmation — Proposal Owner & Initiator
    */
   public static renderSubmissionOwnerEmail(proposal: ICERProposal, roleTitle: string): { subject: string; body: string } {
     const cerPrId = proposal.cer_proposal_id || proposal.cerprno || "";
@@ -155,12 +242,13 @@ export class EmailTemplateService {
       <p>Vedanta Limited / Cairn Oil &amp; Gas</p>
     </div>
     <div class="content">
-      <p>Dear ${escapeHtml(proposal.owname || "CER Owner")},</p>
+      <p>Dear ${escapeHtml(EmailTemplateService.getStakeholderSalutation(proposal))},</p>
       <p>Your proposal <strong>${escapeHtml(cerPrId)} (${escapeHtml(proposal.pr_name || "")})</strong> has been successfully submitted and is currently routed to <strong>Level 1 (${escapeHtml(roleTitle)})</strong>.</p>
       
       <table class="grid">
         <tr><td class="label">CER Proposal ID:</td><td class="val">${escapeHtml(cerPrId)}</td></tr>
         <tr><td class="label">Project Name:</td><td class="val">${escapeHtml(proposal.pr_name || "")}</td></tr>
+        ${renderStakeholderGridRows(proposal)}
         <tr><td class="label">Current Status:</td><td class="val">In Approval</td></tr>
         <tr><td class="label">Pending Level:</td><td class="val">Level 1 — ${escapeHtml(roleTitle)}</td></tr>
       </table>
@@ -290,12 +378,13 @@ export class EmailTemplateService {
       <p>Vedanta Limited / Cairn Oil &amp; Gas</p>
     </div>
     <div class="content">
-      <p>Dear ${escapeHtml(proposal.owname || "CER Owner")},</p>
+      <p>Dear ${escapeHtml(EmailTemplateService.getStakeholderSalutation(proposal))},</p>
       <p>Your proposal <strong>${escapeHtml(cerPrId)} (${escapeHtml(proposal.pr_name || "")})</strong> was approved at Level ${approvedLevel} by <strong>${escapeHtml(approverName)}</strong> and has advanced to the next approval stage.</p>
       
       <table class="grid">
         <tr><td class="label">CER Proposal ID:</td><td class="val">${escapeHtml(cerPrId)}</td></tr>
         <tr><td class="label">Project Name:</td><td class="val">${escapeHtml(proposal.pr_name || "")}</td></tr>
+        ${renderStakeholderGridRows(proposal)}
         <tr><td class="label">Approved By:</td><td class="val">${escapeHtml(approverName)} (Level ${approvedLevel})</td></tr>
         <tr><td class="label">Now Pending:</td><td class="val">Level ${nextLevel} — ${escapeHtml(nextRoleTitle)}</td></tr>
       </table>
@@ -351,7 +440,15 @@ export class EmailTemplateService {
       <div class="success-box">
         &#10003; Capital Expenditure Proposal ${escapeHtml(cerPrId)} has received Final Executive Sanction.
       </div>
+      <p>Dear ${escapeHtml(EmailTemplateService.getStakeholderSalutation(proposal))},</p>
       <p>Proposal <strong>${escapeHtml(cerPrId)} (${escapeHtml(proposal.pr_name || "")})</strong> has successfully completed all required approval stages and is sanctioned for project execution.</p>
+      
+      <table class="grid">
+        <tr><td class="label">CER Proposal ID:</td><td class="val">${escapeHtml(cerPrId)}</td></tr>
+        <tr><td class="label">Project Name:</td><td class="val">${escapeHtml(proposal.pr_name || "")}</td></tr>
+        ${renderStakeholderGridRows(proposal)}
+        <tr><td class="label">Sanctioned By:</td><td class="val">${escapeHtml(finalApproverName)} (Level 6)</td></tr>
+      </table>
       
       ${
         remarks
@@ -410,7 +507,7 @@ export class EmailTemplateService {
       <p>Vedanta Limited / Cairn Oil &amp; Gas</p>
     </div>
     <div class="content">
-      <p>Dear ${escapeHtml(proposal.owname || "CER Owner")},</p>
+      <p>Dear ${escapeHtml(EmailTemplateService.getStakeholderSalutation(proposal))},</p>
       <p>Your proposal <strong>${escapeHtml(cerPrId)} (${escapeHtml(proposal.pr_name || "")})</strong> has been <strong>Sent Back</strong> for revision by <strong>${escapeHtml(approverName)}</strong> at Level ${levelId}.</p>
       
       <div class="alert-box">
@@ -468,7 +565,7 @@ export class EmailTemplateService {
       <p>Vedanta Limited / Cairn Oil &amp; Gas</p>
     </div>
     <div class="content">
-      <p>Dear ${escapeHtml(proposal.owname || "CER Owner")},</p>
+      <p>Dear ${escapeHtml(EmailTemplateService.getStakeholderSalutation(proposal))},</p>
       <p>Your proposal <strong>${escapeHtml(cerPrId)} (${escapeHtml(proposal.pr_name || "")})</strong> has been rejected by <strong>${escapeHtml(approverName)}</strong> at Level ${levelId}.</p>
       
       <div class="reject-box">

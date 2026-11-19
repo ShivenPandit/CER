@@ -1486,12 +1486,13 @@ export class SharePointCERDataService implements ICERDataService {
             importance: "High",
           });
         }
-        if (newProposal.owner_email) {
+        const stakeholderRecipients = EmailTemplateService.resolveStakeholderEmails(newProposal);
+        if (stakeholderRecipients) {
           const ownerEmailData = EmailTemplateService.renderSubmissionOwnerEmail(newProposal, l1Role);
           await this._triggerEmailNotification({
             cerPrId,
             scenario: "Submission_Confirmation",
-            recipientEmails: newProposal.owner_email,
+            recipientEmails: stakeholderRecipients,
             emailSubject: ownerEmailData.subject,
             emailBody: ownerEmailData.body,
             importance: "Normal",
@@ -1572,12 +1573,13 @@ export class SharePointCERDataService implements ICERDataService {
           importance: "High",
         });
       }
-      if (newProposal.owner_email) {
+      const stakeholderRecipients = EmailTemplateService.resolveStakeholderEmails(newProposal);
+      if (stakeholderRecipients) {
         const ownerEmailData = EmailTemplateService.renderSubmissionOwnerEmail(newProposal, l1Role);
         await this._triggerEmailNotification({
           cerPrId,
           scenario: "Submission_Confirmation",
-          recipientEmails: newProposal.owner_email,
+          recipientEmails: stakeholderRecipients,
           emailSubject: ownerEmailData.subject,
           emailBody: ownerEmailData.body,
           importance: "Normal",
@@ -1834,6 +1836,7 @@ export class SharePointCERDataService implements ICERDataService {
       pending_with_email: nextEmail,
       request_date: nextRequestDate,
       created_by: !isDraft ? user.name : (cleanProposal.created_by || original.created_by || user.name),
+      created_by_email: original.created_by_email || cleanProposal.created_by_email || (user.email ? user.email : undefined),
       modified_date: now,
       modified_by: user.name,
       revision_count: newRevisionCount,
@@ -2024,12 +2027,13 @@ export class SharePointCERDataService implements ICERDataService {
           importance: "High",
         });
       }
-      if (updatedProposal.owner_email) {
+      const stakeholderRecipients = EmailTemplateService.resolveStakeholderEmails(updatedProposal, user.email);
+      if (stakeholderRecipients) {
         const ownerEmailData = EmailTemplateService.renderSubmissionOwnerEmail(updatedProposal, l1Role);
         await this._triggerEmailNotification({
           cerPrId,
           scenario: "Resubmission_Confirmation",
-          recipientEmails: updatedProposal.owner_email,
+          recipientEmails: stakeholderRecipients,
           emailSubject: ownerEmailData.subject,
           emailBody: ownerEmailData.body,
           importance: "Normal",
@@ -3633,12 +3637,13 @@ export class SharePointCERDataService implements ICERDataService {
 
     if (newStatus === "Approved") {
       // Final Sanction
-      if (existingProposal.owner_email) {
+      const stakeholderRecipients = EmailTemplateService.resolveStakeholderEmails(existingProposal);
+      if (stakeholderRecipients) {
         const emailData = EmailTemplateService.renderFinalSanctionEmail(existingProposal, params.approver_name, params.comments);
         await this._triggerEmailNotification({
           cerPrId,
           scenario: "FinalSanction",
-          recipientEmails: existingProposal.owner_email,
+          recipientEmails: stakeholderRecipients,
           ccEmails: params.approver_email,
           emailSubject: emailData.subject,
           emailBody: emailData.body,
@@ -3666,7 +3671,8 @@ export class SharePointCERDataService implements ICERDataService {
         });
       }
 
-      if (existingProposal.owner_email) {
+      const stakeholderRecipients = EmailTemplateService.resolveStakeholderEmails(existingProposal);
+      if (stakeholderRecipients) {
         const ownerEmailData = EmailTemplateService.renderStageAdvancementOwnerEmail(
           existingProposal,
           params.approver_name,
@@ -3677,7 +3683,7 @@ export class SharePointCERDataService implements ICERDataService {
         await this._triggerEmailNotification({
           cerPrId,
           scenario: "StageAdvancement_Update",
-          recipientEmails: existingProposal.owner_email,
+          recipientEmails: stakeholderRecipients,
           emailSubject: ownerEmailData.subject,
           emailBody: ownerEmailData.body,
           importance: "Normal",
@@ -3685,7 +3691,8 @@ export class SharePointCERDataService implements ICERDataService {
       }
     } else if (newStatus === "Send Back") {
       // Revision Requested
-      if (existingProposal.owner_email) {
+      const stakeholderRecipients = EmailTemplateService.resolveStakeholderEmails(existingProposal);
+      if (stakeholderRecipients) {
         const emailData = EmailTemplateService.renderSendBackEmail(
           existingProposal,
           params.approver_name,
@@ -3695,7 +3702,7 @@ export class SharePointCERDataService implements ICERDataService {
         await this._triggerEmailNotification({
           cerPrId,
           scenario: "SendBack",
-          recipientEmails: existingProposal.owner_email,
+          recipientEmails: stakeholderRecipients,
           ccEmails: params.approver_email,
           emailSubject: emailData.subject,
           emailBody: emailData.body,
@@ -3704,7 +3711,8 @@ export class SharePointCERDataService implements ICERDataService {
       }
     } else if (newStatus === "Rejected") {
       // Proposal Rejected
-      if (existingProposal.owner_email) {
+      const stakeholderRecipients = EmailTemplateService.resolveStakeholderEmails(existingProposal);
+      if (stakeholderRecipients) {
         const emailData = EmailTemplateService.renderRejectionEmail(
           existingProposal,
           params.approver_name,
@@ -3714,7 +3722,7 @@ export class SharePointCERDataService implements ICERDataService {
         await this._triggerEmailNotification({
           cerPrId,
           scenario: "Rejected",
-          recipientEmails: existingProposal.owner_email,
+          recipientEmails: stakeholderRecipients,
           ccEmails: params.approver_email,
           emailSubject: emailData.subject,
           emailBody: emailData.body,
