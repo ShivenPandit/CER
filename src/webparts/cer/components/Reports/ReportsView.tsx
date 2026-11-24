@@ -12,6 +12,7 @@ import {
   Loader2,
   Calendar,
   Check,
+  Building2,
 } from "lucide-react";
 import { ICERProposal, IFieldChoices, SBU_OPTIONS } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
@@ -33,6 +34,14 @@ export interface IReportsViewProps {
 }
 
 export type ReportTabType = "dashboard" | "proposal-list";
+
+const DASHBOARD_SBU_OPTIONS = [
+  { label: "All SBUs", value: "ALL" },
+  { label: "RJ North", value: "RJ North" },
+  { label: "RJ South", value: "RJ South" },
+  { label: "CBOS", value: "CBOS" },
+  { label: "RAVA", value: "RAVA" },
+];
 
 export const ReportsView: React.FC<IReportsViewProps> = ({
   proposals,
@@ -57,6 +66,11 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
   const [selectedFinancialYear, setSelectedFinancialYear] = useState<string>(currentFY);
   const [isFyDropdownOpen, setIsFyDropdownOpen] = useState(false);
   const fyDropdownRef = useRef<HTMLDivElement>(null);
+
+  // SBU Filter State for Dashboard
+  const [selectedDashboardSbu, setSelectedDashboardSbu] = useState<string>("ALL");
+  const [isSbuDropdownOpen, setIsSbuDropdownOpen] = useState(false);
+  const sbuDropdownRef = useRef<HTMLDivElement>(null);
 
   // Pre-generate a list of standard fiscal years surrounding current FY (e.g. 3 years past to 3 years future)
   // plus any other FY extracted from proposals, sorted chronologically for calendar-style picking
@@ -282,9 +296,68 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
 
         {/* Right: Actions aligned with Tabs on same horizontal line */}
         <div className="flex flex-wrap items-center gap-3 sm:gap-3.5 self-start xl:self-auto">
-          {/* Action Slot 1: Financial Year Filter Button with Current FY Label on its Left */}
+          {/* Action Slot 1: SBU & Financial Year Filters (Dashboard Only) */}
           {activeTab === "dashboard" && (
-            <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+              {/* SBU Filter Dropdown (immediately on the left of Financial Year) */}
+              <div ref={sbuDropdownRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsSbuDropdownOpen((prev) => !prev)}
+                  className={`h-9 flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer whitespace-nowrap shadow-2xs ${
+                    isSbuDropdownOpen || selectedDashboardSbu !== "ALL"
+                      ? "bg-[#012964]/10 border-[#012964]/40 text-[#012964] font-bold"
+                      : "bg-white border-slate-300 hover:bg-slate-50 text-slate-700 hover:border-slate-400"
+                  }`}
+                  title="Filter Dashboard by SBU"
+                >
+                  <Building2 className="w-3.5 h-3.5 shrink-0 text-[#012964]" />
+                  <span>{selectedDashboardSbu === "ALL" ? "All SBUs" : selectedDashboardSbu}</span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${
+                      isSbuDropdownOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {isSbuDropdownOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setIsSbuDropdownOpen(false)}
+                    />
+                    <div className="absolute right-0 sm:left-0 mt-2 w-48 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 p-2 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="px-2.5 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                        Select SBU
+                      </div>
+                      <div className="mt-1 space-y-0.5">
+                        {DASHBOARD_SBU_OPTIONS.map((opt) => {
+                          const isSelected = selectedDashboardSbu === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => {
+                                setSelectedDashboardSbu(opt.value);
+                                setIsSbuDropdownOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors text-left cursor-pointer ${
+                                isSelected
+                                  ? "bg-[#012964] text-white font-bold shadow-xs"
+                                  : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                              }`}
+                            >
+                              <span>{opt.label}</span>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
               {/* Left of button: shows which Financial Year is currently showing */}
               <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/90 px-3 py-1.5 rounded-xl shadow-2xs">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
@@ -667,6 +740,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
           <ReportDashboard
             proposals={nonDraftProposals}
             financialYearFilter={selectedFinancialYear}
+            sbuFilter={selectedDashboardSbu}
           />
         )}
 

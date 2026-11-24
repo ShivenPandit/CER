@@ -20,19 +20,27 @@ import {
 export interface IReportDashboardProps {
   proposals: ICERProposal[];
   financialYearFilter?: string;
+  sbuFilter?: string;
 }
 
 export const ReportDashboard: React.FC<IReportDashboardProps> = ({
   proposals,
   financialYearFilter = "ALL",
+  sbuFilter = "ALL",
 }) => {
-  // Filtered dataset for dashboard based on selected Financial Year
+  // Filtered dataset for dashboard based on selected Financial Year and SBU
   const filteredProposals = useMemo(() => {
-    if (!financialYearFilter || financialYearFilter === "ALL") {
-      return proposals;
+    let result = proposals;
+    if (financialYearFilter && financialYearFilter !== "ALL") {
+      result = result.filter((p) => getProposalFiscalYear(p) === financialYearFilter);
     }
-    return proposals.filter((p) => getProposalFiscalYear(p) === financialYearFilter);
-  }, [proposals, financialYearFilter]);
+    if (sbuFilter && sbuFilter !== "ALL") {
+      result = result.filter(
+        (p) => (p.sbu || "").trim().toLowerCase() === sbuFilter.trim().toLowerCase()
+      );
+    }
+    return result;
+  }, [proposals, financialYearFilter, sbuFilter]);
 
   // KPI calculations
   const kpis = useMemo(() => {

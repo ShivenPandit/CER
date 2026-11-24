@@ -264,11 +264,29 @@ export function splitDecisionsIntoIterations(
 }
 
 /**
+ * Helper to safely extract an approver's display name from an IUserRoleAssignment or generic user object.
+ */
+export function getApproverDisplayName(a: any): string {
+  if (!a) return "";
+  if (typeof a === "string") return a.trim();
+  return (
+    a.user_name ||
+    a.name ||
+    a.displayName ||
+    a.Title ||
+    a.user_email ||
+    a.email ||
+    ""
+  ).trim();
+}
+
+/**
  * Builds table row definitions for all 6 fixed workflow levels for a given iteration run.
  */
 export function buildTableRowsForIteration(
   iteration: IIterationRun,
-  proposalVersion: IProposalVersionEntry
+  proposalVersion: IProposalVersionEntry,
+  workflowLevels?: IWorkflowLevel[]
 ): ITableRowData[] {
   const isApprovedHistorical = !proposalVersion.isCurrent && proposalVersion.status === "Approved";
 
@@ -391,6 +409,45 @@ export function buildTableRowsForIteration(
           statusText = "Not Started";
         } else {
           statusText = "Not Started";
+        }
+      }
+    }
+
+    // If this stage is Pending, show the assigned user(s) who is going to take action (only next to pending)
+    if (statusText === "Pending") {
+      if (stage.level === 2 || stage.name === "CER Owner" || stage.name === "Project Owner") {
+        updatedBy =
+          proposalVersion.rawProposal.owname ||
+          proposalVersion.rawProposal.owner_email ||
+          "CER Owner";
+      } else {
+        const lvl = (workflowLevels || []).find(
+          (l) => l.level_id === stage.level || (l as any).level === stage.level
+        );
+        if (lvl) {
+          if (lvl.approvers && lvl.approvers.length > 0) {
+            updatedBy = lvl.approvers
+              .map(getApproverDisplayName)
+              .filter(Boolean)
+              .join(", ");
+          }
+          if (!updatedBy && (lvl.approver_name || lvl.approver_email)) {
+            updatedBy = lvl.approver_name || lvl.approver_email || "";
+          }
+        }
+
+        // Fallback to proposal's pending_with_name if available from SharePoint Person field
+        if (!updatedBy || updatedBy === "—") {
+          if (proposalVersion.rawProposal.pending_with_name) {
+            updatedBy = proposalVersion.rawProposal.pending_with_name || "";
+          }
+        }
+
+        if (!updatedBy || updatedBy === "—") {
+          updatedBy =
+            proposalVersion.rawProposal.pending_with_role ||
+            proposalVersion.rawProposal.pending_with_email ||
+            `Level ${stage.level} Approver`;
         }
       }
     }
@@ -561,11 +618,13 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
   isOpen,
   onClose,
   proposal,
+  levels: propLevels,
   decisions: initialDecisions,
   dataService,
   historyProposals: propHistoryProposals,
 }) => {
   const [historyList, setHistoryList] = useState<ICERProposal[]>(propHistoryProposals || []);
+  const [workflowLevels, setWorkflowLevels] = useState<IWorkflowLevel[]>(propLevels || []);
   const [selectedVersionId, setSelectedVersionId] = useState<string>("CURRENT");
   const [versionDecisionsMap, setVersionDecisionsMap] = useState<Record<string, IApprovalDecision[]>>({});
   const [isLoadingDecisions, setIsLoadingDecisions] = useState(false);
@@ -623,6 +682,31 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
       isMounted = false;
     };
   }, [isOpen, proposal, permanentCerId, propHistoryProposals, dataService]);
+
+  // Load workflow levels for pending assignee resolution if not supplied via props
+  useEffect(() => {
+    if (propLevels && propLevels.length > 0) {
+      setWorkflowLevels(propLevels);
+      return;
+    }
+    if (!isOpen || !proposal || !proposal.sbu) return;
+
+    let isMounted = true;
+    dataService
+      .getWorkflowLevels(proposal.sbu, true)
+      .then((lvls) => {
+        if (isMounted && lvls && lvls.length > 0) {
+          setWorkflowLevels(lvls);
+        }
+      })
+      .catch((err) => {
+        console.warn("[StatusHistoryModal] Error fetching workflow levels for pending assignee:", err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, proposal, propLevels, dataService]);
 
   // Build sorted version entries (Current + Historical Snapshots, newest first)
   const versionEntries: IProposalVersionEntry[] = useMemo(() => {
@@ -763,7 +847,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
   const priorIterations = iterations.slice(0, -1).reverse();
 
   // Active table rows
-  const activeRows = buildTableRowsForIteration(activeIteration, selectedVersion);
+  const activeRows = buildTableRowsForIteration(activeIteration, selectedVersion, workflowLevels);
 
   // Summary Metrics calculations based strictly on the active iteration
   const totalLevels = 6;
@@ -858,7 +942,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
           {renderStatusBadge(statusText)}
         </td>
 
-        {/* Column 4: Status Updated By */}
+        {/* Column 4: Action By */}
         <td className="py-3 px-3.5">
           {updatedBy !== "—" ? (
             <span className="font-semibold text-slate-800 text-sm">
@@ -928,7 +1012,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
 
         <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-100">
           <div>
-            <span className="text-[11px] text-slate-400 font-semibold uppercase block">Updated By</span>
+            <span className="text-[11px] text-slate-400 font-semibold uppercase block">Action By</span>
             <span className="font-medium text-slate-800 text-xs">
               {updatedBy || "—"}
             </span>
@@ -1239,7 +1323,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
                       <th className="py-3 px-3.5 w-16">Level</th>
                       <th className="py-3 px-3.5 w-52">Level Name</th>
                       <th className="py-3 px-3.5 w-40">Status</th>
-                      <th className="py-3 px-3.5">Status Updated By</th>
+                      <th className="py-3 px-3.5">Action By</th>
                       <th className="py-3 px-3.5 w-48">Date & Time</th>
                       <th className="py-3 px-3.5 w-28 text-center">Comments</th>
                     </tr>
@@ -1252,7 +1336,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
 
               {/* Prior Iteration Tables inside the same unified box */}
               {priorIterations.map((iter) => {
-                const iterRows = buildTableRowsForIteration(iter, selectedVersion);
+                const iterRows = buildTableRowsForIteration(iter, selectedVersion, workflowLevels);
                 const isIterRejected = iter.isRejected;
 
                 return (
@@ -1314,7 +1398,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
                             <th className="py-3 px-3.5 w-16">Level</th>
                             <th className="py-3 px-3.5 w-52">Level Name</th>
                             <th className="py-3 px-3.5 w-40">Status</th>
-                            <th className="py-3 px-3.5">Status Updated By</th>
+                            <th className="py-3 px-3.5">Action By</th>
                             <th className="py-3 px-3.5 w-48">Date & Time</th>
                             <th className="py-3 px-3.5 w-28 text-center">Comments</th>
                           </tr>
@@ -1398,7 +1482,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
                 </div>
                 <div className="col-span-2 pt-2 border-t border-slate-200/60">
                   <span className="font-semibold text-slate-500 uppercase tracking-wider block mb-0.5">
-                    Status Updated By
+                    Action By
                   </span>
                   <span className="font-bold text-slate-900 text-sm">
                     {viewingComments.updatedBy}

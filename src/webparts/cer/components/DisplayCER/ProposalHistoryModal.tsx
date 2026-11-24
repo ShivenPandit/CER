@@ -435,14 +435,20 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                             void handleDownloadHistoricalPdf(prop, `V${revNum}`);
                           }}
                           disabled={downloadingVersionId !== null}
-                          className="p-1 rounded text-slate-400 hover:text-[#e11d48] hover:bg-rose-50 transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/90 hover:bg-blue-100 hover:text-blue-900 hover:border-blue-300 transition-all cursor-pointer shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed group"
                           title={`Download PDF for V${revNum}`}
                           aria-label={`Download PDF for V${revNum}`}
                         >
                           {downloadingVersionId === (prop.id || prop.cerprno || `V${revNum}`) ? (
-                            <div className="w-3.5 h-3.5 border border-[#e11d48] border-t-transparent rounded-full animate-spin" />
+                            <>
+                              <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin shrink-0" />
+                              <span className="text-[11px] font-semibold text-blue-700">PDF...</span>
+                            </>
                           ) : (
-                            <Download className="w-3.5 h-3.5" />
+                            <>
+                              <Download className="w-3.5 h-3.5 text-blue-600 group-hover:scale-110 transition-transform shrink-0" />
+                              <span className="text-[11px] font-bold text-blue-800">PDF</span>
+                            </>
                           )}
                         </button>
                       </div>
@@ -825,9 +831,9 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
                       </span>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-slate-500 font-semibold block text-xs sm:text-[13px]">Pre Operations</span>
+                      <span className="text-slate-500 font-semibold block text-xs sm:text-[13px]">Wells</span>
                       <span className="font-bold text-slate-900 mt-1 block text-sm sm:text-base font-mono">
-                        {currSymbol}{Number(selectedProposal.preop || 0).toLocaleString()}{currUnit}
+                        {currSymbol}{Number(selectedProposal.wells !== undefined && selectedProposal.wells !== null ? selectedProposal.wells : ((selectedProposal as any).wellsCost !== undefined && (selectedProposal as any).wellsCost !== null ? (selectedProposal as any).wellsCost : (selectedProposal.preop || 0))).toLocaleString()}{currUnit}
                       </span>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">

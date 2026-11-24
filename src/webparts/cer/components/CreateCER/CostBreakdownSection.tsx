@@ -23,9 +23,9 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
   const engineer = Number(formData.engineer || 0);
   const s_fac = Number(formData.s_fac || 0);
   const comis = Number(formData.comis || 0);
-  const preop = Number(formData.preop || 0);
+  const wells = Number(formData.wells !== undefined && formData.wells !== null ? formData.wells : ((formData as any).wellsCost !== undefined && (formData as any).wellsCost !== null ? (formData as any).wellsCost : (formData.preop || 0)));
   const others = Number(formData.others || 0);
-  const computedTotal = engineer + s_fac + comis + preop + others;
+  const computedTotal = engineer + s_fac + comis + wells + others;
 
   useEffect(() => {
     if (computedTotal > 0 || (Number(formData.total || 0) > 0 && computedTotal !== formData.total)) {
@@ -171,30 +171,42 @@ export const CostBreakdownSection: React.FC<ICostBreakdownSectionProps> = ({
           )}
         </div>
 
-        {/* Pre Operations */}
-        <div id="field-preop">
-          <label htmlFor="preop" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
-            Pre Operations
+        {/* Wells */}
+        <div id="field-wells">
+          <label htmlFor="wells" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
+            Wells
           </label>
           <input
-            id="preop"
+            id="wells"
             type="number"
             disabled={isReadOnly}
             min="0"
             step="any"
-            value={formData.preop === undefined || formData.preop === null ? "" : formData.preop}
-            onChange={(e) => onChange("preop", e.target.value === "" ? "" : Number(e.target.value))}
-            onBlur={() => onBlur && onBlur("preop")}
+            value={
+              formData.wells !== undefined && formData.wells !== null
+                ? formData.wells
+                : (formData as any).wellsCost !== undefined && (formData as any).wellsCost !== null
+                ? (formData as any).wellsCost
+                : formData.preop === undefined || formData.preop === null
+                ? ""
+                : formData.preop
+            }
+            onChange={(e) => {
+              const val = e.target.value === "" ? "" : Number(e.target.value);
+              onChange("wells", val);
+              onChange("preop", val);
+            }}
+            onBlur={() => onBlur && onBlur("wells")}
             className={`w-full h-10 px-3 py-1.5 rounded-lg transition-colors font-mono text-sm font-medium text-slate-900 focus:outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
-              getFieldError("preop")
+              getFieldError("wells") || getFieldError("preop")
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                 : "bg-white border border-slate-200 hover:border-slate-300 focus:ring-1 focus:ring-[#012964]/20 focus:border-[#012964]"
             }`}
           />
-          {getFieldError("preop") && (
+          {(getFieldError("wells") || getFieldError("preop")) && (
             <p className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              <span>{getFieldError("preop")}</span>
+              <span>{getFieldError("wells") || getFieldError("preop")}</span>
             </p>
           )}
         </div>

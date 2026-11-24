@@ -766,9 +766,9 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
                       </span>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-slate-500 font-semibold block text-xs sm:text-[13px]">Pre Operations</span>
+                      <span className="text-slate-500 font-semibold block text-xs sm:text-[13px]">Wells</span>
                       <span className="font-bold text-slate-900 mt-1 block text-sm sm:text-base">
-                        {sym}{proposal.preop.toLocaleString()}{unit}
+                        {sym}{Number(proposal.wells !== undefined && proposal.wells !== null ? proposal.wells : ((proposal as any).wellsCost !== undefined && (proposal as any).wellsCost !== null ? (proposal as any).wellsCost : (proposal.preop || 0))).toLocaleString()}{unit}
                       </span>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">

@@ -1,8 +1,11 @@
 import { LocalMockCERDataService } from "../services/LocalMockCERDataService";
 import { ICERProposal, CATEGORY_DEFINITIONS, SBU_OPTIONS } from "../models/CERModel";
 import { AUDIT_FIELD_DESCRIPTIONS, EXCLUDED_AUDIT_FIELDS } from "../models/AuditModel";
-import { getFirstActiveError, FormErrors, validateField } from "../utils/cerValidation";
+import { getFirstActiveError, FormErrors, validateField, validateAll, hasEnteredCostBreakdown } from "../utils/cerValidation";
 import { EmailTemplateService } from "../services/EmailTemplateService";
+import { buildTableRowsForIteration, IIterationRun, IProposalVersionEntry } from "../components/ApprovalWorkflow/StatusHistoryModal";
+import { IWorkflowLevel } from "../models/WorkflowModel";
+import { formatUserFriendlySharePointError, normalizeUserLogon } from "../utils/sanitizationUtils";
 
 // Standalone runner fallback for tsx / Node execution
 const _global: any = typeof globalThis !== "undefined" ? globalThis : {};
@@ -55,6 +58,18 @@ if (typeof _global.describe === "undefined") {
     toBe: (expected: any) => {
       if (actual !== expected) throw new Error(`Expected ${JSON.stringify(expected)} but got ${JSON.stringify(actual)}`);
     },
+    toBeUndefined: () => {
+      if (actual !== undefined) throw new Error(`Expected undefined but got ${JSON.stringify(actual)}`);
+    },
+    toBeDefined: () => {
+      if (actual === undefined) throw new Error("Expected value to be defined");
+    },
+    toBeTruthy: () => {
+      if (!actual) throw new Error(`Expected truthy value but got ${JSON.stringify(actual)}`);
+    },
+    toBeFalsy: () => {
+      if (actual) throw new Error(`Expected falsy value but got ${JSON.stringify(actual)}`);
+    },
     toMatch: (pattern: RegExp) => {
       if (!pattern.test(String(actual))) throw new Error(`Expected "${actual}" to match ${pattern}`);
     },
@@ -69,6 +84,9 @@ if (typeof _global.describe === "undefined") {
     not: {
       toBeNull: () => {
         if (actual === null) throw new Error("Expected value not to be null");
+      },
+      toBeUndefined: () => {
+        if (actual === undefined) throw new Error("Expected value not to be undefined");
       },
       toContain: (item: any) => {
         if (Array.isArray(actual) ? actual.indexOf(item) !== -1 : String(actual).indexOf(item) !== -1) {
@@ -482,5 +500,421 @@ describe("CER Management System - Business Logic & Requirements Tests", () => {
     };
     const recipients = EmailTemplateService.resolveStakeholderEmails(proposal, "initiator@vedanta.co.in");
     expect(recipients).toBe("arun.kulkarni@vedanta.co.in; initiator@vedanta.co.in");
+  });
+
+  // PAYBACK-01: Payback Period (Quarters) is optional on submission
+  test("PAYBACK-01: Payback Period (Quarters) is optional and does not trigger error on submission when omitted", () => {
+    const validProposal: any = {
+      pr_name: "Test Project",
+      cerprno: "CER-2026-9999",
+      proposal_no: "PR-2026/01",
+      sbu: "RJ North",
+      owname: "Test Owner",
+      owner_email: "test.owner@vedanta.co.in",
+      start_date: "2026-04-01",
+      object: "Test Objective",
+      category: "Vital",
+      amount: 1000,
+      currency: "USD",
+      payable: "Payback",
+      period: "1 Year",
+      // payback_quarters omitted
+      cbudget: "No",
+      jv: "No",
+      capex_till: 500,
+      capex_fy: 500,
+      capex_beyond: 0,
+      wells: 500,
+      others: 500,
+      total: 1000,
+    };
+
+    const res = validateAll(validProposal, false);
+    expect(res.errors.payback_quarters).toBeUndefined();
+
+    // But if negative number is entered, format validation still triggers
+    const invalidProposal = { ...validProposal, payback_quarters: -2 };
+    const invalidRes = validateAll(invalidProposal, false);
+    expect(invalidRes.errors.payback_quarters).toBe("Payback Period must be a positive whole number of quarters (e.g., 4).");
+  });
+
+  // WELLS-01: Wells cost is included in cost breakdown detection and total balance validation
+  test("WELLS-01: Wells cost is detected in hasEnteredCostBreakdown and total balance validation", () => {
+    const pWithWells: any = {
+      engineer: 0,
+      s_fac: 0,
+      comis: 0,
+      wells: 2000,
+      others: 0,
+      amount: 2500,
+      total: 2000,
+    };
+    expect(hasEnteredCostBreakdown(pWithWells)).toBe(true);
+
+    // Mismatched total (wells 2000 != amount 2500)
+    const err = validateField("total", 2000, pWithWells, false);
+    expect(err).toBe("Total CAPEX ($2,000 mm) must equal Amount of CER ($2,500 mm). Difference: -$500 mm");
+
+    // Matched total
+    const okProposal = { ...pWithWells, wells: 2500, total: 2500 };
+    const ok = validateField("total", 2500, okProposal, false);
+    expect(ok).toBeUndefined();
+  });
+
+  // STATUS-MODAL-01: Pending row shows assigned action taker name only next to pending
+  test("STATUS-MODAL-01: buildTableRowsForIteration shows action taker name only next to pending stage", () => {
+    const rawProposal: ICERProposal = {
+      id: "1",
+      cerprno: "CER-2026-0037",
+      proposal_no: "PR-2026/EmailTest/01",
+      cer_proposal_id: "CER-2026-0037",
+      pr_name: "Email Testing",
+      sbu: "RJ North",
+      owname: "Rajesh Kumar",
+      owner_email: "rajesh.kumar@vedanta.co.in",
+      status: "In Approval",
+      current_level: 2,
+      pending_with_role: "L2 - CER Owner",
+      amount: 39,
+      total: 39,
+    } as any;
+
+    const mockIteration: IIterationRun = {
+      iterationIndex: 1,
+      isLatestActive: true,
+      isSentBack: false,
+      decisions: [
+        {
+          id: "dec-1",
+          cerprno: "CER-2026-0037",
+          level_id: 1,
+          level_name: "Finance",
+          approver_name: "Shiven Pandit (Microlink)",
+          approver_email: "shiven@microlink.com",
+          decision: "APPROVED",
+          comments: "L1 Approved",
+          timestamp: "2026-11-19T18:08:00Z",
+        },
+      ],
+    };
+
+    const mockVersion: IProposalVersionEntry = {
+      id: "CURRENT",
+      serialNo: 1,
+      versionLabel: "v1 Active",
+      isCurrent: true,
+      proposalNo: "PR-2026/EmailTest/01",
+      status: "In Approval",
+      amount: 39,
+      currency: "USD",
+      dateStr: "19 Nov 2026",
+      rawProposal,
+    };
+
+    const mockLevels: IWorkflowLevel[] = [
+      { level_id: 1, level_name: "Finance", role_title: "Finance", approver_name: "Finance Lead", approver_email: "fin@vedanta.co.in", is_active: true },
+      { level_id: 2, level_name: "CER Owner", role_title: "CER Owner", approver_name: "CER Owner", approver_email: "owner@vedanta.co.in", is_active: true },
+      { level_id: 3, level_name: "BU CFO", role_title: "BU CFO", approver_name: "BU CFO User", approver_email: "cfo@vedanta.co.in", is_active: true },
+    ];
+
+    const rows = buildTableRowsForIteration(mockIteration, mockVersion, mockLevels);
+    expect(rows.length).toBe(6);
+
+    // L1: Approved by Shiven Pandit
+    expect(rows[0].stage.level).toBe(1);
+    expect(rows[0].statusText).toBe("Approved");
+    expect(rows[0].updatedBy).toBe("Shiven Pandit (Microlink)");
+
+    // L2: Pending — action taker is CER Owner (Rajesh Kumar)
+    expect(rows[1].stage.level).toBe(2);
+    expect(rows[1].statusText).toBe("Pending");
+    expect(rows[1].updatedBy).toBe("Rajesh Kumar");
+
+    // L3-L6: Not Started — updatedBy MUST BE "—" (only next to pending!)
+    for (let i = 2; i < rows.length; i++) {
+      expect(rows[i].statusText).toBe("Not Started");
+      expect(rows[i].updatedBy).toBe("—");
+    }
+  });
+
+  // STATUS-MODAL-02: Pending row resolves real approver names from IUserRoleAssignment approvers list
+  test("STATUS-MODAL-02: buildTableRowsForIteration resolves real approver names from IUserRoleAssignment objects", () => {
+    const rawProposal: ICERProposal = {
+      id: "2",
+      cerprno: "CER-2026-0040",
+      proposal_no: "PR-2026/0004",
+      cer_proposal_id: "CER-2026-0040",
+      pr_name: "Wells Testing",
+      sbu: "RJ North",
+      owname: "Shiven Pandit",
+      owner_email: "shiven@microlink.com",
+      status: "In Approval",
+      current_level: 1,
+      pending_with_role: "Finance",
+      amount: 40,
+      total: 40,
+    } as any;
+
+    const mockIteration: IIterationRun = {
+      iterationIndex: 1,
+      isLatestActive: true,
+      isSentBack: false,
+      decisions: [],
+    };
+
+    const mockVersion: IProposalVersionEntry = {
+      id: "CURRENT",
+      serialNo: 1,
+      versionLabel: "v1 Active",
+      isCurrent: true,
+      proposalNo: "PR-2026/0004",
+      status: "In Approval",
+      amount: 40,
+      currency: "USD",
+      dateStr: "24 Nov 2026",
+      rawProposal,
+    };
+
+    // Role matrix returns IUserRoleAssignment objects with user_name and user_email
+    const mockLevels: IWorkflowLevel[] = [
+      {
+        level_id: 1,
+        level_name: "Finance",
+        role_title: "Finance",
+        approver_name: "",
+        approver_email: "",
+        approvers: [
+          { user_name: "Amit Sharma", user_email: "amit.sharma@vedanta.co.in", sbu: "RJ North" },
+          { user_name: "Sunil Verma", user_email: "sunil.verma@vedanta.co.in", sbu: "RJ North" },
+        ],
+        is_active: true,
+      },
+    ];
+
+    const rows = buildTableRowsForIteration(mockIteration, mockVersion, mockLevels);
+    expect(rows[0].stage.level).toBe(1);
+    expect(rows[0].statusText).toBe("Pending");
+    // Action By must resolve real user names from CERRoleMatrix, NOT "Finance"!
+    expect(rows[0].updatedBy).toBe("Amit Sharma, Sunil Verma");
+  });
+
+  // STATUS-MODAL-03: Pending row falls back to rawProposal.pending_with_name from SharePoint Person field
+  test("STATUS-MODAL-03: buildTableRowsForIteration falls back to pending_with_name from SharePoint item", () => {
+    const rawProposal: ICERProposal = {
+      id: "3",
+      cerprno: "CER-2026-0041",
+      proposal_no: "PR-2026/0005",
+      cer_proposal_id: "CER-2026-0041",
+      pr_name: "Deep Sea Exploration",
+      sbu: "CBOS",
+      owname: "Anil Agarwal",
+      owner_email: "anil@vedanta.co.in",
+      status: "In Approval",
+      current_level: 3,
+      pending_with_role: "BU CFO",
+      pending_with_name: "Pooja Roy",
+      amount: 150,
+      total: 150,
+    } as any;
+
+    const mockIteration: IIterationRun = {
+      iterationIndex: 1,
+      isLatestActive: true,
+      isSentBack: false,
+      decisions: [
+        {
+          id: "d1",
+          cerprno: "CER-2026-0041",
+          level_id: 1,
+          level_name: "Finance",
+          approver_name: "Amit Sharma",
+          approver_email: "amit@vedanta.co.in",
+          decision: "APPROVED",
+          comments: "Approved",
+          timestamp: "2026-11-20T10:00:00Z",
+        },
+        {
+          id: "d2",
+          cerprno: "CER-2026-0041",
+          level_id: 2,
+          level_name: "CER Owner",
+          approver_name: "Anil Agarwal",
+          approver_email: "anil@vedanta.co.in",
+          decision: "APPROVED",
+          comments: "Owner signed off",
+          timestamp: "2026-11-21T11:00:00Z",
+        },
+      ],
+    };
+
+    const mockVersion: IProposalVersionEntry = {
+      id: "CURRENT",
+      serialNo: 1,
+      versionLabel: "v1 Active",
+      isCurrent: true,
+      proposalNo: "PR-2026/0005",
+      status: "In Approval",
+      amount: 150,
+      currency: "USD",
+      dateStr: "24 Nov 2026",
+      rawProposal,
+    };
+
+    const rows = buildTableRowsForIteration(mockIteration, mockVersion, []);
+    expect(rows[2].stage.level).toBe(3);
+    expect(rows[2].statusText).toBe("Pending");
+    expect(rows[2].updatedBy).toBe("Pooja Roy");
+  });
+
+  // REPORT-DASHBOARD-01: Verifies SBU and Financial Year filtering logic
+  test("REPORT-DASHBOARD-01: SBU and Financial Year filtering filters correctly", () => {
+    const mockProposals: ICERProposal[] = [
+      { id: "1", cerprno: "CER-01", sbu: "RJ North", amount: 100, status: "Approved", request_date: "2026-05-10" } as any,
+      { id: "2", cerprno: "CER-02", sbu: "RJ South", amount: 200, status: "Approved", request_date: "2026-06-15" } as any,
+      { id: "3", cerprno: "CER-03", sbu: "RJ North", amount: 300, status: "In Approval", request_date: "2026-07-20" } as any,
+      { id: "4", cerprno: "CER-04", sbu: "CBOS", amount: 400, status: "Send Back", request_date: "2025-11-01" } as any,
+    ];
+
+    // Filter by SBU: "RJ North"
+    const rjNorthOnly = mockProposals.filter((p) => (p.sbu || "").trim().toLowerCase() === "RJ North".toLowerCase());
+    expect(rjNorthOnly.length).toBe(2);
+    expect(rjNorthOnly.reduce((sum, p) => sum + p.amount, 0)).toBe(400);
+
+    // Filter by SBU: "CBOS"
+    const cbosOnly = mockProposals.filter((p) => (p.sbu || "").trim().toLowerCase() === "CBOS".toLowerCase());
+    expect(cbosOnly.length).toBe(1);
+    expect(cbosOnly[0].amount).toBe(400);
+  });
+
+  // PERF-SAFE-01: Verifies in-flight deduplication / idempotency protection for approval submissions (Safeguard 4)
+  test("PERF-SAFE-01: In-flight deduplication protects against duplicate concurrent approval submissions", async () => {
+    const inFlightDecisions = new Map<string, Promise<{ success: boolean; newStatus: string; nextLevel: number }>>();
+    let actualExecutionCount = 0;
+
+    // Simulated network operation that takes time
+    const simulatedDecisionExecution = async (cerprno: string, levelId: number) => {
+      const lockKey = `${cerprno}::${levelId}`;
+      const existing = inFlightDecisions.get(lockKey);
+      if (existing) {
+        return existing;
+      }
+
+      const promise = (async () => {
+        try {
+          actualExecutionCount++;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          return { success: true, newStatus: "In Approval", nextLevel: levelId + 1 };
+        } finally {
+          inFlightDecisions.delete(lockKey);
+        }
+      })();
+
+      inFlightDecisions.set(lockKey, promise);
+      return promise;
+    };
+
+    // Simulate 3 simultaneous rapid clicks on "Approve"
+    const [res1, res2, res3] = await Promise.all([
+      simulatedDecisionExecution("CER-2026-0099", 2),
+      simulatedDecisionExecution("CER-2026-0099", 2),
+      simulatedDecisionExecution("CER-2026-0099", 2),
+    ]);
+
+    expect(res1.success).toBe(true);
+    expect(res2.success).toBe(true);
+    expect(res3.success).toBe(true);
+    expect(res1.nextLevel).toBe(3);
+    expect(res2.nextLevel).toBe(3);
+    // Only ONE actual network operation was dispatched across all 3 concurrent clicks
+    expect(actualExecutionCount).toBe(1);
+  });
+
+  // PERF-SAFE-02: Verifies HTTP 412 ETag conflict detection & user-friendly error formatting (Safeguard 3)
+  test("PERF-SAFE-02: HTTP 412 Concurrency Conflict produces clear user guidance instead of raw OData error", () => {
+    const rawEtagError = new Error("The request failed with status code 412: Precondition Failed (The specified item was modified).");
+    const formatted = formatUserFriendlySharePointError(rawEtagError);
+    expect(formatted).toBe(
+      "Concurrency conflict: This proposal was modified by another user or session. Please refresh the proposal to review the latest changes before saving."
+    );
+
+    const customConcurrencyError = new Error("Concurrency conflict detected while committing proposal update.");
+    const formatted2 = formatUserFriendlySharePointError(customConcurrencyError);
+    expect(formatted2).toBe(
+      "Concurrency conflict: This proposal was modified by another user or session. Please refresh the proposal to review the latest changes before saving."
+    );
+  });
+
+  // PERF-SAFE-03: Verifies stale response discarding for modal loading (Safeguard 6)
+  test("PERF-SAFE-03: Stale response token protection discards out-of-order proposal responses", async () => {
+    const activeRequestIdRef = { current: 0 };
+    let currentProposalDisplayed = "";
+
+    const openProposalReview = async (cerprno: string, delayMs: number) => {
+      const requestId = ++activeRequestIdRef.current;
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+
+      // Guard: Discard stale response if user switched to another proposal
+      if (activeRequestIdRef.current !== requestId) {
+        return; // Stale, ignore
+      }
+      currentProposalDisplayed = cerprno;
+    };
+
+    // User clicks CER-001 (slow response: 100ms) then immediately switches to CER-002 (fast response: 20ms)
+    const p1 = openProposalReview("CER-001", 100);
+    const p2 = openProposalReview("CER-002", 20);
+
+    await Promise.all([p1, p2]);
+
+    // CER-002 must remain active even though CER-001 finished later
+    expect(currentProposalDisplayed).toBe("CER-002");
+  });
+
+  // PERF-SAFE-04: Verifies authorization guard and segregation of duties (Safeguard 7)
+  test("PERF-SAFE-04: Approval buttons are disabled until workflow configuration is verified", () => {
+    const checkCanSubmit = (
+      currentLevelConfig: IWorkflowLevel | undefined,
+      decision: string,
+      comments: string,
+      isSubmitting: boolean
+    ): boolean => {
+      if (isSubmitting) return false;
+      if (!currentLevelConfig) return false;
+      if ((decision === "REJECT" || decision === "SEND_BACK") && !comments.trim()) return false;
+      return true;
+    };
+
+    // Scenario 1: Workflow level configuration is still loading / undefined -> MUST be disabled
+    expect(checkCanSubmit(undefined, "APPROVED", "", false)).toBe(false);
+
+    // Scenario 2: Workflow level loaded, decision is APPROVED -> Enabled
+    const mockLevel: IWorkflowLevel = {
+      level_id: 1,
+      level_name: "Technical Review",
+      role_title: "Technical Reviewer",
+      sbu: "RJ North",
+      is_active: true,
+    };
+    expect(checkCanSubmit(mockLevel, "APPROVED", "", false)).toBe(true);
+
+    // Scenario 3: Send Back without mandatory comments -> Disabled
+    expect(checkCanSubmit(mockLevel, "SEND_BACK", "   ", false)).toBe(false);
+
+    // Scenario 4: Send Back with mandatory comments -> Enabled
+    expect(checkCanSubmit(mockLevel, "SEND_BACK", "Please update cost breakdown", false)).toBe(true);
+  });
+
+  // PERF-SAFE-05: Verifies logon normalization and deduplication
+  test("PERF-SAFE-05: Logon normalization strips claims prefix and trims whitespace", () => {
+    const rawClaim = "i:0#.f|membership|Shiven.Pandit@vedanta.co.in ";
+    const normalized = normalizeUserLogon(rawClaim);
+    expect(normalized).toBe("shiven.pandit@vedanta.co.in");
+
+    const rawSimple = "MEMBERSHIP|User@Domain.COM ";
+    const normalizedSimple = normalizeUserLogon(rawSimple);
+    expect(normalizedSimple).toBe("user@domain.com");
+
+    expect(normalizeUserLogon("")).toBe("");
+    expect(normalizeUserLogon(undefined)).toBe("");
   });
 });

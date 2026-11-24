@@ -242,3 +242,54 @@ export function sanitizeProposalPayload(proposal: ICERProposal): ICERProposal {
 
   return sanitized;
 }
+
+/**
+ * Normalizes a user identifier (strips claims prefix, trims, lowercases).
+ */
+export function normalizeUserLogon(identifier?: string): string {
+  if (!identifier) return "";
+  return identifier
+    .trim()
+    .toLowerCase()
+    .replace(/^i:0#\.f\|membership\|/i, "")
+    .replace(/^membership\|/i, "");
+}
+
+/**
+ * Sanitizes and formats raw SharePoint REST / OData / Network errors into
+ * clean, concise, human-friendly business messages suitable for user-facing UI.
+ */
+export function formatUserFriendlySharePointError(error: any, defaultContext: string = "An error occurred while communicating with SharePoint."): string {
+  const errMsg = String(error?.message || error || "");
+  const lower = errMsg.toLowerCase();
+
+  // Preserve specific domain business explanations:
+  if (errMsg.indexOf("Only the") !== -1 || errMsg.indexOf("not permitted") !== -1 || errMsg.indexOf("not authorized to") !== -1) {
+    return errMsg.replace(/^Error:\s*/i, "").trim();
+  }
+
+  if (lower.indexOf("412") !== -1 || lower.indexOf("concurrency") !== -1 || lower.indexOf("etag") !== -1) {
+    return "Concurrency conflict: This proposal was modified by another user or session. Please refresh the proposal to review the latest changes before saving.";
+  }
+  if (lower.indexOf("403") !== -1 || lower.indexOf("access denied") !== -1 || lower.indexOf("unauthorized") !== -1) {
+    return "Permission Denied: You do not have permission to perform this update in SharePoint. Please verify your role assignments.";
+  }
+  if (lower.indexOf("already exists") !== -1 || lower.indexOf("duplicate") !== -1) {
+    return errMsg.indexOf("already exists") !== -1
+      ? errMsg
+      : "A record with this identifier already exists in SharePoint. Please ensure proposal numbers are unique.";
+  }
+  if (lower.indexOf("429") !== -1 || lower.indexOf("throttled") !== -1) {
+    return "SharePoint service is experiencing high load (throttled). Please wait a few moments before retrying.";
+  }
+  if (lower.indexOf("503") !== -1 || lower.indexOf("service unavailable") !== -1 || lower.indexOf("network") !== -1) {
+    return "Unable to connect to SharePoint service. Please verify your network connection and retry.";
+  }
+  if (lower.indexOf("timeout") !== -1) {
+    return "The request to SharePoint timed out. Please check your network connection and retry.";
+  }
+
+  return errMsg.length > 0 && errMsg.length < 200 && errMsg.indexOf("<") === -1
+    ? errMsg
+    : defaultContext;
+}

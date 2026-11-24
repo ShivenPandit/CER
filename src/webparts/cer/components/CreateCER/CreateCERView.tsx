@@ -83,6 +83,8 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     engineer: "" as any,
     s_fac: "" as any,
     comis: "" as any,
+    wells: "" as any,
+    wellsCost: "" as any,
     preop: "" as any,
     others: "" as any,
     total: "" as any,
@@ -239,7 +241,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
 
       // Re-validate total (Section D) when Section D fields or capex phasing change
       if (
-        ["engineer", "s_fac", "comis", "preop", "others", "capex_till", "capex_fy", "capex_beyond"].indexOf(field as string) !== -1
+        ["engineer", "s_fac", "comis", "wells", "wellsCost", "preop", "others", "capex_till", "capex_fy", "capex_beyond"].indexOf(field as string) !== -1
       ) {
         if (errors.total || errors.cost_mismatch || touched.total || hasAttemptedSubmit) {
           const totalErr = validateField("total", updated.total, updated, false);
@@ -341,7 +343,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
       }
     }
 
-    if (["engineer", "s_fac", "comis", "preop", "others"].indexOf(field as string) !== -1) {
+    if (["engineer", "s_fac", "comis", "wells", "wellsCost", "preop", "others"].indexOf(field as string) !== -1) {
       if (hasEnteredCostBreakdown(updatedForm)) {
         setTouched((prev) => ({ ...prev, total: true }));
         const totalError = validateField("total", updatedForm.total, updatedForm, false);

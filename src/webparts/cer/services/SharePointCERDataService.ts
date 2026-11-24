@@ -27,49 +27,14 @@ import { SharePointOperations } from "../hooks/useSharePointOperations";
 import { PersonFieldService } from "./PersonFieldService";
 import { EmailTemplateService } from "./EmailTemplateService";
 import { SP_LISTS, FIXED_6_LEVEL_APPROVAL_STAGES, ROLE_MATRIX_SBUS } from "../constants";
-import { sanitizeProposalPayload, escapeODataString, stripAttachmentsManifest } from "../utils/sanitizationUtils";
+import {
+  sanitizeProposalPayload,
+  escapeODataString,
+  stripAttachmentsManifest,
+  formatUserFriendlySharePointError,
+} from "../utils/sanitizationUtils";
 
-/**
- * Sanitizes and formats raw SharePoint REST / OData / Network errors into
- * clean, concise, human-friendly business messages suitable for user-facing UI.
- */
-export function formatUserFriendlySharePointError(error: any, defaultContext: string = "An error occurred while communicating with SharePoint."): string {
-  const errMsg = String(error?.message || error || "");
-  const lower = errMsg.toLowerCase();
-
-  // Preserve specific domain business explanations:
-  if (errMsg.indexOf("Only the") !== -1 || errMsg.indexOf("not permitted") !== -1 || errMsg.indexOf("not authorized to") !== -1) {
-    return errMsg.replace(/^Error:\s*/i, "").trim();
-  }
-
-  if (lower.indexOf("412") !== -1 || lower.indexOf("concurrency") !== -1 || lower.indexOf("etag") !== -1) {
-    return "Concurrency conflict: This proposal was modified by another user or session. Please refresh the proposal to review the latest changes before saving.";
-  }
-  if (lower.indexOf("403") !== -1 || lower.indexOf("access denied") !== -1 || lower.indexOf("unauthorized") !== -1) {
-    return "Permission Denied: You do not have permission to perform this update in SharePoint. Please verify your role assignments.";
-  }
-  if (lower.indexOf("already exists") !== -1 || lower.indexOf("duplicate") !== -1) {
-    return errMsg.indexOf("already exists") !== -1
-      ? errMsg
-      : "A record with this identifier already exists in SharePoint. Please ensure proposal numbers are unique.";
-  }
-  if (lower.indexOf("429") !== -1 || lower.indexOf("throttled") !== -1) {
-    return "SharePoint service is experiencing high load (throttled). Please wait a few moments before retrying.";
-  }
-  if (lower.indexOf("503") !== -1 || lower.indexOf("service unavailable") !== -1 || lower.indexOf("network") !== -1) {
-    return "Unable to connect to SharePoint service. Please verify your network connection and retry.";
-  }
-  if (lower.indexOf("timeout") !== -1) {
-    return "The request to SharePoint timed out. Please check your network connection and retry.";
-  }
-
-  const cleaned = errMsg
-    .replace(/^\[.*?\]\s*/g, "")
-    .replace(/^(Error:\s*)+/gi, "")
-    .trim();
-
-  return cleaned || defaultContext;
-}
+export { formatUserFriendlySharePointError } from "../utils/sanitizationUtils";
 
 export class SharePointCERDataService implements ICERDataService {
   private _spHttpClient: SPHttpClient;
@@ -99,6 +64,7 @@ export class SharePointCERDataService implements ICERDataService {
 
   private _cachedApprovalDecisions: Map<string, { data: IApprovalDecision[]; timestamp: number }> = new Map();
   private _inFlightApprovalDecisions: Map<string, Promise<IApprovalDecision[]>> = new Map();
+  private _inFlightDecisions: Map<string, Promise<{ success: boolean; newStatus: string; nextLevel: number }>> = new Map();
 
   private _cachedAttachments: Map<string, { data: ICERAttachment[]; timestamp: number }> = new Map();
   private _inFlightAttachments: Map<string, Promise<ICERAttachment[]>> = new Map();
@@ -982,6 +948,8 @@ export class SharePointCERDataService implements ICERDataService {
             payload.remarks = initialPayload.Remarks || initialPayload.remarks;
           } else if ((missingProp === "remarks" || missingProp === "Remarks") && !payload.GeneralRemarks && (initialPayload.remarks || initialPayload.Remarks)) {
             payload.GeneralRemarks = initialPayload.remarks || initialPayload.Remarks;
+          } else if (missingProp === "preoperativeCost") {
+            delete payload.preoperativeCost;
           }
 
           if (attempts <= maxRetries) {
@@ -1475,28 +1443,38 @@ export class SharePointCERDataService implements ICERDataService {
         const cerPrId = newProposal.cer_proposal_id || newProposal.cerprno;
         const l1Role = activeL1?.role_title || "Finance";
         const approverEmails = pendingEmailsList.filter(Boolean).join("; ");
+        const notificationPromises: Promise<void>[] = [];
+
         if (approverEmails) {
           const approverEmailData = EmailTemplateService.renderSubmissionApproverEmail(newProposal, l1Role);
-          await this._triggerEmailNotification({
-            cerPrId,
-            scenario: "Submission",
-            recipientEmails: approverEmails,
-            emailSubject: approverEmailData.subject,
-            emailBody: approverEmailData.body,
-            importance: "High",
-          });
+          notificationPromises.push(
+            this._triggerEmailNotification({
+              cerPrId,
+              scenario: "Submission",
+              recipientEmails: approverEmails,
+              emailSubject: approverEmailData.subject,
+              emailBody: approverEmailData.body,
+              importance: "High",
+            })
+          );
         }
         const stakeholderRecipients = EmailTemplateService.resolveStakeholderEmails(newProposal);
         if (stakeholderRecipients) {
           const ownerEmailData = EmailTemplateService.renderSubmissionOwnerEmail(newProposal, l1Role);
-          await this._triggerEmailNotification({
-            cerPrId,
-            scenario: "Submission_Confirmation",
-            recipientEmails: stakeholderRecipients,
-            emailSubject: ownerEmailData.subject,
-            emailBody: ownerEmailData.body,
-            importance: "Normal",
-          });
+          notificationPromises.push(
+            this._triggerEmailNotification({
+              cerPrId,
+              scenario: "Submission_Confirmation",
+              recipientEmails: stakeholderRecipients,
+              emailSubject: ownerEmailData.subject,
+              emailBody: ownerEmailData.body,
+              importance: "Normal",
+            })
+          );
+        }
+
+        if (notificationPromises.length > 0) {
+          await Promise.all(notificationPromises);
         }
       }
 
@@ -1562,28 +1540,38 @@ export class SharePointCERDataService implements ICERDataService {
       const cerPrId = newProposal.cer_proposal_id || newProposal.cerprno;
       const l1Role = activeL1?.role_title || "Finance";
       const approverEmails = pendingEmailsList.filter(Boolean).join("; ");
+      const notificationPromises: Promise<void>[] = [];
+
       if (approverEmails) {
         const approverEmailData = EmailTemplateService.renderSubmissionApproverEmail(newProposal, l1Role);
-        await this._triggerEmailNotification({
-          cerPrId,
-          scenario: "Submission",
-          recipientEmails: approverEmails,
-          emailSubject: approverEmailData.subject,
-          emailBody: approverEmailData.body,
-          importance: "High",
-        });
+        notificationPromises.push(
+          this._triggerEmailNotification({
+            cerPrId,
+            scenario: "Submission",
+            recipientEmails: approverEmails,
+            emailSubject: approverEmailData.subject,
+            emailBody: approverEmailData.body,
+            importance: "High",
+          })
+        );
       }
       const stakeholderRecipients = EmailTemplateService.resolveStakeholderEmails(newProposal);
       if (stakeholderRecipients) {
         const ownerEmailData = EmailTemplateService.renderSubmissionOwnerEmail(newProposal, l1Role);
-        await this._triggerEmailNotification({
-          cerPrId,
-          scenario: "Submission_Confirmation",
-          recipientEmails: stakeholderRecipients,
-          emailSubject: ownerEmailData.subject,
-          emailBody: ownerEmailData.body,
-          importance: "Normal",
-        });
+        notificationPromises.push(
+          this._triggerEmailNotification({
+            cerPrId,
+            scenario: "Submission_Confirmation",
+            recipientEmails: stakeholderRecipients,
+            emailSubject: ownerEmailData.subject,
+            emailBody: ownerEmailData.body,
+            importance: "Normal",
+          })
+        );
+      }
+
+      if (notificationPromises.length > 0) {
+        await Promise.all(notificationPromises);
       }
     }
 
@@ -2153,7 +2141,7 @@ export class SharePointCERDataService implements ICERDataService {
       engineeringCost: Number(original.engineer || 0),
       surfaceFacilitiesCost: Number(original.s_fac || 0),
       commissioningCost: Number(original.comis || 0),
-      preoperativeCost: Number(original.preop || 0),
+      wellsCost: Number(original.wells !== undefined && original.wells !== null ? original.wells : ((original as any).wellsCost !== undefined && (original as any).wellsCost !== null ? (original as any).wellsCost : (original.preop || 0))),
       otherCosts: Number(original.others || 0),
       total: Number(original.total || 0),
       remarks: stripAttachmentsManifest(original.remarks),
@@ -3201,541 +3189,543 @@ export class SharePointCERDataService implements ICERDataService {
     decision: "APPROVED" | "REJECTED" | "SENT_BACK" | "SEND_BACK";
     comments: string;
   }): Promise<{ success: boolean; newStatus: string; nextLevel: number }> {
-    const now = new Date().toISOString();
-
-    // Enterprise RBAC: Segregation of Duties - Initiator/Owner CANNOT approve their own CER
-    const existingProposal = await this.getProposalByNumber(params.cerprno);
-    if (!existingProposal) {
-      throw new Error(`Cannot record decision: Proposal '${params.cerprno}' not found in SharePoint CERProposals list.`);
+    // Safeguard 4: In-flight decision request deduplication (prevents rapid double-clicks from sending duplicate requests)
+    const lockKey = `${(params.cerprno || "").trim().toUpperCase()}::L${params.level_id}`;
+    const activeFlight = this._inFlightDecisions.get(lockKey);
+    if (activeFlight) {
+      console.warn(`[SharePointCERDataService] Duplicate decision in flight for ${lockKey}. Reusing active request.`);
+      return activeFlight;
     }
 
-    if (existingProposal.status !== "In Approval") {
-      throw new Error(
-        `Cannot record decision: Proposal '${params.cerprno}' is currently in '${existingProposal.status}' status, not 'In Approval'.`
-      );
-    }
+    const decisionPromise = (async () => {
+      try {
+        const now = new Date().toISOString();
 
-    if (existingProposal.current_level !== params.level_id) {
-      throw new Error(
-        `Cannot record decision: Proposal '${params.cerprno}' is at approval Level ${existingProposal.current_level}, but decision was submitted for Level ${params.level_id}. Please refresh the proposal to review its current status.`
-      );
-    }
+        // Safeguard: Genuinely independent pre-flight reads in parallel (Proposal, Prior Decisions, Approver SP User, History)
+        const [existingProposal, priorDecisions, approverUser, hist] = await Promise.all([
+          this.getProposalByNumber(params.cerprno),
+          this.getApprovalDecisions(params.cerprno).catch((err) => {
+            console.warn("[SharePointCERDataService] Failed to load prior approval decisions:", err);
+            return [] as IApprovalDecision[];
+          }),
+          params.approver_email
+            ? PersonFieldService.resolveUser(this._spHttpClient, this._siteUrl, params.approver_email).catch((ensureErr) => {
+                console.warn("[SharePointCERDataService] ensureUser resolution warning for approver:", ensureErr);
+                return null;
+              })
+            : Promise.resolve(null),
+          this.getProposalHistory((params.cerprno || "").trim()).catch(() => []),
+        ]);
 
-    const proposalSBU = existingProposal.sbu || "RJ North";
-    const workflowLevels = await this.getWorkflowLevels(proposalSBU, true);
-    const activeLevels = workflowLevels
-      .filter((l) => l.is_active)
-      .sort((a, b) => a.level_id - b.level_id);
+        // Enterprise RBAC: Segregation of Duties - Initiator/Owner CANNOT approve their own CER
+        if (!existingProposal) {
+          throw new Error(`Cannot record decision: Proposal '${params.cerprno}' not found in SharePoint CERProposals list.`);
+        }
 
-    const currentLevelConfig = activeLevels.find((l) => l.level_id === params.level_id);
-    const isCurrentPO = currentLevelConfig ? isProjectOwnerStage(currentLevelConfig) : false;
+        if (existingProposal.status !== "In Approval") {
+          throw new Error(
+            `Cannot record decision: Proposal '${params.cerprno}' is currently in '${existingProposal.status}' status, not 'In Approval'.`
+          );
+        }
 
-    const approverEmail = (params.approver_email || "").trim().toLowerCase();
-    const ownerEmail = (existingProposal.owner_email || "").trim().toLowerCase();
-    const isEmailMatch = approverEmail && ownerEmail && approverEmail === ownerEmail;
+        if (existingProposal.current_level !== params.level_id) {
+          throw new Error(
+            `Cannot record decision: Proposal '${params.cerprno}' is at approval Level ${existingProposal.current_level}, but decision was submitted for Level ${params.level_id}. Please refresh the proposal to review its current status.`
+          );
+        }
 
-    const approverName = (params.approver_name || "").trim().toLowerCase();
-    const ownerName = (existingProposal.owname || "").trim().toLowerCase();
-    const isNameMatch = approverName && ownerName && approverName === ownerName;
-    const isOwner = isEmailMatch || isNameMatch;
+        const proposalSBU = existingProposal.sbu || "RJ North";
+        const workflowLevels = await this.getWorkflowLevels(proposalSBU, false);
+        const activeLevels = workflowLevels
+          .filter((l) => l.is_active)
+          .sort((a, b) => a.level_id - b.level_id);
 
-    const stageApproverEmail = (currentLevelConfig?.approver_email || "").trim().toLowerCase();
-    const creator = (existingProposal.created_by || "").trim().toLowerCase();
-    const isCreator = Boolean(creator && (creator === approverEmail || creator === approverName));
+        const currentLevelConfig = activeLevels.find((l) => l.level_id === params.level_id);
+        const isCurrentPO = currentLevelConfig ? isProjectOwnerStage(currentLevelConfig) : false;
 
-    if (isCurrentPO) {
-      // Dynamic Project Owner stage: ONLY the designated Project Owner can approve
-      if (!isOwner) {
-        throw new Error(
-          `Access Denied: Only the designated Project Owner (${existingProposal.owname || existingProposal.owner_email}) can approve this stage.`
-        );
-      }
-    } else {
-      // Non-Project Owner stage (L1, L3, L4, L5, L6): Controlled strictly by Approval Role Matrix.
-      // Creator self-approval and Project Owner self-approval restrictions are removed:
-      // If the user is assigned in the matrix for this stage, they are authorized to approve.
-      const stageApproverEmails = stageApproverEmail
-        ? stageApproverEmail.split(/[;,]/).map((e) => e.trim().toLowerCase()).filter(Boolean)
-        : [];
-      const hasStageApprovers = Boolean(currentLevelConfig?.approvers && currentLevelConfig.approvers.length > 0);
+        const approverEmail = (params.approver_email || "").trim().toLowerCase();
+        const ownerEmail = (existingProposal.owner_email || "").trim().toLowerCase();
+        const isEmailMatch = approverEmail && ownerEmail && approverEmail === ownerEmail;
 
-      if (stageApproverEmails.length === 0 && !hasStageApprovers) {
-        throw new Error(
-          `Access Denied: Approval Level ${params.level_id} is currently unassigned in the Approval Role Matrix.`
-        );
-      }
+        const approverName = (params.approver_name || "").trim().toLowerCase();
+        const ownerName = (existingProposal.owname || "").trim().toLowerCase();
+        const isNameMatch = approverName && ownerName && approverName === ownerName;
+        const isOwner = isEmailMatch || isNameMatch;
 
-      const isApprovedByDesignated =
-        stageApproverEmails.indexOf(approverEmail) !== -1 ||
-        Boolean(currentLevelConfig?.approvers && currentLevelConfig.approvers.some((app) => (app.user_email || "").trim().toLowerCase() === approverEmail || (app.login_name || "").trim().toLowerCase() === approverEmail));
+        const stageApproverEmail = (currentLevelConfig?.approver_email || "").trim().toLowerCase();
+        const creator = (existingProposal.created_by || "").trim().toLowerCase();
+        const isCreator = Boolean(creator && (creator === approverEmail || creator === approverName));
 
-      if (!isApprovedByDesignated) {
-        throw new Error(
-          `Access Denied: This approval stage is assigned to designated approvers in the Approval Role Matrix. You are not authorized to approve Level ${params.level_id}.`
-        );
-      }
-    }
-
-    // 1. Resolve SharePoint item ID (spId) and target proposal list
-    let spId: number = 0;
-    let targetProposalList: string = SP_LISTS.CER_PROPOSALS;
-
-    if (existingProposal.id && /^\d+$/.test(existingProposal.id)) {
-      spId = parseInt(existingProposal.id, 10);
-    } else {
-      const candidateProposalLists = [SP_LISTS.CER_PROPOSALS];
-      for (const listName of candidateProposalLists) {
-        try {
-          let items: Array<{ Id: number }> = [];
-          try {
-            items = await this._sp.getListItems<{ Id: number }>(listName, {
-              filter: `cerPrId eq '${params.cerprno}' or proposalNo eq '${params.cerprno}' or Title eq '${params.cerprno}'`,
-              select: "Id",
-              top: 1,
-            });
-          } catch {
-            const allItems = await this._sp.getListItems<any>(listName, {
-              select: "Id,cerPrId,Title,proposalNo",
-              top: 4800,
-            });
-            items = allItems.filter(
-              (it: any) =>
-                (it.cerPrId && it.cerPrId === params.cerprno) ||
-                (it.cerPrNo && it.cerPrNo === params.cerprno) ||
-                it.Title === params.cerprno ||
-                (it.proposalNo && it.proposalNo === params.cerprno)
+        if (isCurrentPO) {
+          // Dynamic Project Owner stage: ONLY the designated Project Owner can approve
+          if (!isOwner) {
+            throw new Error(
+              `Access Denied: Only the designated Project Owner (${existingProposal.owname || existingProposal.owner_email}) can approve this stage.`
             );
           }
-          if (items.length > 0) {
-            spId = items[0].Id;
-            targetProposalList = listName;
-            break;
+        } else {
+          // Non-Project Owner stage (L1, L3, L4, L5, L6): Controlled strictly by Approval Role Matrix.
+          const stageApproverEmails = stageApproverEmail
+            ? stageApproverEmail.split(/[;,]/).map((e) => e.trim().toLowerCase()).filter(Boolean)
+            : [];
+          const hasStageApprovers = Boolean(currentLevelConfig?.approvers && currentLevelConfig.approvers.length > 0);
+
+          if (stageApproverEmails.length === 0 && !hasStageApprovers) {
+            throw new Error(
+              `Access Denied: Approval Level ${params.level_id} is currently unassigned in the Approval Role Matrix.`
+            );
           }
-        } catch {
-          // continue to next candidate list
+
+          const isApprovedByDesignated =
+            stageApproverEmails.indexOf(approverEmail) !== -1 ||
+            Boolean(currentLevelConfig?.approvers && currentLevelConfig.approvers.some((app) => (app.user_email || "").trim().toLowerCase() === approverEmail || (app.login_name || "").trim().toLowerCase() === approverEmail));
+
+          if (!isApprovedByDesignated) {
+            throw new Error(
+              `Access Denied: This approval stage is assigned to designated approvers in the Approval Role Matrix. You are not authorized to approve Level ${params.level_id}.`
+            );
+          }
         }
-      }
-    }
 
-    if (!spId) {
-      throw new Error(`Cannot record decision: Proposal '${params.cerprno}' not found in SharePoint CERProposals list.`);
-    }
+        // 1. Resolve SharePoint item ID (spId) and target proposal list
+        let spId: number = 0;
+        let targetProposalList: string = SP_LISTS.CER_PROPOSALS;
 
-    const creatorEmail = (existingProposal.owner_email || "").trim();
-
-    // 2. Fetch prior approval decisions to obtain all previous approvers' emails
-    let priorEmails: string[] = [];
-    try {
-      const priorDecisions = await this.getApprovalDecisions(params.cerprno);
-      priorEmails = priorDecisions.map((d) => (d.approver_email || "").trim()).filter(Boolean);
-
-      // Concurrency / Idempotency check: prevent duplicate submissions at the same level
-      const sentBackDecs = priorDecisions.filter(
-        (d) => (d.decision || "").trim().toUpperCase() === "SENT_BACK"
-      );
-      const latestSendBackTime = sentBackDecs.length > 0
-        ? Math.max(...sentBackDecs.map((d) => new Date((d as any).decision_date || d.timestamp || 0).getTime()))
-        : 0;
-
-      const DOUBLE_SUBMISSION_DEBOUNCE_MS = 10000; // 10 seconds anti-double-click window
-
-      const recentDuplicate = priorDecisions.find((d) => {
-        if (d.level_id !== params.level_id) return false;
-        const decTime = new Date((d as any).decision_date || d.timestamp || 0).getTime();
-        if (isNaN(decTime)) return false;
-
-        // Ignore decisions from prior iterations (recorded on or before the latest send-back)
-        if (latestSendBackTime > 0 && decTime <= latestSendBackTime) return false;
-
-        // Only flag if a duplicate decision was recorded within the rapid double-click window
-        return Date.now() - decTime < DOUBLE_SUBMISSION_DEBOUNCE_MS;
-      });
-      if (recentDuplicate) {
-        throw new Error(
-          `Duplicate submission detected: Approval decision for Level ${params.level_id} was already recorded moments ago by ${recentDuplicate.approver_name || recentDuplicate.approver_email}. Please refresh the proposal.`
-        );
-      }
-    } catch (pErr: any) {
-      if (String(pErr?.message || "").indexOf("Duplicate submission detected") !== -1) {
-        throw pErr;
-      }
-      console.warn("[SharePointCERDataService] Failed to load prior approval decisions for notification recipients:", pErr);
-    }
-
-    // 3. Resolve approver user id for native Person field in CERApprovalDecisions
-    let approverUserId: number | undefined;
-    if (params.approver_email) {
-      try {
-        const ensured = await PersonFieldService.resolveUser(
-          this._spHttpClient,
-          this._siteUrl,
-          params.approver_email
-        );
-        if (ensured && ensured.Id > 0) {
-          approverUserId = ensured.Id;
+        if (existingProposal.id && /^\d+$/.test(existingProposal.id)) {
+          spId = parseInt(existingProposal.id, 10);
+        } else {
+          const candidateProposalLists = [SP_LISTS.CER_PROPOSALS];
+          for (const listName of candidateProposalLists) {
+            try {
+              let items: Array<{ Id: number }> = [];
+              try {
+                items = await this._sp.getListItems<{ Id: number }>(listName, {
+                  filter: `cerPrId eq '${params.cerprno}' or proposalNo eq '${params.cerprno}' or Title eq '${params.cerprno}'`,
+                  select: "Id",
+                  top: 1,
+                });
+              } catch {
+                const allItems = await this._sp.getListItems<any>(listName, {
+                  select: "Id,cerPrId,Title,proposalNo",
+                  top: 4800,
+                });
+                items = allItems.filter(
+                  (it: any) =>
+                    (it.cerPrId && it.cerPrId === params.cerprno) ||
+                    (it.cerPrNo && it.cerPrNo === params.cerprno) ||
+                    it.Title === params.cerprno ||
+                    (it.proposalNo && it.proposalNo === params.cerprno)
+                );
+              }
+              if (items.length > 0) {
+                spId = items[0].Id;
+                targetProposalList = listName;
+                break;
+              }
+            } catch {
+              // continue to next candidate list
+            }
+          }
         }
-      } catch (ensureErr) {
-        console.warn("[SharePointCERDataService] ensureUser resolution warning for approver:", ensureErr);
-      }
-    }
 
-    // 4. Pre-compute and validate next workflow stage outcome BEFORE persisting decision
-    const nextLevelConfig = activeLevels.find((l) => l.level_id > params.level_id);
-    const isNextPO = nextLevelConfig ? isProjectOwnerStage(nextLevelConfig) : false;
+        if (!spId) {
+          throw new Error(`Cannot record decision: Proposal '${params.cerprno}' not found in SharePoint CERProposals list.`);
+        }
 
-    if (params.decision === "APPROVED" && nextLevelConfig && isNextPO) {
-      if (!isValidEmail(existingProposal.owner_email)) {
-        throw new Error(
-          `Cannot route to next approval stage '${nextLevelConfig.level_name}': Project Owner Email ('${existingProposal.owner_email || ""}') is missing or invalid.`
+        const creatorEmail = (existingProposal.owner_email || "").trim();
+
+        // 2. Concurrency / Idempotency check: prevent duplicate submissions at the same level (Safeguard 4)
+        const priorEmails = priorDecisions.map((d) => (d.approver_email || "").trim()).filter(Boolean);
+        const sentBackDecs = priorDecisions.filter(
+          (d) => (d.decision || "").trim().toUpperCase() === "SENT_BACK"
         );
-      }
-    }
-    let newStatus = "In Approval";
-    let nextLevel = params.level_id;
-    let nextRole = "";
-    let nextEmail = "";
+        const latestSendBackTime = sentBackDecs.length > 0
+          ? Math.max(...sentBackDecs.map((d) => new Date((d as any).decision_date || d.timestamp || 0).getTime()))
+          : 0;
 
-    if (params.decision === "REJECTED") {
-      newStatus = "Rejected";
-      nextRole = "Rejected";
-      nextEmail = "";
-    } else if (params.decision === "SENT_BACK" || params.decision === "SEND_BACK") {
-      newStatus = "Send Back";
-      nextLevel = 1;
-      nextRole = "Initiator (Rework)";
-      nextEmail = existingProposal.owner_email || creatorEmail;
-    } else if (!nextLevelConfig) {
-      newStatus = "Approved";
-      nextLevel = activeLevels.length + 1;
-      nextRole = "Approved";
-      nextEmail = "";
-    } else {
-      newStatus = "In Approval";
-      nextLevel = nextLevelConfig.level_id;
-      nextRole = nextLevelConfig.role_title;
-      nextEmail = isNextPO ? (existingProposal.owner_email || "") : (nextLevelConfig.approver_email || "");
-    }
+        const DOUBLE_SUBMISSION_DEBOUNCE_MS = 10000; // 10 seconds anti-double-click window
 
-    let nextPendingUserIds: number[] = [];
-    let nextEmailsList: string[] = [];
-    const decision = params.decision;
+        const recentDuplicate = priorDecisions.find((d) => {
+          if (d.level_id !== params.level_id) return false;
+          const decTime = new Date((d as any).decision_date || d.timestamp || 0).getTime();
+          if (isNaN(decTime)) return false;
 
-    if (decision === "APPROVED") {
-      if (nextLevelConfig) {
-        if (isNextPO) {
-          let ownerId: number | null = null;
-          const ownerIdent = existingProposal.owner_email || existingProposal.owname;
-          if (ownerIdent) {
+          // Ignore decisions from prior iterations (recorded on or before the latest send-back)
+          if (latestSendBackTime > 0 && decTime <= latestSendBackTime) return false;
+
+          // Only flag if a duplicate decision was recorded within the rapid double-click window
+          return Date.now() - decTime < DOUBLE_SUBMISSION_DEBOUNCE_MS;
+        });
+        if (recentDuplicate) {
+          throw new Error(
+            `Duplicate submission detected: Approval decision for Level ${params.level_id} was already recorded moments ago by ${recentDuplicate.approver_name || recentDuplicate.approver_email}. Please refresh the proposal.`
+          );
+        }
+
+        // 3. Resolve approver user id for native Person field in CERApprovalDecisions (from pre-flight read)
+        const approverUserId: number | undefined = approverUser?.Id;
+
+        // 4. Pre-compute and validate next workflow stage outcome BEFORE persisting decision
+        const nextLevelConfig = activeLevels.find((l) => l.level_id > params.level_id);
+        const isNextPO = nextLevelConfig ? isProjectOwnerStage(nextLevelConfig) : false;
+
+        if (params.decision === "APPROVED" && nextLevelConfig && isNextPO) {
+          if (!isValidEmail(existingProposal.owner_email)) {
+            throw new Error(
+              `Cannot route to next approval stage '${nextLevelConfig.level_name}': Project Owner Email ('${existingProposal.owner_email || ""}') is missing or invalid.`
+            );
+          }
+        }
+        let newStatus = "In Approval";
+        let nextLevel = params.level_id;
+        let nextRole = "";
+        let nextEmail = "";
+
+        if (params.decision === "REJECTED") {
+          newStatus = "Rejected";
+          nextRole = "Rejected";
+          nextEmail = "";
+        } else if (params.decision === "SENT_BACK" || params.decision === "SEND_BACK") {
+          newStatus = "Send Back";
+          nextLevel = 1;
+          nextRole = "Initiator (Rework)";
+          nextEmail = existingProposal.owner_email || creatorEmail;
+        } else if (!nextLevelConfig) {
+          newStatus = "Approved";
+          nextLevel = activeLevels.length + 1;
+          nextRole = "Approved";
+          nextEmail = "";
+        } else {
+          newStatus = "In Approval";
+          nextLevel = nextLevelConfig.level_id;
+          nextRole = nextLevelConfig.role_title;
+          nextEmail = isNextPO ? (existingProposal.owner_email || "") : (nextLevelConfig.approver_email || "");
+        }
+
+        let nextPendingUserIds: number[] = [];
+        let nextEmailsList: string[] = [];
+        const decision = params.decision;
+
+        if (decision === "APPROVED") {
+          if (nextLevelConfig) {
+            if (isNextPO) {
+              let ownerId: number | null = null;
+              const ownerIdent = existingProposal.owner_email || existingProposal.owname;
+              if (ownerIdent) {
+                try {
+                  const ensured = await PersonFieldService.resolveUser(
+                    this._spHttpClient,
+                    this._siteUrl,
+                    ownerIdent
+                  );
+                  if (ensured && ensured.Id > 0) {
+                    ownerId = ensured.Id;
+                  }
+                } catch (err) {
+                  console.warn("[SharePointCERDataService] Failed to resolve owner for L2:", err);
+                }
+              }
+              if (!ownerId) {
+                throw new Error(`Cannot advance workflow to Project Owner: Failed to resolve SharePoint User ID for proposal owner '${ownerIdent}'.`);
+              }
+              nextPendingUserIds = [ownerId];
+              nextEmailsList = [existingProposal.owner_email || ""];
+            } else {
+              const levelApprovers = nextLevelConfig.approvers || [];
+              if (levelApprovers.length > 0 || nextEmail) {
+                const resolved = await this._resolveApproversForStage(
+                  levelApprovers,
+                  nextEmail,
+                  nextLevelConfig.role_title || `Level ${nextLevel}`
+                );
+                if (resolved.userIds.length > 0) {
+                  nextPendingUserIds = resolved.userIds;
+                  nextEmailsList = resolved.resolvedEmails;
+                }
+              } else {
+                console.warn(
+                  `[SharePointCERDataService] No active approvers configured in CERRoleMatrix for next stage Level ${nextLevel} (${nextLevelConfig.role_title}). Advancing workflow pending assignment.`
+                );
+              }
+            }
+          } else {
+            // Final approval reached
+            nextPendingUserIds = [];
+            nextEmailsList = [];
+          }
+        } else if (decision === "REJECTED") {
+          nextPendingUserIds = [];
+          nextEmailsList = [];
+        } else if (decision === "SEND_BACK" || decision === "SENT_BACK") {
+          let creatorId: number | null = null;
+          const targetIdentity = existingProposal.owner_email || existingProposal.created_by || existingProposal.owname;
+          if (targetIdentity) {
             try {
               const ensured = await PersonFieldService.resolveUser(
                 this._spHttpClient,
                 this._siteUrl,
-                ownerIdent
+                targetIdentity
               );
               if (ensured && ensured.Id > 0) {
-                ownerId = ensured.Id;
+                creatorId = ensured.Id;
               }
             } catch (err) {
-              console.warn("[SharePointCERDataService] Failed to resolve owner for L2:", err);
+              console.warn("[SharePointCERDataService] Failed to resolve initiator for Send Back:", err);
             }
           }
-          if (!ownerId) {
-            throw new Error(`Cannot advance workflow to Project Owner: Failed to resolve SharePoint User ID for proposal owner '${ownerIdent}'.`);
+          if (creatorId) {
+            nextPendingUserIds = [creatorId];
           }
-          nextPendingUserIds = [ownerId];
-          nextEmailsList = [existingProposal.owner_email || ""];
+          nextEmailsList = [targetIdentity || ""];
+        }
+
+        const modernUpdatePayload: Record<string, any> = {
+          status: newStatus,
+          currentLevel: nextLevel,
+          pendingWithRole: nextRole,
+        };
+
+        if (nextPendingUserIds.length > 0) {
+          modernUpdatePayload.pendingWithEmailId = SharePointCERDataService._preferFlatPersonArray
+            ? nextPendingUserIds
+            : { results: nextPendingUserIds };
         } else {
-          const levelApprovers = nextLevelConfig.approvers || [];
-          if (levelApprovers.length > 0 || nextEmail) {
-            const resolved = await this._resolveApproversForStage(
-              levelApprovers,
-              nextEmail,
-              nextLevelConfig.role_title || `Level ${nextLevel}`
-            );
-            if (resolved.userIds.length > 0) {
-              nextPendingUserIds = resolved.userIds;
-              nextEmailsList = resolved.resolvedEmails;
-            }
-          } else {
-            console.warn(
-              `[SharePointCERDataService] No active approvers configured in CERRoleMatrix for next stage Level ${nextLevel} (${nextLevelConfig.role_title}). Advancing workflow pending assignment.`
-            );
-          }
+          modernUpdatePayload.pendingWithEmailId = SharePointCERDataService._preferFlatPersonArray
+            ? []
+            : { results: [] };
         }
-      } else {
-        // Final approval reached
-        nextPendingUserIds = [];
-        nextEmailsList = [];
-      }
-    } else if (decision === "REJECTED") {
-      nextPendingUserIds = [];
-      nextEmailsList = [];
-    } else if (decision === "SEND_BACK" || decision === "SENT_BACK") {
-      let creatorId: number | null = null;
-      const targetIdentity = existingProposal.owner_email || existingProposal.created_by || existingProposal.owname;
-      if (targetIdentity) {
-        try {
-          const ensured = await PersonFieldService.resolveUser(
-            this._spHttpClient,
-            this._siteUrl,
-            targetIdentity
+        delete modernUpdatePayload.pendingWithEmail;
+        delete modernUpdatePayload.pendingWith;
+        delete modernUpdatePayload.pendingWithId;
+
+        // 5. Post decision record to CERApprovalDecisions (with fallback)
+        // Version cycle must align with approved version count (Serial 1 = V1, Serial 2 = V2, etc.)
+        // Send-backs and re-triggers within a cycle must NEVER increment the version tag.
+        const versionIndex = (hist?.length || 0) + 1;
+        const versionTag = `V${versionIndex}`;
+
+        const modernDecisionPayload: Record<string, any> = {
+          Title: params.cerprno,
+          cerPrId: params.cerprno,
+          levelId: params.level_id,
+          decision: params.decision === "REJECTED" ? "Rejected" : (params.decision === "SENT_BACK" || params.decision === "SEND_BACK") ? "Send Back" : "Approved",
+          remarks: params.comments || "",
+          decidedAt: now,
+          version: versionTag,
+        };
+        if (approverUserId) {
+          Object.assign(
+            modernDecisionPayload,
+            PersonFieldService.formatPersonFieldPayload("approver", approverUserId)
           );
-          if (ensured && ensured.Id > 0) {
-            creatorId = ensured.Id;
-          }
-        } catch (err) {
-          console.warn("[SharePointCERDataService] Failed to resolve initiator for Send Back:", err);
         }
-      }
-      if (creatorId) {
-        nextPendingUserIds = [creatorId];
-      }
-      nextEmailsList = [targetIdentity || ""];
-    }
 
-    const modernUpdatePayload: Record<string, any> = {
-      status: newStatus,
-      currentLevel: nextLevel,
-      pendingWithRole: nextRole,
-    };
+        const legacyDecisionPayload: Record<string, any> = {
+          Title: `${params.cerprno}-L${params.level_id}`,
+          cerPrId: params.cerprno,
+          level_id: params.level_id,
+          level_name: `Level ${params.level_id}`,
+          approver_name: params.approver_name,
+          approver_email: params.approver_email,
+          decision: (params.decision === "SENT_BACK" || params.decision === "SEND_BACK") ? "Send Back" : params.decision === "REJECTED" ? "Rejected" : "Approved",
+          comments: params.comments || "",
+          decision_date: now,
+          version: versionTag,
+        };
 
-    if (nextPendingUserIds.length > 0) {
-      modernUpdatePayload.pendingWithEmailId = SharePointCERDataService._preferFlatPersonArray
-        ? nextPendingUserIds
-        : { results: nextPendingUserIds };
-    } else {
-      modernUpdatePayload.pendingWithEmailId = SharePointCERDataService._preferFlatPersonArray
-        ? []
-        : { results: [] };
-    }
-    delete modernUpdatePayload.pendingWithEmail;
-    delete modernUpdatePayload.pendingWith;
-    delete modernUpdatePayload.pendingWithId;
+        const candidateDecisionLists = [SP_LISTS.CER_APPROVAL_DECISIONS];
+        let decisionRecorded = false;
+        let decisionErr: any = null;
 
-    // 5. Post decision record to CERApprovalDecisions (with fallback)
-    // Version cycle must align with approved version count (Serial 1 = V1, Serial 2 = V2, etc.)
-    // Send-backs and re-triggers within a cycle must NEVER increment the version tag.
-    let versionIndex = 1;
-    try {
-      const cleanProposalId = (existingProposal.cer_proposal_id || existingProposal.cerprno || params.cerprno || "").trim();
-      const hist = await this.getProposalHistory(cleanProposalId);
-      versionIndex = (hist?.length || 0) + 1;
-    } catch {
-      versionIndex = Math.max(1, Number(existingProposal.revision_count || 0) + 1);
-    }
-    const versionTag = `V${versionIndex}`;
+        for (const dList of candidateDecisionLists) {
+          const decisionOptions = {
+            isIdempotent: false,
+            reconcileFn: async () => {
+              try {
+                const query = await this._sp.getListItems<any>(dList, {
+                  filter: `(cerPrId eq '${params.cerprno}' or Title eq '${params.cerprno}') and (levelId eq ${params.level_id} or level_id eq ${params.level_id})`,
+                  select: "Id,Title,cerPrId",
+                  top: 1,
+                });
+                return query && query.length > 0 ? { Id: query[0].Id } : null;
+              } catch {
+                return null;
+              }
+            },
+          };
 
-    const modernDecisionPayload: Record<string, any> = {
-      Title: params.cerprno,
-      cerPrId: params.cerprno,
-      levelId: params.level_id,
-      decision: params.decision === "REJECTED" ? "Rejected" : (params.decision === "SENT_BACK" || params.decision === "SEND_BACK") ? "Send Back" : "Approved",
-      remarks: params.comments || "",
-      decidedAt: now,
-      version: versionTag,
-    };
-    if (approverUserId) {
-      Object.assign(
-        modernDecisionPayload,
-        PersonFieldService.formatPersonFieldPayload("approver", approverUserId)
-      );
-    }
-
-    const legacyDecisionPayload: Record<string, any> = {
-      Title: `${params.cerprno}-L${params.level_id}`,
-      cerPrId: params.cerprno,
-      level_id: params.level_id,
-      level_name: `Level ${params.level_id}`,
-      approver_name: params.approver_name,
-      approver_email: params.approver_email,
-      decision: (params.decision === "SENT_BACK" || params.decision === "SEND_BACK") ? "Send Back" : params.decision === "REJECTED" ? "Rejected" : "Approved",
-      comments: params.comments || "",
-      decision_date: now,
-      version: versionTag,
-    };
-
-    const candidateDecisionLists = [SP_LISTS.CER_APPROVAL_DECISIONS];
-    let decisionRecorded = false;
-    let decisionErr: any = null;
-
-    for (const dList of candidateDecisionLists) {
-      const decisionOptions = {
-        isIdempotent: false,
-        reconcileFn: async () => {
           try {
-            const query = await this._sp.getListItems<any>(dList, {
-              filter: `(cerPrId eq '${params.cerprno}' or Title eq '${params.cerprno}') and (levelId eq ${params.level_id} or level_id eq ${params.level_id})`,
-              select: "Id,Title,cerPrId",
-              top: 1,
-            });
-            return query && query.length > 0 ? { Id: query[0].Id } : null;
-          } catch {
-            return null;
+            try {
+              await this._executeWithFieldFallback(
+                (payload) => this._sp.createListItem(dList, payload, decisionOptions),
+                modernDecisionPayload
+              );
+              decisionRecorded = true;
+              break;
+            } catch {
+              await this._executeWithFieldFallback(
+                (payload) => this._sp.createListItem(dList, payload, decisionOptions),
+                legacyDecisionPayload
+              );
+              decisionRecorded = true;
+              break;
+            }
+          } catch (err: any) {
+            decisionErr = err;
           }
-        },
-      };
+        }
 
-      try {
+        if (!decisionRecorded) {
+          console.error("[SharePointCERDataService] Failed to record decision in CERApprovalDecisions:", decisionErr);
+          throw new Error(
+            `Unable to save approval decision to SharePoint. No successful save could be confirmed. Please verify the proposal before retrying. (Details: ${decisionErr instanceof Error ? decisionErr.message : String(decisionErr)})`
+          );
+        }
+
+        // Safeguard 1 & 3: Dependent write to CERProposals remains strictly sequential with If-Match: etag
         try {
           await this._executeWithFieldFallback(
-            (payload) => this._sp.createListItem(dList, payload, decisionOptions),
-            modernDecisionPayload
+            (payload) => this._sp.updateListItem(targetProposalList, spId, payload, existingProposal.etag),
+            modernUpdatePayload
           );
-          decisionRecorded = true;
-          break;
-        } catch {
-          await this._executeWithFieldFallback(
-            (payload) => this._sp.createListItem(dList, payload, decisionOptions),
-            legacyDecisionPayload
+        } catch (updateErr) {
+          console.error("[SharePointCERDataService] Primary decision was recorded, but updating CERProposals status failed:", updateErr);
+          throw new Error(
+            `Approval decision was recorded, but updating proposal status failed in SharePoint. The decision has been logged (Level ${params.level_id}). Please do not re-submit your approval; contact your CER Administrator or refresh the proposal to reconcile. (Details: ${updateErr instanceof Error ? updateErr.message : String(updateErr)})`
           );
-          decisionRecorded = true;
-          break;
         }
-      } catch (err: any) {
-        decisionErr = err;
-      }
-    }
 
-    if (!decisionRecorded) {
-      console.error("[SharePointCERDataService] Failed to record decision in CERApprovalDecisions:", decisionErr);
-      throw new Error(
-        `Unable to save approval decision to SharePoint. No successful save could be confirmed. Please verify the proposal before retrying. (Details: ${decisionErr instanceof Error ? decisionErr.message : String(decisionErr)})`
-      );
-    }
+        this._cachedProposals = null;
+        this._cachedProposalByNumber.delete(params.cerprno.toUpperCase());
+        this._cachedApprovalDecisions.delete(params.cerprno.toUpperCase());
+        this._cachedSubmissionsByCerId.clear();
 
-    // 6. Update proposal item in CERProposals
+        if (newStatus === "Approved") {
+          const approvedVerTag = `V${(Number(existingProposal.revision_count) || 0) + 1}`;
+          try {
+            const currentAtts = await this.getAttachments(params.cerprno, { proposal: existingProposal });
+            await this._stampAttachmentsForApprovedVersion(params.cerprno, approvedVerTag, currentAtts);
+          } catch (stampErr) {
+            console.warn("[SharePointCERDataService] Warning auto-stamping attachments on final approval:", stampErr);
+          }
+        }
 
-    try {
-      await this._executeWithFieldFallback(
-        (payload) => this._sp.updateListItem(targetProposalList, spId, payload, existingProposal.etag),
-        modernUpdatePayload
-      );
-    } catch (updateErr) {
-      console.error("[SharePointCERDataService] Primary decision was recorded, but updating CERProposals status failed:", updateErr);
-      throw new Error(
-        `Approval decision was recorded, but updating proposal status failed in SharePoint. The decision has been logged (Level ${params.level_id}). Please do not re-submit your approval; contact your CER Administrator or refresh the proposal to reconcile. (Details: ${updateErr instanceof Error ? updateErr.message : String(updateErr)})`
-      );
-    }
+        // Safeguard 5: Durable outbox email notifications batched concurrently via Promise.all
+        const cerPrId = existingProposal.cer_proposal_id || existingProposal.cerprno || params.cerprno;
+        const notificationsToQueue: Array<Parameters<typeof this._triggerEmailNotification>[0]> = [];
 
-    this._cachedProposals = null;
-    this._cachedProposalByNumber.delete(params.cerprno.toUpperCase());
-    this._cachedApprovalDecisions.delete(params.cerprno.toUpperCase());
-    this._cachedSubmissionsByCerId.clear();
+        if (newStatus === "Approved") {
+          // Final Sanction
+          const stakeholderRecipients = EmailTemplateService.resolveStakeholderEmails(existingProposal);
+          if (stakeholderRecipients) {
+            const emailData = EmailTemplateService.renderFinalSanctionEmail(existingProposal, params.approver_name, params.comments);
+            notificationsToQueue.push({
+              cerPrId,
+              scenario: "FinalSanction",
+              recipientEmails: stakeholderRecipients,
+              ccEmails: params.approver_email,
+              emailSubject: emailData.subject,
+              emailBody: emailData.body,
+              importance: "High",
+            });
+          }
+        } else if (newStatus === "In Approval") {
+          // Stage Advancement: notify next level approvers and owner update
+          const nextApproverEmails = nextEmailsList.filter(Boolean).join("; ");
+          if (nextApproverEmails) {
+            const approverEmailData = EmailTemplateService.renderStageAdvancementApproverEmail(
+              existingProposal,
+              params.approver_name,
+              params.comments,
+              nextLevel,
+              nextRole
+            );
+            notificationsToQueue.push({
+              cerPrId,
+              scenario: "StageAdvancement",
+              recipientEmails: nextApproverEmails,
+              emailSubject: approverEmailData.subject,
+              emailBody: approverEmailData.body,
+              importance: "High",
+            });
+          }
 
-    if (newStatus === "Approved") {
-      const approvedVerTag = `V${(Number(existingProposal.revision_count) || 0) + 1}`;
-      try {
-        const currentAtts = await this.getAttachments(params.cerprno, { proposal: existingProposal });
-        await this._stampAttachmentsForApprovedVersion(params.cerprno, approvedVerTag, currentAtts);
-      } catch (stampErr) {
-        console.warn("[SharePointCERDataService] Warning auto-stamping attachments on final approval:", stampErr);
-      }
-    }
+          const stakeholderRecipients = EmailTemplateService.resolveStakeholderEmails(existingProposal);
+          if (stakeholderRecipients) {
+            const ownerEmailData = EmailTemplateService.renderStageAdvancementOwnerEmail(
+              existingProposal,
+              params.approver_name,
+              params.level_id,
+              nextLevel,
+              nextRole
+            );
+            notificationsToQueue.push({
+              cerPrId,
+              scenario: "StageAdvancement_Update",
+              recipientEmails: stakeholderRecipients,
+              emailSubject: ownerEmailData.subject,
+              emailBody: ownerEmailData.body,
+              importance: "Normal",
+            });
+          }
+        } else if (newStatus === "Send Back") {
+          // Revision Requested
+          const stakeholderRecipients = EmailTemplateService.resolveStakeholderEmails(existingProposal);
+          if (stakeholderRecipients) {
+            const emailData = EmailTemplateService.renderSendBackEmail(
+              existingProposal,
+              params.approver_name,
+              params.comments,
+              params.level_id
+            );
+            notificationsToQueue.push({
+              cerPrId,
+              scenario: "SendBack",
+              recipientEmails: stakeholderRecipients,
+              ccEmails: params.approver_email,
+              emailSubject: emailData.subject,
+              emailBody: emailData.body,
+              importance: "High",
+            });
+          }
+        } else if (newStatus === "Rejected") {
+          // Proposal Rejected
+          const stakeholderRecipients = EmailTemplateService.resolveStakeholderEmails(existingProposal);
+          if (stakeholderRecipients) {
+            const emailData = EmailTemplateService.renderRejectionEmail(
+              existingProposal,
+              params.approver_name,
+              params.comments,
+              params.level_id
+            );
+            notificationsToQueue.push({
+              cerPrId,
+              scenario: "Rejected",
+              recipientEmails: stakeholderRecipients,
+              ccEmails: params.approver_email,
+              emailSubject: emailData.subject,
+              emailBody: emailData.body,
+              importance: "High",
+            });
+          }
+        }
 
-    // Trigger Outbox Email Notifications (one queue item per email)
-    const cerPrId = existingProposal.cer_proposal_id || existingProposal.cerprno || params.cerprno;
+        if (notificationsToQueue.length > 0) {
+          await Promise.all(notificationsToQueue.map((n) => this._triggerEmailNotification(n)));
+        }
 
-    if (newStatus === "Approved") {
-      // Final Sanction
-      const stakeholderRecipients = EmailTemplateService.resolveStakeholderEmails(existingProposal);
-      if (stakeholderRecipients) {
-        const emailData = EmailTemplateService.renderFinalSanctionEmail(existingProposal, params.approver_name, params.comments);
-        await this._triggerEmailNotification({
-          cerPrId,
-          scenario: "FinalSanction",
-          recipientEmails: stakeholderRecipients,
-          ccEmails: params.approver_email,
-          emailSubject: emailData.subject,
-          emailBody: emailData.body,
-          importance: "High",
-        });
-      }
-    } else if (newStatus === "In Approval") {
-      // Stage Advancement: notify next level approvers and owner update
-      const nextApproverEmails = nextEmailsList.filter(Boolean).join("; ");
-      if (nextApproverEmails) {
-        const approverEmailData = EmailTemplateService.renderStageAdvancementApproverEmail(
-          existingProposal,
-          params.approver_name,
-          params.comments,
+        return {
+          success: true,
+          newStatus,
           nextLevel,
-          nextRole
-        );
-        await this._triggerEmailNotification({
-          cerPrId,
-          scenario: "StageAdvancement",
-          recipientEmails: nextApproverEmails,
-          emailSubject: approverEmailData.subject,
-          emailBody: approverEmailData.body,
-          importance: "High",
-        });
+        };
+      } finally {
+        this._inFlightDecisions.delete(lockKey);
       }
+    })();
 
-      const stakeholderRecipients = EmailTemplateService.resolveStakeholderEmails(existingProposal);
-      if (stakeholderRecipients) {
-        const ownerEmailData = EmailTemplateService.renderStageAdvancementOwnerEmail(
-          existingProposal,
-          params.approver_name,
-          params.level_id,
-          nextLevel,
-          nextRole
-        );
-        await this._triggerEmailNotification({
-          cerPrId,
-          scenario: "StageAdvancement_Update",
-          recipientEmails: stakeholderRecipients,
-          emailSubject: ownerEmailData.subject,
-          emailBody: ownerEmailData.body,
-          importance: "Normal",
-        });
-      }
-    } else if (newStatus === "Send Back") {
-      // Revision Requested
-      const stakeholderRecipients = EmailTemplateService.resolveStakeholderEmails(existingProposal);
-      if (stakeholderRecipients) {
-        const emailData = EmailTemplateService.renderSendBackEmail(
-          existingProposal,
-          params.approver_name,
-          params.comments,
-          params.level_id
-        );
-        await this._triggerEmailNotification({
-          cerPrId,
-          scenario: "SendBack",
-          recipientEmails: stakeholderRecipients,
-          ccEmails: params.approver_email,
-          emailSubject: emailData.subject,
-          emailBody: emailData.body,
-          importance: "High",
-        });
-      }
-    } else if (newStatus === "Rejected") {
-      // Proposal Rejected
-      const stakeholderRecipients = EmailTemplateService.resolveStakeholderEmails(existingProposal);
-      if (stakeholderRecipients) {
-        const emailData = EmailTemplateService.renderRejectionEmail(
-          existingProposal,
-          params.approver_name,
-          params.comments,
-          params.level_id
-        );
-        await this._triggerEmailNotification({
-          cerPrId,
-          scenario: "Rejected",
-          recipientEmails: stakeholderRecipients,
-          ccEmails: params.approver_email,
-          emailSubject: emailData.subject,
-          emailBody: emailData.body,
-          importance: "High",
-        });
-      }
-    }
-
-    return {
-      success: true,
-      newStatus,
-      nextLevel,
-    };
+    this._inFlightDecisions.set(lockKey, decisionPromise);
+    return decisionPromise;
   }
 
   // ---------------------------------------------------------------------------
@@ -4558,7 +4548,8 @@ export class SharePointCERDataService implements ICERDataService {
     const engineerCost = Number(item.engineeringCost ?? item.engineer ?? 0);
     const surfaceCost = Number(item.surfaceFacilitiesCost ?? item.s_fac ?? 0);
     const comisCost = Number(item.commissioningCost ?? item.comis ?? 0);
-    const preopCost = Number(item.preoperativeCost ?? item.preop ?? 0);
+    const wellsCost = Number(item.wellsCost ?? item.wells ?? item.WellsCost ?? item.preoperativeCost ?? item.preop ?? 0);
+    const preopCost = wellsCost;
     let otherCost = Number(item.otherCosts ?? item.others ?? 0);
     const totalCost = Number(item.total || 0);
     const proposalAmount = Number(item.amount || 0);
@@ -4569,7 +4560,7 @@ export class SharePointCERDataService implements ICERDataService {
       engineerCost === 0 &&
       surfaceCost === 0 &&
       comisCost === 0 &&
-      preopCost === 0 &&
+      wellsCost === 0 &&
       (totalCost === 0 || Math.abs(totalCost - proposalAmount) > 0.01)
     ) {
       otherCost = 0;
@@ -4667,15 +4658,18 @@ export class SharePointCERDataService implements ICERDataService {
       engineer: engineerCost,
       s_fac: surfaceCost,
       comis: comisCost,
+      wells: wellsCost,
+      wellsCost: wellsCost,
       preop: preopCost,
       others: otherCost,
-      total: (otherCost === 0 && engineerCost === 0 && surfaceCost === 0 && comisCost === 0 && preopCost === 0) ? 0 : totalCost,
+      total: (otherCost === 0 && engineerCost === 0 && surfaceCost === 0 && comisCost === 0 && wellsCost === 0) ? 0 : totalCost,
       remarks: cleanRemarks,
       attachments_manifest: manifestFromRaw || item.attachments_manifest || item.attachmentsManifest || item.attachmentJson || undefined,
       remarks_jv: item.remarksJv || item.remarks_jv || "",
       current_level: Number(item.currentLevel ?? item.current_level ?? 1),
       pending_with_role: item.pendingWithRole || item.pending_with_role || "L1 - Technical Review",
       pending_with_email: (multiPendingEmails.length > 0 ? multiPendingEmails.join(";") : (pendingPerson?.email || (typeof item.pendingWithEmail === "string" ? item.pendingWithEmail : "") || (typeof item.pending_with_email === "string" ? item.pending_with_email : "") || (typeof item.pendingWith === "string" ? item.pendingWith : "") || "")),
+      pending_with_name: (multiPendingNames.length > 0 ? multiPendingNames.join(", ") : (pendingPerson?.name || "")),
       request_date: (item.RequestDate || item.requestDate || item.request_date) ? String(item.RequestDate || item.requestDate || item.request_date).split("T")[0] : undefined,
       created_date: item.Created || new Date().toISOString(),
       created_by: effectiveInitiator,
@@ -4772,7 +4766,7 @@ export class SharePointCERDataService implements ICERDataService {
       engineeringCost: Number(proposal.engineer || 0),
       surfaceFacilitiesCost: Number(proposal.s_fac || 0),
       commissioningCost: Number(proposal.comis || 0),
-      preoperativeCost: Number(proposal.preop || 0),
+      wellsCost: Number(proposal.wells !== undefined && proposal.wells !== null ? proposal.wells : ((proposal as any).wellsCost !== undefined && (proposal as any).wellsCost !== null ? (proposal as any).wellsCost : (proposal.preop || 0))),
       otherCosts: Number(proposal.others || 0),
       total: Number(proposal.total || 0),
       remarks: remarksWithInitiator,

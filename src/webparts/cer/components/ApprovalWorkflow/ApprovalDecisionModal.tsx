@@ -89,7 +89,18 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
       setCommentError(null);
       onClose();
     } catch (e: any) {
-      setError(e.message || "Failed to record decision.");
+      const errMsg = String(e?.message || e || "");
+      if (
+        errMsg.indexOf("412") !== -1 ||
+        errMsg.indexOf("Concurrency conflict") !== -1 ||
+        errMsg.indexOf("modified by another user") !== -1
+      ) {
+        setError(
+          "Concurrency Conflict (HTTP 412): This proposal has been modified or approved by another user while your review was open. Please refresh the proposal to review the latest status before proceeding."
+        );
+      } else {
+        setError(e.message || "Failed to record decision.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -373,9 +384,9 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={isSubmitting || !authCheck.allowed}
+              disabled={isSubmitting || !currentLevelConfig || !authCheck.allowed}
               className={`h-10 px-5 text-sm font-semibold rounded-xl shadow-sm transition-all ${
-                !authCheck.allowed
+                !currentLevelConfig || !authCheck.allowed
                   ? "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300"
                   : decision === "APPROVED"
                   ? "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
@@ -386,6 +397,8 @@ export const ApprovalDecisionModal: React.FC<IApprovalDecisionModalProps> = ({
             >
               {isSubmitting
                 ? "Submitting..."
+                : !currentLevelConfig
+                ? "Verifying..."
                 : decision === "APPROVED"
                 ? "Approve"
                 : decision === "SENT_BACK"

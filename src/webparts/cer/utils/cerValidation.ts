@@ -10,7 +10,7 @@ export type FormErrors = Partial<Record<keyof ICERProposal | "phasing_mismatch" 
  */
 export function hasEnteredCostBreakdown(formData: Partial<ICERProposal>): boolean {
   if (!formData) return false;
-  const fields: (keyof ICERProposal)[] = ["engineer", "s_fac", "comis", "preop", "others"];
+  const fields: (keyof ICERProposal)[] = ["engineer", "s_fac", "comis", "wells", "preop", "others"];
   const hasFieldEntry = fields.some((f) => {
     const val = formData[f];
     return val !== undefined && val !== null && val !== "" && Number(val) !== 0;
@@ -19,9 +19,9 @@ export function hasEnteredCostBreakdown(formData: Partial<ICERProposal>): boolea
   const engineer = Number(formData.engineer || 0);
   const s_fac = Number(formData.s_fac || 0);
   const comis = Number(formData.comis || 0);
-  const preop = Number(formData.preop || 0);
+  const wells = Number(formData.wells !== undefined ? formData.wells : (formData.preop || 0));
   const others = Number(formData.others || 0);
-  return (engineer + s_fac + comis + preop + others) > 0;
+  return (engineer + s_fac + comis + wells + others) > 0;
 }
 
 /**
@@ -35,7 +35,7 @@ export function formatCapexDifference(diff: number, currency?: string): string {
   return `${sign}${currSymbol}${Math.abs(diff).toLocaleString()}${currUnit}`;
 }
 
-// Exactly the 14 mandatory fields mandated by client requirements
+// Exactly the 13 mandatory fields mandated by client requirements
 export const MANDATORY_CER_FIELDS: (keyof ICERProposal)[] = [
   "pr_name",           // 1. Name of the Project
   "proposal_no",       // 2. CER Proposal No (User-entered business reference)
@@ -46,11 +46,10 @@ export const MANDATORY_CER_FIELDS: (keyof ICERProposal)[] = [
   "amount",            // 7. Amount of CER
   "cat",               // 8. Category (Essential, Vital, Desirable)
   "payable",           // 9. Payback/Non Payback
-  "payback_quarters",  // 10. Payback Period (number of quarters)
-  "cbudget",           // 11. Corporate Budget (Yes, No)
-  "jv",                // 12. Align with JV (Yes, No, Under Discussion)
-  "jv_recoverable",    // 13. JV Cost Recoverable (Yes, No)
-  "jv_budget",         // 14. JV Budget (Yes, No)
+  "cbudget",           // 10. Corporate Budget (Yes, No)
+  "jv",                // 11. Align with JV (Yes, No, Under Discussion)
+  "jv_recoverable",    // 12. JV Cost Recoverable (Yes, No)
+  "jv_budget",         // 13. JV Budget (Yes, No)
 ];
 
 /**
@@ -96,6 +95,7 @@ export const FORM_FIELD_DISPLAY_ORDER: (keyof ICERProposal | "phasing_mismatch" 
   "engineer",
   "s_fac",
   "comis",
+  "wells",
   "preop",
   "others",
   "total",
@@ -308,12 +308,15 @@ export function validateField(
     }
 
     // -------------------------------------------------------------------------------------------
-    // 10. Payback Period (Required numeric field representing the number of quarters)
+    // 10. Payback Period (Optional numeric field representing the number of quarters)
     // -------------------------------------------------------------------------------------------
     case "payback_quarters": {
+      if (value === undefined || value === null || value === "") {
+        return undefined;
+      }
       const num = Number(value);
-      if (value === undefined || value === null || value === "" || isNaN(num) || num <= 0 || !Number.isInteger(num)) {
-        return "Payback Period is required and must be a positive whole number of quarters (e.g., 4).";
+      if (isNaN(num) || num <= 0 || !Number.isInteger(num)) {
+        return "Payback Period must be a positive whole number of quarters (e.g., 4).";
       }
       return undefined;
     }
@@ -463,6 +466,7 @@ export function validateField(
     case "engineer":
     case "s_fac":
     case "comis":
+    case "wells":
     case "preop":
     case "others": {
       if (value !== undefined && value !== null && value !== "") {
@@ -480,9 +484,9 @@ export function validateField(
         const engineer = Number(formData.engineer || 0);
         const s_fac = Number(formData.s_fac || 0);
         const comis = Number(formData.comis || 0);
-        const preop = Number(formData.preop || 0);
+        const wells = Number(formData.wells !== undefined ? formData.wells : (formData.preop || 0));
         const others = Number(formData.others || 0);
-        const computedTotal = engineer + s_fac + comis + preop + others;
+        const computedTotal = engineer + s_fac + comis + wells + others;
         if (Math.abs(computedTotal - cerAmount) > 0.01) {
           const diff = computedTotal - cerAmount;
           const isINR = formData.currency === "INR";
@@ -521,7 +525,7 @@ export function validateAll(formData: ICERProposal, isDraft: boolean = false): {
       "sbu", "object", "cat", "amount", "payable", "payback_quarters",
       "ben_npv", "ben_irr", "cbudget", "cb_amnt", "reason",
       "jv", "jv_recoverable", "jv_budget", "jv_amnt", "jv_reason",
-      "remarks", "remarks_jv"
+      "remarks", "remarks_jv", "wells", "preop"
     ];
     for (const field of allFields) {
       const err = validateField(field, formData[field], formData, true);
@@ -529,7 +533,7 @@ export function validateAll(formData: ICERProposal, isDraft: boolean = false): {
     }
   } else {
     // For submission:
-    // 1. Enforce the exactly 14 mandatory fields
+    // 1. Enforce the exactly 13 mandatory fields
     const mandatoryFields: (keyof ICERProposal)[] = [
       "pr_name",           // 1. Name of the Project
       "proposal_no",       // 2. CER Proposal No
@@ -541,11 +545,10 @@ export function validateAll(formData: ICERProposal, isDraft: boolean = false): {
       "amount",            // 7. Amount of CER
       "cat",               // 8. Category
       "payable",           // 9. Payback/Non Payback
-      "payback_quarters",  // 10. Payback Period
-      "cbudget",           // 11. Corporate Budget
-      "jv",                // 12. Align with JV
-      "jv_recoverable",    // 13. JV Cost Recoverable
-      "jv_budget",         // 14. JV Budget
+      "cbudget",           // 10. Corporate Budget
+      "jv",                // 11. Align with JV
+      "jv_recoverable",    // 12. JV Cost Recoverable
+      "jv_budget",         // 13. JV Budget
     ];
 
     for (const field of mandatoryFields) {
@@ -559,10 +562,10 @@ export function validateAll(formData: ICERProposal, isDraft: boolean = false): {
 
     // 2. Validate optional fields ONLY if the user entered a non-empty value
     const optionalFieldsWithFormatValidation: (keyof ICERProposal)[] = [
-      "com_date", "ben_npv", "ben_irr", "cb_amnt", "jv_cost", "jv_amnt",
+      "com_date", "payback_quarters", "ben_npv", "ben_irr", "cb_amnt", "jv_cost", "jv_amnt",
       "remarks", "prod_till", "prod_fy", "prod_beyond", "capex_till",
       "capex_fy", "capex_beyond", "opex_till", "opex_fy", "opex_beyond",
-      "engineer", "s_fac", "comis", "preop", "others"
+      "engineer", "s_fac", "comis", "wells", "preop", "others"
     ];
 
     for (const field of optionalFieldsWithFormatValidation) {
@@ -582,9 +585,9 @@ export function validateAll(formData: ICERProposal, isDraft: boolean = false): {
       const engineer = Number(formData.engineer || 0);
       const s_fac = Number(formData.s_fac || 0);
       const comis = Number(formData.comis || 0);
-      const preop = Number(formData.preop || 0);
+      const wells = Number(formData.wells !== undefined ? formData.wells : (formData.preop || 0));
       const others = Number(formData.others || 0);
-      const computedTotal = engineer + s_fac + comis + preop + others;
+      const computedTotal = engineer + s_fac + comis + wells + others;
 
       if (Math.abs(computedTotal - cerAmount) > 0.01) {
         const diff = computedTotal - cerAmount;

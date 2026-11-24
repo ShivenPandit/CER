@@ -128,7 +128,7 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
         {/* Payback Period (Quarters) */}
         <div id="field-payback_quarters">
           <label htmlFor="payback_quarters" className="block font-semibold text-slate-800 text-sm font-semibold mb-1">
-            Payback Period (Quarters) <span className="text-rose-500">*</span>
+            Payback Period (Quarters)
           </label>
           <input
             id="payback_quarters"
@@ -150,7 +150,6 @@ export const FinancialBenefitsSection: React.FC<IFinancialBenefitsSectionProps> 
                 ? "bg-rose-50/20 border border-rose-300 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                 : "bg-white border border-slate-200 hover:border-slate-300 focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20"
             }`}
-            required
           />
           {getFieldError("payback_quarters") && (
             <p className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">

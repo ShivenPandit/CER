@@ -203,7 +203,7 @@ export class PDFExportService {
           ["Engineering Cost", Number((proposal as any).engineeringCost ?? proposal.engineer ?? 0).toLocaleString(), `${((Number((proposal as any).engineeringCost ?? proposal.engineer ?? 0) / (proposal.total || 1)) * 100).toFixed(1)}%`],
           ["Surface Facilities Cost", Number((proposal as any).surfaceFacilitiesCost ?? proposal.s_fac ?? 0).toLocaleString(), `${((Number((proposal as any).surfaceFacilitiesCost ?? proposal.s_fac ?? 0) / (proposal.total || 1)) * 100).toFixed(1)}%`],
           ["Commissioning Cost", Number((proposal as any).commissioningCost ?? proposal.comis ?? 0).toLocaleString(), `${((Number((proposal as any).commissioningCost ?? proposal.comis ?? 0) / (proposal.total || 1)) * 100).toFixed(1)}%`],
-          ["Preoperative Cost", Number((proposal as any).preoperativeCost ?? proposal.preop ?? 0).toLocaleString(), `${((Number((proposal as any).preoperativeCost ?? proposal.preop ?? 0) / (proposal.total || 1)) * 100).toFixed(1)}%`],
+          ["Wells", Number((proposal as any).wellsCost ?? proposal.wells ?? (proposal as any).preoperativeCost ?? proposal.preop ?? 0).toLocaleString(), `${((Number((proposal as any).wellsCost ?? proposal.wells ?? (proposal as any).preoperativeCost ?? proposal.preop ?? 0) / (proposal.total || 1)) * 100).toFixed(1)}%`],
           ["Other Costs", Number((proposal as any).otherCosts ?? proposal.others ?? 0).toLocaleString(), `${((Number((proposal as any).otherCosts ?? proposal.others ?? 0) / (proposal.total || 1)) * 100).toFixed(1)}%`],
           ["Total Item Cost", Number(proposal.total || 0).toLocaleString(), "100.0%"],
         ],
@@ -481,8 +481,9 @@ export class PDFExportService {
               approver_email: proposal.pending_with_email || "",
             };
 
-          const approverInfo = targetLevel.approver_name
-            ? `${targetLevel.approver_name}${targetLevel.approver_email ? ` (${targetLevel.approver_email})` : ""}`
+          const effectiveApproverName = proposal.pending_with_name || targetLevel.approver_name;
+          const approverInfo = effectiveApproverName
+            ? `${effectiveApproverName}${targetLevel.approver_email ? ` (${targetLevel.approver_email})` : ""}`
             : targetLevel.approver_email || (proposal.pending_with_role ? `${proposal.pending_with_role}` : "Assigned Approver");
 
           decisionRows.push([
@@ -531,7 +532,7 @@ export class PDFExportService {
               styles: { halign: "left" },
             },
           ],
-          ["Version", "Workflow Level / Stage", "Approver Sign-off", "Decision", "Date & Time", "Comments & Remarks"],
+          ["Version", "Workflow Level / Stage", "Action By", "Decision", "Date & Time", "Comments & Remarks"],
         ],
         body: decisionRows,
         theme: "grid",

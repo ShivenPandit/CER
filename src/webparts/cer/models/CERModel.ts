@@ -76,7 +76,9 @@ export interface ICERProposal {
   engineer: number; // Engineering
   s_fac: number;    // Site Facilities
   comis: number;    // Commissioning
-  preop: number;    // Pre-operating costs
+  wells?: number;   // Wells (SharePoint column: wellsCost)
+  wellsCost?: number; // Alias for SharePoint column wellsCost
+  preop: number;    // Pre-operating costs (legacy alias for wells)
   others: number;   // Others
   total: number;    // Total sum
 
@@ -88,6 +90,7 @@ export interface ICERProposal {
   current_level: number; // 1, 2, 3...
   pending_with_role: string;
   pending_with_email: string;
+  pending_with_name?: string; // Real names of pending approver(s)
 
   // Audit / Technical
   request_date?: string; // Latest submission date for approval (SharePoint RequestDate)

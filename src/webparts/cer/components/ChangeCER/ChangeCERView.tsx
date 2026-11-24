@@ -104,7 +104,8 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         const rawEngineer = Number(found.engineer || 0);
         const rawSfac = Number(found.s_fac || 0);
         const rawComis = Number(found.comis || 0);
-        const rawPreop = Number(found.preop || 0);
+        const rawWells = Number(found.wells !== undefined && found.wells !== null ? found.wells : ((found as any).wellsCost !== undefined && (found as any).wellsCost !== null ? (found as any).wellsCost : (found.preop || 0)));
+        const rawPreop = rawWells;
         let cleanOthers = Number(found.others || 0);
         const rawTotal = Number(found.total || 0);
         const rawAmount = Number(found.amount || 0);
@@ -115,13 +116,13 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           rawEngineer === 0 &&
           rawSfac === 0 &&
           rawComis === 0 &&
-          rawPreop === 0 &&
+          rawWells === 0 &&
           (rawTotal === 0 || Math.abs(rawTotal - rawAmount) > 0.01)
         ) {
           cleanOthers = 0;
         }
 
-        const cleanTotal = (cleanOthers === 0 && rawEngineer === 0 && rawSfac === 0 && rawComis === 0 && rawPreop === 0)
+        const cleanTotal = (cleanOthers === 0 && rawEngineer === 0 && rawSfac === 0 && rawComis === 0 && rawWells === 0)
           ? 0
           : found.total;
 
@@ -135,6 +136,8 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           engineer: cleanTotal > 0 ? rawEngineer : ("" as any),
           s_fac: cleanTotal > 0 ? rawSfac : ("" as any),
           comis: cleanTotal > 0 ? rawComis : ("" as any),
+          wells: cleanTotal > 0 ? rawWells : ("" as any),
+          wellsCost: cleanTotal > 0 ? rawWells : ("" as any),
           preop: cleanTotal > 0 ? rawPreop : ("" as any),
           others: cleanTotal > 0 ? cleanOthers : ("" as any),
           total: cleanTotal > 0 ? cleanTotal : ("" as any),
@@ -302,7 +305,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
 
       // Re-validate total (Section D) when Section D fields or capex phasing change
       if (
-        ["engineer", "s_fac", "comis", "preop", "others", "capex_till", "capex_fy", "capex_beyond"].indexOf(field as string) !== -1
+        ["engineer", "s_fac", "comis", "wells", "wellsCost", "preop", "others", "capex_till", "capex_fy", "capex_beyond"].indexOf(field as string) !== -1
       ) {
         if (errors.total || errors.cost_mismatch || touched.total || hasAttemptedSubmit) {
           const totalErr = validateField("total", updated.total, updated, false);
@@ -401,7 +404,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
       }
     }
 
-    if (["engineer", "s_fac", "comis", "preop", "others"].indexOf(field as string) !== -1) {
+    if (["engineer", "s_fac", "comis", "wells", "wellsCost", "preop", "others"].indexOf(field as string) !== -1) {
       if (hasEnteredCostBreakdown(updatedForm)) {
         setTouched((prev) => ({ ...prev, total: true }));
         const totalError = validateField("total", updatedForm.total, updatedForm, false);

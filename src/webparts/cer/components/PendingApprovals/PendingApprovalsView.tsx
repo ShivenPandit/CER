@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   CheckCircle2,
   Eye,
@@ -47,6 +47,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
   const [selectedAttachments, setSelectedAttachments] = useState<ICERAttachment[]>([]);
   const [isDecisionModalOpen, setIsDecisionModalOpen] = useState(false);
   const [openingProposalId, setOpeningProposalId] = useState<string | null>(null);
+  const activeRequestIdRef = useRef<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
 
@@ -188,35 +189,53 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
   const visiblePendingList = pagination.paginateItems(pendingList);
 
   const handleOpenDecision = async (prop: ICERProposal) => {
+    const requestId = prop.cerprno;
+    activeRequestIdRef.current = requestId;
+
     try {
       setOpeningProposalId(prop.cerprno);
       setSelectedProposal(prop);
 
-      // Refresh approval levels for proposal's exact SBU in real-time
       const targetSbu = prop.sbu ? prop.sbu.trim() : "";
-      if (targetSbu && dataService.getWorkflowLevels) {
-        try {
-          const freshLevels = await dataService.getWorkflowLevels(targetSbu, true);
-          if (freshLevels && freshLevels.length > 0) {
-            setLevels((prev) => {
-              const others = prev.filter(
-                (l) => (l.sbu || "").trim().toLowerCase() !== targetSbu.toLowerCase()
-              );
-              return [...others, ...freshLevels];
-            });
-          }
-        } catch (levelErr) {
-          console.warn("[PendingApprovalsView] Failed to refresh SBU-specific workflow levels:", levelErr);
-        }
+
+      // Safeguard: Parallelize independent pre-flight reads (Workflow levels & Attachments)
+      const [freshLevels, atts] = await Promise.all([
+        targetSbu && dataService.getWorkflowLevels
+          ? dataService.getWorkflowLevels(targetSbu, false).catch((levelErr) => {
+              console.warn("[PendingApprovalsView] Failed to refresh SBU-specific workflow levels:", levelErr);
+              return null;
+            })
+          : Promise.resolve(null),
+        dataService.getAttachments(prop.cerprno, { proposal: prop, forceRefresh: false }).catch((attErr) => {
+          console.warn("[PendingApprovalsView] Failed to load attachments:", attErr);
+          return [];
+        }),
+      ]);
+
+      // Safeguard 6: Stale response protection (if user clicked or switched proposals while loading, discard!)
+      if (activeRequestIdRef.current !== requestId) {
+        return;
       }
 
-      const atts = await dataService.getAttachments(prop.cerprno, { proposal: prop, forceRefresh: true });
-      setSelectedAttachments(atts);
+      if (freshLevels && freshLevels.length > 0) {
+        setLevels((prev) => {
+          const others = prev.filter(
+            (l) => (l.sbu || "").trim().toLowerCase() !== targetSbu.toLowerCase()
+          );
+          return [...others, ...freshLevels];
+        });
+      }
+
+      setSelectedAttachments(atts || []);
       setIsDecisionModalOpen(true);
     } catch (err) {
-      console.error("Error opening approval decision:", err);
+      if (activeRequestIdRef.current === requestId) {
+        console.error("Error opening approval decision:", err);
+      }
     } finally {
-      setOpeningProposalId(null);
+      if (activeRequestIdRef.current === requestId) {
+        setOpeningProposalId(null);
+      }
     }
   };
 

@@ -18,6 +18,7 @@
 
 import { SPHttpClient, SPHttpClientResponse } from "@microsoft/sp-http";
 import { IDirectoryUser, resolveDirectoryUserEmail } from "../models/UserModel";
+import { normalizeUserLogon } from "../utils/sanitizationUtils";
 
 // ---------------------------------------------------------------------------
 // Types & Interfaces
@@ -51,18 +52,14 @@ export class PersonFieldService {
    * Invariant Site User IDs are preserved across operations to eliminate redundant network calls.
    */
   private static _userCache = new Map<string, { user: ISharePointUser; timestamp: number }>();
+  private static _inFlightUserResolutions = new Map<string, Promise<ISharePointUser>>();
   private static readonly CACHE_TTL_MS = 600000; // 10 minutes
 
   /**
    * Normalizes a user identifier (strips claims prefix, trims, lowercases).
    */
   public static normalizeLogon(identifier?: string): string {
-    if (!identifier) return "";
-    return identifier
-      .trim()
-      .toLowerCase()
-      .replace(/^i:0#\.f\|membership\|/i, "")
-      .replace(/^membership\|/i, "");
+    return normalizeUserLogon(identifier);
   }
 
   /**
@@ -121,42 +118,61 @@ export class PersonFieldService {
       return cached.user;
     }
 
-    const endpoint = `${siteUrl.replace(/\/+$/, "")}/_api/web/ensureUser`;
-    const response: SPHttpClientResponse = await client.post(
-      endpoint,
-      SPHttpClient.configurations.v1,
-      {
-        headers: {
-          Accept: "application/json;odata=nometadata",
-          "Content-Type": "application/json;odata=verbose",
-        },
-        body: JSON.stringify({ logonName: rawLogon }),
+    const inFlight = this._inFlightUserResolutions.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const resolutionPromise = (async () => {
+      try {
+        const endpoint = `${siteUrl.replace(/\/+$/, "")}/_api/web/ensureUser`;
+        const response: SPHttpClientResponse = await client.post(
+          endpoint,
+          SPHttpClient.configurations.v1,
+          {
+            headers: {
+              Accept: "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=verbose",
+            },
+            body: JSON.stringify({ logonName: rawLogon }),
+          }
+        );
+
+        if (!response.ok) {
+          const errText = await response.text().catch(() => "");
+          throw new Error(
+            `[PersonFieldService] Failed to resolve user '${rawLogon}' in SharePoint site (${response.status}): ${errText || response.statusText}`
+          );
+        }
+
+        const data = await response.json();
+        const id = Number(data.Id || data.id);
+        if (!id || isNaN(id) || id <= 0) {
+          throw new Error(`[PersonFieldService] ensureUser returned invalid or non-positive User ID for '${rawLogon}'.`);
+        }
+
+        const resolvedUser: ISharePointUser = {
+          Id: id,
+          Title: String(data.Title || data.title || (typeof identity === "object" ? identity.displayName : "") || rawLogon),
+          Email: String(data.Email || data.email || data.EMail || (typeof identity === "object" ? identity.mail : "") || rawLogon),
+          LoginName: String(data.LoginName || data.loginName || rawLogon),
+          IsSiteAdmin: !!data.IsSiteAdmin,
+        };
+
+        const resolvedTimestamp = Date.now();
+        this._userCache.set(cacheKey, { user: resolvedUser, timestamp: resolvedTimestamp });
+        this._userCache.set(`${siteUrl.toLowerCase()}::id::${id}`, { user: resolvedUser, timestamp: resolvedTimestamp });
+        if (resolvedUser.Email) {
+          this._userCache.set(`${siteUrl.toLowerCase()}::${this.normalizeLogon(resolvedUser.Email)}`, { user: resolvedUser, timestamp: resolvedTimestamp });
+        }
+        return resolvedUser;
+      } finally {
+        this._inFlightUserResolutions.delete(cacheKey);
       }
-    );
+    })();
 
-    if (!response.ok) {
-      const errText = await response.text().catch(() => "");
-      throw new Error(
-        `[PersonFieldService] Failed to resolve user '${rawLogon}' in SharePoint site (${response.status}): ${errText || response.statusText}`
-      );
-    }
-
-    const data = await response.json();
-    const id = Number(data.Id || data.id);
-    if (!id || isNaN(id) || id <= 0) {
-      throw new Error(`[PersonFieldService] ensureUser returned invalid or non-positive User ID for '${rawLogon}'.`);
-    }
-
-    const resolvedUser: ISharePointUser = {
-      Id: id,
-      Title: String(data.Title || data.title || (typeof identity === "object" ? identity.displayName : "") || rawLogon),
-      Email: String(data.Email || data.email || data.EMail || (typeof identity === "object" ? identity.mail : "") || rawLogon),
-      LoginName: String(data.LoginName || data.loginName || rawLogon),
-      IsSiteAdmin: !!data.IsSiteAdmin,
-    };
-
-    this._userCache.set(cacheKey, { user: resolvedUser, timestamp: now });
-    return resolvedUser;
+    this._inFlightUserResolutions.set(cacheKey, resolutionPromise);
+    return resolutionPromise;
   }
 
   /**

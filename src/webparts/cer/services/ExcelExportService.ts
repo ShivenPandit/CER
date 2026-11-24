@@ -142,7 +142,7 @@ export class ExcelExportService {
       "Engineering Cost": raw.engineer !== undefined && raw.engineer !== null ? raw.engineer : (raw.engineeringCost !== undefined ? raw.engineeringCost : 0),
       "Surface Facilities Cost": raw.s_fac !== undefined && raw.s_fac !== null ? raw.s_fac : (raw.surfaceFacilitiesCost !== undefined ? raw.surfaceFacilitiesCost : 0),
       "Commissioning Cost": raw.comis !== undefined && raw.comis !== null ? raw.comis : (raw.commissioningCost !== undefined ? raw.commissioningCost : 0),
-      "Preoperative Cost": raw.preop !== undefined && raw.preop !== null ? raw.preop : (raw.preoperativeCost !== undefined ? raw.preoperativeCost : 0),
+      "Wells": raw.wells !== undefined && raw.wells !== null ? raw.wells : ((raw as any).wellsCost !== undefined ? (raw as any).wellsCost : (raw.preop !== undefined && raw.preop !== null ? raw.preop : (raw.preoperativeCost !== undefined ? raw.preoperativeCost : 0))),
       "Other Costs": raw.others !== undefined && raw.others !== null ? raw.others : (raw.otherCosts !== undefined ? raw.otherCosts : 0),
       "Total Item Cost": raw.total !== undefined && raw.total !== null ? raw.total : (raw.amount || 0),
 
