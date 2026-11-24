@@ -3783,6 +3783,20 @@ video {
   --tw-ring-color: rgb(107 114 128 / 0.1);
 }
 
+.ring-rose-200 {
+  --tw-ring-opacity: 1;
+  --tw-ring-color: rgb(254 205 211 / var(--tw-ring-opacity, 1));
+}
+
+.ring-rose-200\/60 {
+  --tw-ring-color: rgb(254 205 211 / 0.6);
+}
+
+.ring-rose-400 {
+  --tw-ring-opacity: 1;
+  --tw-ring-color: rgb(251 113 133 / var(--tw-ring-opacity, 1));
+}
+
 .ring-rose-500\/10 {
   --tw-ring-color: rgb(244 63 94 / 0.1);
 }

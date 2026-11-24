@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import {
   Search,
   AlertTriangle,
+  AlertCircle,
   CheckCircle2,
   X,
   Loader2,
@@ -92,6 +93,8 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
   const [openDropdownLevel, setOpenDropdownLevel] = useState<number | null>(null);
   const [approverSearchQueries, setApproverSearchQueries] = useState<Record<number, string>>({});
   const [updateModalError, setUpdateModalError] = useState<string | null>(null);
+  const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
+  const [touchedLevels, setTouchedLevels] = useState<Record<number, boolean>>({});
 
   // Live Directory search candidates when typing in the modal
   const [directoryResultsByLevel, setDirectoryResultsByLevel] = useState<Record<number, IDirectoryUser[]>>({});
@@ -106,6 +109,12 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
   // ---------------------------------------------------------------------------
   // Helper Queries & Lookups
   // ---------------------------------------------------------------------------
+
+  const assignableLevels = useMemo(() => [1, 3, 4, 5, 6], []);
+
+  const invalidLevels = useMemo(() => {
+    return assignableLevels.filter((lvl) => (stagedApproversByLevel[lvl] || []).length === 0);
+  }, [assignableLevels, stagedApproversByLevel]);
 
   const getApproverRoleTitle = (level: number): string => {
     switch (level) {
@@ -172,6 +181,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
   }, [stagedApproversByLevel]);
 
   const handleClearAllApproversForLevel = (level: number) => {
+    setTouchedLevels((prev) => ({ ...prev, [level]: true }));
     setStagedApproversByLevel((prev) => ({
       ...prev,
       [level]: [],
@@ -229,6 +239,8 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
   const handleOpenUpdateModal = (block: string) => {
     setUpdateModalBlock(block);
     setUpdateModalError(null);
+    setHasAttemptedSave(false);
+    setTouchedLevels({});
     setOpenDropdownLevel(null);
     setApproverSearchQueries({});
     setDirectoryResultsByLevel({});
@@ -248,9 +260,12 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
     setApproverSearchQueries({});
     setDirectoryResultsByLevel({});
     setUpdateModalError(null);
+    setHasAttemptedSave(false);
+    setTouchedLevels({});
   };
 
   const handleRemoveApproverFromLevel = (level: number, approverToRemove: IUserRoleAssignment) => {
+    setTouchedLevels((prev) => ({ ...prev, [level]: true }));
     setStagedApproversByLevel((prev) => {
       const current = prev[level] || [];
       const removeKey = (approverToRemove.user_email || approverToRemove.login_name || approverToRemove.user_name).trim().toLowerCase();
@@ -266,20 +281,20 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
   const handleAddApproverToLevel = (level: number, approverToAdd: IUserRoleAssignment) => {
     const addKey = (approverToAdd.user_email || approverToAdd.login_name || approverToAdd.user_name).trim().toLowerCase();
+    setTouchedLevels((prev) => ({ ...prev, [level]: true }));
     setStagedApproversByLevel((prev) => {
-      const updated: Record<number, IUserRoleAssignment[]> = {};
-      const keys = Object.keys(prev);
-      for (let i = 0; i < keys.length; i++) {
-        const lvl = Number(keys[i]);
-        const list = prev[lvl] || [];
-        // Remove from any other level so an approver cannot be assigned to two levels simultaneously
-        updated[lvl] = list.filter(
-          (a: IUserRoleAssignment) => (a.user_email || a.login_name || a.user_name).trim().toLowerCase() !== addKey
-        );
+      const current = prev[level] || [];
+      const alreadyInThisLevel = current.some((a) => {
+        const k = (a.user_email || a.login_name || a.user_name).trim().toLowerCase();
+        return k === addKey;
+      });
+      if (alreadyInThisLevel) {
+        return prev;
       }
-      const current = updated[level] || [];
-      updated[level] = [...current, approverToAdd];
-      return updated;
+      return {
+        ...prev,
+        [level]: [...current, approverToAdd],
+      };
     });
     setOpenDropdownLevel(null);
     setApproverSearchQueries((prev) => ({ ...prev, [level]: "" }));
@@ -334,6 +349,18 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
   const handleSaveApprovalAssignments = async () => {
     if (!updateModalBlock) return;
+    setHasAttemptedSave(true);
+
+    if (invalidLevels.length > 0) {
+      const missingTitles = invalidLevels.map((l) => `L${l} - ${getApproverRoleTitle(l)}`).join(", ");
+      setUpdateModalError(`Validation Error: All 5 sequential approval tiers must have at least one approver assigned before saving. Currently unassigned: ${missingTitles}.`);
+      const firstInvalidEl = document.getElementById(`role-level-card-${invalidLevels[0]}`);
+      if (firstInvalidEl) {
+        firstInvalidEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      return;
+    }
+
     setIsSubmitting(true);
     setUpdateModalError(null);
 
@@ -347,76 +374,85 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
       const getUserKey = (u: { user_email?: string; login_name?: string; user_name?: string }) =>
         (u.user_email || u.login_name || u.user_name || "").trim().toLowerCase();
 
-      interface IAssignedRecord {
-        key: string;
-        approver: IUserRoleAssignment;
-        level: number;
+      // 1. Group staged approvers by user key
+      const stagedByUser = new Map<string, { user: IUserRoleAssignment; levels: number[] }>();
+      for (const lvl of levelsToProcess) {
+        const stagedList = stagedApproversByLevel[lvl] || [];
+        for (const a of stagedList) {
+          const k = getUserKey(a);
+          if (!k) continue;
+          const entry = stagedByUser.get(k) || { user: a, levels: [] };
+          if (entry.levels.indexOf(lvl) === -1) {
+            entry.levels.push(lvl);
+          }
+          stagedByUser.set(k, entry);
+        }
       }
 
-      // 1. Gather all currently assigned approvers in this block across levels 1, 3, 4, 5, 6
-      const currentInBlockList: IAssignedRecord[] = [];
-      const currentInBlockKeys = new Set<string>();
-      for (let i = 0; i < levelsToProcess.length; i++) {
-        const lvl = levelsToProcess[i];
-        const assigned = getApproversForBlockAndLevel(block, lvl);
-        for (let j = 0; j < assigned.length; j++) {
-          const a = assigned[j];
+      // 2. Group currently assigned approvers in this block by user key
+      const currentInBlockByUser = new Map<string, { user: IUserRoleAssignment; levels: number[] }>();
+      for (const lvl of levelsToProcess) {
+        const assignedList = getApproversForBlockAndLevel(block, lvl);
+        for (const a of assignedList) {
           const k = getUserKey(a);
-          if (k && !currentInBlockKeys.has(k)) {
-            currentInBlockKeys.add(k);
-            currentInBlockList.push({ key: k, approver: a, level: lvl });
+          if (!k) continue;
+          const entry = currentInBlockByUser.get(k) || { user: a, levels: [] };
+          if (entry.levels.indexOf(lvl) === -1) {
+            entry.levels.push(lvl);
+          }
+          currentInBlockByUser.set(k, entry);
+        }
+      }
+
+      // 3. Process Approvers Removed from this Block completely
+      const currentUserKeys = Array.from(currentInBlockByUser.keys());
+      for (const k of currentUserKeys) {
+        if (!stagedByUser.has(k)) {
+          const { user } = currentInBlockByUser.get(k)!;
+          const existingRole = roles.find((r) => getUserKey(r) === k || (user.id && r.id === user.id));
+          if (existingRole) {
+            const isAdmin = String(existingRole.role || "").trim().toLowerCase() === "admin";
+            const currentSbus = existingRole.sbus || (existingRole.sbu ? [existingRole.sbu] : []);
+            const remainingSbus = currentSbus.filter((s) => s.toLowerCase() !== block.toLowerCase());
+
+            if (remainingSbus.length > 0) {
+              await dataService.updateUserRole(
+                {
+                  ...existingRole,
+                  sbu: remainingSbus[0],
+                  sbus: remainingSbus,
+                },
+                actor
+              );
+            } else if (isAdmin) {
+              await dataService.updateUserRole(
+                {
+                  ...existingRole,
+                  role: "Admin",
+                  sbu: "",
+                  sbus: [],
+                  approval_level: undefined,
+                  approval_levels: [],
+                  approver_role_title: undefined,
+                  approver_role_titles: [],
+                  is_active: true,
+                },
+                actor
+              );
+            } else {
+              await dataService.revokeUserRole(existingRole.id, actor);
+            }
           }
         }
       }
 
-      // 2. Gather all staged approvers in this block across levels 1, 3, 4, 5, 6
-      const stagedInBlockList: IAssignedRecord[] = [];
-      const stagedInBlockKeys = new Set<string>();
-      for (let i = 0; i < levelsToProcess.length; i++) {
-        const lvl = levelsToProcess[i];
-        const staged = stagedApproversByLevel[lvl] || [];
-        for (let j = 0; j < staged.length; j++) {
-          const a = staged[j];
-          const k = getUserKey(a);
-          if (k && !stagedInBlockKeys.has(k)) {
-            stagedInBlockKeys.add(k);
-            stagedInBlockList.push({ key: k, approver: a, level: lvl });
-          }
-        }
-      }
+      // 4. Process Staged Approvers (assigned, updated, or multi-level configured)
+      const stagedUserEntries = Array.from(stagedByUser.entries());
+      for (const [k, { user, levels }] of stagedUserEntries) {
+        levels.sort((a, b) => a - b);
+        const titles = levels.map((l) => getApproverRoleTitle(l));
 
-      // 3. Process Approvers Removed from this Block
-      for (let i = 0; i < currentInBlockList.length; i++) {
-        const currentItem = currentInBlockList[i];
-        if (!stagedInBlockKeys.has(currentItem.key)) {
-          const rem = currentItem.approver;
-          const isAdmin = String(rem.role || "").trim().toLowerCase() === "admin";
-          await dataService.updateUserRole(
-            {
-              ...rem,
-              role: isAdmin ? "Admin" : ("" as any),
-              sbu: "",
-              approval_level: undefined,
-              approver_role_title: undefined,
-              is_active: true,
-            },
-            actor
-          );
-        }
-      }
-
-      // 4. Process Staged Approvers (assigned, reassigned, or moved across levels)
-      for (let i = 0; i < stagedInBlockList.length; i++) {
-        const stagedItem = stagedInBlockList[i];
-        const currentAssignment = currentInBlockList.find((c) => c.key === stagedItem.key);
-        if (currentAssignment && currentAssignment.level === stagedItem.level) {
-          continue;
-        }
-
-        const title = getApproverRoleTitle(stagedItem.level);
-        const staged = stagedItem.approver;
-
-        const stagedCleanName = (staged.user_name || "")
+        const stagedCleanName = (user.user_name || "")
           .replace(/\s*\([^)]*\)/g, "")
           .replace(/[^a-zA-Z0-9\s]/g, "")
           .replace(/\s+/g, " ")
@@ -431,26 +467,36 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
             .trim()
             .toLowerCase();
           return (
-            (staged.id && r.id === staged.id) ||
-            getUserKey(r) === stagedItem.key ||
-            (staged.user_id && r.user_id && Number(r.user_id) === Number(staged.user_id)) ||
+            (user.id && r.id === user.id) ||
+            getUserKey(r) === k ||
+            (user.user_id && r.user_id && Number(r.user_id) === Number(user.user_id)) ||
             (stagedCleanName && rCleanName && stagedCleanName === rCleanName)
           );
         });
 
         const isAdmin =
           (existingRole && String(existingRole.role || "").trim().toLowerCase() === "admin") ||
-          (staged && String(staged.role || "").trim().toLowerCase() === "admin");
-        const roleToSave = isAdmin ? "Admin" : (existingRole?.role || staged?.role || ("" as any));
+          (user && String(user.role || "").trim().toLowerCase() === "admin");
+        const roleToSave = isAdmin ? "Admin" : (existingRole?.role || user?.role || ("" as any));
 
         if (existingRole) {
+          const existingSbus = existingRole.sbus || (existingRole.sbu ? [existingRole.sbu] : []);
+          const mergedSbusSet = new Set<string>([block]);
+          existingSbus.forEach((s) => {
+            if (s && s.toLowerCase() !== "all" && s.trim()) mergedSbusSet.add(s.trim());
+          });
+          const mergedSbus = Array.from(mergedSbusSet);
+
           await dataService.updateUserRole(
             {
               ...existingRole,
               role: roleToSave,
               sbu: block,
-              approval_level: stagedItem.level,
-              approver_role_title: title,
+              sbus: mergedSbus,
+              approval_level: levels[0],
+              approval_levels: levels,
+              approver_role_title: titles[0],
+              approver_role_titles: titles,
               is_active: true,
             },
             actor
@@ -458,14 +504,17 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
         } else {
           await dataService.assignUserRole(
             {
-              user_name: staged.user_name,
-              user_email: staged.user_email,
-              login_name: staged.login_name || staged.user_email,
-              user_id: staged.user_id,
+              user_name: user.user_name,
+              user_email: user.user_email,
+              login_name: user.login_name || user.user_email,
+              user_id: user.user_id,
               role: roleToSave,
               sbu: block,
-              approval_level: stagedItem.level,
-              approver_role_title: title,
+              sbus: [block],
+              approval_level: levels[0],
+              approval_levels: levels,
+              approver_role_title: titles[0],
+              approver_role_titles: titles,
               is_active: true,
               assigned_by: currentUser.name,
               assigned_date: new Date().toISOString(),
@@ -813,6 +862,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                   const lvl = stage.level;
                   const stagedForLevel = stagedApproversByLevel[lvl] || [];
                   const isAssigned = stage.isDynamic || stagedForLevel.length > 0;
+                  const isLevelInvalid = !stage.isDynamic && (hasAttemptedSave || touchedLevels[lvl]) && stagedForLevel.length === 0;
 
                   return (
                     <div key={stage.label} className="relative">
@@ -821,6 +871,8 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                         className={`absolute -left-8 sm:-left-9 top-3.5 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold border-2 transition-all shadow-2xs z-10 ${
                           stage.isDynamic
                             ? "bg-amber-100 text-amber-800 border-amber-300"
+                            : isLevelInvalid
+                            ? "bg-rose-600 text-white border-white ring-2 ring-rose-400"
                             : isAssigned
                             ? "bg-[#012964] text-white border-white ring-2 ring-[#012964]/20"
                             : "bg-white text-slate-400 border-slate-300"
@@ -835,9 +887,12 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
                       {/* Level Card */}
                       <div
+                        id={`role-level-card-${lvl}`}
                         className={`rounded-xl border transition-all ${
                           stage.isDynamic
                             ? "bg-amber-50/40 border-amber-200/80 p-4"
+                            : isLevelInvalid
+                            ? "bg-rose-50/20 border-rose-300 ring-1 ring-rose-200 p-4 shadow-2xs"
                             : "bg-white border-slate-200/90 hover:border-slate-300 p-4 shadow-2xs"
                         }`}
                       >
@@ -874,8 +929,9 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
                               <div className="flex items-center gap-2">
                                 {stagedForLevel.length === 0 ? (
-                                  <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
-                                    Required
+                                  <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-300 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+                                    <AlertCircle className="w-3 h-3 text-rose-600" />
+                                    <span>At least 1 Required</span>
                                   </span>
                                 ) : stagedForLevel.length === 1 ? (
                                   <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
@@ -901,7 +957,11 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                             </div>
 
                             {/* Chips Display Area (Removable User Chips) */}
-                            <div className="min-h-[42px] p-2 bg-slate-50/70 border border-slate-200 rounded-xl flex flex-wrap items-center gap-1.5 mb-2.5">
+                            <div className={`min-h-[42px] p-2 rounded-xl flex flex-wrap items-center gap-1.5 mb-2.5 border transition-all ${
+                              isLevelInvalid
+                                ? "bg-rose-50/40 border-rose-300 ring-1 ring-rose-200/60"
+                                : "bg-slate-50/70 border-slate-200"
+                            }`}>
                               {stagedForLevel.length === 0 ? (
                                 <span className="text-slate-400 text-xs italic px-1">
                                   No approvers assigned to this level yet. Search below to add approvers.
@@ -1098,6 +1158,13 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                                   </div>
                                 );
                               })()}
+                              {/* Inline Validation Message */}
+                              {isLevelInvalid && (
+                                <div className="flex items-center gap-1.5 mt-2 text-xs font-semibold text-rose-600 animate-fadeIn">
+                                  <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                                  <span>At least one approver is required for {stage.label}. Please search and select an approver above.</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
@@ -1110,9 +1177,15 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
             {/* Sticky Modal Footer */}
             <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-100 bg-slate-50/90 shrink-0">
-              <span className="text-[11px] text-slate-500 font-medium">
-                * Indicates mandatory sequential approval tier
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-slate-500 font-medium">
+                  * Indicates mandatory sequential approval tier
+                </span>
+                <span className="text-slate-300">•</span>
+                <span className={`text-[11px] font-bold ${modalAssignedCount === 5 ? "text-emerald-700" : "text-amber-700"}`}>
+                  {modalAssignedCount}/5 Tiers Configured {modalAssignedCount === 5 ? "(All Ready)" : `(${5 - modalAssignedCount} Required)`}
+                </span>
+              </div>
               <div className="flex items-center gap-2.5">
                 <button
                   type="button"

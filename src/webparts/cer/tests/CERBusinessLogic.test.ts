@@ -6,6 +6,8 @@ import { EmailTemplateService } from "../services/EmailTemplateService";
 import { buildTableRowsForIteration, IIterationRun, IProposalVersionEntry } from "../components/ApprovalWorkflow/StatusHistoryModal";
 import { IWorkflowLevel } from "../models/WorkflowModel";
 import { formatUserFriendlySharePointError, normalizeUserLogon } from "../utils/sanitizationUtils";
+import { PermissionService } from "../services/PermissionService";
+import { IAppUser } from "../models/UserModel";
 
 // Standalone runner fallback for tsx / Node execution
 const _global: any = typeof globalThis !== "undefined" ? globalThis : {};
@@ -57,6 +59,11 @@ if (typeof _global.describe === "undefined") {
   _global.expect = (actual: any) => ({
     toBe: (expected: any) => {
       if (actual !== expected) throw new Error(`Expected ${JSON.stringify(expected)} but got ${JSON.stringify(actual)}`);
+    },
+    toEqual: (expected: any) => {
+      if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+        throw new Error(`Expected ${JSON.stringify(expected)} but got ${JSON.stringify(actual)}`);
+      }
     },
     toBeUndefined: () => {
       if (actual !== undefined) throw new Error(`Expected undefined but got ${JSON.stringify(actual)}`);
@@ -1069,5 +1076,293 @@ describe("CER Management System - Business Logic & Requirements Tests", () => {
     // 3. Deselect All
     selected = new Set();
     expect(selected.size).toBe(0);
+  });
+
+  // ROLE-MATRIX-01: Verifies mandatory approver validation for all 5 assignable tiers (L1, L3, L4, L5, L6)
+  test("ROLE-MATRIX-01: Updating an SBU requires at least 1 approver in all 5 sequential tiers", () => {
+    const assignableLevels = [1, 3, 4, 5, 6];
+
+    const validateTiers = (stagedByLevel: Record<number, any[]>) => {
+      const invalid = assignableLevels.filter((lvl) => (stagedByLevel[lvl] || []).length === 0);
+      return {
+        isValid: invalid.length === 0,
+        invalidLevels: invalid,
+      };
+    };
+
+    // Incomplete configuration: only L1 has an approver
+    const incompleteConfig = {
+      1: [{ user_name: "Shiven Pandit", user_email: "shiven@example.com" }],
+      3: [],
+      4: [],
+      5: [],
+      6: [],
+    };
+    const res1 = validateTiers(incompleteConfig);
+    expect(res1.isValid).toBe(false);
+    expect(res1.invalidLevels).toEqual([3, 4, 5, 6]);
+
+    // Complete configuration: all 5 tiers have >= 1 approver
+    const completeConfig = {
+      1: [{ user_name: "Finance Approver", user_email: "finance@example.com" }],
+      3: [{ user_name: "BU CFO", user_email: "cfo@example.com" }],
+      4: [{ user_name: "BU Director", user_email: "director@example.com" }],
+      5: [{ user_name: "VOGL CFO", user_email: "voglcfo@example.com" }],
+      6: [{ user_name: "VOGL CEO", user_email: "voglceo@example.com" }],
+    };
+    const res2 = validateTiers(completeConfig);
+    expect(res2.isValid).toBe(true);
+    expect(res2.invalidLevels).toEqual([]);
+  });
+
+  // ROLE-MATRIX-02: Verifies multi-level approver assignment within the same SBU
+  test("ROLE-MATRIX-02: Approver can be assigned to multiple levels simultaneously in the same SBU", async () => {
+    const service = new LocalMockCERDataService();
+    const adminUser = { name: "Test Admin", email: "demo.admin@example.com" };
+
+    // Assign Shiven Pandit to Level 1 in RJ North
+    const l1Assignment = await service.assignUserRole(
+      {
+        user_name: "Shiven Pandit",
+        user_email: "shiven.pandit@microlink.in",
+        login_name: "shiven.pandit@microlink.in",
+        sbu: "RJ North",
+        approval_level: 1,
+        approver_role_title: "Finance",
+        role: "Approver",
+        is_active: true,
+        assigned_by: adminUser.name,
+        assigned_date: new Date().toISOString(),
+      },
+      adminUser
+    );
+
+    // Assign Shiven Pandit to Level 3 in RJ North
+    const l3Assignment = await service.assignUserRole(
+      {
+        user_name: "Shiven Pandit",
+        user_email: "shiven.pandit@microlink.in",
+        login_name: "shiven.pandit@microlink.in",
+        sbu: "RJ North",
+        approval_level: 3,
+        approver_role_title: "BU CFO",
+        role: "Approver",
+        is_active: true,
+        assigned_by: adminUser.name,
+        assigned_date: new Date().toISOString(),
+      },
+      adminUser
+    );
+
+    expect(l1Assignment.approval_level).toBe(1);
+    expect(l3Assignment.approval_level).toBe(3);
+
+    const allRoles = await service.getUserRoles(true);
+    const shivenRolesInRjNorth = allRoles.filter(
+      (r) => r.user_email === "shiven.pandit@microlink.in" && r.sbu === "RJ North"
+    );
+
+    expect(shivenRolesInRjNorth.length).toBeGreaterThanOrEqual(2);
+    const levels = shivenRolesInRjNorth.map((r) => r.approval_level);
+    expect(levels).toContain(1);
+    expect(levels).toContain(3);
+  });
+
+  // ROLE-MATRIX-03: Verifies multi-SBU (multi-location) approver assignment
+  test("ROLE-MATRIX-03: Approver can be assigned across multiple SBUs without overwriting", async () => {
+    const service = new LocalMockCERDataService();
+    const adminUser = { name: "Test Admin", email: "demo.admin@example.com" };
+
+    // Assign to RJ North Level 1
+    await service.assignUserRole(
+      {
+        user_name: "Multi SBU Approver",
+        user_email: "multi.sbu@example.com",
+        login_name: "multi.sbu@example.com",
+        sbu: "RJ North",
+        approval_level: 1,
+        approver_role_title: "Finance",
+        role: "Approver",
+        is_active: true,
+        assigned_by: adminUser.name,
+        assigned_date: new Date().toISOString(),
+      },
+      adminUser
+    );
+
+    // Assign same user to RJ South Level 1
+    await service.assignUserRole(
+      {
+        user_name: "Multi SBU Approver",
+        user_email: "multi.sbu@example.com",
+        login_name: "multi.sbu@example.com",
+        sbu: "RJ South",
+        approval_level: 1,
+        approver_role_title: "Finance",
+        role: "Approver",
+        is_active: true,
+        assigned_by: adminUser.name,
+        assigned_date: new Date().toISOString(),
+      },
+      adminUser
+    );
+
+    const allRoles = await service.getUserRoles(true);
+    const sbus = allRoles
+      .filter((r) => r.user_email === "multi.sbu@example.com")
+      .map((r) => r.sbu);
+
+    expect(sbus).toContain("RJ North");
+    expect(sbus).toContain("RJ South");
+  });
+
+  // ROLE-MATRIX-04: Verifies PermissionService grants approval rights across multi-level & multi-SBU assignments
+  test("ROLE-MATRIX-04: PermissionService authorizes multi-assigned approver across designated levels and SBUs", () => {
+    const multiUser: IAppUser = {
+      id: "u-99",
+      name: "Shiven Pandit",
+      email: "shiven.pandit@microlink.in",
+      loginName: "shiven.pandit@microlink.in",
+      role: "Approver",
+      roles: ["Approver"],
+      sbu: "All",
+      sbus: ["RJ North", "RJ South"],
+      approval_level: 1,
+      approval_levels: [1, 3],
+      is_active: true,
+    };
+
+    // Stage configs
+    const rjNorthL1Config: IWorkflowLevel = {
+      id: "lvl-1",
+      level_id: 1,
+      level_name: "Technical Review",
+      role_title: "Finance",
+      sbu: "RJ North",
+      is_active: true,
+      approvers: [
+        {
+          id: "a-1",
+          user_name: "Shiven Pandit",
+          user_email: "shiven.pandit@microlink.in",
+          login_name: "shiven.pandit@microlink.in",
+          role: "Approver",
+          assigned_by: "Admin",
+          assigned_date: new Date().toISOString(),
+        },
+      ],
+    };
+
+    const rjSouthL1Config: IWorkflowLevel = {
+      id: "lvl-1-s",
+      level_id: 1,
+      level_name: "Technical Review",
+      role_title: "Finance",
+      sbu: "RJ South",
+      is_active: true,
+      approvers: [
+        {
+          id: "a-2",
+          user_name: "Shiven Pandit",
+          user_email: "shiven.pandit@microlink.in",
+          login_name: "shiven.pandit@microlink.in",
+          role: "Approver",
+          assigned_by: "Admin",
+          assigned_date: new Date().toISOString(),
+        },
+      ],
+    };
+
+    const cbosL1Config: IWorkflowLevel = {
+      id: "lvl-1-cbos",
+      level_id: 1,
+      level_name: "Technical Review",
+      role_title: "Finance",
+      sbu: "CBOS",
+      is_active: true,
+      approvers: [
+        {
+          id: "a-3",
+          user_name: "Other Approver",
+          user_email: "other@example.com",
+          login_name: "other@example.com",
+          role: "Approver",
+          assigned_by: "Admin",
+          assigned_date: new Date().toISOString(),
+        },
+      ],
+    };
+
+    const propRjNorth: ICERProposal = {
+      id: "p-1",
+      cerprno: "CER-2026-0001",
+      pr_name: "RJ North Test",
+      status: "In Approval",
+      current_level: 1,
+      sbu: "RJ North",
+      amount: 1000,
+    } as any;
+
+    const propRjSouth: ICERProposal = {
+      id: "p-2",
+      cerprno: "CER-2026-0002",
+      pr_name: "RJ South Test",
+      status: "In Approval",
+      current_level: 1,
+      sbu: "RJ South",
+      amount: 2000,
+    } as any;
+
+    const propCbos: ICERProposal = {
+      id: "p-3",
+      cerprno: "CER-2026-0003",
+      pr_name: "CBOS Test",
+      status: "In Approval",
+      current_level: 1,
+      sbu: "CBOS",
+      amount: 3000,
+    } as any;
+
+    // 1. Authorized for RJ North Level 1
+    const res1 = PermissionService.canApproveCER(propRjNorth, multiUser, rjNorthL1Config);
+    expect(res1.allowed).toBe(true);
+
+    // 2. Authorized for RJ South Level 1
+    const res2 = PermissionService.canApproveCER(propRjSouth, multiUser, rjSouthL1Config);
+    expect(res2.allowed).toBe(true);
+
+    // 3. Blocked for CBOS (not an assigned SBU or stage approver)
+    const res3 = PermissionService.canApproveCER(propCbos, multiUser, cbosL1Config);
+    expect(res3.allowed).toBe(false);
+  });
+
+  // ROLE-MATRIX-05: Verifies bidirectional inference of levels from approverRoleTitle choices
+  test("ROLE-MATRIX-05: Infers multiple approval levels from multi-choice approverRoleTitle when approverLevel has single value", () => {
+    const mapRoleTitleToLevel = (title: string): number | null => {
+      const t = (title || "").toLowerCase().trim();
+      if (!t) return null;
+      if (t === "finance" || (t.indexOf("finance") !== -1 && t.indexOf("corporate") === -1 && t.indexOf("cfo") === -1)) return 1;
+      if (t.indexOf("project owner") !== -1 || t === "owner") return 2;
+      if (t.indexOf("bu cfo") !== -1 || (t.indexOf("cfo") !== -1 && t.indexOf("vogl") === -1)) return 3;
+      if (t.indexOf("bu director") !== -1 || (t.indexOf("director") !== -1 && t.indexOf("vogl") === -1)) return 4;
+      if (t.indexOf("vogl cfo") !== -1) return 5;
+      if (t.indexOf("vogl ceo") !== -1 || t.indexOf("ceo") !== -1) return 6;
+      return null;
+    };
+
+    // Simulated SharePoint item where approverLevel has only "1", but approverRoleTitle has 4 roles
+    const rawLevels = ["1"];
+    const rawRoleTitles = ["Finance", "BU CFO", "BU Director", "VOGL CFO"];
+
+    const parsedLevels: number[] = rawLevels.map((l) => parseInt(l, 10));
+    for (const title of rawRoleTitles) {
+      const lvl = mapRoleTitleToLevel(title);
+      if (lvl !== null && parsedLevels.indexOf(lvl) === -1) {
+        parsedLevels.push(lvl);
+      }
+    }
+    parsedLevels.sort((a, b) => a - b);
+
+    expect(parsedLevels).toEqual([1, 3, 4, 5]);
   });
 });

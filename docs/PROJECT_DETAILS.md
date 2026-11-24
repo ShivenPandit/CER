@@ -362,7 +362,7 @@ The application communicates exclusively with 6 lists/libraries in clean CamelCa
 | 2   | **`CERProposalsHistory`**  | Custom List      | Archive repository for approved proposal snapshots prior to post-approval amendments.                                                 |
 | 3   | **`CERApprovalDecisions`** | Custom List      | Formal sign-off records (Approved / Rejected / Send Back) with timestamps and version cycle tags.                                     |
 | 4   | **`CERAttachments`**       | Document Library | Associated technical and financial PDF/Excel documentation.                                                                           |
-| 5   | **`CERRoleMatrix`**        | Custom List      | Modern SBU-wise Role-Based Access Control (RBAC) and Fixed 6-Level Approval Matrix (`approverLevel` & `approverRoleTitle` as Choice). |
+| 5   | **`CERRoleMatrix`**        | Custom List      | Modern SBU-wise Role-Based Access Control (RBAC) and Fixed 6-Level Approval Matrix (`sbu`, `approverLevel` & `approverRoleTitle` as Multi-Choice). |
 | 6   | **`CERMailTrigger`**       | Custom List      | Transient outbox queue for Power Automate email dispatch.                                                                             |
 
 > For the complete schema specification, field types, and step-by-step manual creation instructions, refer to [SHAREPOINT_LISTS_AND_COLUMNS_SETUP.md](file:///d:/Git/CER/docs/SHAREPOINT_LISTS_AND_COLUMNS_SETUP.md).

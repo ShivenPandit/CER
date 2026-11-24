@@ -81,7 +81,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
       }
       const [allProps, allLevels] = await Promise.all([
         dataService.getAllProposals(force),
-        dataService.getWorkflowLevels(currentUser.sbu || undefined, force),
+        dataService.getWorkflowLevels(undefined, force),
       ]);
       setProposals(allProps);
       setLevels(allLevels);
@@ -139,16 +139,18 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
     return proposals.filter((p) => {
       if (p.status !== "In Approval") return false;
 
-      // SBU Alignment:
-      // If current user is assigned to a specific SBU (not 'All'), they can ONLY see:
-      // 1. Proposals belonging to their assigned SBU, OR
+      // SBU Alignment (supports multi-SBU assignments):
+      // If current user is assigned to specific SBUs (not 'All'), they can ONLY see:
+      // 1. Proposals belonging to their assigned SBU(s), OR
       // 2. Proposals where they are the designated Project Owner (on dynamic PO stage)
-      const userSbu = (currentUser.sbu || "").trim().toLowerCase();
+      const userSbus = (currentUser.sbus && currentUser.sbus.length > 0 ? currentUser.sbus : [currentUser.sbu || "All"])
+        .map((s) => (s || "").trim().toLowerCase());
       const propSbu = (p.sbu || "").trim().toLowerCase();
-      const isAllSbu = !userSbu || userSbu === "all";
+      const isAllSbu = userSbus.length === 0 || userSbus.indexOf("all") !== -1 || userSbus.indexOf("") !== -1;
+      const isSbuMatch = isAllSbu || userSbus.indexOf(propSbu) !== -1;
       const isProjectOwner = PermissionService.isProjectOwner(p, currentUser);
 
-      if (!isAllSbu && propSbu && userSbu !== propSbu && !isProjectOwner) {
+      if (!isSbuMatch && !isProjectOwner) {
         return false;
       }
 

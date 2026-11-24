@@ -427,19 +427,22 @@ export class PermissionService {
     // Administrators CANNOT approve unless they are explicitly assigned to this level.
     // Proposal creator and Project Owner CAN approve if explicitly assigned in the matrix.
 
-    // SBU Alignment:
+    // SBU Alignment (supports single SBU and multi-SBU assignments):
+    const propSbu = (proposal.sbu || "").trim().toLowerCase();
+    const userSbus = user.sbus && user.sbus.length > 0
+      ? user.sbus.map((s) => s.trim().toLowerCase())
+      : (user.sbu ? [user.sbu.trim().toLowerCase()] : []);
+
     if (
-      user.sbu &&
-      user.sbu.trim().toLowerCase() !== "all" &&
-      proposal.sbu &&
-      proposal.sbu.trim().toLowerCase() !== "all"
+      userSbus.length > 0 &&
+      userSbus.indexOf("all") === -1 &&
+      propSbu &&
+      propSbu !== "all"
     ) {
-      const userSbu = user.sbu.trim().toLowerCase();
-      const propSbu = proposal.sbu.trim().toLowerCase();
-      if (userSbu !== propSbu) {
+      if (userSbus.indexOf(propSbu) === -1) {
         return {
           allowed: false,
-          reason: `SBU Mismatch: This proposal belongs to SBU '${proposal.sbu}', whereas you are assigned to '${user.sbu}'.`,
+          reason: `SBU Mismatch: This proposal belongs to SBU '${proposal.sbu}', whereas your assigned SBU(s) are: ${user.sbus?.join(", ") || user.sbu}.`,
         };
       }
     }

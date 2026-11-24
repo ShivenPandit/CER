@@ -8,8 +8,10 @@ export interface IAppUser {
   role: UserRole; // Primary active role (for backward compatibility)
   roles: UserRole[]; // All assigned active roles
   department?: string;
-  sbu?: string;
-  approval_level?: number; // If an Approver, which level they can act upon (1, 2, 3...)
+  sbu?: string; // Primary SBU (for backward compatibility)
+  sbus?: string[]; // All assigned SBUs across matrix records
+  approval_level?: number; // Primary level they can act upon (1, 2, 3...)
+  approval_levels?: number[]; // All assigned approval levels across matrix records
   is_active: boolean;
   isSiteAdmin?: boolean;
   canManageApprovalHierarchy?: boolean;
@@ -22,9 +24,12 @@ export interface IUserRoleAssignment {
   login_name: string;
   role: UserRole;
   approval_level?: number;
+  approval_levels?: number[]; // Multi-choice assigned levels
   approver_role_title?: string;
+  approver_role_titles?: string[]; // Multi-choice assigned role titles
   department?: string;
   sbu?: string;
+  sbus?: string[]; // Multi-choice assigned SBUs
   is_active?: boolean;
   assigned_by: string;
   assigned_date: string;
@@ -40,8 +45,11 @@ export interface ICERRoleMatrixItem {
   user_id?: number;
   role: UserRole;
   sbu: string;
+  sbus?: string[];
   approver_level?: number;
+  approver_levels?: number[];
   approver_role_title?: string;
+  approver_role_titles?: string[];
   department?: string;
   assigned_by: string;
   assigned_date: string;

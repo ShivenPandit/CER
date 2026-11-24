@@ -2041,16 +2041,19 @@ export class LocalMockCERDataService implements ICERDataService {
     assignment: Omit<IUserRoleAssignment, "id">,
     actor: { name: string; email: string }
   ): Promise<IUserRoleAssignment> {
-    // If target user is an existing Admin, preserve their Admin role and update their approval assignment in place
+    // If target user is an existing Admin with unassigned level/SBU, update their record in place
     const normEmail = (assignment.user_email || "").trim().toLowerCase();
-    const existingAdmin = this._userRoles.find(
-      r => r.user_email.trim().toLowerCase() === normEmail && r.role === "Admin" && r.is_active
+    const existingAdminUnassigned = this._userRoles.find(
+      r => r.user_email.trim().toLowerCase() === normEmail &&
+           r.role === "Admin" &&
+           r.is_active &&
+           (!r.approval_level || !r.sbu)
     );
-    if (existingAdmin) {
+    if (existingAdminUnassigned) {
       const updated: IUserRoleAssignment = {
-        ...existingAdmin,
+        ...existingAdminUnassigned,
         ...assignment,
-        id: existingAdmin.id,
+        id: existingAdminUnassigned.id,
         role: "Admin",
       };
       await this.updateUserRole(updated, actor);
@@ -2071,11 +2074,16 @@ export class LocalMockCERDataService implements ICERDataService {
       throw new Error(`Unauthorized: Only an active Administrator can assign roles. Actor '${actor.name}' does not possess Admin privileges.`);
     }
 
+    const targetSbu = (assignment.sbu || "").trim().toLowerCase();
+    const targetLevel = Number(assignment.approval_level);
     const existing = this._userRoles.find(
-      r => r.user_email.trim().toLowerCase() === normEmail && r.role === assignment.role && r.is_active
+      r => r.user_email.trim().toLowerCase() === normEmail &&
+           (r.sbu || "").trim().toLowerCase() === targetSbu &&
+           Number(r.approval_level) === targetLevel &&
+           r.is_active
     );
-    if (existing) {
-      throw new Error(`Duplicate assignment: User '${assignment.user_name}' is already assigned active role '${assignment.role}'.`);
+    if (existing && assignment.approval_level !== undefined) {
+      throw new Error(`Duplicate assignment: User '${assignment.user_name}' is already assigned to ${assignment.sbu} Level ${assignment.approval_level}.`);
     }
 
     const newAssignment: IUserRoleAssignment = {

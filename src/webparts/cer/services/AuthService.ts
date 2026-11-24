@@ -310,6 +310,18 @@ export class AuthService {
         primaryRole = "Initiator";
       }
 
+      // Collect all assigned SBUs and approval levels across matrix records
+      const assignedSbusSet = new Set<string>();
+      const assignedLevelsSet = new Set<number>();
+      for (const a of activeAssignments) {
+        if (a.sbu) assignedSbusSet.add(a.sbu.trim());
+        if (a.sbus) a.sbus.forEach((s) => assignedSbusSet.add(s.trim()));
+        if (a.approval_level !== undefined && a.approval_level !== null) assignedLevelsSet.add(Number(a.approval_level));
+        if (a.approval_levels) a.approval_levels.forEach((l) => assignedLevelsSet.add(Number(l)));
+      }
+      const assignedSbus = Array.from(assignedSbusSet).filter(Boolean);
+      const assignedLevels = Array.from(assignedLevelsSet).sort((a, b) => a - b);
+
       const resolvedUser: IAppUser = {
         id: params.id,
         name: (activeAssignments[0]?.user_name && activeAssignments[0].user_name !== "Authenticated Portal User" ? activeAssignments[0].user_name : displayName),
@@ -318,8 +330,10 @@ export class AuthService {
         role: primaryRole,
         roles: roles,
         department: activeAssignments[0]?.department || params.department,
-        sbu: activeAssignments[0]?.sbu,
+        sbu: assignedSbus.length === 1 ? assignedSbus[0] : (assignedSbus.length > 1 ? "All" : activeAssignments[0]?.sbu),
+        sbus: assignedSbus,
         approval_level: approverAssignment?.approval_level,
+        approval_levels: assignedLevels,
         is_active: true,
         isSiteAdmin: isSiteAdmin,
         canManageApprovalHierarchy: hasHierarchyAdminAccess,
