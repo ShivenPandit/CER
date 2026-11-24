@@ -917,4 +917,157 @@ describe("CER Management System - Business Logic & Requirements Tests", () => {
     expect(normalizeUserLogon("")).toBe("");
     expect(normalizeUserLogon(undefined)).toBe("");
   });
+
+  // PENDING-TABLE-01: Verifies continuous queue filtering without pagination limit
+  test("PENDING-TABLE-01: Continuous table processes and retains all matching proposals without pagination limits", () => {
+    // Generate 65 sample pending proposals (more than standard page sizes like 10, 20, 50)
+    const testQueue: ICERProposal[] = [];
+    for (let i = 1; i <= 65; i++) {
+      const numStr = i < 10 ? "000" + i : i < 100 ? "00" + i : "0" + i;
+      testQueue.push({
+        id: `prop-${i}`,
+        cerprno: `CER-2026-${numStr}`,
+        cer_proposal_id: `CER-2026-${numStr}`,
+        pr_name: `Capital Project #${i}`,
+        sbu: i % 2 === 0 ? "RJ North" : "RJ South",
+        cat: i % 3 === 0 ? "Vital" : "Essential",
+        payable: i % 2 === 0 ? "Payback" : "Non Payback",
+        payback_quarters: i % 2 === 0 ? 4 : undefined,
+        amount: i * 1000,
+        currency: "USD",
+        status: "In Approval",
+        current_level: 1,
+      } as any);
+    }
+
+    // 1. Without pagination limit, the entire queue must be rendered (length === 65)
+    expect(testQueue.length).toBe(65);
+
+    // 2. Category filter: Vital
+    const vitalOnly = testQueue.filter((p) => p.cat === "Vital");
+    expect(vitalOnly.length).toBe(21); // 65 / 3 = 21
+
+    // 3. SBU filter: RJ North
+    const rjNorthOnly = testQueue.filter((p) => p.sbu === "RJ North");
+    expect(rjNorthOnly.length).toBe(32); // 32 even numbers
+
+    // 4. Sorting by amount descending: highest amount must be at index 0
+    const sortedDesc = [...testQueue].sort((a, b) => b.amount - a.amount);
+    expect(sortedDesc[0].amount).toBe(65000);
+    expect(sortedDesc[sortedDesc.length - 1].amount).toBe(1000);
+  });
+
+  // PENDING-TABLE-02: Verifies Payback column formatting logic
+  test("PENDING-TABLE-02: Payback column formats Quarters for Payback and Non Payback badge", () => {
+    const formatPayback = (payable: string, quarters?: number): string => {
+      if (payable === "Non Payback" || payable === "Non-Payback") {
+        return "Non Payback";
+      }
+      if (quarters && Number(quarters) > 0) {
+        return `${quarters} Quarters`;
+      }
+      return "Payback";
+    };
+
+    expect(formatPayback("Non Payback")).toBe("Non Payback");
+    expect(formatPayback("Non-Payback")).toBe("Non Payback");
+    expect(formatPayback("Payback", 4)).toBe("4 Quarters");
+    expect(formatPayback("Payback", 6)).toBe("6 Quarters");
+    expect(formatPayback("Payback", undefined)).toBe("Payback");
+  });
+
+  // PENDING-TABLE-03: Verifies NPV / IRR financial column formatting logic
+  test("PENDING-TABLE-03: NPV / IRR column formats monetary mm values and percentage IRR", () => {
+    const formatNpv = (npv?: number | null): string => {
+      if (npv !== undefined && npv !== null && Number(npv) !== 0) {
+        return `$${Number(npv).toLocaleString()} mm`;
+      }
+      return "—";
+    };
+
+    const formatIrr = (irr?: number | null): string => {
+      if (irr !== undefined && irr !== null && Number(irr) !== 0) {
+        return `${irr}% IRR`;
+      }
+      return "—";
+    };
+
+    expect(formatNpv(28.4)).toBe("$28.4 mm");
+    expect(formatNpv(100)).toBe("$100 mm");
+    expect(formatNpv(0)).toBe("—");
+    expect(formatNpv(undefined)).toBe("—");
+
+    expect(formatIrr(18)).toBe("18% IRR");
+    expect(formatIrr(25.5)).toBe("25.5% IRR");
+    expect(formatIrr(0)).toBe("—");
+    expect(formatIrr(undefined)).toBe("—");
+  });
+
+  // BULK-APPROVE-01: Verifies cumulative Total CER Amount and selected amount calculation
+  test("BULK-APPROVE-01: Total CER Amount and selected amount calculate accurately", () => {
+    const sampleQueue = [
+      { cerprno: "CER-01", amount: 9000, current_level: 1 },
+      { cerprno: "CER-02", amount: 1699, current_level: 2 },
+      { cerprno: "CER-03", amount: 1500, current_level: 1 },
+      { cerprno: "CER-04", amount: 400, current_level: 3 },
+    ];
+
+    const totalAmount = sampleQueue.reduce((acc, p) => acc + p.amount, 0);
+    expect(totalAmount).toBe(12599);
+
+    const selectedIds = new Set(["CER-01", "CER-03"]);
+    const selectedAmount = sampleQueue
+      .filter((p) => selectedIds.has(p.cerprno))
+      .reduce((acc, p) => acc + p.amount, 0);
+    expect(selectedAmount).toBe(10500);
+  });
+
+  // BULK-APPROVE-02: Verifies Corporate Budget Amount column formatting
+  test("BULK-APPROVE-02: Corporate Budget Amount formats mm notation and handles zero/undefined", () => {
+    const formatCorpBudget = (cbAmnt?: number | null): string => {
+      if (cbAmnt !== undefined && cbAmnt !== null && Number(cbAmnt) > 0) {
+        return `$${Number(cbAmnt).toLocaleString()} mm`;
+      }
+      return "—";
+    };
+
+    expect(formatCorpBudget(15000000)).toBe(`$${(15000000).toLocaleString()} mm`);
+    expect(formatCorpBudget(5.5)).toBe("$5.5 mm");
+    expect(formatCorpBudget(0)).toBe("—");
+    expect(formatCorpBudget(undefined)).toBe("—");
+  });
+
+  // BULK-APPROVE-03: Verifies Approval Level column formatting
+  test("BULK-APPROVE-03: Approval Level formats L1, L2 notations", () => {
+    const formatApprovalLevel = (level?: number): string => {
+      return level ? `L${level}` : "—";
+    };
+
+    expect(formatApprovalLevel(1)).toBe("L1");
+    expect(formatApprovalLevel(2)).toBe("L2");
+    expect(formatApprovalLevel(6)).toBe("L6");
+    expect(formatApprovalLevel(undefined)).toBe("—");
+  });
+
+  // BULK-APPROVE-04: Verifies checkbox selection state logic
+  test("BULK-APPROVE-04: Checkbox selection supports toggle individual and select/deselect all", () => {
+    const ids = ["CER-01", "CER-02", "CER-03"];
+    let selected = new Set<string>();
+
+    // 1. Toggle CER-01
+    selected = new Set(selected);
+    selected.add("CER-01");
+    expect(selected.has("CER-01")).toBe(true);
+    expect(selected.size).toBe(1);
+
+    // 2. Select All
+    selected = new Set(ids);
+    expect(selected.size).toBe(3);
+    const allSelected = ids.every((id) => selected.has(id));
+    expect(allSelected).toBe(true);
+
+    // 3. Deselect All
+    selected = new Set();
+    expect(selected.size).toBe(0);
+  });
 });

@@ -6,19 +6,17 @@ import {
   Search,
   ArrowLeft,
   RotateCw,
+  ArrowUpDown,
 } from "lucide-react";
 import { ICERProposal } from "../../models/CERModel";
-import { IWorkflowLevel, isProjectOwnerStage } from "../../models/WorkflowModel";
+import { IWorkflowLevel } from "../../models/WorkflowModel";
 import { ICERAttachment } from "../../models/AttachmentModel";
 import { IAppUser } from "../../models/UserModel";
 import { ICERDataService } from "../../services/ICERDataService";
-import { StatusBadge } from '../Shared/StatusBadge';
-import { CategoryBadge } from '../Shared/CategoryBadge';
-import { ApprovalDecisionModal } from '../ApprovalWorkflow/ApprovalDecisionModal';
-import { useDynamicPagination } from "../../hooks/useDynamicPagination";
-import { DataTablePagination } from '../Shared/DataTablePagination';
+import { CategoryBadge } from "../Shared/CategoryBadge";
+import { ApprovalDecisionModal } from "../ApprovalWorkflow/ApprovalDecisionModal";
+import { BulkApprovalModal } from "./BulkApprovalModal";
 import { PermissionService } from "../../services/PermissionService";
-import { stripAttachmentsManifest } from "../../utils/sanitizationUtils";
 
 interface IPendingApprovalsViewProps {
   dataService: ICERDataService;
@@ -43,13 +41,20 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
   const [levels, setLevels] = useState<IWorkflowLevel[]>(initialWorkflowLevels || []);
   const [isLoading, setIsLoading] = useState<boolean>(!initialProposals || initialProposals.length === 0);
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortField, setSortField] = useState<string>("amount");
+  const [sortAsc, setSortAsc] = useState<boolean>(false);
   const [selectedProposal, setSelectedProposal] = useState<ICERProposal | null>(null);
   const [selectedAttachments, setSelectedAttachments] = useState<ICERAttachment[]>([]);
   const [isDecisionModalOpen, setIsDecisionModalOpen] = useState(false);
   const [openingProposalId, setOpeningProposalId] = useState<string | null>(null);
   const activeRequestIdRef = useRef<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
+
+  // Bulk Approval State
+  const [selectedProposalIds, setSelectedProposalIds] = useState<Set<string>>(new Set());
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+  const [bulkProgressText, setBulkProgressText] = useState("");
 
   useEffect(() => {
     if (initialProposals !== undefined) {
@@ -87,10 +92,8 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
     }
   };
 
-  const handleManualRefresh = async (): Promise<void> => {
-    // Prevent background refresh during modal review or when button is already clicked
-    if (isRefreshing || isDecisionModalOpen || openingProposalId) return;
-    setIsRefreshing(true);
+  const handleSilentRefresh = async (): Promise<void> => {
+    if (isDecisionModalOpen || openingProposalId || isBulkProcessing) return;
     try {
       if (onRefreshProposals) {
         await onRefreshProposals();
@@ -99,8 +102,6 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
       }
     } catch (e) {
       console.error("Error refreshing pending approvals queue:", e);
-    } finally {
-      setIsRefreshing(false);
     }
   };
 
@@ -108,12 +109,11 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
   useEffect(() => {
     let lastCheck = Date.now();
     const handleVisibilityChange = () => {
-      // Pause revalidation while user is actively reviewing or deciding on a proposal
-      if (document.visibilityState === "visible" && !isDecisionModalOpen && !openingProposalId) {
+      if (document.visibilityState === "visible" && !isDecisionModalOpen && !openingProposalId && !isBulkProcessing) {
         const now = Date.now();
         if (now - lastCheck > 25000) {
           lastCheck = now;
-          handleManualRefresh().catch((err) => console.error(err));
+          handleSilentRefresh().catch((err) => console.error(err));
         }
       }
     };
@@ -124,7 +124,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", handleVisibilityChange);
     };
-  }, [isDecisionModalOpen, openingProposalId]);
+  }, [isDecisionModalOpen, openingProposalId, isBulkProcessing]);
 
   useEffect(() => {
     if (!initialProposals || initialProposals.length === 0 || !initialWorkflowLevels || initialWorkflowLevels.length === 0) {
@@ -167,6 +167,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
 
       return PermissionService.canApproveCER(p, currentUser, stageConfig).allowed;
     }).filter((p) => {
+      // Search query across ID, Number, Project Name, Owner, SBU
       if (!searchTerm.trim()) return true;
       const q = searchTerm.toLowerCase();
       const idMatch = (p.cer_proposal_id || "").toLowerCase().includes(q);
@@ -174,19 +175,164 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
       const cerMatch = (p.cerprno || "").toLowerCase().includes(q);
       const nameMatch = (p.pr_name || "").toLowerCase().includes(q);
       const ownerMatch = (p.owname || "").toLowerCase().includes(q);
-      return idMatch || noMatch || cerMatch || nameMatch || ownerMatch;
+      const sbuMatch = (p.sbu || "").toLowerCase().includes(q);
+      return idMatch || noMatch || cerMatch || nameMatch || ownerMatch || sbuMatch;
     });
   }, [proposals, levels, currentUser, searchTerm]);
 
-  // Fully Automatic Dynamic Table Pagination
-  const pagination = useDynamicPagination({
-    totalItems: pendingList.length,
-    defaultRowHeight: 160,
-    minPageSize: 1,
-    bufferBottom: 24,
-  });
+  // Column Sorting Logic
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(field);
+      setSortAsc(false); // Default descending for financial metrics
+    }
+  };
 
-  const visiblePendingList = pagination.paginateItems(pendingList);
+  const sortedPendingList = React.useMemo(() => {
+    const list = [...pendingList];
+    list.sort((a, b) => {
+      let valA: any;
+      let valB: any;
+
+      switch (sortField) {
+        case "cer_proposal_id":
+          valA = a.cer_proposal_id || a.cerprno || "";
+          valB = b.cer_proposal_id || b.cerprno || "";
+          break;
+        case "pr_name":
+          valA = a.pr_name || "";
+          valB = b.pr_name || "";
+          break;
+        case "cat":
+          valA = a.cat || "";
+          valB = b.cat || "";
+          break;
+        case "current_level":
+          valA = a.current_level ?? 0;
+          valB = b.current_level ?? 0;
+          break;
+        case "payable":
+          valA = a.payable || "";
+          valB = b.payable || "";
+          break;
+        case "ben_npv":
+          valA = a.ben_npv ?? 0;
+          valB = b.ben_npv ?? 0;
+          break;
+        case "cb_amnt":
+          valA = a.cb_amnt ?? 0;
+          valB = b.cb_amnt ?? 0;
+          break;
+        case "amount":
+        default:
+          valA = a.amount ?? 0;
+          valB = b.amount ?? 0;
+          break;
+      }
+
+      if (valA === valB) return 0;
+      if (valA === undefined || valA === null) return 1;
+      if (valB === undefined || valB === null) return -1;
+
+      if (typeof valA === "number" && typeof valB === "number") {
+        return sortAsc ? valA - valB : valB - valA;
+      }
+      return sortAsc
+        ? String(valA).localeCompare(String(valB))
+        : String(valB).localeCompare(String(valA));
+    });
+    return list;
+  }, [pendingList, sortField, sortAsc]);
+
+  // Bulk Selection Calculations
+  const selectedProposalsList = React.useMemo(() => {
+    return sortedPendingList.filter((p) => selectedProposalIds.has(p.cerprno));
+  }, [sortedPendingList, selectedProposalIds]);
+
+  const totalPendingAmount = React.useMemo(() => {
+    return pendingList.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  }, [pendingList]);
+
+  const selectedPendingAmount = React.useMemo(() => {
+    return selectedProposalsList.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  }, [selectedProposalsList]);
+
+  const allVisibleSelected =
+    sortedPendingList.length > 0 &&
+    sortedPendingList.every((p) => selectedProposalIds.has(p.cerprno));
+
+  const handleToggleSelectOne = (cerprno: string) => {
+    setSelectedProposalIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(cerprno)) {
+        next.delete(cerprno);
+      } else {
+        next.add(cerprno);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    if (allVisibleSelected) {
+      setSelectedProposalIds(new Set());
+    } else {
+      const allIds = new Set(sortedPendingList.map((p) => p.cerprno));
+      setSelectedProposalIds(allIds);
+    }
+  };
+
+  // Bulk Approval Execution (Sequential loop with full safeguard compliance)
+  const handleConfirmBulkApprove = async (bulkComments: string) => {
+    if (selectedProposalsList.length === 0) return;
+    setIsBulkProcessing(true);
+    const totalToApprove = selectedProposalsList.length;
+    let approvedCount = 0;
+    const errors: string[] = [];
+
+    try {
+      for (let i = 0; i < selectedProposalsList.length; i++) {
+        const prop = selectedProposalsList[i];
+        setBulkProgressText(
+          `Approving proposal ${i + 1} of ${totalToApprove} (${prop.cer_proposal_id || prop.cerprno})...`
+        );
+        try {
+          await dataService.recordDecision({
+            cerprno: prop.cerprno,
+            level_id: prop.current_level,
+            approver_name: currentUser.name,
+            approver_email: currentUser.email,
+            decision: "APPROVED",
+            comments: bulkComments,
+          });
+          approvedCount++;
+        } catch (err: any) {
+          console.error(`[PendingApprovalsView] Failed to bulk approve ${prop.cerprno}:`, err);
+          errors.push(`${prop.cer_proposal_id || prop.cerprno}: ${err?.message || "Approval failed"}`);
+        }
+      }
+
+      if (errors.length === 0) {
+        setFeedbackNotice(
+          `Successfully approved all ${approvedCount} proposal${approvedCount === 1 ? "" : "s"}. Advanced to respective next approval levels.`
+        );
+      } else {
+        setFeedbackNotice(
+          `Approved ${approvedCount} of ${totalToApprove} proposals. ${errors.length} proposal(s) encountered an issue.`
+        );
+      }
+
+      setSelectedProposalIds(new Set());
+      setIsBulkModalOpen(false);
+      await onRefreshProposals();
+      await loadData(true);
+    } finally {
+      setIsBulkProcessing(false);
+      setBulkProgressText("");
+    }
+  };
 
   const handleOpenDecision = async (prop: ICERProposal) => {
     const requestId = prop.cerprno;
@@ -258,7 +404,7 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
       decision === "APPROVED"
         ? `Proposal ${selectedProposal.cerprno} successfully APPROVED. Advanced to ${result.newStatus}.`
         : decision === "SENT_BACK" || (decision as any) === "SEND_BACK"
-        ? `Proposal ${selectedProposal.cerprno} SEND BACK to Initiator for revision.`
+        ? `Proposal ${selectedProposal.cerprno} SENT BACK to Initiator for revision.`
         : `Proposal ${selectedProposal.cerprno} REJECTED.`
     );
 
@@ -267,8 +413,8 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Header */}
+    <div className="space-y-4 sm:space-y-5">
+      {/* Header & Controls */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           {onCancel && (
@@ -285,45 +431,64 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
               Pending Approvals
             </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Review and act on capital expenditure requests awaiting your approval
+            </p>
           </div>
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto">
-          <div className="relative w-full sm:w-56 md:w-64">
+          {/* Search proposals */}
+          <div className="relative w-full sm:w-56 md:w-60">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                pagination.setCurrentPage(1);
-              }}
+              onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search queue..."
-              className="w-full sm:w-56 md:w-64 h-10 pl-9 pr-3.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
+              className="w-full h-10 pl-9 pr-3.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964] transition-all"
             />
           </div>
 
           <div className="flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
+            {/* CER Amount Total */}
+            <div className="flex-1 sm:flex-initial flex items-center gap-2 h-10 px-3.5 bg-slate-50 border border-slate-200/90 rounded-xl shadow-2xs whitespace-nowrap">
+              <span className="text-xs text-slate-500 font-medium">Total CER:</span>
+              <span className="font-mono font-extrabold text-xs sm:text-sm text-slate-900">
+                USD {totalPendingAmount.toLocaleString()}
+              </span>
+              {selectedProposalIds.size > 0 && (
+                <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  {selectedProposalIds.size} sel (USD {selectedPendingAmount.toLocaleString()})
+                </span>
+              )}
+            </div>
+
+            {/* Bulk Approve Button: Disabled/grey when 0 selected, clickable light green when >= 1 selected */}
             <button
               type="button"
-              onClick={handleManualRefresh}
-              disabled={isRefreshing}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 h-10 px-4 bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 hover:text-[#012964] transition-all shadow-2xs cursor-pointer disabled:opacity-60 whitespace-nowrap"
-              title="Check for new approval tasks immediately without reloading browser"
+              onClick={() => setIsBulkModalOpen(true)}
+              disabled={selectedProposalIds.size === 0}
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 h-10 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-2xs select-none ${
+                selectedProposalIds.size > 0
+                  ? "bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white shadow-emerald-500/20 cursor-pointer hover:scale-[1.02]"
+                  : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-90"
+              }`}
+              title={
+                selectedProposalIds.size > 0
+                  ? `Click to bulk approve ${selectedProposalIds.size} selected proposal${selectedProposalIds.size === 1 ? "" : "s"}`
+                  : "Select one or more proposals via checkbox to enable bulk approval"
+              }
             >
-              <RotateCw className={`w-4 h-4 text-slate-500 ${isRefreshing ? "animate-spin text-[#012964]" : ""}`} />
-              <span>{isRefreshing ? "Checking..." : "Refresh"}</span>
+              <CheckSquare className="w-4 h-4" />
+              <span>Bulk Approve {selectedProposalIds.size > 0 ? `(${selectedProposalIds.size})` : ""}</span>
             </button>
-
-            <span className="flex-1 sm:flex-initial flex items-center justify-center h-10 text-xs sm:text-sm font-bold px-3 sm:px-4 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 shrink-0 shadow-2xs whitespace-nowrap">
-              {pendingList.length} Pending
-            </span>
           </div>
         </div>
       </div>
 
       {feedbackNotice && (
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center justify-between animate-fade-in">
+        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center justify-between animate-fade-in shadow-2xs">
           <div className="flex items-center gap-2.5">
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
             <span className="font-semibold">{feedbackNotice}</span>
@@ -337,130 +502,356 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
         </div>
       )}
 
-      {/* Pending Items Cards Grid */}
-      <div
-        ref={pagination.tableContainerRef}
-        className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden flex flex-col"
-      >
-        <div data-role="list-wrapper" className="p-3.5 sm:p-4 space-y-3">
-          {isLoading && proposals.length === 0 ? (
-            <div className="space-y-3">
-              {[1, 2].map((idx) => (
-                <div key={idx} className="bg-slate-50/50 rounded-xl border border-slate-200 p-3.5 sm:p-4 animate-pulse">
-                  <div className="h-4 bg-slate-200 rounded w-1/4 mb-3" />
-                  <div className="h-6 bg-slate-200 rounded w-1/2 mb-2" />
-                  <div className="h-3 bg-slate-200 rounded w-1/3" />
-                </div>
-              ))}
-            </div>
-          ) : visiblePendingList.length === 0 ? (
-            <div className="py-12 text-center text-slate-400">
-              <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-500 mb-2 opacity-80" />
-              <h3 className="font-bold text-slate-800 text-base">No Pending Approvals</h3>
-              <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto">
-                {searchTerm
-                  ? "No matching tasks found."
-                  : "No proposals pending your approval."}
-              </p>
-            </div>
-          ) : (
-            visiblePendingList.map((prop) => {
-              const currentLevelCfg = levels.find((l) => l.level_id === prop.current_level);
-
-              return (
-                <div
-                  key={prop.id}
-                  data-role="list-item"
-                  className="bg-slate-50/50 hover:bg-slate-50 rounded-xl border border-slate-200 p-3.5 sm:p-4 shadow-2xs hover:shadow-subtle transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4"
+      {/* Modern Enterprise Data Table */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden flex flex-col">
+        <div className="overflow-x-auto max-h-[calc(100vh-230px)] min-h-[300px] overflow-y-auto">
+          <table className="w-full text-left border-collapse min-w-[980px]">
+            {/* Sticky Header */}
+            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] sm:text-xs font-semibold text-slate-600 uppercase tracking-wider sticky top-0 z-10 shadow-2xs">
+              <tr>
+                {/* 1. Proposal ID */}
+                <th
+                  onClick={() => handleSort("cer_proposal_id")}
+                  className="py-3 px-3.5 sm:px-4 cursor-pointer hover:bg-slate-100/80 transition-colors select-none"
                 >
-                  <div className="space-y-2 min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono font-bold text-xs sm:text-[13px] text-slate-900 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs" title="CER Proposal ID">
-                        {prop.cer_proposal_id || prop.cerprno}
-                      </span>
-                      <CategoryBadge category={prop.cat} />
-                      <StatusBadge status={prop.status} size="sm" />
-                      <span className="text-xs sm:text-[13px] font-bold text-[#012964] bg-[#012964]/10 px-2.5 py-1 rounded-md border border-[#012964]/20">
-                        {currentLevelCfg?.level_name || prop.pending_with_role || `Level ${prop.current_level}`}
-                      </span>
-                    </div>
-
-                    <h3 className="font-bold text-base sm:text-lg text-slate-900 leading-snug">
-                      {prop.pr_name}
-                    </h3>
-
-                    <p className="text-xs sm:text-sm text-slate-600 flex flex-wrap gap-x-2.5 gap-y-1 items-center">
-                      <span>Owner: <strong className="text-slate-800 font-semibold">{prop.owname}</strong></span>
-                      <span>•</span>
-                      <span>SBU: <strong className="text-slate-800 font-semibold">{prop.sbu}</strong></span>
-                      <span>•</span>
-                      <span>Duration: <strong className="text-slate-800 font-semibold">{prop.period}</strong></span>
-                    </p>
-
-                    <p className="text-xs sm:text-sm text-slate-700 line-clamp-2 bg-white px-3 py-2 rounded-xl border border-slate-200/90 leading-relaxed">
-                      {stripAttachmentsManifest(prop.remarks) || "No narrative remarks provided."}
-                    </p>
+                  <div className="flex items-center gap-1.5">
+                    <span>Proposal ID</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
                   </div>
+                </th>
 
-                  <div className="flex flex-col sm:flex-row md:flex-col items-start sm:items-center md:items-end justify-between shrink-0 gap-3 border-t md:border-t-0 pt-3 md:pt-0 border-slate-200">
-                    <div>
-                      <span className="text-xs sm:text-[13px] uppercase font-bold text-slate-500 block md:text-right tracking-wider">
-                        Expenditure Amount
-                      </span>
-                      <p className="text-xl sm:text-2xl font-extrabold text-slate-900 md:text-right tracking-tight mt-0.5">
-                        {prop.currency} {prop.amount.toLocaleString()}
+                {/* 2. Project Name */}
+                <th
+                  onClick={() => handleSort("pr_name")}
+                  className="py-3 px-3.5 sm:px-4 cursor-pointer hover:bg-slate-100/80 transition-colors select-none"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Project Name</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                  </div>
+                </th>
+
+                {/* 3. Category */}
+                <th
+                  onClick={() => handleSort("cat")}
+                  className="py-3 px-3.5 sm:px-4 cursor-pointer hover:bg-slate-100/80 transition-colors select-none"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Category</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                  </div>
+                </th>
+
+                {/* 4. Approval Level (e.g. L1, L2) */}
+                <th
+                  onClick={() => handleSort("current_level")}
+                  className="py-3 px-3.5 sm:px-4 text-center cursor-pointer hover:bg-slate-100/80 transition-colors select-none"
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span>Approval Level</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                  </div>
+                </th>
+
+                {/* 5. Payback */}
+                <th
+                  onClick={() => handleSort("payable")}
+                  className="py-3 px-3.5 sm:px-4 cursor-pointer hover:bg-slate-100/80 transition-colors select-none"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Payback</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                  </div>
+                </th>
+
+                {/* 6. NPV / IRR */}
+                <th
+                  onClick={() => handleSort("ben_npv")}
+                  className="py-3 px-3.5 sm:px-4 cursor-pointer hover:bg-slate-100/80 transition-colors select-none"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>NPV / IRR</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                  </div>
+                </th>
+
+                {/* 7. Corporate Budget Amount */}
+                <th
+                  onClick={() => handleSort("cb_amnt")}
+                  className="py-3 px-3.5 sm:px-4 text-right cursor-pointer hover:bg-slate-100/80 transition-colors select-none"
+                >
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span>Corporate Budget</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                  </div>
+                </th>
+
+                {/* 8. CER Amount */}
+                <th
+                  onClick={() => handleSort("amount")}
+                  className="py-3 px-3.5 sm:px-4 text-right cursor-pointer hover:bg-slate-100/80 transition-colors select-none"
+                >
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span>CER Amount</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                  </div>
+                </th>
+
+                {/* 9. Checkbox Option for Bulk Approval */}
+                <th className="py-3 px-3 text-center w-12 select-none">
+                  <div className="flex items-center justify-center">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={handleToggleSelectAll}
+                      title={allVisibleSelected ? "Deselect all proposals" : "Select all proposals for bulk approval"}
+                      aria-label="Select all proposals"
+                      className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                  </div>
+                </th>
+
+                {/* 10. Action */}
+                <th className="py-3 px-3.5 sm:px-4 text-right select-none">
+                  <span>Action</span>
+                </th>
+              </tr>
+            </thead>
+
+            {/* Table Body */}
+            <tbody className="divide-y divide-slate-100 text-xs sm:text-sm font-medium text-slate-700">
+              {isLoading && proposals.length === 0 ? (
+                // Compact Skeleton Rows
+                <>
+                  {[1, 2, 3, 4].map((idx) => (
+                    <tr key={idx} className="animate-pulse">
+                      <td className="py-3.5 px-3.5 sm:px-4">
+                        <div className="h-4 bg-slate-200 rounded w-24" />
+                      </td>
+                      <td className="py-3.5 px-3.5 sm:px-4">
+                        <div className="h-4 bg-slate-200 rounded w-40 mb-1.5" />
+                        <div className="h-3 bg-slate-100 rounded w-24" />
+                      </td>
+                      <td className="py-3.5 px-3.5 sm:px-4">
+                        <div className="h-5 bg-slate-200 rounded w-16" />
+                      </td>
+                      <td className="py-3.5 px-3.5 sm:px-4 text-center">
+                        <div className="h-5 bg-slate-200 rounded w-10 mx-auto" />
+                      </td>
+                      <td className="py-3.5 px-3.5 sm:px-4">
+                        <div className="h-4 bg-slate-200 rounded w-18" />
+                      </td>
+                      <td className="py-3.5 px-3.5 sm:px-4">
+                        <div className="h-4 bg-slate-200 rounded w-18" />
+                      </td>
+                      <td className="py-3.5 px-3.5 sm:px-4 text-right">
+                        <div className="h-4 bg-slate-200 rounded w-20 ml-auto" />
+                      </td>
+                      <td className="py-3.5 px-3.5 sm:px-4 text-right">
+                        <div className="h-4 bg-slate-200 rounded w-22 ml-auto" />
+                      </td>
+                      <td className="py-3.5 px-3 text-center">
+                        <div className="h-4 bg-slate-200 rounded w-4 mx-auto" />
+                      </td>
+                      <td className="py-3.5 px-3.5 sm:px-4 text-right">
+                        <div className="h-8 bg-slate-200 rounded w-24 ml-auto" />
+                      </td>
+                    </tr>
+                  ))}
+                </>
+              ) : sortedPendingList.length === 0 ? (
+                // Empty State
+                <tr>
+                  <td colSpan={10} className="py-14 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <CheckCircle2 className="w-10 h-10 text-emerald-500 opacity-80" />
+                      <h3 className="font-bold text-slate-800 text-base">No Pending Approvals</h3>
+                      <p className="text-xs sm:text-sm text-slate-500 max-w-sm">
+                        {searchTerm
+                          ? "No matching tasks found for your search."
+                          : "You have reviewed all pending proposals. No tasks currently awaiting your action."}
                       </p>
+                      {searchTerm && (
+                        <button
+                          onClick={() => setSearchTerm("")}
+                          className="mt-2 text-xs font-bold text-[#012964] hover:underline cursor-pointer"
+                        >
+                          Clear search
+                        </button>
+                      )}
                     </div>
+                  </td>
+                </tr>
+              ) : (
+                // Rendered Rows
+                sortedPendingList.map((prop) => {
+                  const currentLevelCfg = levels.find((l) => l.level_id === prop.current_level);
+                  const isSelected = selectedProposalIds.has(prop.cerprno);
 
-                    <div className="flex items-center gap-2.5 w-full sm:w-auto">
-                      <button
-                        onClick={() => onNavigateToDisplay(prop.cerprno)}
-                        className="flex-1 sm:flex-initial h-10 px-4 text-sm font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-                      >
-                        <Eye className="w-4 h-4 text-slate-500" />
-                        <span>Details</span>
-                      </button>
+                  return (
+                    <tr
+                      key={prop.id || prop.cerprno}
+                      data-role="list-item"
+                      className={`hover:bg-slate-50/80 transition-colors group ${
+                        isSelected ? "bg-emerald-50/40" : ""
+                      }`}
+                    >
+                      {/* 1. Proposal ID */}
+                      <td className="py-3 px-3.5 sm:px-4 whitespace-nowrap">
+                        <div className="flex flex-col">
+                          <span
+                            className="font-mono font-bold text-xs sm:text-[13px] text-slate-900 group-hover:text-[#012964] transition-colors"
+                            title="CER Permanent Identifier"
+                          >
+                            {prop.cer_proposal_id || prop.cerprno}
+                          </span>
+                          {prop.proposal_no && prop.proposal_no !== (prop.cer_proposal_id || prop.cerprno) && (
+                            <span
+                              className="text-[11px] text-slate-400 font-mono"
+                              title="Initiator Alphanumeric Reference"
+                            >
+                              {prop.proposal_no}
+                            </span>
+                          )}
+                        </div>
+                      </td>
 
-                      <button
-                        onClick={() => handleOpenDecision(prop)}
-                        disabled={openingProposalId === prop.cerprno}
-                        className="flex-1 sm:flex-initial h-10 px-5 text-sm font-semibold text-white bg-[#012964] hover:bg-[#001f4d] rounded-xl shadow-md shadow-[#012964]/25 transition-all hover:scale-[1.02] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-75 disabled:pointer-events-none"
-                      >
-                        {openingProposalId === prop.cerprno ? (
-                          <RotateCw className="w-4 h-4 animate-spin" />
+                      {/* 2. Project Name */}
+                      <td className="py-3 px-3.5 sm:px-4 min-w-[180px] max-w-[260px] lg:max-w-[300px]">
+                        <div
+                          className="font-semibold text-slate-900 text-xs sm:text-sm truncate leading-snug cursor-default"
+                          title={prop.pr_name}
+                        >
+                          {prop.pr_name}
+                        </div>
+                        <div className="text-[11px] text-slate-500 truncate flex items-center gap-1.5 mt-0.5">
+                          <span title={`Owner: ${prop.owname}`}>{prop.owname}</span>
+                          <span>•</span>
+                          <span className="font-medium text-slate-600">{prop.sbu}</span>
+                        </div>
+                      </td>
+
+                      {/* 3. Category */}
+                      <td className="py-3 px-3.5 sm:px-4 whitespace-nowrap">
+                        <CategoryBadge category={prop.cat} />
+                      </td>
+
+                      {/* 4. Approval Level (e.g. L1, L2) */}
+                      <td className="py-3 px-3.5 sm:px-4 whitespace-nowrap text-center">
+                        <span
+                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-[#012964]/10 text-[#012964] border border-[#012964]/20"
+                          title={currentLevelCfg?.level_name || prop.pending_with_role || `Level ${prop.current_level}`}
+                        >
+                          L{prop.current_level}
+                        </span>
+                      </td>
+
+                      {/* 5. Payback */}
+                      <td className="py-3 px-3.5 sm:px-4 whitespace-nowrap text-xs font-medium text-slate-700">
+                        {prop.payable === "Non Payback" || prop.payable === "Non-Payback" ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                            Non Payback
+                          </span>
+                        ) : prop.payback_quarters && Number(prop.payback_quarters) > 0 ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            {prop.payback_quarters} Quarters
+                          </span>
                         ) : (
-                          <CheckSquare className="w-4 h-4" />
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            Payback
+                          </span>
                         )}
-                        <span>{openingProposalId === prop.cerprno ? "Opening..." : "Review"}</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
+                      </td>
+
+                      {/* 6. NPV / IRR */}
+                      <td className="py-3 px-3.5 sm:px-4 whitespace-nowrap">
+                        <div className="flex flex-col text-xs leading-tight">
+                          <span className="font-semibold text-slate-800">
+                            {prop.ben_npv !== undefined && prop.ben_npv !== null && Number(prop.ben_npv) !== 0
+                              ? `$${Number(prop.ben_npv).toLocaleString()} mm`
+                              : "—"}
+                          </span>
+                          <span className="text-[11px] text-slate-500 font-medium">
+                            {prop.ben_irr !== undefined && prop.ben_irr !== null && Number(prop.ben_irr) !== 0
+                              ? `${prop.ben_irr}% IRR`
+                              : "—"}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* 7. Corporate Budget Amount */}
+                      <td className="py-3 px-3.5 sm:px-4 text-right whitespace-nowrap">
+                        <div className="font-semibold text-slate-800 text-xs sm:text-sm font-mono">
+                          {prop.cb_amnt !== undefined && prop.cb_amnt !== null && Number(prop.cb_amnt) > 0
+                            ? `$${Number(prop.cb_amnt).toLocaleString()} mm`
+                            : "—"}
+                        </div>
+                      </td>
+
+                      {/* 8. CER Amount */}
+                      <td className="py-3 px-3.5 sm:px-4 text-right whitespace-nowrap">
+                        <div className="font-extrabold text-slate-900 font-mono text-xs sm:text-sm">
+                          {prop.currency || "USD"} {Number(prop.amount || 0).toLocaleString()}
+                        </div>
+                      </td>
+
+                      {/* 9. Checkbox Option for Bulk Approval */}
+                      <td className="py-3 px-3 text-center whitespace-nowrap w-12">
+                        <div className="flex items-center justify-center">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleSelectOne(prop.cerprno)}
+                            title={`Select ${prop.cer_proposal_id || prop.cerprno} for bulk approval`}
+                            aria-label={`Select ${prop.cer_proposal_id || prop.cerprno}`}
+                            className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                          />
+                        </div>
+                      </td>
+
+                      {/* 10. Action */}
+                      <td className="py-3 px-3.5 sm:px-4 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-2">
+                          {/* Details: Secondary eye-icon button */}
+                          <button
+                            type="button"
+                            onClick={() => onNavigateToDisplay(prop.cerprno)}
+                            className="inline-flex items-center justify-center p-2 text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 hover:border-slate-300 rounded-lg shadow-2xs transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#012964]/20"
+                            title="View Proposal Details (Read-only)"
+                            aria-label={`View details for ${prop.cer_proposal_id || prop.cerprno}`}
+                          >
+                            <Eye className="w-4 h-4 text-slate-600" />
+                          </button>
+
+                          {/* Review: Prominent primary button */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDecision(prop)}
+                            disabled={openingProposalId === prop.cerprno}
+                            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-[#012964] hover:bg-[#001f4d] active:bg-[#001737] rounded-lg shadow-xs shadow-[#012964]/20 hover:shadow-md transition-all cursor-pointer disabled:opacity-75 disabled:pointer-events-none whitespace-nowrap"
+                            title="Review and Record Decision"
+                          >
+                            {openingProposalId === prop.cerprno ? (
+                              <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <CheckSquare className="w-3.5 h-3.5" />
+                            )}
+                            <span>{openingProposalId === prop.cerprno ? "Opening..." : "Review"}</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
 
-        {/* Dynamic Pagination Bar */}
-        <DataTablePagination
-          currentPage={pagination.currentPage}
-          totalPages={pagination.totalPages}
-          totalItems={pendingList.length}
-          startIndex={pagination.startIndex}
-          endIndex={pagination.endIndex}
-          pageSizeSetting={pagination.pageSizeSetting}
-          effectivePageSize={pagination.effectivePageSize}
-          onPageChange={pagination.setCurrentPage}
-          onPageSizeChange={pagination.setPageSizeSetting}
-          onPrevPage={pagination.goToPrevPage}
-          onNextPage={pagination.goToNextPage}
-          onFirstPage={pagination.goToFirstPage}
-          onLastPage={pagination.goToLastPage}
-          itemName="tasks"
-        />
+
       </div>
 
-      {/* Decision Modal */}
+      {/* Individual Decision Modal */}
       {selectedProposal && isDecisionModalOpen && (
         <ApprovalDecisionModal
           key={`${selectedProposal.cerprno}-${selectedProposal.current_level}-${isDecisionModalOpen}`}
@@ -486,6 +877,22 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
             setSelectedProposal(null);
           }}
           onSubmitDecision={handleSubmitDecision}
+        />
+      )}
+
+      {/* Bulk Approval Modal */}
+      {isBulkModalOpen && (
+        <BulkApprovalModal
+          isOpen={isBulkModalOpen}
+          onClose={() => {
+            if (!isBulkProcessing) {
+              setIsBulkModalOpen(false);
+            }
+          }}
+          selectedProposals={selectedProposalsList}
+          onConfirmBulkApprove={handleConfirmBulkApprove}
+          isProcessing={isBulkProcessing}
+          progressText={bulkProgressText}
         />
       )}
     </div>
