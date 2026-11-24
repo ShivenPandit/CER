@@ -2041,7 +2041,15 @@ export class SharePointCERDataService implements ICERDataService {
       const l1Role = updatedProposal.pending_with_role || "Finance";
       const approverEmails = pendingEmailsList.filter(Boolean).join("; ");
       if (approverEmails) {
-        const approverEmailData = EmailTemplateService.renderSubmissionApproverEmail(updatedProposal, l1Role);
+        let v1Amount: number | undefined = undefined;
+        if (isApprovedOriginal || (original.revision_count || 0) > 0) {
+          v1Amount = await this._getV1AmountForProposal(cleanProposal, original);
+        }
+        const approverEmailData = EmailTemplateService.renderSubmissionApproverEmail(
+          updatedProposal,
+          l1Role,
+          { v1Amount }
+        );
         await this._triggerEmailNotification({
           cerPrId,
           scenario: "Resubmission",
@@ -2757,6 +2765,43 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     return result;
+  }
+
+  /**
+   * Resolves the original baseline approved (V1) amount for a proposal if it is undergoing a post-approval revision.
+   */
+  private async _getV1AmountForProposal(proposal: ICERProposal, priorOriginal?: ICERProposal): Promise<number | undefined> {
+    try {
+      const cerId = (proposal.cer_proposal_id || proposal.cerprno || "").trim();
+      if (!cerId) return undefined;
+
+      // 1. If priorOriginal was the baseline V1 (revision_count == 0), its amount is the V1 amount
+      if (priorOriginal && (Number(priorOriginal.revision_count) || 0) === 0 && priorOriginal.amount !== undefined) {
+        return Number(priorOriginal.amount);
+      }
+
+      // 2. Query CERProposalsHistory snapshots
+      const { history } = await this.getAllSubmissionsForCER(cerId);
+      if (history && history.length > 0) {
+        const v1 = history.find((h) => String((h as any).version || (h as any).Version || "").trim().toUpperCase() === "V1") || history[0];
+        if (v1 && v1.amount !== undefined && v1.amount !== null) {
+          return Number(v1.amount);
+        }
+      }
+
+      // 3. Fallback: check earliest audit trail record for amount
+      const audits = await this.getAuditTrail(cerId);
+      const amountAudits = audits.filter((a) => a.field_name === "amount" && a.old_value);
+      if (amountAudits.length > 0) {
+        const earliest = amountAudits[amountAudits.length - 1];
+        if (earliest && earliest.old_value && !isNaN(Number(earliest.old_value))) {
+          return Number(earliest.old_value);
+        }
+      }
+    } catch (e) {
+      console.warn("[SharePointCERDataService] Warning resolving V1 amount for post-approval email:", e);
+    }
+    return undefined;
   }
 
   // ---------------------------------------------------------------------------
@@ -3669,12 +3714,17 @@ export class SharePointCERDataService implements ICERDataService {
           // Stage Advancement: notify next level approvers and owner update
           const nextApproverEmails = nextEmailsList.filter(Boolean).join("; ");
           if (nextApproverEmails) {
+            let v1Amount: number | undefined = undefined;
+            if ((existingProposal.revision_count || 0) > 0 || /-R\d+$/i.test(existingProposal.proposal_no || "")) {
+              v1Amount = await this._getV1AmountForProposal(existingProposal);
+            }
             const approverEmailData = EmailTemplateService.renderStageAdvancementApproverEmail(
               existingProposal,
               params.approver_name,
               params.comments,
               nextLevel,
-              nextRole
+              nextRole,
+              { v1Amount }
             );
             notificationsToQueue.push({
               cerPrId,

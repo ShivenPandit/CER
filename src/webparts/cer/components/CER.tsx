@@ -71,9 +71,9 @@ const CER: React.FC<ICERProps> = (props) => {
     const firstSegment = parts[0] as NavView;
     const propId = parts.length > 1 ? parts.slice(1).join("/") : undefined;
 
-    // Approver deep-link: #pending-approvals/CER-2026-xxxx -> Display view with pending-approvals origin!
-    if (firstSegment === "pending-approvals" && propId) {
-      return { view: "display", proposalId: propId, originView: "pending-approvals" };
+    // Approver deep-link: #pending-approvals -> Navigate directly to the Pending Approvals queue page!
+    if (firstSegment === "pending-approvals") {
+      return { view: "pending-approvals", proposalId: undefined, originView: "pending-approvals" };
     }
 
     // Owner deep-link: #my-proposals/CER-2026-xxxx -> Display view with my-proposals origin!
@@ -401,7 +401,7 @@ const CER: React.FC<ICERProps> = (props) => {
     let targetHash = `#${view}`;
     if (proposalId) {
       if (view === "display" && nextParentView === "pending-approvals") {
-        targetHash = `#pending-approvals/${encodeURIComponent(proposalId)}`;
+        targetHash = `#display/${encodeURIComponent(proposalId)}?from=pending-approvals`;
       } else {
         targetHash = `#${view}/${encodeURIComponent(proposalId)}`;
       }

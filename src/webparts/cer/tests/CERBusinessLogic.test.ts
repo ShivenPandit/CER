@@ -509,6 +509,177 @@ describe("CER Management System - Business Logic & Requirements Tests", () => {
     expect(recipients).toBe("arun.kulkarni@vedanta.co.in; initiator@vedanta.co.in");
   });
 
+  // NOTIF-06: Verifies approval emails (Scenarios 1a and 2a) link to #pending-approvals
+  test("NOTIF-06: Submission approver email (Scenarios 1a & 2a) links to #pending-approvals", () => {
+    const proposal: any = {
+      cerprno: "CER-2026-0012",
+      cer_proposal_id: "CER-2026-0012",
+      pr_name: "Test Project 11",
+      sbu: "RJ North",
+      owname: "Test Owner",
+      owner_email: "test.owner@vedanta.co.in",
+      cat: "Vital",
+      amount: 50000,
+      currency: "USD",
+    };
+    const result = EmailTemplateService.renderSubmissionApproverEmail(proposal, "Finance");
+    expect(result.body).toContain("#pending-approvals");
+    expect(result.body).not.toContain("#pending-approvals/CER-2026-0012");
+    expect(result.body).toContain("Go to Pending Approvals");
+  });
+
+  // NOTIF-07: Verifies stage advancement email (Scenario 3a) links to #pending-approvals
+  test("NOTIF-07: Stage advancement approver email (Scenario 3a) links to #pending-approvals", () => {
+    const proposal: any = {
+      cerprno: "CER-2026-0012",
+      cer_proposal_id: "CER-2026-0012",
+      pr_name: "Test Project 11",
+      owname: "Test Owner",
+      owner_email: "test.owner@vedanta.co.in",
+      amount: 50000,
+      currency: "USD",
+    };
+    const result = EmailTemplateService.renderStageAdvancementApproverEmail(
+      proposal,
+      "Shiven Pandit",
+      "Approved at Level 3",
+      4,
+      "BU Director"
+    );
+    expect(result.body).toContain("#pending-approvals");
+    expect(result.body).not.toContain("#pending-approvals/CER-2026-0012");
+    expect(result.body).toContain("Go to Pending Approvals");
+  });
+
+  // NOTIF-08: Verifies owner tracking emails retain deep links to specific proposal display
+  test("NOTIF-08: Owner/Initiator tracking emails link to proposal display (#display/CER-xxxx)", () => {
+    const proposal: any = {
+      cerprno: "CER-2026-0012",
+      cer_proposal_id: "CER-2026-0012",
+      pr_name: "Test Project 11",
+      owname: "Test Owner",
+      owner_email: "test.owner@vedanta.co.in",
+    };
+    const submissionOwner = EmailTemplateService.renderSubmissionOwnerEmail(proposal, "Finance");
+    expect(submissionOwner.body).toContain("#display/CER-2026-0012");
+
+    const advancementOwner = EmailTemplateService.renderStageAdvancementOwnerEmail(
+      proposal,
+      "Shiven Pandit",
+      3,
+      4,
+      "BU Director"
+    );
+    expect(advancementOwner.body).toContain("#display/CER-2026-0012");
+
+    const finalSanction = EmailTemplateService.renderFinalSanctionEmail(proposal, "Arun Kumar", "Sanctioned");
+    expect(finalSanction.body).toContain("#display/CER-2026-0012");
+
+    const sendBack = EmailTemplateService.renderSendBackEmail(proposal, "Approver", "Please rework", 2);
+    expect(sendBack.body).toContain("#change/CER-2026-0012");
+  });
+
+  // EMAIL-REVISE-01: Verifies initial proposal email outputs redesigned details and single CER Amount
+  test("EMAIL-REVISE-01: Initial proposal email (Scenario 1a) outputs redesigned table details and single CER Amount", () => {
+    const proposal: any = {
+      cerprno: "CER-2026-0032",
+      cer_proposal_id: "CER-2026-0032",
+      pr_name: "Test Project 12",
+      owname: "Shiven Pandit (Microlink)",
+      owner_email: "shiven.pandit@microlink.in",
+      payable: "Payback",
+      payback_quarters: 4,
+      amount: 10000,
+      currency: "USD",
+      revision_count: 0,
+    };
+    const email = EmailTemplateService.renderSubmissionApproverEmail(proposal, "Finance");
+    expect(email.body).toContain("CER Proposal ID:");
+    expect(email.body).toContain("CER-2026-0032");
+    expect(email.body).toContain("Project Name:");
+    expect(email.body).toContain("Test Project 12");
+    expect(email.body).toContain("CER Owner:");
+    expect(email.body).toContain("Shiven Pandit (Microlink)");
+    expect(email.body).toContain("Payback/NonPayback:");
+    expect(email.body).toContain("Payback (4 Quarters)");
+    expect(email.body).toContain("CER Amount:</td><td class=\"val\">USD 10,000");
+    expect(email.body).not.toContain("CER Amount (V1):");
+  });
+
+  // EMAIL-REVISE-02: Verifies post-approval revision 1 outputs CER Amount (V1) and REVISED CER Amount (V2)
+  test("EMAIL-REVISE-02: Post-approval revision 1 outputs CER Amount (V1) and REVISED CER Amount (V2)", () => {
+    const proposal: any = {
+      cerprno: "CER-2026-0032",
+      cer_proposal_id: "CER-2026-0032",
+      proposal_no: "PR-2026/0012-R1",
+      pr_name: "Test Project 12",
+      owname: "Shiven Pandit (Microlink)",
+      owner_email: "shiven.pandit@microlink.in",
+      payable: "Non Payback",
+      amount: 14000,
+      currency: "USD",
+      revision_count: 1,
+    };
+    // Scenario 2a: Level 1 Approver on post-approval resubmission
+    const resubmitEmail = EmailTemplateService.renderSubmissionApproverEmail(proposal, "Finance", {
+      v1Amount: 10000,
+    });
+    expect(resubmitEmail.body).toContain("Payback/NonPayback:");
+    expect(resubmitEmail.body).toContain("Non Payback");
+    expect(resubmitEmail.body).toContain("CER Amount (V1):</td><td class=\"val\">USD 10,000");
+    expect(resubmitEmail.body).toContain("REVISED CER Amount (V2):</td><td class=\"val\">USD 14,000");
+
+    // Scenario 3a: Stage Advancement on post-approval revision
+    const stageEmail = EmailTemplateService.renderStageAdvancementApproverEmail(
+      proposal,
+      "Shiven Pandit",
+      "Approved revised scope",
+      2,
+      "Project Owner",
+      { v1Amount: 10000 }
+    );
+    expect(stageEmail.body).toContain("CER Amount (V1):</td><td class=\"val\">USD 10,000");
+    expect(stageEmail.body).toContain("REVISED CER Amount (V2):</td><td class=\"val\">USD 14,000");
+  });
+
+  // EMAIL-REVISE-03: Verifies subsequent post-approval revision 2 outputs CER Amount (V1) and REVISED CER Amount (V3)
+  test("EMAIL-REVISE-03: Subsequent post-approval revision 2 outputs CER Amount (V1) and REVISED CER Amount (V3)", () => {
+    const proposal: any = {
+      cerprno: "CER-2026-0032",
+      cer_proposal_id: "CER-2026-0032",
+      proposal_no: "PR-2026/0012-R2",
+      pr_name: "Test Project 12",
+      owname: "Shiven Pandit (Microlink)",
+      owner_email: "shiven.pandit@microlink.in",
+      payable: "Payback",
+      payback_quarters: 6,
+      amount: 18000,
+      currency: "USD",
+      revision_count: 2,
+    };
+    const email = EmailTemplateService.renderSubmissionApproverEmail(proposal, "Finance", {
+      v1Amount: 10000,
+    });
+    expect(email.body).toContain("Payback (6 Quarters)");
+    expect(email.body).toContain("CER Amount (V1):</td><td class=\"val\">USD 10,000");
+    expect(email.body).toContain("REVISED CER Amount (V3):</td><td class=\"val\">USD 18,000");
+  });
+
+  // EMAIL-PAYBACK-01: Verifies Payback/NonPayback formatting edge cases
+  test("EMAIL-PAYBACK-01: Payback/NonPayback formats quarters, without quarters, and non payback", () => {
+    const p1: any = { payable: "Payback", payback_quarters: 8 };
+    const e1 = EmailTemplateService.renderSubmissionApproverEmail(p1, "Finance");
+    expect(e1.body).toContain("Payback (8 Quarters)");
+
+    const p2: any = { payable: "Payback" };
+    const e2 = EmailTemplateService.renderSubmissionApproverEmail(p2, "Finance");
+    expect(e2.body).toContain("Payback</td>");
+
+    const p3: any = { payable: "Non-Payback" };
+    const e3 = EmailTemplateService.renderSubmissionApproverEmail(p3, "Finance");
+    expect(e3.body).toContain("Non Payback</td>");
+  });
+
   // PAYBACK-01: Payback Period (Quarters) is optional on submission
   test("PAYBACK-01: Payback Period (Quarters) is optional and does not trigger error on submission when omitted", () => {
     const validProposal: any = {

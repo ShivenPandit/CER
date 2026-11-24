@@ -74,6 +74,63 @@ function renderStakeholderGridRows(proposal: ICERProposal): string {
   return rows;
 }
 
+function formatPaybackDisplay(proposal: ICERProposal): string {
+  const payable = String(proposal.payable || "").trim();
+  const quarters = proposal.payback_quarters ? Number(proposal.payback_quarters) : 0;
+  if (payable.toLowerCase() === "non payback" || payable.toLowerCase() === "non-payback") {
+    return "Non Payback";
+  }
+  if (quarters > 0) {
+    return `Payback (${quarters} Quarters)`;
+  }
+  if (payable.toLowerCase() === "payback") {
+    return "Payback";
+  }
+  return payable || "Non Payback";
+}
+
+function renderAmountGridRows(
+  proposal: ICERProposal,
+  options?: { v1Amount?: number; currentVersionTag?: string }
+): string {
+  const revisionCount = Number(proposal.revision_count) || 0;
+  const hasRevisionSuffix = Boolean(proposal.proposal_no && /-r\d+$/i.test(proposal.proposal_no));
+  const isPostApproval = revisionCount > 0 || hasRevisionSuffix || options?.v1Amount !== undefined;
+
+  if (isPostApproval) {
+    // Determine the version tag for the current revised submission (e.g. V2, V3, V4...)
+    let revTag = options?.currentVersionTag;
+    if (!revTag) {
+      if (proposal.version && /^v\d+$/i.test(proposal.version)) {
+        revTag = proposal.version.toUpperCase();
+      } else if (revisionCount > 0) {
+        revTag = `V${revisionCount + 1}`;
+      } else if (hasRevisionSuffix) {
+        const match = proposal.proposal_no!.match(/-r(\d+)$/i);
+        const rNum = match ? parseInt(match[1], 10) : 1;
+        revTag = `V${rNum + 1}`;
+      } else {
+        revTag = "V2";
+      }
+    }
+
+    const v1Val =
+      options?.v1Amount !== undefined
+        ? options.v1Amount
+        : (proposal as any).v1_amount !== undefined
+        ? Number((proposal as any).v1_amount)
+        : (proposal as any).original_amount !== undefined
+        ? Number((proposal as any).original_amount)
+        : proposal.amount;
+
+    return `
+        <tr><td class="label">CER Amount (V1):</td><td class="val">${escapeHtml(formatAmount(v1Val, proposal.currency))}</td></tr>
+        <tr><td class="label">REVISED CER Amount (${escapeHtml(revTag)}):</td><td class="val">${escapeHtml(formatAmount(proposal.amount, proposal.currency))}</td></tr>`;
+  }
+
+  return `<tr><td class="label">CER Amount:</td><td class="val">${escapeHtml(formatAmount(proposal.amount, proposal.currency))}</td></tr>`;
+}
+
 export class EmailTemplateService {
   /**
    * Resolves the primary recipients for proposal confirmation/update notifications (Scenarios 1b, 2b, 3b, 4, 5, 6).
@@ -150,10 +207,14 @@ export class EmailTemplateService {
   /**
    * Template 1: Action Required — Level 1 Approver on Submission / Resubmission
    */
-  public static renderSubmissionApproverEmail(proposal: ICERProposal, roleTitle: string): { subject: string; body: string } {
+  public static renderSubmissionApproverEmail(
+    proposal: ICERProposal,
+    roleTitle: string,
+    options?: { v1Amount?: number; currentVersionTag?: string }
+  ): { subject: string; body: string } {
     const cerPrId = proposal.cer_proposal_id || proposal.cerprno || "";
     const subject = `[CER Action Required] Proposal ${cerPrId} Pending Level 1 (${roleTitle}) Review`;
-    const displayUrl = `${APP_PAGE_URL}#pending-approvals/${encodeURIComponent(cerPrId)}`;
+    const displayUrl = `${APP_PAGE_URL}#pending-approvals`;
 
     const body = `<!DOCTYPE html>
 <html>
@@ -188,15 +249,13 @@ export class EmailTemplateService {
       
       <table class="grid">
         <tr><td class="label">CER Proposal ID:</td><td class="val">${escapeHtml(cerPrId)}</td></tr>
-        <tr><td class="label">CER Proposal No.:</td><td class="val">${escapeHtml(proposal.proposal_no || proposal.cerprno)}</td></tr>
         <tr><td class="label">Project Name:</td><td class="val">${escapeHtml(proposal.pr_name || "")}</td></tr>
         <tr><td class="label">CER Owner:</td><td class="val">${escapeHtml(proposal.owname || proposal.owner_email)}</td></tr>
-        <tr><td class="label">SBU / Block:</td><td class="val">${escapeHtml(proposal.sbu)}</td></tr>
-        <tr><td class="label">Category:</td><td class="val">${escapeHtml(proposal.cat)}</td></tr>
-        <tr><td class="label">Total Amount:</td><td class="val">${escapeHtml(formatAmount(proposal.amount, proposal.currency))}</td></tr>
+        <tr><td class="label">Payback/NonPayback:</td><td class="val">${escapeHtml(formatPaybackDisplay(proposal))}</td></tr>
+        ${renderAmountGridRows(proposal, options)}
       </table>
 
-      ${renderActionButton(displayUrl, "Review & Approve in CER Portal", "#0078D4")}
+      ${renderActionButton(displayUrl, "Go to Pending Approvals", "#0078D4")}
     </div>
     ${renderPortalBanner()}
     ${renderFooter()}
@@ -272,11 +331,12 @@ export class EmailTemplateService {
     previousApprover: string,
     previousRemarks: string,
     nextLevel: number,
-    nextRoleTitle: string
+    nextRoleTitle: string,
+    options?: { v1Amount?: number; currentVersionTag?: string }
   ): { subject: string; body: string } {
     const cerPrId = proposal.cer_proposal_id || proposal.cerprno || "";
     const subject = `[CER Action Required] Proposal ${cerPrId} Pending Level ${nextLevel} (${nextRoleTitle}) Review`;
-    const displayUrl = `${APP_PAGE_URL}#pending-approvals/${encodeURIComponent(cerPrId)}`;
+    const displayUrl = `${APP_PAGE_URL}#pending-approvals`;
 
     const body = `<!DOCTYPE html>
 <html>
@@ -322,11 +382,11 @@ export class EmailTemplateService {
         <tr><td class="label">CER Proposal ID:</td><td class="val">${escapeHtml(cerPrId)}</td></tr>
         <tr><td class="label">Project Name:</td><td class="val">${escapeHtml(proposal.pr_name || "")}</td></tr>
         <tr><td class="label">CER Owner:</td><td class="val">${escapeHtml(proposal.owname || proposal.owner_email)}</td></tr>
-        <tr><td class="label">Total Amount:</td><td class="val">${escapeHtml(formatAmount(proposal.amount, proposal.currency))}</td></tr>
-        <tr><td class="label">Current Stage:</td><td class="val">Level ${nextLevel} — ${escapeHtml(nextRoleTitle)}</td></tr>
+        <tr><td class="label">Payback/NonPayback:</td><td class="val">${escapeHtml(formatPaybackDisplay(proposal))}</td></tr>
+        ${renderAmountGridRows(proposal, options)}
       </table>
 
-      ${renderActionButton(displayUrl, "Review & Take Action in CER Portal", "#0078D4")}
+      ${renderActionButton(displayUrl, "Go to Pending Approvals", "#0078D4")}
     </div>
     ${renderPortalBanner()}
     ${renderFooter()}
