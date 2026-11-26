@@ -4,6 +4,7 @@ import { AUDIT_FIELD_DESCRIPTIONS, EXCLUDED_AUDIT_FIELDS } from "../models/Audit
 import { getFirstActiveError, FormErrors, validateField, validateAll, hasEnteredCostBreakdown } from "../utils/cerValidation";
 import { EmailTemplateService } from "../services/EmailTemplateService";
 import { buildTableRowsForIteration, IIterationRun, IProposalVersionEntry } from "../components/ApprovalWorkflow/StatusHistoryModal";
+import { buildActiveCycleUpcomingRowsForPdf } from "../services/PDFExportService";
 import { IWorkflowLevel } from "../models/WorkflowModel";
 import { formatUserFriendlySharePointError, normalizeUserLogon } from "../utils/sanitizationUtils";
 import { PermissionService } from "../services/PermissionService";
@@ -739,8 +740,8 @@ describe("CER Management System - Business Logic & Requirements Tests", () => {
     expect(ok).toBeUndefined();
   });
 
-  // STATUS-MODAL-01: Pending row shows assigned action taker name only next to pending
-  test("STATUS-MODAL-01: buildTableRowsForIteration shows action taker name only next to pending stage", () => {
+  // STATUS-MODAL-01: Pending and active-cycle Not Started rows resolve assigned action taker names
+  test("STATUS-MODAL-01: buildTableRowsForIteration resolves action taker names for pending and active cycle not started stages", () => {
     const rawProposal: ICERProposal = {
       id: "1",
       cerprno: "CER-2026-0037",
@@ -808,11 +809,148 @@ describe("CER Management System - Business Logic & Requirements Tests", () => {
     expect(rows[1].statusText).toBe("Pending");
     expect(rows[1].updatedBy).toBe("Rajesh Kumar");
 
-    // L3-L6: Not Started — updatedBy MUST BE "—" (only next to pending!)
-    for (let i = 2; i < rows.length; i++) {
+    // L3: Not Started in Active Workflow Cycle — resolves live from workflowLevels
+    expect(rows[2].stage.level).toBe(3);
+    expect(rows[2].statusText).toBe("Not Started");
+    expect(rows[2].updatedBy).toBe("BU CFO User");
+
+    // L4-L6: Not Started and unconfigured in mockLevels — defaults to "—"
+    for (let i = 3; i < rows.length; i++) {
       expect(rows[i].statusText).toBe("Not Started");
       expect(rows[i].updatedBy).toBe("—");
     }
+  });
+
+  // STATUS-MODAL-04: Not Started stages show live CERRoleMatrix approver names ONLY in Active Workflow Cycle
+  test("STATUS-MODAL-04: Not Started stages resolve live role matrix approvers only in Active Workflow Cycle", () => {
+    const rawProposal: ICERProposal = {
+      id: "4",
+      cerprno: "CER-2026-0042",
+      proposal_no: "PR-2026/0006",
+      cer_proposal_id: "CER-2026-0042",
+      pr_name: "Testing Live Not Started",
+      sbu: "RJ North",
+      owname: "Shiven Pandit (Microlink)",
+      owner_email: "shiven@microlink.com",
+      status: "In Approval",
+      current_level: 3,
+      pending_with_role: "BU CFO",
+      amount: 4,
+      total: 4,
+    } as any;
+
+    const mockLevels: IWorkflowLevel[] = [
+      { level_id: 1, level_name: "Finance", role_title: "Finance", approver_name: "", approver_email: "", approvers: [{ user_name: "Shiven Pandit (Microlink)", user_email: "shiven@microlink.com", sbu: "RJ North" }], is_active: true },
+      { level_id: 2, level_name: "Project Owner", role_title: "Project Owner", approver_name: "Project Owner (Auto-fetched from CER Proposal)", approver_email: "", is_project_owner_stage: true, is_active: true },
+      { level_id: 3, level_name: "BU CFO", role_title: "BU CFO", approver_name: "", approver_email: "", approvers: [{ user_name: "Shiven Pandit (Microlink)", user_email: "shiven@microlink.com", sbu: "RJ North" }], is_active: true },
+      { level_id: 4, level_name: "BU Director", role_title: "BU Director", approver_name: "", approver_email: "", approvers: [{ user_name: "Rajesh Director", user_email: "rajesh.d@vedanta.co.in", sbu: "RJ North" }], is_active: true },
+      { level_id: 5, level_name: "VOGL CFO", role_title: "VOGL CFO", approver_name: "", approver_email: "", approvers: [{ user_name: "Nitin Doshi (STL Digital)", user_email: "nitin@stl.com", sbu: "RJ North" }, { user_name: "Vikram CFO", user_email: "vikram@vedanta.co.in", sbu: "RJ North" }], is_active: true },
+      { level_id: 6, level_name: "VOGL CEO", role_title: "VOGL CEO", approver_name: "", approver_email: "", approvers: [{ user_name: "CEO User", user_email: "ceo@vedanta.co.in", sbu: "RJ North" }], is_active: true },
+    ];
+
+    const activeIter: IIterationRun = {
+      iterationIndex: 1,
+      isLatestActive: true,
+      isSentBack: false,
+      decisions: [
+        { id: "d1", cerprno: "CER-2026-0042", level_id: 1, level_name: "Finance", approver_name: "Shiven Pandit (Microlink)", approver_email: "shiven@microlink.com", decision: "APPROVED", comments: "OK", timestamp: "2026-11-24T14:32:00Z" },
+        { id: "d2", cerprno: "CER-2026-0042", level_id: 2, level_name: "CER Owner", approver_name: "Shiven Pandit (Microlink)", approver_email: "shiven@microlink.com", decision: "APPROVED", comments: "OK", timestamp: "2026-11-24T14:32:00Z" },
+      ],
+    };
+
+    const currentVer: IProposalVersionEntry = {
+      id: "CURRENT",
+      serialNo: 1,
+      versionLabel: "v1 Active",
+      isCurrent: true,
+      proposalNo: "PR-2026/0006",
+      status: "In Approval",
+      amount: 4,
+      currency: "USD",
+      dateStr: "24 Nov 2026",
+      rawProposal,
+    };
+
+    // 1. Active Workflow Cycle -> Pending & Not Started stages resolve live from role matrix
+    const activeRows = buildTableRowsForIteration(activeIter, currentVer, mockLevels);
+    expect(activeRows[2].statusText).toBe("Pending");
+    expect(activeRows[2].updatedBy).toBe("Shiven Pandit (Microlink)");
+    expect(activeRows[3].statusText).toBe("Not Started");
+    expect(activeRows[3].updatedBy).toBe("Rajesh Director");
+    expect(activeRows[4].statusText).toBe("Not Started");
+    expect(activeRows[4].updatedBy).toBe("Nitin Doshi (STL Digital), Vikram CFO");
+    expect(activeRows[5].statusText).toBe("Not Started");
+    expect(activeRows[5].updatedBy).toBe("CEO User");
+
+    // 2. Prior Iteration (isLatestActive: false) -> Not Started MUST remain "—"
+    const priorIter: IIterationRun = { ...activeIter, isLatestActive: false, decisions: [] };
+    const priorRows = buildTableRowsForIteration(priorIter, currentVer, mockLevels);
+    for (let i = 0; i < priorRows.length; i++) {
+      expect(priorRows[i].statusText).toBe("Not Started");
+      expect(priorRows[i].updatedBy).toBe("—");
+    }
+
+    // 3. Historical Version Snapshot (isCurrent: false) -> Not Started MUST remain "—"
+    const histVer: IProposalVersionEntry = { ...currentVer, id: "HIST_1", isCurrent: false, status: "Approved" };
+    const histRows = buildTableRowsForIteration(activeIter, histVer, mockLevels);
+    expect(histRows[3].statusText).toBe("Not Started");
+    expect(histRows[3].updatedBy).toBe("—");
+    expect(histRows[4].updatedBy).toBe("—");
+    expect(histRows[5].updatedBy).toBe("—");
+  });
+
+  // PDF-EXPORT-01: Active Workflow Cycle PDF renders Pending & Not Started with live role matrix approvers
+  test("PDF-EXPORT-01: buildActiveCycleUpcomingRowsForPdf includes PENDING and NOT STARTED rows with live approvers", () => {
+    const rawProposal: ICERProposal = {
+      id: "4",
+      cerprno: "CER-2026-0042",
+      proposal_no: "PR-2026/0006",
+      cer_proposal_id: "CER-2026-0042",
+      pr_name: "PDF Live Matrix Test",
+      sbu: "RJ North",
+      owname: "Shiven Pandit (Microlink)",
+      owner_email: "shiven@microlink.com",
+      status: "In Approval",
+      current_level: 3,
+      pending_with_name: "Stale Name",
+      amount: 4,
+      total: 4,
+    } as any;
+
+    const mockLevels: IWorkflowLevel[] = [
+      { level_id: 1, level_name: "L1 - Finance Review", role_title: "Finance", approver_name: "", approver_email: "", approvers: [{ user_name: "Fin Lead", user_email: "fin@vedanta.co.in", sbu: "RJ North" }], is_active: true },
+      { level_id: 2, level_name: "L2 - Project Owner Approval", role_title: "Project Owner", approver_name: "Project Owner (Auto-fetched from CER Proposal)", approver_email: "", is_project_owner_stage: true, is_active: true },
+      { level_id: 3, level_name: "L3 - BU CFO Approval", role_title: "BU CFO", approver_name: "", approver_email: "", approvers: [{ user_name: "Live CFO", user_email: "cfo@vedanta.co.in", sbu: "RJ North" }], is_active: true },
+      { level_id: 4, level_name: "L4 - BU Director Approval", role_title: "BU Director", approver_name: "", approver_email: "", approvers: [{ user_name: "Live Director", user_email: "dir@vedanta.co.in", sbu: "RJ North" }], is_active: true },
+      { level_id: 5, level_name: "L5 - VOGL CFO Approval", role_title: "VOGL CFO", approver_name: "", approver_email: "", approvers: [{ user_name: "VOGL CFO A", user_email: "cfoa@vedanta.co.in", sbu: "RJ North" }, { user_name: "VOGL CFO B", user_email: "cfob@vedanta.co.in", sbu: "RJ North" }], is_active: true },
+      { level_id: 6, level_name: "L6 - VOGL CEO Approval", role_title: "VOGL CEO", approver_name: "", approver_email: "", approvers: [], is_active: true },
+    ];
+
+    const decisions: any[] = [
+      { id: "d1", cerprno: "CER-2026-0042", level_id: 1, approver_name: "Fin Lead", decision: "APPROVED", version: "V1" },
+      { id: "d2", cerprno: "CER-2026-0042", level_id: 2, approver_name: "Shiven Pandit (Microlink)", decision: "APPROVED", version: "V1" },
+    ];
+
+    // Active Cycle -> L3 PENDING + L4, L5, L6 NOT STARTED
+    const rows = buildActiveCycleUpcomingRowsForPdf(rawProposal, decisions, mockLevels, "V1", false);
+    expect(rows.length).toBe(4);
+    expect(rows[0]).toEqual(["V1", "L3 - BU CFO Approval", "Live CFO (cfo@vedanta.co.in)", "PENDING", "—", "Awaiting approval sign-off"]);
+    expect(rows[1]).toEqual(["V1", "L4 - BU Director Approval", "Live Director (dir@vedanta.co.in)", "NOT STARTED", "—", "—"]);
+    expect(rows[2]).toEqual(["V1", "L5 - VOGL CFO Approval", "VOGL CFO A (cfoa@vedanta.co.in), VOGL CFO B (cfob@vedanta.co.in)", "NOT STARTED", "—", "—"]);
+    expect(rows[3]).toEqual(["V1", "L6 - VOGL CEO Approval", "—", "NOT STARTED", "—", "—"]);
+
+    // When L1 is Pending (current_level: 1), L2 NOT STARTED resolves actual CER Owner (not placeholder text!)
+    const l1Proposal = { ...rawProposal, current_level: 1 };
+    const l1Rows = buildActiveCycleUpcomingRowsForPdf(l1Proposal, [], mockLevels, "V1", false);
+    expect(l1Rows.length).toBe(6);
+    expect(l1Rows[0][3]).toBe("PENDING");
+    expect(l1Rows[0][2]).toBe("Fin Lead (fin@vedanta.co.in)");
+    expect(l1Rows[1][3]).toBe("NOT STARTED");
+    expect(l1Rows[1][2]).toBe("Shiven Pandit (Microlink) (shiven@microlink.com)");
+
+    // Archived snapshot -> returns empty array (Active Workflow Cycle only)
+    const archivedRows = buildActiveCycleUpcomingRowsForPdf(rawProposal, decisions, mockLevels, "V1", true);
+    expect(archivedRows.length).toBe(0);
   });
 
   // STATUS-MODAL-02: Pending row resolves real approver names from IUserRoleAssignment approvers list

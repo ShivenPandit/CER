@@ -413,8 +413,12 @@ export function buildTableRowsForIteration(
       }
     }
 
-    // If this stage is Pending, show the assigned user(s) who is going to take action (only next to pending)
-    if (statusText === "Pending") {
+    const isActiveWorkflowCycle = iteration.isLatestActive && proposalVersion.isCurrent;
+
+    // Show assigned user(s) live from CERRoleMatrix:
+    // 1. For Pending stage (current active queue)
+    // 2. For Not Started stages in the Active Workflow Cycle only
+    if (statusText === "Pending" || (statusText === "Not Started" && isActiveWorkflowCycle)) {
       if (stage.level === 2 || stage.name === "CER Owner" || stage.name === "Project Owner") {
         updatedBy =
           proposalVersion.rawProposal.owname ||
@@ -431,24 +435,30 @@ export function buildTableRowsForIteration(
               .filter(Boolean)
               .join(", ");
           }
-          if (!updatedBy && (lvl.approver_name || lvl.approver_email)) {
-            updatedBy = lvl.approver_name || lvl.approver_email || "";
+          if ((!updatedBy || updatedBy === "—") && (lvl.approver_name || lvl.approver_email)) {
+            updatedBy = (lvl.approver_name || lvl.approver_email || "").trim();
           }
         }
 
-        // Fallback to proposal's pending_with_name if available from SharePoint Person field
-        if (!updatedBy || updatedBy === "—") {
-          if (proposalVersion.rawProposal.pending_with_name) {
-            updatedBy = proposalVersion.rawProposal.pending_with_name || "";
+        // For Pending stage only: fallback to proposal's pending_with_name / pending_with_role
+        if (statusText === "Pending") {
+          if (!updatedBy || updatedBy === "—") {
+            if (proposalVersion.rawProposal.pending_with_name) {
+              updatedBy = proposalVersion.rawProposal.pending_with_name || "";
+            }
+          }
+
+          if (!updatedBy || updatedBy === "—") {
+            updatedBy =
+              proposalVersion.rawProposal.pending_with_role ||
+              proposalVersion.rawProposal.pending_with_email ||
+              `Level ${stage.level} Approver`;
           }
         }
+      }
 
-        if (!updatedBy || updatedBy === "—") {
-          updatedBy =
-            proposalVersion.rawProposal.pending_with_role ||
-            proposalVersion.rawProposal.pending_with_email ||
-            `Level ${stage.level} Approver`;
-        }
+      if (!updatedBy) {
+        updatedBy = "—";
       }
     }
 
@@ -683,11 +693,10 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
     };
   }, [isOpen, proposal, permanentCerId, propHistoryProposals, dataService]);
 
-  // Load workflow levels for pending assignee resolution if not supplied via props
+  // Load workflow levels live from CERRoleMatrix when modal opens
   useEffect(() => {
     if (propLevels && propLevels.length > 0) {
       setWorkflowLevels(propLevels);
-      return;
     }
     if (!isOpen || !proposal || !proposal.sbu) return;
 
@@ -700,7 +709,7 @@ export const StatusHistoryModal: React.FC<IStatusHistoryModalProps> = ({
         }
       })
       .catch((err) => {
-        console.warn("[StatusHistoryModal] Error fetching workflow levels for pending assignee:", err);
+        console.warn("[StatusHistoryModal] Error fetching workflow levels for assignee:", err);
       });
 
     return () => {

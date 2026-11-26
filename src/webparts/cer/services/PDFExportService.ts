@@ -2,8 +2,166 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ICERProposal } from "../models/CERModel";
 import { IApprovalDecision, IWorkflowLevel } from "../models/WorkflowModel";
+import { FIXED_6_LEVEL_APPROVAL_STAGES } from "../constants";
 import { calculateExactDays, getCurrentFiscalYearPhasingLabels } from "../utils/dateUtils";
 import { stripAttachmentsManifest } from "../utils/sanitizationUtils";
+
+/**
+ * Formats approver name(s) and email(s) live from a workflow level (or CER Owner for Level 2).
+ */
+function resolveLiveApproverInfoForPdf(
+  stageLevelId: number,
+  proposal: ICERProposal,
+  workflowLevels: IWorkflowLevel[],
+  includePendingFallbacks: boolean
+): string {
+  const matchedLevel = (workflowLevels || []).find(
+    (l) => l.level_id === stageLevelId && l.is_active !== false
+  );
+  const isOwnerStage = stageLevelId === 2 || matchedLevel?.is_project_owner_stage === true;
+
+  if (isOwnerStage) {
+    const ownerName = (proposal.owname || "").trim();
+    const ownerEmail = (proposal.owner_email || "").trim();
+    if (ownerName && ownerEmail && ownerName.toLowerCase() !== ownerEmail.toLowerCase()) {
+      return `${ownerName} (${ownerEmail})`;
+    }
+    return ownerName || ownerEmail || "CER Owner";
+  }
+
+  if (matchedLevel) {
+    if (matchedLevel.approvers && matchedLevel.approvers.length > 0) {
+      const formatted = matchedLevel.approvers
+        .map((u: any) => {
+          if (typeof u === "string") return u.trim();
+          const name = (u.user_name || u.name || u.displayName || u.Title || "").trim();
+          const email = (u.user_email || u.email || "").trim();
+          if (name && email && name.toLowerCase() !== email.toLowerCase()) {
+            return `${name} (${email})`;
+          }
+          return name || email;
+        })
+        .filter(Boolean)
+        .join(", ");
+      if (formatted) return formatted;
+    }
+
+    const lvlName = (matchedLevel.approver_name || "").trim();
+    const lvlEmail = (matchedLevel.approver_email || "").trim();
+    if (lvlName && lvlEmail && lvlName.toLowerCase() !== lvlEmail.toLowerCase()) {
+      return `${lvlName} (${lvlEmail})`;
+    }
+    if (lvlName || lvlEmail) return lvlName || lvlEmail;
+  }
+
+  if (includePendingFallbacks) {
+    const pName = (proposal.pending_with_name || "").trim();
+    const pEmail = (proposal.pending_with_email || "").trim();
+    if (pName && pEmail && pName.toLowerCase() !== pEmail.toLowerCase()) {
+      return `${pName} (${pEmail})`;
+    }
+    if (pName || pEmail) return pName || pEmail;
+    if (proposal.pending_with_role) return proposal.pending_with_role;
+    return "Assigned Approver";
+  }
+
+  return "—";
+}
+
+/**
+ * Builds Pending and Not Started rows for the Active Workflow Cycle in PDF Section H2.
+ */
+export function buildActiveCycleUpcomingRowsForPdf(
+  proposal: ICERProposal,
+  sortedDecisions: IApprovalDecision[],
+  workflowLevels: IWorkflowLevel[],
+  currentVTag: string,
+  isArchived: boolean
+): string[][] {
+  const normStatus = (proposal.status || "").trim().toUpperCase();
+  const isInApproval =
+    normStatus === "IN APPROVAL" ||
+    normStatus === "IN_APPROVAL" ||
+    normStatus === "IN-APPROVAL" ||
+    normStatus === "INAPPROVAL";
+
+  if (!isInApproval || isArchived) {
+    return [];
+  }
+
+  const currentVerDecisions = (sortedDecisions || []).filter(
+    (d) => (d.version || currentVTag) === currentVTag
+  );
+
+  // Isolate decisions from the latest active cycle run (after the most recent SEND_BACK / REJECTED, if any)
+  let lastResetIdx = -1;
+  for (let i = currentVerDecisions.length - 1; i >= 0; i--) {
+    const decUpper = (currentVerDecisions[i].decision || "").trim().toUpperCase();
+    if (decUpper.indexOf("SEND") !== -1 || decUpper.indexOf("BACK") !== -1 || decUpper === "REJECTED") {
+      lastResetIdx = i;
+      break;
+    }
+  }
+  const activeRunDecisions =
+    lastResetIdx >= 0 ? currentVerDecisions.slice(lastResetIdx + 1) : currentVerDecisions;
+
+  let nextPendingLevelId: number;
+  const rawPropLevel = Number(proposal.current_level);
+  if (!isNaN(rawPropLevel) && rawPropLevel > 0) {
+    nextPendingLevelId = rawPropLevel;
+  } else if (activeRunDecisions.length === 0) {
+    nextPendingLevelId = 1;
+  } else {
+    const latestDec = activeRunDecisions[activeRunDecisions.length - 1];
+    const latestType = (latestDec.decision || "").trim().toUpperCase();
+    if (latestType === "APPROVED") {
+      nextPendingLevelId = (latestDec.level_id || 1) + 1;
+    } else {
+      nextPendingLevelId = 1;
+    }
+  }
+
+  const rows: string[][] = [];
+
+  for (const fixedStage of FIXED_6_LEVEL_APPROVAL_STAGES) {
+    const lid = fixedStage.level;
+    if (lid < nextPendingLevelId) continue;
+
+    const alreadyApprovedInRun = activeRunDecisions.some(
+      (d) => d.level_id === lid && (d.decision || "").trim().toUpperCase() === "APPROVED"
+    );
+    if (alreadyApprovedInRun) continue;
+
+    const matchedLevel = (workflowLevels || []).find(
+      (l) => l.level_id === lid && l.is_active !== false
+    );
+    const stageName = matchedLevel?.level_name || fixedStage.name;
+
+    if (lid === nextPendingLevelId) {
+      const approverInfo = resolveLiveApproverInfoForPdf(lid, proposal, workflowLevels, true);
+      rows.push([
+        currentVTag,
+        stageName,
+        approverInfo,
+        "PENDING",
+        "—",
+        "Awaiting approval sign-off",
+      ]);
+    } else {
+      const approverInfo = resolveLiveApproverInfoForPdf(lid, proposal, workflowLevels, false);
+      rows.push([
+        currentVTag,
+        stageName,
+        approverInfo,
+        "NOT STARTED",
+        "—",
+        "—",
+      ]);
+    }
+  }
+
+  return rows;
+}
 
 export class PDFExportService {
   public static async generateCERPdf(
@@ -366,39 +524,6 @@ export class PDFExportService {
         return da - db;
       });
 
-      // Compile workflow stage map to know stage names and approvers
-      interface ILevelInfo {
-        level_id: number;
-        level_name: string;
-        approver_name: string;
-        approver_email: string;
-      }
-      const levelMap = new Map<number, ILevelInfo>();
-
-      (workflowLevels || []).forEach((lvl) => {
-        if (lvl.is_active !== false) {
-          levelMap.set(lvl.level_id, {
-            level_id: lvl.level_id,
-            level_name: lvl.level_name || `Level ${lvl.level_id}`,
-            approver_name: lvl.approver_name || "",
-            approver_email: lvl.approver_email || "",
-          });
-        }
-      });
-
-      sortedDecisions.forEach((d) => {
-        if (!levelMap.has(d.level_id)) {
-          levelMap.set(d.level_id, {
-            level_id: d.level_id,
-            level_name: d.level_name || `Level ${d.level_id}`,
-            approver_name: d.approver_name || "",
-            approver_email: d.approver_email || "",
-          });
-        }
-      });
-
-      const allLevels = Array.from(levelMap.values()).sort((a, b) => a.level_id - b.level_id);
-
       const decisionRows: any[] = [];
       sortedDecisions.forEach((dec) => {
         const decVer = dec.version || currentVTag;
@@ -428,74 +553,15 @@ export class PDFExportService {
         ]);
       });
 
-      // Only show NEXT 1 PENDING stage when proposal is actively IN APPROVAL
-      const normStatus = (proposal.status || "").trim().toUpperCase();
-      const isInApproval =
-        normStatus === "IN APPROVAL" ||
-        normStatus === "IN_APPROVAL" ||
-        normStatus === "IN-APPROVAL" ||
-        normStatus === "INAPPROVAL";
-
-      if (isInApproval && !isArchived) {
-        // Collect current version's decisions
-        const currentVerDecisions = sortedDecisions.filter(
-          (d) => (d.version || currentVTag) === currentVTag
-        );
-
-        let nextPendingLevelId: number;
-
-        // 1. Check if proposal explicitly specifies current_level (1, 2, 3...)
-        const rawPropLevel = Number(proposal.current_level);
-        if (!isNaN(rawPropLevel) && rawPropLevel > 0) {
-          nextPendingLevelId = rawPropLevel;
-        } else if (currentVerDecisions.length === 0) {
-          // Initial cycle without decisions yet -> Level 1
-          nextPendingLevelId = 1;
-        } else {
-          // Inspect the latest decision in the current active version cycle
-          const latestDec = currentVerDecisions[currentVerDecisions.length - 1];
-          const latestType = (latestDec.decision || "").trim().toUpperCase();
-          if (latestType.indexOf("SEND") !== -1 || latestType.indexOf("BACK") !== -1) {
-            // After SEND_BACK, workflow re-initiates from Level 1
-            nextPendingLevelId = 1;
-          } else if (latestType === "APPROVED") {
-            nextPendingLevelId = (latestDec.level_id || 1) + 1;
-          } else {
-            nextPendingLevelId = 1;
-          }
-        }
-
-        // Check if there is already an APPROVED decision for this pending level in current version
-        const alreadyApproved = currentVerDecisions.some(
-          (d) => d.level_id === nextPendingLevelId && (d.decision || "").toUpperCase() === "APPROVED"
-        );
-
-        if (!alreadyApproved) {
-          // Resolve level info for this SINGLE next pending stage
-          const targetLevel =
-            allLevels.find((lvl) => lvl.level_id === nextPendingLevelId) ||
-            levelMap.get(nextPendingLevelId) || {
-              level_id: nextPendingLevelId,
-              level_name: `Level ${nextPendingLevelId}`,
-              approver_name: "",
-              approver_email: proposal.pending_with_email || "",
-            };
-
-          const effectiveApproverName = proposal.pending_with_name || targetLevel.approver_name;
-          const approverInfo = effectiveApproverName
-            ? `${effectiveApproverName}${targetLevel.approver_email ? ` (${targetLevel.approver_email})` : ""}`
-            : targetLevel.approver_email || (proposal.pending_with_role ? `${proposal.pending_with_role}` : "Assigned Approver");
-
-          decisionRows.push([
-            currentVTag,
-            targetLevel.level_name || `Level ${targetLevel.level_id}`,
-            approverInfo,
-            "PENDING",
-            "—",
-            "Awaiting approval sign-off",
-          ]);
-        }
-      }
+      // Append PENDING and NOT STARTED stages for the Active Workflow Cycle with live role matrix approvers
+      const upcomingRows = buildActiveCycleUpcomingRowsForPdf(
+        proposal,
+        sortedDecisions,
+        workflowLevels || [],
+        currentVTag,
+        Boolean(isArchived)
+      );
+      upcomingRows.forEach((row) => decisionRows.push(row));
 
       if (decisionRows.length === 0) {
         decisionRows.push([
@@ -554,6 +620,9 @@ export class PDFExportService {
               data.cell.styles.fontStyle = "bold";
             } else if (val === "PENDING") {
               data.cell.styles.textColor = [194, 65, 12];
+              data.cell.styles.fontStyle = "bold";
+            } else if (val === "NOT STARTED") {
+              data.cell.styles.textColor = [100, 116, 139];
               data.cell.styles.fontStyle = "bold";
             } else if (val.indexOf("REJECT") !== -1) {
               data.cell.styles.textColor = [185, 28, 28];

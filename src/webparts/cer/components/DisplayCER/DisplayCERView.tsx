@@ -163,13 +163,16 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
     if (!proposal) return;
     try {
       setExportNotice("Generating official CER PDF document...");
+      const liveLevels = proposal.sbu
+        ? await dataService.getWorkflowLevels(proposal.sbu, true).catch(() => workflowLevels)
+        : workflowLevels;
       await PDFExportService.generateCERPdf(
         proposal,
         decisions,
         historyProposals,
         undefined,
         false,
-        workflowLevels
+        liveLevels
       );
       setExportNotice(null);
     } catch (e: any) {
