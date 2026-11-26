@@ -30,6 +30,7 @@ import { AuditTrailView } from "./Audit/AuditTrailView";
 import { AccessDeniedView } from "./Shared/AccessDeniedView";
 import { UnauthorizedAccessView } from "./Shared/UnauthorizedAccessView";
 import { UserManualModal } from "./UserManual/UserManualModal";
+import { ToastProvider } from "./Shared/ToastProvider";
 
 const CER: React.FC<ICERProps> = (props) => {
   const [dataService] = useState<ICERDataService>(() => DataServiceFactory.getService(props));
@@ -302,12 +303,12 @@ const CER: React.FC<ICERProps> = (props) => {
 
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
-  const handleRefreshProposals = async (force: boolean = false): Promise<void> => {
+  const handleRefreshProposals = async (force: boolean = false, refreshChoices: boolean = false): Promise<void> => {
     try {
       const [propsList, levels, choices] = await Promise.all([
         dataService.getAllProposals(force),
         dataService.getWorkflowLevels(undefined, force),
-        dataService.getFieldChoices(force),
+        dataService.getFieldChoices(refreshChoices),
       ]);
       setProposals(propsList);
       if (levels) {
@@ -325,7 +326,7 @@ const CER: React.FC<ICERProps> = (props) => {
     if (isSyncing) return;
     setIsSyncing(true);
     try {
-      await handleRefreshProposals(true);
+      await handleRefreshProposals(true, true);
     } finally {
       setIsSyncing(false);
     }
@@ -641,18 +642,19 @@ const CER: React.FC<ICERProps> = (props) => {
   }
 
   return (
-    <div
-      ref={appRootRef}
-      id="cer-app-root"
-      style={{
-        height: currentView === "dashboard" && !isMobile ? "100vh" : undefined,
-        minHeight: currentView === "dashboard" && !isMobile ? "100vh" : "100%",
-        maxHeight: currentView === "dashboard" && !isMobile ? "100vh" : undefined,
-        overflow: currentView === "dashboard" && !isMobile ? "hidden" : "visible",
-        backgroundColor: "#F8FAFC",
-      }}
-      className="flex flex-col flex-1 w-full max-w-none bg-[#F8FAFC] font-sans text-slate-800 antialiased selection:bg-[#012964] selection:text-white"
-    >
+    <ToastProvider>
+      <div
+        ref={appRootRef}
+        id="cer-app-root"
+        style={{
+          height: currentView === "dashboard" && !isMobile ? "100vh" : undefined,
+          minHeight: currentView === "dashboard" && !isMobile ? "100vh" : "100%",
+          maxHeight: currentView === "dashboard" && !isMobile ? "100vh" : undefined,
+          overflow: currentView === "dashboard" && !isMobile ? "hidden" : "visible",
+          backgroundColor: "#F8FAFC",
+        }}
+        className="flex flex-col flex-1 w-full max-w-none bg-[#F8FAFC] font-sans text-slate-800 antialiased selection:bg-[#012964] selection:text-white"
+      >
       {/* Top Header matching reference screenshot */}
       <AppHeader
         currentUser={currentUser}
@@ -882,7 +884,8 @@ const CER: React.FC<ICERProps> = (props) => {
         isOpen={isUserManualOpen}
         onClose={() => setIsUserManualOpen(false)}
       />
-    </div>
+      </div>
+    </ToastProvider>
   );
 };
 

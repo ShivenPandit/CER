@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, Save, Send, ArrowLeft, CheckCircle2, AlertCircle, ShieldAlert, RotateCcw, Lock, History, Loader2, X } from "lucide-react";
+import { Search, Save, Send, ArrowLeft, ShieldAlert, RotateCcw, Lock, History, Loader2 } from "lucide-react";
 import { ICERProposal, IFieldChoices } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
 import { ICERAttachment } from "../../models/AttachmentModel";
@@ -13,6 +13,7 @@ import { CostBreakdownSection } from '../CreateCER/CostBreakdownSection';
 import { RemarksSection } from '../CreateCER/RemarksSection';
 import { AttachmentSection } from '../CreateCER/AttachmentSection';
 import { CategoryDefinitionSection } from '../Shared/CategoryDefinitionSection';
+import { useToast } from '../Shared/ToastProvider';
 import { FormErrors, validateField, validateAll, hasEnteredCostBreakdown, getFirstActiveError } from "../../utils/cerValidation";
 import { sanitizeSingleLineText, sanitizeMultiLineText, sanitizeProposalPayload } from "../../utils/sanitizationUtils";
 import { MAX_TOTAL_SIZE_BYTES, formatBytes } from "../../utils/attachmentValidation";
@@ -36,6 +37,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
   onSuccess,
   fieldChoices,
 }) => {
+  const toast = useToast();
   const [proposalNumberInput, setProposalNumberInput] = useState(initialProposalId || "");
   const [formData, setFormData] = useState<ICERProposal | null>(null);
   const [originalProposal, setOriginalProposal] = useState<ICERProposal | null>(null);
@@ -46,49 +48,35 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
-  const [secondaryWarning, setSecondaryWarning] = useState<string | null>(null);
-  const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [submitStageText, setSubmitStageText] = useState<string>("");
   const [isCheckingCerNo, setIsCheckingCerNo] = useState(false);
   const cerNoDebounceTimer = React.useRef<any>(null);
   const initialAttachmentsRef = React.useRef<ICERAttachment[]>([]);
 
-  // Derive active top validation or submission error message in real time
-  const activeTopError = React.useMemo(() => {
-    if (errorMessage) return errorMessage;
-    if (hasAttemptedSubmit) {
-      return getFirstActiveError(errors) || null;
-    }
-    return null;
-  }, [errorMessage, hasAttemptedSubmit, errors]);
-
   const loadProposal = async (cerprno: string): Promise<void> => {
     // Specific mandatory validation as required by FR-02:
     if (!cerprno || !cerprno.trim()) {
-      setErrorMessage("Make an entry in mandatory field 'CER Proposal No.'");
+      toast.error("Make an entry in mandatory field 'CER Proposal No.'", "Validation Required");
       setFormData(null);
       return;
     }
 
     setIsLoading(true);
-    setErrorMessage(null);
-    setSuccessNotice(null);
     setErrors({});
     setTouched({});
 
     try {
       const found = await dataService.getProposalByNumber(cerprno.trim());
       if (!found) {
-        setErrorMessage(`Proposal '${cerprno}' not found in the system.`);
+        toast.error(`Proposal '${cerprno}' not found in the system.`, "Not Found");
         setFormData(null);
         setOriginalProposal(null);
       } else {
         // Enforce ownership and editable status check
         const authCheck = PermissionService.canEditCER(found, currentUser);
         if (!authCheck.allowed) {
-          setErrorMessage(authCheck.reason || "You are not authorized to modify this CER proposal.");
+          toast.error(authCheck.reason || "You are not authorized to modify this CER proposal.", "Access Restricted");
           setFormData(null);
           setOriginalProposal(null);
           return;
@@ -168,7 +156,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         initialAttachmentsRef.current = atts.map((a) => ({ ...a }));
       }
     } catch (err: any) {
-      setErrorMessage(err.message || "Error retrieving proposal.");
+      toast.error(err.message || "Error retrieving proposal.", "Retrieval Failed");
     } finally {
       setIsLoading(false);
     }
@@ -229,10 +217,6 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
 
   const handleFieldChange = (field: keyof ICERProposal, value: any) => {
     if (!formData) return;
-    // If a static error message was displayed, clear it so real-time validation takes over
-    if (errorMessage) {
-      setErrorMessage(null);
-    }
 
     setFormData((prev) => {
       if (!prev) return null;
@@ -460,17 +444,17 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
 
   const handleSaveChange = async (isDraft: boolean = false) => {
     if (!formData) return;
-    setErrorMessage(null);
 
     if (isUploadingAttachments) {
-      setErrorMessage("Please wait for all attachments to finish processing before saving.");
+      toast.warning("Please wait for all attachments to finish processing before saving.", "Upload in Progress");
       return;
     }
 
     const totalAttachmentBytes = attachments.reduce((sum, a) => sum + (a.size || 0), 0);
     if (totalAttachmentBytes > MAX_TOTAL_SIZE_BYTES) {
-      setErrorMessage(
-        `Total attachment size (${formatBytes(totalAttachmentBytes)}) exceeds the allowed 20 MB limit.`
+      toast.error(
+        `Total attachment size (${formatBytes(totalAttachmentBytes)}) exceeds the allowed 20 MB limit.`,
+        "Attachment Limit Exceeded"
       );
       return;
     }
@@ -490,7 +474,9 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
         newTouched[key] = true;
       });
       setTouched(newTouched);
-      setErrorMessage(null);
+
+      const firstErrMsg = getFirstActiveError(validationErrors);
+      toast.error(firstErrMsg || "Please complete all mandatory fields before saving.", "Validation Required");
 
       if (firstErrorField) {
         scrollToFirstError(firstErrorField);
@@ -505,7 +491,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
       const reqMsg = "CER Proposal No is required.";
       setErrors((prev) => ({ ...prev, proposal_no: reqMsg, cerprno: reqMsg }));
       setTouched((prev) => ({ ...prev, proposal_no: true, cerprno: true }));
-      setErrorMessage(null);
+      toast.error(reqMsg, "Validation Required");
       scrollToFirstError("proposal_no");
       return;
     }
@@ -525,7 +511,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
             cerprno: dupMsg,
           }));
           setTouched((prev) => ({ ...prev, proposal_no: true, cerprno: true }));
-          setErrorMessage(null);
+          toast.error(dupMsg, "Duplicate Proposal No.");
           scrollToFirstError("proposal_no");
           return;
         }
@@ -536,8 +522,6 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
 
     setIsSubmitting(true);
     setSubmitStageText("Saving proposal to SharePoint...");
-    setErrorMessage(null);
-    setSecondaryWarning(null);
     try {
       // 1. Upload any pending new attachments FIRST so we obtain real SharePoint IDs and server URLs
       const pendingAttachments = attachments.filter(
@@ -617,31 +601,33 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           }
         }
         if (deletionErrors.length > 0) {
-          setSecondaryWarning(
-            `Proposal saved successfully, but cleanup of obsolete attachments requires attention: ${deletionErrors.join(", ")}`
+          toast.warning(
+            `Proposal saved, but cleanup of obsolete attachments requires attention: ${deletionErrors.join(", ")}`,
+            "Attachment Cleanup"
           );
         }
       }
 
       setSubmitStageText("Completed!");
       if (result.warnings && result.warnings.length > 0) {
-        setSecondaryWarning(result.warnings.join(" "));
+        toast.warning(result.warnings.join(" "), "Notice");
       }
 
-      setSuccessNotice(
+      toast.success(
         isDraft
           ? "CER Proposal draft saved successfully."
           : isApprovedOriginal
-          ? "Post-approval amendment submitted successfully. The previous approved version has been safely archived to Proposal History."
-          : `CER Proposal No. has been changed and sent for approval (${result.auditRowsCount} field changes recorded in audit trail).`
+          ? "Post-approval amendment submitted. Previous version archived to Proposal History."
+          : `CER Proposal updated and sent for approval (${result.auditRowsCount} field changes recorded).`,
+        isDraft ? "Draft Saved" : "Changes Submitted"
       );
       setTimeout(() => {
         onSuccess(formData.cerprno);
-      }, 200);
+      }, 150);
     } catch (err: any) {
       setSubmitStageText("");
       const userMsg = formatUserFriendlySharePointError(err, "Failed to update proposal in SharePoint.");
-      setErrorMessage(userMsg);
+      toast.error(userMsg, "Update Failed");
     } finally {
       setIsSubmitting(false);
     }
@@ -760,41 +746,6 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
           ) : null}
         </div>
       </div>
-
-      {/* Mandatory Validation Error / Notice as required by FR-02 */}
-      {activeTopError && (
-        <div className="p-3 sm:p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between gap-2.5 animate-shake">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-            <span className="font-semibold truncate">{activeTopError}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setErrorMessage(null);
-              setHasAttemptedSubmit(false);
-            }}
-            className="text-rose-400 hover:text-rose-700 transition-colors shrink-0 p-0.5 rounded cursor-pointer"
-            title="Dismiss error notice"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {successNotice && (
-        <div className="p-3 sm:p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5">
-          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-          <span className="font-semibold">{successNotice}</span>
-        </div>
-      )}
-
-      {secondaryWarning && (
-        <div className="p-3 sm:p-3.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2.5">
-          <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
-          <span className="font-semibold">{secondaryWarning}</span>
-        </div>
-      )}
 
       {/* Loaded Form */}
       {formData && (

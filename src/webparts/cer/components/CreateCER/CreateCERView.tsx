@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Send, Save, ArrowLeft, CheckCircle2, AlertCircle, Lock, Loader2, X } from "lucide-react";
+import { Send, Save, ArrowLeft, Lock, Loader2 } from "lucide-react";
 import { ICERProposal, IFieldChoices } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
 import { ICERAttachment } from "../../models/AttachmentModel";
@@ -13,6 +13,7 @@ import { CostBreakdownSection } from "./CostBreakdownSection";
 import { RemarksSection } from "./RemarksSection";
 import { AttachmentSection } from "./AttachmentSection";
 import { CategoryDefinitionSection } from '../Shared/CategoryDefinitionSection';
+import { useToast } from '../Shared/ToastProvider';
 import { FormErrors, validateField, validateAll, hasEnteredCostBreakdown, getFirstActiveError } from "../../utils/cerValidation";
 import { sanitizeSingleLineText, sanitizeMultiLineText, sanitizeProposalPayload } from "../../utils/sanitizationUtils";
 import { MAX_TOTAL_SIZE_BYTES, formatBytes } from "../../utils/attachmentValidation";
@@ -101,16 +102,14 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     revision_count: 0,
   });
 
+  const toast = useToast();
   const [attachments, setAttachments] = useState<ICERAttachment[]>([]);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStageText, setSubmitStageText] = useState<string>("");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
-  const [secondaryWarning, setSecondaryWarning] = useState<string | null>(null);
-  const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [isCheckingCerNo, setIsCheckingCerNo] = useState(false);
   const cerNoDebounceTimer = React.useRef<any>(null);
 
@@ -125,15 +124,6 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
       });
     }
   }, [fieldChoices?.sbu]);
-
-  // Derive the active top validation or submission error message in real time
-  const activeTopError = React.useMemo(() => {
-    if (errorMessage) return errorMessage;
-    if (hasAttemptedSubmit) {
-      return getFirstActiveError(errors) || null;
-    }
-    return null;
-  }, [errorMessage, hasAttemptedSubmit, errors]);
 
   const checkCerNoUniqueness = React.useCallback(
     async (cerNo: string) => {
@@ -163,7 +153,6 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
             }
             return prev;
           });
-          setErrorMessage((prev) => (prev && prev.includes("already exists") ? null : prev));
         }
       } catch {
         // non-blocking
@@ -176,11 +165,6 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
 
   // On change: update form data and revalidate the specific field if touched or previously errored
   const handleFieldChange = (field: keyof ICERProposal, value: any) => {
-    // If a static error message was displayed, clear it so real-time validation takes over
-    if (errorMessage) {
-      setErrorMessage(null);
-    }
-
     setFormData((prev) => {
       const updated: ICERProposal = { ...prev, [field]: value };
       if (field === "proposal_no" && !prev.cer_proposal_id) {
@@ -404,17 +388,16 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
   };
 
   const handleSubmit = async (isDraft: boolean = false) => {
-    setErrorMessage(null);
-
     if (isUploadingAttachments) {
-      setErrorMessage("Please wait for all attachments to finish processing before submitting.");
+      toast.warning("Please wait for all attachments to finish processing before submitting.", "Upload in Progress");
       return;
     }
 
     const totalAttachmentBytes = attachments.reduce((sum, a) => sum + (a.size || 0), 0);
     if (totalAttachmentBytes > MAX_TOTAL_SIZE_BYTES) {
-      setErrorMessage(
-        `Total attachment size (${formatBytes(totalAttachmentBytes)}) exceeds the allowed 20 MB limit.`
+      toast.error(
+        `Total attachment size (${formatBytes(totalAttachmentBytes)}) exceeds the allowed 20 MB limit.`,
+        "Attachment Limit Exceeded"
       );
       return;
     }
@@ -436,7 +419,9 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
         newTouched[key] = true;
       });
       setTouched(newTouched);
-      setErrorMessage(null);
+
+      const firstErrMsg = getFirstActiveError(validationErrors);
+      toast.error(firstErrMsg || "Please complete all mandatory fields before submitting.", "Validation Required");
 
       if (firstErrorField) {
         scrollToFirstError(firstErrorField);
@@ -451,7 +436,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
       const reqMsg = "CER Proposal No is required.";
       setErrors((prev) => ({ ...prev, cerprno: reqMsg, proposal_no: reqMsg }));
       setTouched((prev) => ({ ...prev, cerprno: true, proposal_no: true }));
-      setErrorMessage(null);
+      toast.error(reqMsg, "Validation Required");
       scrollToFirstError("proposal_no");
       return;
     }
@@ -467,7 +452,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
           proposal_no: dupMsg,
         }));
         setTouched((prev) => ({ ...prev, cerprno: true, proposal_no: true }));
-        setErrorMessage(null);
+        toast.error(dupMsg, "Duplicate Proposal No.");
         scrollToFirstError("proposal_no");
         return;
       }
@@ -477,8 +462,6 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
 
     setIsSubmitting(true);
     setSubmitStageText("Saving proposal to SharePoint...");
-    setErrorMessage(null);
-    setSecondaryWarning(null);
     try {
       const payload: ICERProposal = {
         ...sanitizedData,
@@ -502,17 +485,20 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
 
       setSubmitStageText("Completed!");
       if (result.warnings && result.warnings.length > 0) {
-        setSecondaryWarning(result.warnings.join(" "));
+        toast.warning(result.warnings.join(" "), "Notice");
       }
 
-      setSuccessNotice(result.message);
+      toast.success(
+        result.message || (isDraft ? "CER Draft saved." : "CER Proposal submitted for approval."),
+        isDraft ? "Draft Saved" : "CER Submitted"
+      );
       setTimeout(() => {
         onSuccess(finalCerprno);
-      }, 200);
+      }, 150);
     } catch (err: any) {
       setSubmitStageText("");
       const userMsg = formatUserFriendlySharePointError(err, "An error occurred while creating the proposal in SharePoint.");
-      setErrorMessage(userMsg);
+      toast.error(userMsg, "Submission Failed");
     } finally {
       setIsSubmitting(false);
     }
@@ -607,41 +593,6 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
           </div>
         ) : null}
       </div>
-
-      {/* Error / Success Alerts */}
-      {activeTopError && (
-        <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-[13px] flex items-center justify-between gap-2.5 animate-shake">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-            <span className="font-medium truncate">{activeTopError}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setErrorMessage(null);
-              setHasAttemptedSubmit(false);
-            }}
-            className="text-rose-400 hover:text-rose-700 transition-colors shrink-0 p-0.5 rounded cursor-pointer"
-            title="Dismiss error notice"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {successNotice && (
-        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-[13px] flex items-center gap-2.5">
-          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-          <span className="font-semibold">{successNotice}</span>
-        </div>
-      )}
-
-      {secondaryWarning && (
-        <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs sm:text-[13px] flex items-center gap-2.5">
-          <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
-          <span className="font-semibold">{secondaryWarning}</span>
-        </div>
-      )}
 
       {/* Section A — Project identification and scope */}
       <ProjectDetailsSection

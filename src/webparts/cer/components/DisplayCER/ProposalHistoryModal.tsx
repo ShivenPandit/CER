@@ -27,6 +27,7 @@ import { ICERDataService } from "../../services/ICERDataService";
 import { StatusBadge } from "../Shared/StatusBadge";
 import { CategoryBadge } from "../Shared/CategoryBadge";
 import { UserAvatar } from "../Common/UserAvatar";
+import { useToast } from "../Shared/ToastProvider";
 import { calculateExactDays, getCurrentFiscalYearPhasingLabels } from "../../utils/dateUtils";
 import { stripAttachmentsManifest } from "../../utils/sanitizationUtils";
 import { useModalScrollLock } from "../../hooks/useModalScrollLock";
@@ -47,6 +48,7 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
   dataService,
   initialHistory,
 }) => {
+  const toast = useToast();
   const [historyProposals, setHistoryProposals] = useState<ICERProposal[]>(initialHistory || []);
   const [selectedVersionIndex, setSelectedVersionIndex] = useState<number>(0);
   const [selectedAttachments, setSelectedAttachments] = useState<ICERAttachment[]>([]);
@@ -225,9 +227,10 @@ export const ProposalHistoryModal: React.FC<IProposalHistoryModalProps> = ({
         true, // isArchivedSnapshot: true -> ensures status renders RESUBMITTED
         wfLevels
       );
+      toast.success(`Downloaded ${versionTag} PDF snapshot.`, "PDF Ready");
     } catch (err: any) {
       console.error("[ProposalHistoryModal] Error exporting historical PDF:", err);
-      alert(err.message || "Failed to generate PDF for this historical version.");
+      toast.error(err.message || "Failed to generate PDF for this historical version.", "PDF Export Failed");
     } finally {
       setDownloadingVersionId(null);
     }

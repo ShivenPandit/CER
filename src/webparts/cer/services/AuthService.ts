@@ -163,7 +163,8 @@ export class AuthService {
     let hierarchyAdmins: string[] = [];
     if (typeof dataService.getHierarchyAdmins === "function") {
       try {
-        hierarchyAdmins = await dataService.getHierarchyAdmins(forceRefresh);
+        // Reuse freshly populated role cache from getUserRoles(forceRefresh) above
+        hierarchyAdmins = await dataService.getHierarchyAdmins(false);
       } catch (hErr) {
         console.warn("[AuthService] Failed to derive hierarchy administrators from CERRoleMatrix:", hErr);
       }

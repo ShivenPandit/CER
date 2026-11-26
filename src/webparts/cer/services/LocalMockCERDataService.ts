@@ -1,4 +1,4 @@
-import { ICERDataService } from "./ICERDataService";
+import { ICERDataService, IRoleMatrixBatchOperation } from "./ICERDataService";
 import { ICERProposal, IFieldChoices, DEFAULT_FIELD_CHOICES, ISBUItem } from "../models/CERModel";
 import { ICERAuditRecord, ICERRemarksVersion, AUDIT_FIELD_DESCRIPTIONS, EXCLUDED_AUDIT_FIELDS } from "../models/AuditModel";
 import { IWorkflowLevel, IApprovalDecision, INotificationLog, isProjectOwnerStage, ApproverAssignmentType, isValidEmail } from "../models/WorkflowModel";
@@ -2516,6 +2516,26 @@ export class LocalMockCERDataService implements ICERDataService {
       before_value: JSON.stringify(target),
       timestamp: new Date().toISOString(),
     });
+  }
+
+  public clearRoleMatrixCache(): void {
+    // In-memory mock is synchronous; no external cache layers to flush.
+  }
+
+  public async saveRoleMatrixBatch(
+    operations: IRoleMatrixBatchOperation[],
+    actor: { name: string; email: string }
+  ): Promise<IUserRoleAssignment[]> {
+    for (const op of operations || []) {
+      if (op.type === "update" && op.assignment && "id" in op.assignment && op.assignment.id) {
+        await this.updateUserRole(op.assignment as IUserRoleAssignment, actor);
+      } else if (op.type === "assign" && op.assignment) {
+        await this.assignUserRole(op.assignment, actor);
+      } else if (op.type === "revoke" && op.revokeId) {
+        await this.revokeUserRole(op.revokeId, actor);
+      }
+    }
+    return this.getUserRoles(true);
   }
 
   public async migrateLegacyRoleMatrixEntries(_actor: { name: string; email: string }): Promise<{ migratedCount: number }> {

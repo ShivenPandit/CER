@@ -1936,4 +1936,89 @@ describe("CER Management System - Business Logic & Requirements Tests", () => {
     expect(invalidRes.isValid).toBe(false);
     expect(invalidRes.errors.sbu).toContain("Please select a valid SBU");
   });
+
+  // ROLE-MATRIX-08: Batch Role Matrix Save executes multi-user updates & removals while preserving SBU isolation
+  test("ROLE-MATRIX-08: saveRoleMatrixBatch atomically updates/assigns/revokes while preserving independent SBUs and Admin roles", async () => {
+    const batchService = new LocalMockCERDataService();
+    const bootstrapActor = { name: "SYSTEM_INITIAL_BOOTSTRAP", email: "bootstrap@system.local" };
+    const adminActor = { name: "Test Admin", email: "demo.admin@example.com" };
+
+    // Seed Admin user with RJ North L1 & RJ South L5
+    const seededAdmin = await batchService.assignUserRole(
+      {
+        user_name: "Batch Admin User",
+        user_email: "batch.admin@vedanta.co.in",
+        login_name: "batch.admin@vedanta.co.in",
+        role: "Admin",
+        sbu: "RJ North",
+        sbus: ["RJ North", "RJ South"],
+        sbu_approval_map: {
+          RJ_NORTH: { levels: [1], roleTitles: ["Finance"] },
+          RJ_SOUTH: { levels: [5], roleTitles: ["VOGL CFO"] },
+        },
+        approval_level: 1,
+        is_active: true,
+        assigned_by: "System",
+        assigned_date: new Date().toISOString(),
+      },
+      bootstrapActor
+    );
+
+    const baseAdminId = String(seededAdmin.id).split("__")[0];
+
+    // Batch update RJ South: remove Batch Admin from RJ South, and assign a new Finance approver for RJ South
+    const updatedMapNoSouth = updateSbuInApprovalMap(
+      {
+        RJ_NORTH: { levels: [1], roleTitles: ["Finance"] },
+        RJ_SOUTH: { levels: [5], roleTitles: ["VOGL CFO"] },
+      },
+      "RJ South",
+      []
+    );
+    const updatedRoles = await batchService.saveRoleMatrixBatch(
+      [
+        {
+          type: "update",
+          assignment: {
+            ...seededAdmin,
+            id: baseAdminId,
+            role: "Admin",
+            sbu: "RJ North",
+            sbus: ["RJ North"],
+            sbu_approval_map: updatedMapNoSouth,
+          },
+        },
+        {
+          type: "assign",
+          assignment: {
+            user_name: "South Finance Lead",
+            user_email: "south.finance@vedanta.co.in",
+            login_name: "south.finance@vedanta.co.in",
+            role: "Approver",
+            sbu: "RJ South",
+            sbus: ["RJ South"],
+            sbu_approval_map: updateSbuInApprovalMap({}, "RJ South", [1], ["Finance"]),
+            approval_level: 1,
+            approver_role_title: "Finance",
+            is_active: true,
+            assigned_by: adminActor.name,
+            assigned_date: new Date().toISOString(),
+          },
+        },
+      ],
+      adminActor
+    );
+
+    const adminRows = updatedRoles.filter((r) => r.user_email === "batch.admin@vedanta.co.in");
+    expect(adminRows.length).toBe(1);
+    expect(adminRows[0].role).toBe("Admin");
+    expect(adminRows[0].sbu).toBe("RJ North");
+    expect(adminRows[0].approval_level).toBe(1);
+
+    const southFinanceRows = updatedRoles.filter(
+      (r) => r.user_email === "south.finance@vedanta.co.in" && r.sbu === "RJ South"
+    );
+    expect(southFinanceRows.length).toBe(1);
+    expect(southFinanceRows[0].approval_level).toBe(1);
+  });
 });

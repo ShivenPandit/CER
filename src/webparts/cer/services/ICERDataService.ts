@@ -4,6 +4,12 @@ import { IWorkflowLevel, IApprovalDecision, INotificationLog } from "../models/W
 import { ICERAttachment } from "../models/AttachmentModel";
 import { IDirectoryUser, IUserRoleAssignment, IAdminAuditRecord } from "../models/UserModel";
 
+export interface IRoleMatrixBatchOperation {
+  type: "assign" | "update" | "revoke";
+  assignment?: IUserRoleAssignment | Omit<IUserRoleAssignment, "id">;
+  revokeId?: string;
+}
+
 export interface ICERDataService {
   // Directory & Users
   searchDirectoryUsers(query: string): Promise<IDirectoryUser[]>;
@@ -13,6 +19,7 @@ export interface ICERDataService {
   assignUserRole(assignment: Omit<IUserRoleAssignment, "id">, actor: { name: string; email: string }): Promise<IUserRoleAssignment>;
   updateUserRole(assignment: IUserRoleAssignment, actor: { name: string; email: string }): Promise<void>;
   revokeUserRole(assignmentId: string, actor: { name: string; email: string }): Promise<void>;
+  saveRoleMatrixBatch?(operations: IRoleMatrixBatchOperation[], actor: { name: string; email: string }): Promise<IUserRoleAssignment[]>;
   migrateLegacyRoleMatrixEntries?(actor: { name: string; email: string }): Promise<{ migratedCount: number }>;
 
   // Approval Hierarchy Administrators (derived from CERRoleMatrix)
@@ -22,6 +29,7 @@ export interface ICERDataService {
   getAdminAuditLog(): Promise<IAdminAuditRecord[]>;
   logAdminAudit(record: Omit<IAdminAuditRecord, "id">): Promise<void>;
   clearCache?(): void;
+  clearRoleMatrixCache?(): void;
 
   // Dropdown Field Choices (Fetched directly from SharePoint list schema)
   getFieldChoices(forceRefresh?: boolean): Promise<IFieldChoices>;

@@ -17,6 +17,7 @@ import { CategoryBadge } from "../Shared/CategoryBadge";
 import { ApprovalDecisionModal } from "../ApprovalWorkflow/ApprovalDecisionModal";
 import { BulkApprovalModal } from "./BulkApprovalModal";
 import { PermissionService } from "../../services/PermissionService";
+import { useToast } from "../Shared/ToastProvider";
 
 interface IPendingApprovalsViewProps {
   dataService: ICERDataService;
@@ -46,9 +47,9 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
   const [selectedProposal, setSelectedProposal] = useState<ICERProposal | null>(null);
   const [selectedAttachments, setSelectedAttachments] = useState<ICERAttachment[]>([]);
   const [isDecisionModalOpen, setIsDecisionModalOpen] = useState(false);
+  const toast = useToast();
   const [openingProposalId, setOpeningProposalId] = useState<string | null>(null);
   const activeRequestIdRef = useRef<string | null>(null);
-  const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
 
   // Bulk Approval State
   const [selectedProposalIds, setSelectedProposalIds] = useState<Set<string>>(new Set());
@@ -317,19 +318,24 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
       }
 
       if (errors.length === 0) {
-        setFeedbackNotice(
-          `Successfully approved all ${approvedCount} proposal${approvedCount === 1 ? "" : "s"}. Advanced to respective next approval levels.`
+        toast.success(
+          `Approved ${approvedCount} proposal${approvedCount === 1 ? "" : "s"}. Advanced to next approval level.`,
+          "Bulk Approval Complete"
         );
       } else {
-        setFeedbackNotice(
-          `Approved ${approvedCount} of ${totalToApprove} proposals. ${errors.length} proposal(s) encountered an issue.`
+        toast.warning(
+          `Approved ${approvedCount} of ${totalToApprove} proposals. ${errors.length} encountered an issue.`,
+          "Partial Bulk Approval"
         );
       }
 
       setSelectedProposalIds(new Set());
       setIsBulkModalOpen(false);
-      await onRefreshProposals();
-      await loadData(true);
+      if (onRefreshProposals) {
+        await onRefreshProposals();
+      } else {
+        await loadData(true);
+      }
     } finally {
       setIsBulkProcessing(false);
       setBulkProgressText("");
@@ -402,16 +408,28 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
       comments,
     });
 
-    setFeedbackNotice(
-      decision === "APPROVED"
-        ? `Proposal ${selectedProposal.cerprno} successfully APPROVED. Advanced to ${result.newStatus}.`
-        : decision === "SENT_BACK" || (decision as any) === "SEND_BACK"
-        ? `Proposal ${selectedProposal.cerprno} SENT BACK to Initiator for revision.`
-        : `Proposal ${selectedProposal.cerprno} REJECTED.`
-    );
+    if (decision === "APPROVED") {
+      toast.success(
+        `Proposal ${selectedProposal.cerprno} approved (${result.newStatus}).`,
+        "Decision Recorded"
+      );
+    } else if (decision === "SENT_BACK" || (decision as any) === "SEND_BACK") {
+      toast.warning(
+        `Proposal ${selectedProposal.cerprno} sent back to Initiator for revision.`,
+        "Sent Back"
+      );
+    } else {
+      toast.info(
+        `Proposal ${selectedProposal.cerprno} rejected.`,
+        "Proposal Rejected"
+      );
+    }
 
-    await onRefreshProposals();
-    await loadData(true);
+    if (onRefreshProposals) {
+      await onRefreshProposals();
+    } else {
+      await loadData(true);
+    }
   };
 
   return (
@@ -488,21 +506,6 @@ export const PendingApprovalsView: React.FC<IPendingApprovalsViewProps> = ({
           </div>
         </div>
       </div>
-
-      {feedbackNotice && (
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center justify-between animate-fade-in shadow-2xs">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-            <span className="font-semibold">{feedbackNotice}</span>
-          </div>
-          <button
-            onClick={() => setFeedbackNotice(null)}
-            className="text-sm font-bold text-emerald-700 hover:text-emerald-900 cursor-pointer"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
 
       {/* Modern Enterprise Data Table */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-subtle overflow-hidden flex flex-col">

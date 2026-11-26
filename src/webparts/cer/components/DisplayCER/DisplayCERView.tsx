@@ -15,7 +15,6 @@ import {
   Calculator,
   MessageSquare,
   Paperclip,
-  CheckCircle2,
   Clock,
   User,
   Send,
@@ -33,6 +32,7 @@ import { ExcelExportService } from "../../services/ExcelExportService";
 import { PermissionService } from "../../services/PermissionService";
 import { StatusBadge } from '../Shared/StatusBadge';
 import { CategoryBadge } from '../Shared/CategoryBadge';
+import { useToast } from '../Shared/ToastProvider';
 import { StatusHistoryModal } from '../ApprovalWorkflow/StatusHistoryModal';
 import { AuditTrailModal } from '../Audit/AuditTrailModal';
 import { ProposalHistoryModal } from './ProposalHistoryModal';
@@ -64,27 +64,25 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
   const [workflowLevels, setWorkflowLevels] = useState<IWorkflowLevel[]>([]);
   const [decisions, setDecisions] = useState<IApprovalDecision[]>([]);
   const [historyProposals, setHistoryProposals] = useState<ICERProposal[]>([]);
+  const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [exportNotice, setExportNotice] = useState<string | null>(null);
   const [isStatusHistoryOpen, setIsStatusHistoryOpen] = useState(false);
   const [isProposalHistoryOpen, setIsProposalHistoryOpen] = useState(false);
   const [isAuditTrailOpen, setIsAuditTrailOpen] = useState(false);
 
   const loadProposal = async (cerprno: string): Promise<void> => {
     if (!cerprno || !cerprno.trim()) {
-      setErrorMessage("Make an entry in mandatory field 'CER Proposal No.'");
+      toast.error("Make an entry in mandatory field 'CER Proposal No.'", "Validation Required");
       setProposal(null);
       return;
     }
 
     setIsLoading(true);
-    setErrorMessage(null);
 
     try {
       const found = await dataService.getProposalByNumber(cerprno.trim());
       if (!found) {
-        setErrorMessage(`Proposal '${cerprno}' not found in the system.`);
+        toast.error(`Proposal '${cerprno}' not found in the system.`, "Not Found");
         setProposal(null);
       } else {
         setProposal(found);
@@ -142,7 +140,7 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
         setDecisions(decs);
       }
     } catch (err: any) {
-      setErrorMessage(err.message || "Error retrieving proposal.");
+      toast.error(err.message || "Error retrieving proposal.", "Retrieval Failed");
     } finally {
       setIsLoading(false);
     }
@@ -161,8 +159,8 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
 
   const handleDownloadPDF = async () => {
     if (!proposal) return;
+    const toastId = toast.loading("Generating official CER PDF document...", "Exporting PDF");
     try {
-      setExportNotice("Generating official CER PDF document...");
       const liveLevels = proposal.sbu
         ? await dataService.getWorkflowLevels(proposal.sbu, true).catch(() => workflowLevels)
         : workflowLevels;
@@ -174,10 +172,19 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
         false,
         liveLevels
       );
-      setExportNotice(null);
+      toast.update(toastId, {
+        type: "success",
+        title: "PDF Ready",
+        message: `Downloaded official PDF for ${proposal.cerprno}.`,
+        duration: 4000,
+      });
     } catch (e: any) {
-      setExportNotice(null);
-      alert(e.message || "Error while generating PDF file");
+      toast.update(toastId, {
+        type: "error",
+        title: "PDF Export Failed",
+        message: e?.message || "Error while generating PDF file",
+        duration: 6000,
+      });
     }
   };
 
@@ -185,8 +192,9 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
     if (!proposal) return;
     try {
       ExcelExportService.exportSingleProposal(proposal);
+      toast.success(`Exported ${proposal.cerprno} to Excel.`, "Excel Ready");
     } catch (e: any) {
-      alert("Error exporting proposal to Excel: " + e.message);
+      toast.error(e?.message || "Error exporting proposal to Excel.", "Excel Export Failed");
     }
   };
 
@@ -408,21 +416,6 @@ export const DisplayCERView: React.FC<IDisplayCERViewProps> = ({
           </form>
         )}
       </div>
-
-      {/* Mandatory Validation Error / Notice as required by FR-02 / FR-03 */}
-      {errorMessage && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2.5 animate-shake">
-          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-          <span className="font-semibold">{errorMessage}</span>
-        </div>
-      )}
-
-      {exportNotice && (
-        <div className="p-4 rounded-xl bg-slate-50 border cer-border-blue text-slate-800 text-xs flex items-center gap-2.5">
-          <CheckCircle2 className="w-4 h-4 shrink-0 cer-text-blue animate-spin" />
-          <span className="font-medium">{exportNotice}</span>
-        </div>
-      )}
 
       {/* Main Display Body */}
       {proposal && (

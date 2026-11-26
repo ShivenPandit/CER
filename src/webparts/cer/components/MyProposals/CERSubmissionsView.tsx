@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   Clock,
   CheckCircle2,
-  AlertCircle,
   FileText,
   ChevronRight,
   History,
@@ -14,6 +13,7 @@ import { ICERProposal } from "../../models/CERModel";
 import { IAppUser } from "../../models/UserModel";
 import { ICERDataService } from "../../services/ICERDataService";
 import { StatusBadge } from "../Shared/StatusBadge";
+import { useToast } from "../Shared/ToastProvider";
 
 interface ICERSubmissionsViewProps {
   cerProposalId: string;
@@ -32,16 +32,15 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
   onNavigateToChange,
   onBack,
 }) => {
+  const toast = useToast();
   const [activeProposal, setActiveProposal] = useState<ICERProposal | null>(null);
   const [historyProposals, setHistoryProposals] = useState<ICERProposal[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
     const fetchSubmissions = async (): Promise<void> => {
       setIsLoading(true);
-      setError(null);
       try {
         const { active, history } = await dataService.getAllSubmissionsForCER(cerProposalId);
         if (isMounted) {
@@ -51,7 +50,7 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
       } catch (err: unknown) {
         if (isMounted) {
           console.error("Failed to fetch submissions for CER Proposal ID:", err);
-          setError("Failed to load submission history for this proposal.");
+          toast.error("Failed to load submission history for this proposal.", "Load Failed");
         }
       } finally {
         if (isMounted) {
@@ -64,7 +63,7 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [cerProposalId, dataService]);
+  }, [cerProposalId, dataService, toast]);
 
   const projectName =
     activeProposal?.pr_name || historyProposals[0]?.pr_name || "Capital Expenditure Request";
@@ -137,14 +136,6 @@ export const CERSubmissionsView: React.FC<ICERSubmissionsViewProps> = ({
           </span>
         </div>
       </div>
-
-      {/* Error Notice */}
-      {error && (
-        <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
 
       {isLoading ? (
         <div className="bg-white rounded-2xl border border-slate-200/80 p-16 text-center text-slate-400 text-xs space-y-2">

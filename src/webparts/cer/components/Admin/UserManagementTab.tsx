@@ -23,9 +23,10 @@ import {
   SbuApprovalMap,
 } from "../../models/UserModel";
 import { IWorkflowLevel } from "../../models/WorkflowModel";
-import { ICERDataService } from "../../services/ICERDataService";
+import { ICERDataService, IRoleMatrixBatchOperation } from "../../services/ICERDataService";
 import { useModalScrollLock } from "../../hooks/useModalScrollLock";
 import { UserAvatar } from "../Common/UserAvatar";
+import { useToast } from "../Shared/ToastProvider";
 import {
   updateSbuInApprovalMap,
   getSyncedSbusFromMap,
@@ -40,7 +41,7 @@ interface IUserManagementTabProps {
   roles: IUserRoleAssignment[];
   workflowLevels?: IWorkflowLevel[];
   isLoading?: boolean;
-  onRefreshRoles: () => Promise<void>;
+  onRefreshRoles: (preloadedRoles?: IUserRoleAssignment[]) => Promise<void>;
   onCancel?: () => void;
 }
 
@@ -73,10 +74,9 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
   onRefreshRoles,
   onCancel,
 }) => {
+  const toast = useToast();
   const [levels, setLevels] = useState<IWorkflowLevel[]>(workflowLevels || []);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // ---------------------------------------------------------------------------
   // SBU Master & Dynamic Blocks
@@ -157,7 +157,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
       await loadSbuItems();
       await onRefreshRoles();
       setIsAddSbuModalOpen(false);
-      setSuccessMessage(`SBU '${title}' was successfully added and is now available in the matrix and forms.`);
+      toast.success(`SBU '${title}' added and ready for approval routing.`, "SBU Added");
     } catch (err: any) {
       setAddSbuError(err?.message || "Failed to add SBU.");
     } finally {
@@ -231,25 +231,50 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
     }
   };
 
+  // Pre-compute O(1) lookup index for Matrix Approvers by (block, level)
+  const approversByBlockAndLevel = useMemo(() => {
+    const index = new Map<string, IUserRoleAssignment[]>();
+    const activeRoles = roles.filter((r) => r.is_active !== false);
+
+    for (const blockName of matrixBlocks) {
+      const targetBlock = blockName.trim().toLowerCase();
+      for (const lvl of [1, 2, 3, 4, 5, 6]) {
+        const seen = new Set<string>();
+        const deduped: IUserRoleAssignment[] = [];
+        for (const r of activeRoles) {
+          if (Number(r.approval_level) !== lvl) continue;
+          const rSbu = (r.sbu || "").toLowerCase();
+          if (rSbu !== targetBlock && rSbu !== "all") continue;
+          const key = (r.user_email || r.login_name || r.user_name).trim().toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            deduped.push(r);
+          }
+        }
+        index.set(`${targetBlock}::${lvl}`, deduped);
+      }
+    }
+    return index;
+  }, [roles, matrixBlocks]);
+
   // Retrieve assigned approvers for a given block and approval level
   const getApproversForBlockAndLevel = (block: string, level: number): IUserRoleAssignment[] => {
+    const key = `${block.trim().toLowerCase()}::${level}`;
+    const indexed = approversByBlockAndLevel.get(key);
+    if (indexed) {
+      return indexed;
+    }
     const targetBlock = block.trim().toLowerCase();
-    const matching = roles.filter(
-      (r) =>
-        r.is_active !== false &&
-        Number(r.approval_level) === level &&
-        (Boolean(r.sbu && r.sbu.toLowerCase() === targetBlock) ||
-         Boolean(r.sbu && r.sbu.toLowerCase() === "all"))
-    );
-
-    // Deduplicate by normalized user email / login
     const seen = new Set<string>();
     const deduped: IUserRoleAssignment[] = [];
-    for (const item of matching) {
-      const key = (item.user_email || item.login_name || item.user_name).trim().toLowerCase();
-      if (!seen.has(key)) {
-        seen.add(key);
-        deduped.push(item);
+    for (const r of roles) {
+      if (r.is_active === false || Number(r.approval_level) !== level) continue;
+      const rSbu = (r.sbu || "").toLowerCase();
+      if (rSbu !== targetBlock && rSbu !== "all") continue;
+      const uKey = (r.user_email || r.login_name || r.user_name).trim().toLowerCase();
+      if (!seen.has(uKey)) {
+        seen.add(uKey);
+        deduped.push(r);
       }
     }
     return deduped;
@@ -523,7 +548,10 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
         });
       };
 
-      // 3. Process Approvers Removed from this Block completely (modify ONLY this SBU key in sbuApprovalMap)
+      // 3. Collect all user mutations for this block cleanly and execute in a single parallel batch
+      const batchOperations: IRoleMatrixBatchOperation[] = [];
+
+      // 3a. Approvers Removed from this Block completely (modify ONLY this SBU key in sbuApprovalMap)
       const currentUserKeys = Array.from(currentInBlockByUser.keys());
       for (const k of currentUserKeys) {
         if (!stagedByUser.has(k)) {
@@ -538,8 +566,9 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
             const baseId = String(primaryRecord.id).split("__")[0];
 
             if (syncedSbus.length > 0 || isAdmin) {
-              await dataService.updateUserRole(
-                {
+              batchOperations.push({
+                type: "update",
+                assignment: {
                   ...primaryRecord,
                   id: baseId,
                   role: isAdmin ? "Admin" : primaryRecord.role,
@@ -552,16 +581,18 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                   approver_role_titles: [],
                   is_active: true,
                 },
-                actor
-              );
+              });
             } else {
-              await dataService.revokeUserRole(baseId, actor);
+              batchOperations.push({
+                type: "revoke",
+                revokeId: baseId,
+              });
             }
           }
         }
       }
 
-      // 4. Process Staged Approvers (update ONLY the selected SBU key in sbuApprovalMap, preserving other SBUs)
+      // 3b. Staged Approvers (update ONLY the selected SBU key in sbuApprovalMap, preserving other SBUs)
       const stagedUserEntries = Array.from(stagedByUser.entries());
       for (const [k, { user, levels }] of stagedUserEntries) {
         levels.sort((a, b) => a - b);
@@ -580,8 +611,9 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
         if (existingRecord) {
           const baseId = String(existingRecord.id).split("__")[0];
-          await dataService.updateUserRole(
-            {
+          batchOperations.push({
+            type: "update",
+            assignment: {
               ...existingRecord,
               id: baseId,
               role: roleToSave,
@@ -594,11 +626,11 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               approver_role_titles: titles,
               is_active: true,
             },
-            actor
-          );
+          });
         } else {
-          await dataService.assignUserRole(
-            {
+          batchOperations.push({
+            type: "assign",
+            assignment: {
               user_name: user.user_name,
               user_email: user.user_email,
               login_name: user.login_name || user.user_email,
@@ -615,13 +647,29 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               assigned_by: currentUser.name,
               assigned_date: new Date().toISOString(),
             },
-            actor
-          );
+          });
         }
       }
 
-      await onRefreshRoles();
-      setSuccessMessage(`Approval role matrix successfully updated for ${block}.`);
+      let refreshedRoles: IUserRoleAssignment[] | undefined;
+      if (typeof dataService.saveRoleMatrixBatch === "function") {
+        refreshedRoles = await dataService.saveRoleMatrixBatch(batchOperations, actor);
+      } else {
+        await Promise.all(
+          batchOperations.map(async (op) => {
+            if (op.type === "update" && op.assignment && "id" in op.assignment) {
+              await dataService.updateUserRole(op.assignment as IUserRoleAssignment, actor);
+            } else if (op.type === "assign" && op.assignment) {
+              await dataService.assignUserRole(op.assignment, actor);
+            } else if (op.type === "revoke" && op.revokeId) {
+              await dataService.revokeUserRole(op.revokeId, actor);
+            }
+          })
+        );
+      }
+
+      await onRefreshRoles(refreshedRoles);
+      toast.success(`Approval role matrix updated for ${block}.`, "Role Matrix Updated");
       handleCloseUpdateModal();
     } catch (err: any) {
       console.error("[UserManagementTab] Failed to save approval assignments:", err);
@@ -717,38 +765,6 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
 
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* Success Notification Banner */}
-      {successMessage && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span className="font-medium">{successMessage}</span>
-          </div>
-          <button
-            onClick={() => setSuccessMessage(null)}
-            className="text-emerald-700 hover:text-emerald-900 cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Error Notification Banner */}
-      {errorMessage && (
-        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-            <span className="font-medium">{errorMessage}</span>
-          </div>
-          <button
-            onClick={() => setErrorMessage(null)}
-            className="text-rose-700 hover:text-rose-900 cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
       {/* Main Top Bar: Back button, Page Title & Add SBU */}
       <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-3.5">
         <div className="flex items-center gap-3 shrink-0">

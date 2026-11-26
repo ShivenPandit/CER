@@ -1,8 +1,4 @@
 import * as React from "react";
-import {
-  AlertTriangle,
-  RotateCw,
-} from "lucide-react";
 import { ICERDataService } from "../../services/ICERDataService";
 import {
   IAppUser,
@@ -10,6 +6,7 @@ import {
 } from "../../models/UserModel";
 import { IWorkflowLevel } from "../../models/WorkflowModel";
 import { UserManagementTab } from "./UserManagementTab";
+import { useToast } from "../Shared/ToastProvider";
 
 export interface IAdminConsoleViewProps {
   dataService: ICERDataService;
@@ -23,20 +20,28 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
   currentUser,
   onCancel,
 }) => {
+  const toast = useToast();
   const [userRoles, setUserRoles] = React.useState<IUserRoleAssignment[]>([]);
   const [workflowLevels, setWorkflowLevels] = React.useState<IWorkflowLevel[]>([]);
-  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState<boolean>(true);
 
-  const loadData = React.useCallback(async (forceRefresh = false) => {
+  const loadData = React.useCallback(async (forceRefresh = false, preloadedRoles?: IUserRoleAssignment[]) => {
     setIsLoading(true);
-    setErrorMessage(null);
     try {
-      if (forceRefresh && (dataService as any).clearCache) {
-        (dataService as any).clearCache();
+      if (forceRefresh && !preloadedRoles) {
+        if (typeof dataService.clearRoleMatrixCache === "function") {
+          dataService.clearRoleMatrixCache();
+        } else if (typeof dataService.clearCache === "function") {
+          dataService.clearCache();
+        }
       }
-      let roles = dataService.getUserRoles ? await dataService.getUserRoles(forceRefresh) : [];
+      let roles = preloadedRoles
+        ? preloadedRoles
+        : dataService.getUserRoles
+        ? await dataService.getUserRoles(forceRefresh)
+        : [];
       if (
+        !preloadedRoles &&
         typeof dataService.migrateLegacyRoleMatrixEntries === "function" &&
         roles.some((r) => r.needs_sbu_map_migration)
       ) {
@@ -47,7 +52,8 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
           roles = await dataService.getUserRoles(true);
         }
       }
-      const levels = await dataService.getWorkflowLevels(undefined, forceRefresh);
+      // Reuse the freshly populated role cache when resolving workflow levels (0 extra network calls)
+      const levels = await dataService.getWorkflowLevels(undefined, false);
       const cleanRoles = roles.filter((a) => {
         const isAutoProvisioned =
           a.role === "Admin" &&
@@ -59,13 +65,11 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
       setWorkflowLevels(levels);
     } catch (err: any) {
       console.error("[AdminConsoleView] Failed to load admin records:", err);
-      setErrorMessage(
-        err?.message || "Failed to load user roles."
-      );
+      toast.error(err?.message || "Failed to load user roles.", "Unable to Load Data");
     } finally {
       setIsLoading(false);
     }
-  }, [dataService]);
+  }, [dataService, toast, currentUser.name, currentUser.email]);
 
   React.useEffect(() => {
     loadData().catch((e) => console.error(e));
@@ -73,25 +77,6 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
 
   return (
     <div className="w-full max-w-[2560px] mx-auto space-y-5 pb-12">
-      {/* Error alert if any */}
-      {errorMessage && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start justify-between gap-3 text-red-800 text-xs shadow-sm">
-          <div className="flex items-start gap-2.5">
-            <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
-            <div>
-              <h4 className="font-bold">Unable to load data</h4>
-              <p className="mt-0.5 text-red-700">{errorMessage}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => loadData(true)}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded bg-red-100 hover:bg-red-200 text-red-800 transition cursor-pointer"
-          >
-            <RotateCw className="w-3 h-3" /> Retry
-          </button>
-        </div>
-      )}
-
       {/* Main Content */}
       <div className="transition-all duration-150">
         <UserManagementTab
@@ -100,7 +85,7 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
           currentUser={currentUser}
           dataService={dataService}
           isLoading={isLoading}
-          onRefreshRoles={() => loadData(true)}
+          onRefreshRoles={(preloadedRoles) => loadData(!preloadedRoles, preloadedRoles)}
           onCancel={onCancel}
         />
       </div>

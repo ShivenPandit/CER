@@ -21,6 +21,7 @@ import { ExcelExportService } from "../../services/ExcelExportService";
 import { getCurrentFiscalYearString, getProposalFiscalYear } from "../../utils/dateUtils";
 import { ReportDashboard } from "./ReportDashboard";
 import { ReportProposalList } from "./ReportProposalList";
+import { useToast } from "../Shared/ToastProvider";
 
 export interface IReportsViewProps {
   proposals: ICERProposal[];
@@ -129,8 +130,8 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
   const [listDateFrom, setListDateFrom] = useState("");
   const [listDateTo, setListDateTo] = useState("");
 
+  const toast = useToast();
   const [isExporting, setIsExporting] = useState(false);
-  const [exportStatusText, setExportStatusText] = useState("");
 
   const handleResetListFilters = () => {
     setListSearchTerm("");
@@ -253,9 +254,9 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
   }, [matchingCriteriaListProposals, listStatusFilter]);
 
   const handleExportExcel = async () => {
+    const toastId = toast.loading("Initializing export...", "Exporting Excel");
     try {
       setIsExporting(true);
-      setExportStatusText("Initializing export...");
       if (dataService) {
         await ExcelExportService.exportAllMatchingProposalsAsync(
           dataService,
@@ -269,16 +270,26 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
             dateTo: listDateTo,
           },
           "CERProposals_Report",
-          (statusMsg) => setExportStatusText(statusMsg)
+          (statusMsg) => toast.update(toastId, { message: statusMsg })
         );
       } else {
         await ExcelExportService.exportProposalListAsync(filteredListProposals, "CERProposals_Report");
       }
+      toast.update(toastId, {
+        type: "success",
+        title: "Excel Ready",
+        message: "CER Proposals Excel report downloaded successfully.",
+        duration: 4000,
+      });
     } catch (err: any) {
-      alert("Error exporting Excel: " + (err?.message || String(err)));
+      toast.update(toastId, {
+        type: "error",
+        title: "Export Failed",
+        message: err?.message || String(err),
+        duration: 6000,
+      });
     } finally {
       setIsExporting(false);
-      setExportStatusText("");
     }
   };
 
@@ -694,7 +705,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                 disabled={(filteredListProposals.length === 0 && !dataService) || isExporting}
                 title={
                   isExporting
-                    ? exportStatusText || "Exporting proposals to Excel..."
+                    ? "Exporting proposals to Excel..."
                     : "Export filtered proposals to Excel"
                 }
                 className="h-9 min-w-[136px] flex items-center justify-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-xs shadow-emerald-600/20 transition-all disabled:opacity-60 whitespace-nowrap cursor-pointer"
@@ -779,14 +790,6 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
           />
         )}
       </div>
-
-      {/* Non-intrusive floating progress toast during background Excel export */}
-      {isExporting && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900/95 text-white text-xs font-medium px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-3 border border-slate-700/80 animate-in fade-in slide-in-from-bottom-2 duration-150 backdrop-blur-xs">
-          <Loader2 className="w-4 h-4 text-emerald-400 shrink-0 animate-spin" />
-          <span>{exportStatusText || "Exporting proposals to Excel..."}</span>
-        </div>
-      )}
     </div>
   );
 };

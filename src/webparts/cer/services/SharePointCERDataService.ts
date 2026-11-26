@@ -1,7 +1,7 @@
 /* eslint-disable require-atomic-updates */
 import { SPHttpClient } from "@microsoft/sp-http";
 import { WebPartContext } from "@microsoft/sp-webpart-base";
-import { ICERDataService } from "./ICERDataService";
+import { ICERDataService, IRoleMatrixBatchOperation } from "./ICERDataService";
 import { ICERProposal, IFieldChoices, DEFAULT_FIELD_CHOICES, ISBUItem } from "../models/CERModel";
 import {
   ICERAuditRecord,
@@ -90,22 +90,37 @@ export class SharePointCERDataService implements ICERDataService {
 
   private _cachedAttachmentFields: Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string; AllowMultipleValues?: boolean }> | null = null;
   private _cachedRoleMatrixFields: Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string }> | null = null;
+  private _inFlightRoleMatrixFields: Promise<Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string }>> | null = null;
   private _cachedSBUs: { data: ISBUItem[]; timestamp: number } | null = null;
   private _inFlightSBUs: Promise<ISBUItem[]> | null = null;
+  private _auditListUnavailable: boolean = false;
+  private _workingProposalExpandIdx: number | null = null;
 
-  public clearCache(): void {
-    this._cachedHistoryFields = null;
-    this._cachedAttachmentFields = null;
-    this._cachedRoleMatrixFields = null;
-    this._cachedSBUs = null;
-    this._inFlightSBUs = null;
-    this._cachedFieldChoices = undefined;
-    this._cachedSubmissionsByCerId.clear();
+  /**
+   * Clears only RBAC / Role Matrix & Workflow Level caches without wiping
+   * unrelated proposal data, attachments, SBUs, or SharePoint schema metadata.
+   */
+  public clearRoleMatrixCache(): void {
     this._cachedUserRoles = null;
     this._cachedUserRolesTimestamp = 0;
     this._inFlightUserRoles = null;
     this._cachedWorkflowLevels.clear();
     this._inFlightWorkflowLevels.clear();
+  }
+
+  public clearCache(includeSchema: boolean = false): void {
+    if (includeSchema) {
+      this._cachedHistoryFields = null;
+      this._cachedAttachmentFields = null;
+      this._cachedRoleMatrixFields = null;
+      this._inFlightRoleMatrixFields = null;
+      this._workingProposalExpandIdx = null;
+    }
+    this._cachedSBUs = null;
+    this._inFlightSBUs = null;
+    this._cachedFieldChoices = undefined;
+    this._cachedSubmissionsByCerId.clear();
+    this.clearRoleMatrixCache();
     this._cachedProposals = null;
     this._inFlightProposals = null;
     this._cachedProposalByNumber.clear();
@@ -155,20 +170,30 @@ export class SharePointCERDataService implements ICERDataService {
     if (this._cachedRoleMatrixFields && this._cachedRoleMatrixFields.length > 0) {
       return this._cachedRoleMatrixFields;
     }
-    try {
-      let raw: any[] = [];
-      try {
-        raw = await this._sp.getListFields<any>(SP_LISTS.CER_ROLE_MATRIX, {
-          select: "InternalName,Title,TypeAsString,EntityPropertyName,Hidden,ReadOnlyField",
-        });
-      } catch {
-        raw = [];
-      }
-      this._cachedRoleMatrixFields = (raw || []).filter((f) => !f.Hidden && !f.ReadOnlyField);
-      return this._cachedRoleMatrixFields;
-    } catch {
-      return [];
+    if (this._inFlightRoleMatrixFields) {
+      return this._inFlightRoleMatrixFields;
     }
+
+    this._inFlightRoleMatrixFields = (async () => {
+      try {
+        let raw: any[] = [];
+        try {
+          raw = await this._sp.getListFields<any>(SP_LISTS.CER_ROLE_MATRIX, {
+            select: "InternalName,Title,TypeAsString,EntityPropertyName,Hidden,ReadOnlyField",
+          });
+        } catch {
+          raw = [];
+        }
+        this._cachedRoleMatrixFields = (raw || []).filter((f) => !f.Hidden && !f.ReadOnlyField);
+        return this._cachedRoleMatrixFields;
+      } catch {
+        return [];
+      } finally {
+        this._inFlightRoleMatrixFields = null;
+      }
+    })();
+
+    return this._inFlightRoleMatrixFields;
   }
 
   private async _getApprovalLevelFieldInfo(): Promise<{ name: string; isChoice: boolean; isMultiChoice: boolean; exists: boolean }> {
@@ -564,47 +589,58 @@ export class SharePointCERDataService implements ICERDataService {
           const fetchItems = typeof this._sp.getAllListItems === "function"
             ? (opts: any) => this._sp.getAllListItems(listName, opts)
             : (opts: any) => this._sp.getListItems(listName, opts);
-          // Primary query with full Person & System expansion (cerOwner, Author, Editor, pendingWithEmail/pendingWith)
-          try {
-            items = await fetchItems({
-              top: 4800,
-              orderby: "Created desc",
+          // Memoized $expand probing: tries the last known working tuple first to avoid wasted 400 Bad Request calls
+          const expandStrategies: Array<{ expand?: string; select?: string }> = [
+            {
               expand: "cerOwner,Author,Editor,pendingWithEmail",
               select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail,pendingWithEmail/Id,pendingWithEmail/Title,pendingWithEmail/EMail,pendingWithEmail/Name",
-            });
-          } catch (expandWithPendingErr) {
+            },
+            {
+              expand: "cerOwner,Author,Editor,pendingWith",
+              select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail,pendingWith/Id,pendingWith/Title,pendingWith/EMail,pendingWith/Name",
+            },
+            {
+              expand: "cerOwner,Author,Editor",
+              select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
+            },
+            {
+              expand: "cerOwner",
+              select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name",
+            },
+            {},
+          ];
+
+          const orderedIndices =
+            this._workingProposalExpandIdx !== null && listName === SP_LISTS.CER_PROPOSALS
+              ? [
+                  this._workingProposalExpandIdx,
+                  ...expandStrategies.map((_, idx) => idx).filter((idx) => idx !== this._workingProposalExpandIdx),
+                ]
+              : expandStrategies.map((_, idx) => idx);
+
+          let fetchedSuccess = false;
+          let lastQueryErr: any = null;
+          for (const idx of orderedIndices) {
+            const strat = expandStrategies[idx];
             try {
-              items = await fetchItems({
+              const queryOpts: Record<string, any> = {
                 top: 4800,
                 orderby: "Created desc",
-                expand: "cerOwner,Author,Editor,pendingWith",
-                select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail,pendingWith/Id,pendingWith/Title,pendingWith/EMail,pendingWith/Name",
-              });
-            } catch (expandErr) {
-              try {
-                items = await fetchItems({
-                  top: 4800,
-                  orderby: "Created desc",
-                  expand: "cerOwner,Author,Editor",
-                  select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name,Author/Id,Author/Title,Author/EMail,Editor/Id,Editor/Title,Editor/EMail",
-                });
-              } catch (cerOwnerErr) {
-                try {
-                  items = await fetchItems({
-                    top: 4800,
-                    orderby: "Created desc",
-                    expand: "cerOwner",
-                    select: "*,cerOwner/Id,cerOwner/Title,cerOwner/EMail,cerOwner/Name",
-                  });
-                } catch {
-                  // Fallback: Unexpanded query
-                  items = await fetchItems({
-                    top: 4800,
-                    orderby: "Created desc",
-                  });
-                }
+              };
+              if (strat.expand) queryOpts.expand = strat.expand;
+              if (strat.select) queryOpts.select = strat.select;
+              items = await fetchItems(queryOpts);
+              if (listName === SP_LISTS.CER_PROPOSALS) {
+                this._workingProposalExpandIdx = idx;
               }
+              fetchedSuccess = true;
+              break;
+            } catch (qErr) {
+              lastQueryErr = qErr;
             }
+          }
+          if (!fetchedSuccess && lastQueryErr) {
+            throw lastQueryErr;
           }
           const mapped = items
             .filter((item: Record<string, unknown>) => {
@@ -3002,6 +3038,9 @@ export class SharePointCERDataService implements ICERDataService {
   // ---------------------------------------------------------------------------
 
   public async getAuditTrail(cerprno?: string): Promise<ICERAuditRecord[]> {
+    if (this._auditListUnavailable) {
+      return [];
+    }
     const candidateLists = [SP_LISTS.CER_AUDIT_TRAIL];
     let lastErr: any = null;
 
@@ -3059,6 +3098,7 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     if (lastErr && (String(lastErr?.message || lastErr).indexOf("404") !== -1 || String(lastErr?.message || lastErr).indexOf("does not exist") !== -1)) {
+      this._auditListUnavailable = true;
       console.warn("[SharePointCERDataService] CERAuditTrail list not found on site, defaulting to empty audit log:", lastErr);
       return [];
     }
@@ -3070,6 +3110,9 @@ export class SharePointCERDataService implements ICERDataService {
   }
 
   private async _createAuditRecord(record: ICERAuditRecord): Promise<void> {
+    if (this._auditListUnavailable) {
+      return;
+    }
     const candidateLists = [SP_LISTS.CER_AUDIT_TRAIL];
     const modernPayload: any = {
       Title: record.cerprno,
@@ -3114,6 +3157,7 @@ export class SharePointCERDataService implements ICERDataService {
     if (lastAuditErr) {
       const errStr = String(lastAuditErr?.message || lastAuditErr || "");
       if (errStr.includes("404") || errStr.toLowerCase().includes("does not exist") || errStr.toLowerCase().includes("not found")) {
+        this._auditListUnavailable = true;
         console.warn("[SharePointCERDataService] CERAuditTrail list not found on site, skipping audit record write.");
         return;
       }
@@ -3309,8 +3353,8 @@ export class SharePointCERDataService implements ICERDataService {
     return [...result];
   }
 
-  public async saveWorkflowLevels(levels: IWorkflowLevel[]): Promise<void> {
-    this.clearCache();
+  public async saveWorkflowLevels(_levels: IWorkflowLevel[]): Promise<void> {
+    this.clearRoleMatrixCache();
     // CERWorkflowLevels list has been retired and deleted from SharePoint.
     // The application strictly uses the hardcoded fixed 6-level sequential workflow, resolving approvers from CERRoleMatrix.
     return Promise.resolve();
@@ -5916,7 +5960,7 @@ export class SharePointCERDataService implements ICERDataService {
     assignment: Omit<IUserRoleAssignment, "id">,
     actor: { name: string; email: string }
   ): Promise<IUserRoleAssignment> {
-    this.clearCache();
+    this.clearRoleMatrixCache();
 
     const incomingHasAssignments =
       (assignment.sbu_approval_map && Object.keys(assignment.sbu_approval_map).length > 0) ||
@@ -6059,22 +6103,18 @@ export class SharePointCERDataService implements ICERDataService {
         assigned_date: new Date().toISOString(),
       };
 
-      try {
-        await this.logAdminAudit({
-          actor_name: actor.name,
-          actor_email: actor.email,
-          action: "ROLE_ASSIGNED",
-          target_type: "USER",
-          target_id: created.id,
-          details: `Assigned role '${created.role}' to ${created.user_name} (${created.user_email}) for SBU(s) '${syncedSbus.join(", ") || "None"}'.`,
-          after_value: JSON.stringify(created),
-          timestamp: new Date().toISOString(),
-        });
-      } catch {
-        // ignore audit logging error
-      }
+      void this.logAdminAudit({
+        actor_name: actor.name,
+        actor_email: actor.email,
+        action: "ROLE_ASSIGNED",
+        target_type: "USER",
+        target_id: created.id,
+        details: `Assigned role '${created.role}' to ${created.user_name} (${created.user_email}) for SBU(s) '${syncedSbus.join(", ") || "None"}'.`,
+        after_value: JSON.stringify(created),
+        timestamp: new Date().toISOString(),
+      }).catch(() => undefined);
 
-      this.clearCache();
+      this.clearRoleMatrixCache();
       return created;
     } catch (e) {
       console.error("[SharePointCERDataService] assignUserRole failed in SharePoint:", e);
@@ -6088,7 +6128,7 @@ export class SharePointCERDataService implements ICERDataService {
     assignment: IUserRoleAssignment,
     actor: { name: string; email: string }
   ): Promise<void> {
-    this.clearCache();
+    this.clearRoleMatrixCache();
 
     try {
       const spUserId = await this._resolveRoleMatrixSpUserId(assignment);
@@ -6136,21 +6176,17 @@ export class SharePointCERDataService implements ICERDataService {
         );
       }
 
-      try {
-        await this.logAdminAudit({
-          actor_name: actor.name,
-          actor_email: actor.email,
-          action: "ROLE_UPDATED",
-          target_type: "USER",
-          target_id: targetItemId,
-          details: `Updated SBU approval map for ${assignment.user_name}: ${serializedMap || "(no SBU assignments)"}. Role: ${isTargetAdmin ? "Admin" : "Standard"}.`,
-          after_value: JSON.stringify(assignment),
-          timestamp: new Date().toISOString(),
-        });
-      } catch {
-        // ignore audit logging error
-      }
-      this.clearCache();
+      void this.logAdminAudit({
+        actor_name: actor.name,
+        actor_email: actor.email,
+        action: "ROLE_UPDATED",
+        target_type: "USER",
+        target_id: targetItemId,
+        details: `Updated SBU approval map for ${assignment.user_name}: ${serializedMap || "(no SBU assignments)"}. Role: ${isTargetAdmin ? "Admin" : "Standard"}.`,
+        after_value: JSON.stringify(assignment),
+        timestamp: new Date().toISOString(),
+      }).catch(() => undefined);
+      this.clearRoleMatrixCache();
       return;
     } catch (e) {
       console.error("[SharePointCERDataService] updateUserRole failed in SharePoint:", e);
@@ -6164,7 +6200,7 @@ export class SharePointCERDataService implements ICERDataService {
     assignmentId: string,
     actor: { name: string; email: string }
   ): Promise<void> {
-    this.clearCache();
+    this.clearRoleMatrixCache();
     const parts = String(assignmentId).split("__");
     const targetItemId = parts[0];
     const scopedSbu = parts[1];
@@ -6213,20 +6249,16 @@ export class SharePointCERDataService implements ICERDataService {
       const listName = SP_LISTS.CER_ROLE_MATRIX;
       await this._sp.deleteListItem(listName, targetItemId);
 
-      try {
-        await this.logAdminAudit({
-          actor_name: actor.name,
-          actor_email: actor.email,
-          action: "ROLE_REVOKED",
-          target_type: "USER",
-          target_id: assignmentId,
-          details: `Revoked role assignment ID '${assignmentId}'.`,
-          timestamp: new Date().toISOString(),
-        });
-      } catch {
-        // ignore audit logging error
-      }
-      this.clearCache();
+      void this.logAdminAudit({
+        actor_name: actor.name,
+        actor_email: actor.email,
+        action: "ROLE_REVOKED",
+        target_type: "USER",
+        target_id: assignmentId,
+        details: `Revoked role assignment ID '${assignmentId}'.`,
+        timestamp: new Date().toISOString(),
+      }).catch(() => undefined);
+      this.clearRoleMatrixCache();
       return;
     } catch (e) {
       console.error("[SharePointCERDataService] revokeUserRole failed in SharePoint:", e);
@@ -6234,6 +6266,146 @@ export class SharePointCERDataService implements ICERDataService {
         `Unable to revoke user role assignment '${assignmentId}' in SharePoint role matrix: ${e instanceof Error ? e.message : String(e)}`
       );
     }
+  }
+
+  /**
+   * Executes multiple Role Matrix updates/assignments/revokes in parallel with a
+   * single pre-flight schema/role resolution and a single post-save refresh.
+   * Reduces SBU matrix save latency from ~30 sequential REST calls to 1 parallel batch.
+   */
+  public async saveRoleMatrixBatch(
+    operations: IRoleMatrixBatchOperation[],
+    actor: { name: string; email: string }
+  ): Promise<IUserRoleAssignment[]> {
+    if (!operations || operations.length === 0) {
+      return this.getUserRoles(false);
+    }
+
+    // 1. Warm schema fields, SBU registry, and current role snapshot in parallel ONCE
+    const [, allRoles] = await Promise.all([
+      this.getRoleMatrixFields(),
+      this.getUserRoles(false),
+      this.getSBUs(false).catch(() => []),
+    ]);
+
+    // 2. Resolve any missing SharePoint numeric UserIds in parallel ONCE
+    const resolvedUserIds = await Promise.all(
+      operations.map((op) =>
+        op.assignment ? this._resolveRoleMatrixSpUserId(op.assignment) : Promise.resolve(null)
+      )
+    );
+
+    const listName = SP_LISTS.CER_ROLE_MATRIX;
+
+    // 3. Execute all distinct SharePoint user row mutations concurrently
+    await Promise.all(
+      operations.map(async (op, idx) => {
+        if (op.type === "revoke" && op.revokeId) {
+          const baseId = String(op.revokeId).split("__")[0];
+          const rowsForItem = allRoles.filter((r) => String(r.id).split("__")[0] === baseId);
+          const isAdmin = rowsForItem.some((r) => String(r.role || "").trim().toLowerCase() === "admin");
+          if (isAdmin) {
+            throw new Error(
+              "Security Restriction: System Admin accounts cannot be deleted through the web interface."
+            );
+          }
+          await this._sp.deleteListItem(listName, baseId);
+          return;
+        }
+
+        const assignment = op.assignment;
+        if (!assignment) return;
+
+        const spUserId = resolvedUserIds[idx];
+        const matchingExisting = this._findMatchingRolesForUser(allRoles, assignment, spUserId);
+        const existingItem = matchingExisting[0];
+        const targetItemId =
+          ("id" in assignment && assignment.id ? String(assignment.id).split("__")[0] : "") ||
+          (existingItem?.id ? String(existingItem.id).split("__")[0] : "");
+
+        const isTargetAdmin =
+          String(assignment.role || "").trim().toLowerCase() === "admin" ||
+          matchingExisting.some((r) => String(r.role || "").trim().toLowerCase() === "admin");
+
+        const mode: "merge" | "replace" = op.type === "assign" && !targetItemId ? "merge" : "replace";
+        const finalMap = this._resolveFinalSbuMapForSave(assignment, matchingExisting, mode);
+
+        const { payload } = await this._buildRoleMatrixWritePayload(
+          assignment.user_name,
+          isTargetAdmin,
+          spUserId,
+          finalMap
+        );
+
+        const currentPayload: Record<string, any> = { ...payload };
+        let succeeded = false;
+        let lastErr: any = null;
+
+        if (targetItemId) {
+          for (let attempt = 0; attempt < 5; attempt++) {
+            try {
+              await this._sp.updateListItem(listName, targetItemId, currentPayload);
+              succeeded = true;
+              break;
+            } catch (err: any) {
+              lastErr = err;
+              const errStr = String(err?.message || "").toLowerCase();
+              if (this._applyRoleMatrixODataRetry(currentPayload, errStr, isTargetAdmin)) {
+                continue;
+              }
+              break;
+            }
+          }
+        } else {
+          for (let attempt = 0; attempt < 5; attempt++) {
+            try {
+              await this._sp.createListItem(listName, currentPayload);
+              succeeded = true;
+              break;
+            } catch (createErr: any) {
+              lastErr = createErr;
+              const errStr = String(createErr?.message || "").toLowerCase();
+              if (
+                errStr.indexOf("spduplicatevaluesfoundexception") !== -1 ||
+                errStr.indexOf("duplicate values were found") !== -1
+              ) {
+                const freshRoles = await this.getUserRoles(true);
+                const dupMatches = this._findMatchingRolesForUser(freshRoles, assignment, spUserId);
+                if (dupMatches.length > 0 && dupMatches[0].id) {
+                  const dupBaseId = String(dupMatches[0].id).split("__")[0];
+                  await this._sp.updateListItem(listName, dupBaseId, currentPayload);
+                  succeeded = true;
+                  break;
+                }
+              }
+              if (this._applyRoleMatrixODataRetry(currentPayload, errStr, isTargetAdmin)) {
+                continue;
+              }
+              break;
+            }
+          }
+        }
+
+        if (!succeeded) {
+          throw new Error(
+            `Failed to save role matrix changes for '${assignment.user_name}': ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`
+          );
+        }
+      })
+    );
+
+    void this.logAdminAudit({
+      actor_name: actor.name,
+      actor_email: actor.email,
+      action: "ROLE_UPDATED",
+      target_type: "USER",
+      target_id: "BATCH",
+      details: `Batch updated ${operations.length} role matrix record(s).`,
+      timestamp: new Date().toISOString(),
+    }).catch(() => undefined);
+
+    this.clearRoleMatrixCache();
+    return this.getUserRoles(true);
   }
 
   /**
@@ -6279,7 +6451,7 @@ export class SharePointCERDataService implements ICERDataService {
     }
 
     if (migratedCount > 0) {
-      this.clearCache();
+      this.clearRoleMatrixCache();
     }
     return { migratedCount };
   }
@@ -6289,6 +6461,9 @@ export class SharePointCERDataService implements ICERDataService {
   // ---------------------------------------------------------------------------
 
   public async getAdminAuditLog(): Promise<IAdminAuditRecord[]> {
+    if (this._auditListUnavailable) {
+      return [];
+    }
     try {
       const fetchItems = typeof this._sp.getAllListItems === "function"
         ? (opts: any) => this._sp.getAllListItems(SP_LISTS.CER_AUDIT_TRAIL, opts)
@@ -6310,12 +6485,19 @@ export class SharePointCERDataService implements ICERDataService {
         after_value: item.newValue || item.after_value || "",
         timestamp: item.timestamp || item.Created || new Date().toISOString(),
       }));
-    } catch {
+    } catch (err: any) {
+      const msg = String(err?.message || err || "").toLowerCase();
+      if (msg.indexOf("404") !== -1 || msg.indexOf("does not exist") !== -1) {
+        this._auditListUnavailable = true;
+      }
       return [];
     }
   }
 
   public async logAdminAudit(record: Omit<IAdminAuditRecord, "id">): Promise<void> {
+    if (this._auditListUnavailable) {
+      return;
+    }
     const payload: any = {
       Title: record.target_id || "ADMIN",
       cerPrId: record.target_id || "ADMIN",
@@ -6330,7 +6512,11 @@ export class SharePointCERDataService implements ICERDataService {
 
     try {
       await this._sp.createListItem(SP_LISTS.CER_AUDIT_TRAIL, payload);
-    } catch {
+    } catch (err: any) {
+      const msg = String(err?.message || err || "").toLowerCase();
+      if (msg.indexOf("404") !== -1 || msg.indexOf("does not exist") !== -1) {
+        this._auditListUnavailable = true;
+      }
       // non-blocking
     }
   }
