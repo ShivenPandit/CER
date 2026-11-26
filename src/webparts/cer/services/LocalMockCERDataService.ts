@@ -1,14 +1,26 @@
 import { ICERDataService } from "./ICERDataService";
-import { ICERProposal, IFieldChoices, DEFAULT_FIELD_CHOICES } from "../models/CERModel";
+import { ICERProposal, IFieldChoices, DEFAULT_FIELD_CHOICES, ISBUItem } from "../models/CERModel";
 import { ICERAuditRecord, ICERRemarksVersion, AUDIT_FIELD_DESCRIPTIONS, EXCLUDED_AUDIT_FIELDS } from "../models/AuditModel";
 import { IWorkflowLevel, IApprovalDecision, INotificationLog, isProjectOwnerStage, ApproverAssignmentType, isValidEmail } from "../models/WorkflowModel";
 import { ICERAttachment, ICERAttachmentManifestEntry } from "../models/AttachmentModel";
-import { IDirectoryUser, MOCK_DIRECTORY_USERS, IUserRoleAssignment, IAdminAuditRecord, IAppUser } from "../models/UserModel";
+import { IDirectoryUser, MOCK_DIRECTORY_USERS, IUserRoleAssignment, IAdminAuditRecord, IAppUser, SbuApprovalMap } from "../models/UserModel";
 import { PermissionService } from "./PermissionService";
 import { EmailTemplateService } from "./EmailTemplateService";
 import { validateAttachment } from "../utils/attachmentValidation";
 import { getCurrentFiscalYearPhasingLabels, getLocalComponents } from "../utils/dateUtils";
 import { FIXED_6_LEVEL_APPROVAL_STAGES } from "../constants";
+import {
+  toStableSbuCode,
+  toSbuDisplayName,
+  getDefaultRoleTitleForLevel,
+  parseSbuApprovalMap,
+  getSyncedSbusFromMap,
+  updateSbuInApprovalMap,
+  mergeSingleAssignmentIntoMap,
+  buildLegacyFallbackMap,
+  reconstructUserSbuMapFromRoles,
+  registerSbuItems,
+} from "../utils/sbuApprovalMapUtils";
 
 const STORAGE_KEYS = {
   PROPOSALS: "CER_APP_PROPOSALS",
@@ -21,7 +33,15 @@ const STORAGE_KEYS = {
   NOTIFICATIONS: "CER_APP_NOTIFICATIONS",
   USER_ROLES: "CER_APP_USER_ROLES",
   ADMIN_AUDIT: "CER_APP_ADMIN_AUDIT",
+  SBUS: "CER_APP_SBUS",
 };
+
+export const DEFAULT_SBUS: ISBUItem[] = [
+  { id: "sbu-1", title: "RJ North", sbuCode: "RJ_NORTH", isActive: true, sortOrder: 1 },
+  { id: "sbu-2", title: "RJ South", sbuCode: "RJ_SOUTH", isActive: true, sortOrder: 2 },
+  { id: "sbu-3", title: "CBOS", sbuCode: "CBOS", isActive: true, sortOrder: 3 },
+  { id: "sbu-4", title: "RAVA", sbuCode: "RAVA", isActive: true, sortOrder: 4 },
+];
 
 const DEFAULT_USER_ROLES: IUserRoleAssignment[] = [
   {
@@ -320,6 +340,7 @@ export class LocalMockCERDataService implements ICERDataService {
   private _userRoles: IUserRoleAssignment[] = [];
   private _adminAudit: IAdminAuditRecord[] = [];
   private _proposalsHistory: ICERProposal[] = [];
+  private _sbus: ISBUItem[] = [];
 
   constructor() {
     this._initializeData();
@@ -332,6 +353,8 @@ export class LocalMockCERDataService implements ICERDataService {
       this._proposalsHistory = [];
       this._workflowLevels = [...DEFAULT_WORKFLOW_LEVELS];
       this._userRoles = [...DEFAULT_USER_ROLES];
+      this._sbus = [...DEFAULT_SBUS];
+      registerSbuItems(this._sbus);
       return;
     }
     try {
@@ -615,12 +638,23 @@ export class LocalMockCERDataService implements ICERDataService {
         ];
         this._saveToStorage(STORAGE_KEYS.ADMIN_AUDIT, this._adminAudit);
       }
+
+      const storedSBUs = getStoredItem(STORAGE_KEYS.SBUS);
+      if (storedSBUs) {
+        this._sbus = JSON.parse(storedSBUs);
+      } else {
+        this._sbus = [...DEFAULT_SBUS];
+        this._saveToStorage(STORAGE_KEYS.SBUS, this._sbus);
+      }
+      registerSbuItems(this._sbus);
     } catch (e) {
       console.warn("[LocalMockCERDataService] Storage error, using in-memory data:", e);
       this._proposals = [...SEED_PROPOSALS];
       this._proposalsHistory = [];
       this._workflowLevels = [...DEFAULT_WORKFLOW_LEVELS];
       this._userRoles = [...DEFAULT_USER_ROLES];
+      this._sbus = [...DEFAULT_SBUS];
+      registerSbuItems(this._sbus);
     }
   }
 
@@ -634,8 +668,53 @@ export class LocalMockCERDataService implements ICERDataService {
     }
   }
 
-  public async getFieldChoices(): Promise<IFieldChoices> {
-    return { ...DEFAULT_FIELD_CHOICES };
+  public async getSBUs(_forceRefresh?: boolean): Promise<ISBUItem[]> {
+    registerSbuItems(this._sbus);
+    return [...this._sbus].sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+
+  public async createSBU(sbu: { title: string; sbuCode?: string; isActive?: boolean; sortOrder?: number }): Promise<ISBUItem> {
+    const title = String(sbu.title || "").trim();
+    if (!title) {
+      throw new Error("SBU Title is required.");
+    }
+    if (this._sbus.some((s) => s.title.toLowerCase() === title.toLowerCase())) {
+      throw new Error(`SBU with name '${title}' already exists.`);
+    }
+
+    let code = (sbu.sbuCode || toStableSbuCode(title)).trim().toUpperCase();
+    if (!sbu.sbuCode) {
+      let suffix = 2;
+      const baseCode = code;
+      while (this._sbus.some((s) => (s.sbuCode || "").toUpperCase() === code)) {
+        code = `${baseCode}_${suffix++}`;
+      }
+    }
+    const active = sbu.isActive !== false;
+    const maxSort = this._sbus.reduce((max, s) => Math.max(max, Number(s.sortOrder) || 0), 0);
+    const sort = Number(sbu.sortOrder !== undefined ? sbu.sortOrder : maxSort + 1);
+
+    const newItem: ISBUItem = {
+      id: `sbu-${Date.now()}`,
+      title,
+      sbuCode: code,
+      isActive: active,
+      sortOrder: sort,
+    };
+
+    this._sbus.push(newItem);
+    this._sbus.sort((a, b) => a.sortOrder - b.sortOrder);
+    this._saveToStorage(STORAGE_KEYS.SBUS, this._sbus);
+    registerSbuItems(this._sbus);
+    return newItem;
+  }
+
+  public async getFieldChoices(_forceRefresh?: boolean): Promise<IFieldChoices> {
+    const activeSbus = this._sbus.filter((s) => s.isActive).map((s) => s.title);
+    return {
+      ...DEFAULT_FIELD_CHOICES,
+      sbu: activeSbus.length > 0 ? activeSbus : DEFAULT_FIELD_CHOICES.sbu,
+    };
   }
 
   public async getAllProposals(): Promise<ICERProposal[]> {
@@ -1261,22 +1340,29 @@ export class LocalMockCERDataService implements ICERDataService {
 
       if (sbu) {
         const sbuLower = sbu.trim().toLowerCase();
-        return this._workflowLevels
+        const sbuFiltered = this._workflowLevels
           .filter(l => (l.sbu || "").trim().toLowerCase() === sbuLower)
           .sort((a, b) => a.level_id - b.level_id)
           .map(mapLevel);
+        if (sbuFiltered.length > 0) {
+          return sbuFiltered;
+        }
+      } else {
+        return [...this._workflowLevels]
+          .sort((a, b) => {
+            const sbuComp = (a.sbu || "").localeCompare(b.sbu || "");
+            if (sbuComp !== 0) return sbuComp;
+            return a.level_id - b.level_id;
+          })
+          .map(mapLevel);
       }
-      return [...this._workflowLevels]
-        .sort((a, b) => {
-          const sbuComp = (a.sbu || "").localeCompare(b.sbu || "");
-          if (sbuComp !== 0) return sbuComp;
-          return a.level_id - b.level_id;
-        })
-        .map(mapLevel);
     }
 
     const targetSbu = sbu ? sbu.trim() : "";
-    const validSbus = ["RJ North", "RJ South", "CBOS", "RAVA", "ALL"];
+    const validSbus = [
+      ...this._sbus.map((s) => s.title),
+      "RJ North", "RJ South", "CBOS", "RAVA", "ALL"
+    ];
     if (targetSbu && validSbus.map(s => s.toLowerCase()).indexOf(targetSbu.toLowerCase()) === -1) {
       return [];
     }
@@ -1286,7 +1372,8 @@ export class LocalMockCERDataService implements ICERDataService {
 
       let matchedUsers: IUserRoleAssignment[] = [];
       if (!isPO) {
-        const eligible = this._userRoles.filter(
+        const expandedRoles = this._expandAllMockUserRoles();
+        const eligible = expandedRoles.filter(
           (u) =>
             u.is_active &&
             u.approval_level !== undefined &&
@@ -1294,11 +1381,10 @@ export class LocalMockCERDataService implements ICERDataService {
             Number(u.approval_level) === Number(lid)
         );
         let candidates: IUserRoleAssignment[] = [];
-        if (targetSbu) {
+        if (targetSbu && targetSbu.toLowerCase() !== "all") {
           const exact = eligible.filter((u) => Boolean(u.sbu && u.sbu.toLowerCase() === targetSbu.toLowerCase()));
           const allSbu = eligible.filter((u) => Boolean(u.sbu && u.sbu.toLowerCase() === "all"));
-          const merged = exact.concat(allSbu);
-          candidates = merged.length > 0 ? merged : eligible;
+          candidates = exact.concat(allSbu);
         } else {
           candidates = eligible;
         }
@@ -2020,8 +2106,78 @@ export class LocalMockCERDataService implements ICERDataService {
     // No-op for in-memory mock service
   }
 
+  private _getRecordSbuMap(rec: IUserRoleAssignment): SbuApprovalMap {
+    if (rec.sbu_approval_map && Object.keys(rec.sbu_approval_map).length > 0) {
+      return parseSbuApprovalMap(rec.sbu_approval_map);
+    }
+    if (rec.approval_level !== undefined && rec.approval_level !== null) {
+      return buildLegacyFallbackMap(
+        rec.sbus && rec.sbus.length > 0 ? rec.sbus : rec.sbu ? [rec.sbu] : ["All"],
+        rec.approval_levels && rec.approval_levels.length > 0 ? rec.approval_levels : [rec.approval_level],
+        rec.approver_role_titles && rec.approver_role_titles.length > 0
+          ? rec.approver_role_titles
+          : rec.approver_role_title
+          ? [rec.approver_role_title]
+          : []
+      );
+    }
+    return {};
+  }
+
+  private _expandMockUserRoleRecord(rec: IUserRoleAssignment): IUserRoleAssignment[] {
+    const baseId = String(rec.id).split("__")[0];
+    const map = this._getRecordSbuMap(rec);
+    const syncedSbus = getSyncedSbusFromMap(map);
+    const effectiveSbus = syncedSbus.length > 0 ? syncedSbus : rec.sbus || (rec.sbu ? [rec.sbu] : []);
+
+    if (Object.keys(map).length === 0) {
+      return [
+        {
+          ...rec,
+          id: baseId,
+          approval_level: undefined,
+          approval_levels: [],
+          approver_role_title: "",
+          approver_role_titles: [],
+          sbu: effectiveSbus[0] || "",
+          sbus: effectiveSbus,
+          sbu_approval_map: {},
+        },
+      ];
+    }
+
+    const expanded: IUserRoleAssignment[] = [];
+    for (const sbuCode of Object.keys(map)) {
+      const entry = map[sbuCode];
+      const sbuDisplay = toSbuDisplayName(sbuCode);
+      for (let i = 0; i < entry.levels.length; i++) {
+        const lvl = entry.levels[i];
+        const title = entry.roleTitles[i] || getDefaultRoleTitleForLevel(lvl);
+        expanded.push({
+          ...rec,
+          id: `${baseId}__${sbuDisplay}__${lvl}`,
+          sbu: sbuDisplay,
+          sbus: syncedSbus,
+          approval_level: lvl,
+          approval_levels: [...entry.levels],
+          approver_role_title: title,
+          approver_role_titles: [...entry.roleTitles],
+          sbu_approval_map: map,
+        });
+      }
+    }
+    return expanded;
+  }
+
+  private _expandAllMockUserRoles(): IUserRoleAssignment[] {
+    return this._userRoles.reduce<IUserRoleAssignment[]>(
+      (acc, rec) => acc.concat(this._expandMockUserRoleRecord(rec)),
+      []
+    );
+  }
+
   public async getUserRoles(_forceRefresh?: boolean): Promise<IUserRoleAssignment[]> {
-    return [...this._userRoles];
+    return this._expandAllMockUserRoles();
   }
 
   public async getHierarchyAdmins(_forceRefresh?: boolean): Promise<string[]> {
@@ -2037,30 +2193,39 @@ export class LocalMockCERDataService implements ICERDataService {
       .filter(Boolean);
   }
 
+  private _findMockUserRecordIndex(target: Partial<IUserRoleAssignment>): number {
+    const baseId = target.id ? String(target.id).split("__")[0] : "";
+    const normEmail = (target.user_email || "").trim().toLowerCase();
+    const normLogin = (target.login_name || "").trim().toLowerCase();
+    const normName = (target.user_name || "").trim().toLowerCase();
+
+    return this._userRoles.findIndex((r) => {
+      const rBaseId = String(r.id).split("__")[0];
+      if (baseId && rBaseId === baseId) return true;
+      const rEmail = (r.user_email || "").trim().toLowerCase();
+      const rLogin = (r.login_name || "").trim().toLowerCase();
+      const rName = (r.user_name || "").trim().toLowerCase();
+      return (
+        (normEmail && (rEmail === normEmail || rLogin === normEmail)) ||
+        (normLogin && (rLogin === normLogin || rEmail === normLogin)) ||
+        (normName && rName === normName)
+      );
+    });
+  }
+
   public async assignUserRole(
     assignment: Omit<IUserRoleAssignment, "id">,
     actor: { name: string; email: string }
   ): Promise<IUserRoleAssignment> {
-    // If target user is an existing Admin with unassigned level/SBU, update their record in place
-    const normEmail = (assignment.user_email || "").trim().toLowerCase();
-    const existingAdminUnassigned = this._userRoles.find(
-      r => r.user_email.trim().toLowerCase() === normEmail &&
-           r.role === "Admin" &&
-           r.is_active &&
-           (!r.approval_level || !r.sbu)
-    );
-    if (existingAdminUnassigned) {
-      const updated: IUserRoleAssignment = {
-        ...existingAdminUnassigned,
-        ...assignment,
-        id: existingAdminUnassigned.id,
-        role: "Admin",
-      };
-      await this.updateUserRole(updated, actor);
-      return updated;
-    }
+    const existingIdx = this._findMockUserRecordIndex(assignment);
+    const existingRecord = existingIdx >= 0 ? this._userRoles[existingIdx] : undefined;
 
-    if (assignment.role === "Admin" && actor.name !== "SYSTEM_INITIAL_BOOTSTRAP" && actor.name !== "SYSTEM_DESIGNATED_ADMIN_PROVISION") {
+    if (
+      assignment.role === "Admin" &&
+      !existingRecord &&
+      actor.name !== "SYSTEM_INITIAL_BOOTSTRAP" &&
+      actor.name !== "SYSTEM_DESIGNATED_ADMIN_PROVISION"
+    ) {
       throw new Error(
         "Security Restriction: System Admin accounts cannot be created or modified through the web interface. System Admin permissions must be managed directly in SharePoint CERRoleMatrix list."
       );
@@ -2068,27 +2233,104 @@ export class LocalMockCERDataService implements ICERDataService {
 
     const actorEmail = (actor.email || "").trim().toLowerCase();
     const isAdminActor = this._userRoles.some(
-      r => r.user_email.trim().toLowerCase() === actorEmail && r.role === "Admin" && r.is_active
+      (r) => r.user_email.trim().toLowerCase() === actorEmail && r.role === "Admin" && r.is_active
     );
-    if (!isAdminActor && actorEmail.indexOf("Admin") === -1 && actor.name !== "SYSTEM_INITIAL_BOOTSTRAP" && actor.name !== "SYSTEM_DESIGNATED_ADMIN_PROVISION") {
-      throw new Error(`Unauthorized: Only an active Administrator can assign roles. Actor '${actor.name}' does not possess Admin privileges.`);
+    if (
+      !isAdminActor &&
+      actorEmail.indexOf("Admin") === -1 &&
+      actorEmail.indexOf("admin") === -1 &&
+      actor.name !== "SYSTEM_INITIAL_BOOTSTRAP" &&
+      actor.name !== "SYSTEM_DESIGNATED_ADMIN_PROVISION"
+    ) {
+      throw new Error(
+        `Unauthorized: Only an active Administrator can assign roles. Actor '${actor.name}' does not possess Admin privileges.`
+      );
     }
 
-    const targetSbu = (assignment.sbu || "").trim().toLowerCase();
-    const targetLevel = Number(assignment.approval_level);
-    const existing = this._userRoles.find(
-      r => r.user_email.trim().toLowerCase() === normEmail &&
-           (r.sbu || "").trim().toLowerCase() === targetSbu &&
-           Number(r.approval_level) === targetLevel &&
-           r.is_active
-    );
-    if (existing && assignment.approval_level !== undefined) {
-      throw new Error(`Duplicate assignment: User '${assignment.user_name}' is already assigned to ${assignment.sbu} Level ${assignment.approval_level}.`);
+    const existingMap = existingRecord ? this._getRecordSbuMap(existingRecord) : {};
+    let nextMap: SbuApprovalMap;
+    if (assignment.sbu_approval_map !== undefined) {
+      nextMap = parseSbuApprovalMap(assignment.sbu_approval_map);
+    } else if (assignment.sbu && assignment.approval_levels !== undefined) {
+      nextMap = updateSbuInApprovalMap(
+        existingMap,
+        assignment.sbu,
+        assignment.approval_levels,
+        assignment.approver_role_titles
+      );
+    } else if (assignment.sbu && assignment.approval_level !== undefined && assignment.approval_level !== null) {
+      const targetCode = toStableSbuCode(assignment.sbu);
+      const currLevels = existingMap[targetCode]?.levels || [];
+      if (
+        existingRecord &&
+        currLevels.indexOf(Number(assignment.approval_level)) !== -1 &&
+        actor.name !== "SYSTEM_INITIAL_BOOTSTRAP" &&
+        existingRecord.role !== "Admin"
+      ) {
+        throw new Error(
+          `Duplicate assignment: User '${assignment.user_name}' is already assigned to ${assignment.sbu} Level ${assignment.approval_level}.`
+        );
+      }
+      nextMap = mergeSingleAssignmentIntoMap(
+        existingMap,
+        assignment.sbu,
+        assignment.approval_level,
+        assignment.approver_role_title
+      );
+    } else {
+      nextMap = existingMap;
+    }
+
+    const syncedSbus = getSyncedSbusFromMap(nextMap);
+    const isTargetAdmin =
+      (existingRecord && existingRecord.role === "Admin") || assignment.role === "Admin";
+
+    if (existingRecord && existingIdx >= 0) {
+      const updatedRecord: IUserRoleAssignment = {
+        ...existingRecord,
+        user_name: assignment.user_name || existingRecord.user_name,
+        user_email: assignment.user_email || existingRecord.user_email,
+        login_name: assignment.login_name || existingRecord.login_name,
+        role: isTargetAdmin ? "Admin" : (assignment.role || existingRecord.role),
+        sbu: syncedSbus[0] || assignment.sbu || existingRecord.sbu || "",
+        sbus: syncedSbus,
+        sbu_approval_map: nextMap,
+        approval_level: assignment.approval_level,
+        approval_levels: assignment.approval_levels,
+        approver_role_title: assignment.approver_role_title,
+        approver_role_titles: assignment.approver_role_titles,
+        is_active: true,
+        assigned_by: actor.name,
+        assigned_date: new Date().toISOString(),
+      };
+      this._userRoles[existingIdx] = updatedRecord;
+      this._saveToStorage(STORAGE_KEYS.USER_ROLES, this._userRoles);
+
+      await this.logAdminAudit({
+        actor_name: actor.name,
+        actor_email: actor.email,
+        action: "ROLE_UPDATED",
+        target_type: "USER",
+        target_id: updatedRecord.user_email,
+        details: `Updated SBU approval map for ${updatedRecord.user_name} (${syncedSbus.join(", ") || "None"}).`,
+        after_value: JSON.stringify(updatedRecord),
+        timestamp: new Date().toISOString(),
+      });
+
+      const returned: IUserRoleAssignment = { ...updatedRecord };
+      if (assignment.sbu_approval_map === undefined) {
+        delete returned.sbu_approval_map;
+      }
+      return returned;
     }
 
     const newAssignment: IUserRoleAssignment = {
       ...assignment,
       id: `role-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      role: isTargetAdmin ? "Admin" : assignment.role,
+      sbu: syncedSbus[0] || assignment.sbu || "",
+      sbus: syncedSbus,
+      sbu_approval_map: nextMap,
       assigned_by: actor.name,
       assigned_date: new Date().toISOString(),
     };
@@ -2102,41 +2344,85 @@ export class LocalMockCERDataService implements ICERDataService {
       action: "ROLE_ASSIGNED",
       target_type: "USER",
       target_id: newAssignment.user_email,
-      details: `Assigned role '${newAssignment.role}' to ${newAssignment.user_name} (${newAssignment.user_email})${newAssignment.approval_level ? ` with Approval Level ${newAssignment.approval_level}` : ""}.`,
+      details: `Assigned role '${newAssignment.role}' to ${newAssignment.user_name} (${newAssignment.user_email})${syncedSbus.length ? ` for SBU(s) ${syncedSbus.join(", ")}` : ""}.`,
       after_value: JSON.stringify(newAssignment),
       timestamp: new Date().toISOString(),
     });
 
-    return newAssignment;
+    const returned: IUserRoleAssignment = { ...newAssignment };
+    if (assignment.sbu_approval_map === undefined) {
+      delete returned.sbu_approval_map;
+    }
+    return returned;
   }
 
   public async updateUserRole(
     assignment: IUserRoleAssignment,
     actor: { name: string; email: string }
   ): Promise<void> {
-    const index = this._userRoles.findIndex(r => r.id === assignment.id);
+    const index = this._findMockUserRecordIndex(assignment);
     if (index === -1) {
       throw new Error(`Role assignment '${assignment.id}' not found.`);
     }
 
     const old = this._userRoles[index];
+    const isTargetAdmin = (old && old.role === "Admin") || assignment.role === "Admin";
+    const resolvedRole = isTargetAdmin ? "Admin" : assignment.role;
 
-    // Security check: System Admin privilege cannot be demoted through the UI
-    if (old && old.role === "Admin" && assignment.role !== "Admin") {
-      assignment.role = "Admin";
-    }
-
-    // Protection rule: Prevent accidental deactivation of the last active Administrator
-    if (old.role === "Admin" && old.is_active && !assignment.is_active) {
+    if (old.role === "Admin" && old.is_active && assignment.is_active === false) {
       const remainingAdmins = this._userRoles.filter(
-        r => r.role === "Admin" && r.is_active && r.id !== assignment.id
+        (r) => r.role === "Admin" && r.is_active && r.id !== old.id
       );
       if (remainingAdmins.length === 0) {
         throw new Error("Action Prohibited: Cannot deactivate the last active Administrator in the system.");
       }
     }
 
-    this._userRoles[index] = { ...assignment };
+    const existingMap = this._getRecordSbuMap(old);
+    let nextMap: SbuApprovalMap;
+    if (assignment.sbu_approval_map !== undefined) {
+      nextMap = parseSbuApprovalMap(assignment.sbu_approval_map);
+    } else if (assignment.sbu) {
+      if (assignment.approval_levels !== undefined && assignment.approval_levels.length > 0) {
+        nextMap = updateSbuInApprovalMap(
+          existingMap,
+          assignment.sbu,
+          assignment.approval_levels,
+          assignment.approver_role_titles
+        );
+      } else if (assignment.approval_level !== undefined && assignment.approval_level !== null) {
+        nextMap = updateSbuInApprovalMap(
+          existingMap,
+          assignment.sbu,
+          [assignment.approval_level],
+          assignment.approver_role_title ? [assignment.approver_role_title] : undefined
+        );
+      } else {
+        nextMap = updateSbuInApprovalMap(existingMap, assignment.sbu, []);
+      }
+    } else {
+      nextMap = {};
+    }
+
+    const syncedSbus = getSyncedSbusFromMap(nextMap);
+    const updated: IUserRoleAssignment = {
+      ...old,
+      ...assignment,
+      id: old.id,
+      role: resolvedRole,
+      sbu: syncedSbus[0] || "",
+      sbus: syncedSbus,
+      sbu_approval_map: nextMap,
+    };
+
+    if (Object.keys(nextMap).length === 0) {
+      updated.approval_level = undefined;
+      updated.approval_levels = [];
+      updated.approver_role_title = undefined;
+      updated.approver_role_titles = [];
+    }
+
+    this._userRoles[index] = updated;
     this._saveToStorage(STORAGE_KEYS.USER_ROLES, this._userRoles);
 
     await this.logAdminAudit({
@@ -2144,10 +2430,10 @@ export class LocalMockCERDataService implements ICERDataService {
       actor_email: actor.email,
       action: assignment.is_active !== old.is_active ? "ROLE_STATUS_TOGGLED" : "ROLE_UPDATED",
       target_type: "USER",
-      target_id: assignment.user_email,
-      details: `Updated role assignment for ${assignment.user_name}. Active: ${assignment.is_active}, Role: ${assignment.role}.`,
+      target_id: updated.user_email,
+      details: `Updated SBU approval map for ${updated.user_name}. Active: ${updated.is_active}, Role: ${updated.role}, SBUs: ${syncedSbus.join(", ") || "None"}.`,
       before_value: JSON.stringify(old),
-      after_value: JSON.stringify(assignment),
+      after_value: JSON.stringify(updated),
       timestamp: new Date().toISOString(),
     });
   }
@@ -2156,8 +2442,39 @@ export class LocalMockCERDataService implements ICERDataService {
     assignmentId: string,
     actor: { name: string; email: string }
   ): Promise<void> {
-    const existing = this._userRoles.find(r => r.id === assignmentId);
-    if (existing && existing.role === "Admin" && actor.name !== "SYSTEM_INITIAL_BOOTSTRAP") {
+    const parts = String(assignmentId).split("__");
+    const baseId = parts[0];
+    const scopedSbu = parts[1];
+    const scopedLevel = parts[2] ? Number(parts[2]) : undefined;
+
+    const index = this._userRoles.findIndex((r) => String(r.id).split("__")[0] === baseId);
+    const target = index >= 0 ? this._userRoles[index] : undefined;
+
+    if (scopedSbu && target) {
+      const currentMap = this._getRecordSbuMap(target);
+      const sbuCode = toStableSbuCode(scopedSbu);
+      const entry = currentMap[sbuCode];
+      const nextLevels =
+        scopedLevel !== undefined && entry
+          ? entry.levels.filter((l) => Number(l) !== scopedLevel)
+          : [];
+      const updatedMap = updateSbuInApprovalMap(currentMap, scopedSbu, nextLevels);
+
+      if (Object.keys(updatedMap).length > 0 || target.role === "Admin") {
+        await this.updateUserRole(
+          {
+            ...target,
+            sbu: getSyncedSbusFromMap(updatedMap)[0] || "",
+            sbus: getSyncedSbusFromMap(updatedMap),
+            sbu_approval_map: updatedMap,
+          },
+          actor
+        );
+        return;
+      }
+    }
+
+    if (target && target.role === "Admin" && actor.name !== "SYSTEM_INITIAL_BOOTSTRAP") {
       throw new Error(
         "Security Restriction: System Admin accounts cannot be deleted through the web interface. System Admin permissions must be managed directly in SharePoint CERRoleMatrix list."
       );
@@ -2165,23 +2482,21 @@ export class LocalMockCERDataService implements ICERDataService {
 
     const actorEmail = (actor.email || "").trim().toLowerCase();
     const isAdminActor = this._userRoles.some(
-      r => r.user_email.trim().toLowerCase() === actorEmail && r.role === "Admin" && r.is_active
+      (r) => r.user_email.trim().toLowerCase() === actorEmail && r.role === "Admin" && r.is_active
     );
-    if (!isAdminActor && actorEmail.indexOf("Admin") === -1) {
-      throw new Error(`Unauthorized: Only an active Administrator can revoke roles. Actor '${actor.name}' does not possess Admin privileges.`);
+    if (!isAdminActor && actorEmail.indexOf("admin") === -1) {
+      throw new Error(
+        `Unauthorized: Only an active Administrator can revoke roles. Actor '${actor.name}' does not possess Admin privileges.`
+      );
     }
 
-    const index = this._userRoles.findIndex(r => r.id === assignmentId);
-    if (index === -1) {
+    if (index === -1 || !target) {
       throw new Error(`Role assignment '${assignmentId}' not found.`);
     }
 
-    const target = this._userRoles[index];
-
-    // Protection rule: Prevent accidental removal of the last active Administrator
     if (target.role === "Admin" && target.is_active) {
       const remainingAdmins = this._userRoles.filter(
-        r => r.role === "Admin" && r.is_active && r.id !== assignmentId
+        (r) => r.role === "Admin" && r.is_active && r.id !== target.id
       );
       if (remainingAdmins.length === 0) {
         throw new Error("Action Prohibited: Cannot revoke the last active Administrator in the system.");
@@ -2201,6 +2516,27 @@ export class LocalMockCERDataService implements ICERDataService {
       before_value: JSON.stringify(target),
       timestamp: new Date().toISOString(),
     });
+  }
+
+  public async migrateLegacyRoleMatrixEntries(_actor: { name: string; email: string }): Promise<{ migratedCount: number }> {
+    let migratedCount = 0;
+    this._userRoles = this._userRoles.map((rec) => {
+      const map = this._getRecordSbuMap(rec);
+      const syncedSbus = getSyncedSbusFromMap(map);
+      if (!rec.sbu_approval_map && Object.keys(map).length > 0) {
+        migratedCount++;
+      }
+      return {
+        ...rec,
+        sbu: syncedSbus[0] || rec.sbu || "",
+        sbus: syncedSbus,
+        sbu_approval_map: map,
+      };
+    });
+    if (migratedCount > 0) {
+      this._saveToStorage(STORAGE_KEYS.USER_ROLES, this._userRoles);
+    }
+    return { migratedCount };
   }
 
   // ---------------------------------------------------------------------------

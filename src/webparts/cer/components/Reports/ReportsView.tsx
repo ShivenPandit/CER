@@ -35,14 +35,6 @@ export interface IReportsViewProps {
 
 export type ReportTabType = "dashboard" | "proposal-list";
 
-const DASHBOARD_SBU_OPTIONS = [
-  { label: "All SBUs", value: "ALL" },
-  { label: "RJ North", value: "RJ North" },
-  { label: "RJ South", value: "RJ South" },
-  { label: "CBOS", value: "CBOS" },
-  { label: "RAVA", value: "RAVA" },
-];
-
 export const ReportsView: React.FC<IReportsViewProps> = ({
   proposals,
   currentUser,
@@ -60,6 +52,28 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
   const nonDraftProposals = useMemo(() => {
     return proposals.filter((p) => p.status !== "Draft");
   }, [proposals]);
+
+  // Dynamic SBU Options for Dashboard and Proposal List
+  const availableSbuList = useMemo(() => {
+    const sbuSet = new Set<string>();
+    if (fieldChoices?.sbu && fieldChoices.sbu.length > 0) {
+      fieldChoices.sbu.forEach((s) => sbuSet.add(s));
+    }
+    nonDraftProposals.forEach((p) => {
+      if (p.sbu && p.sbu.trim()) sbuSet.add(p.sbu.trim());
+    });
+    if (sbuSet.size === 0) {
+      SBU_OPTIONS.forEach((s) => sbuSet.add(s));
+    }
+    return Array.from(sbuSet);
+  }, [fieldChoices, nonDraftProposals]);
+
+  const dashboardSbuOptions = useMemo(() => {
+    return [
+      { label: "All SBUs", value: "ALL" },
+      ...availableSbuList.map((s) => ({ label: s, value: s })),
+    ];
+  }, [availableSbuList]);
 
   // Financial Year Filter State for Dashboard
   const currentFY = useMemo(() => getCurrentFiscalYearString(), []);
@@ -331,7 +345,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                         Select SBU
                       </div>
                       <div className="mt-1 space-y-0.5">
-                        {DASHBOARD_SBU_OPTIONS.map((opt) => {
+                        {dashboardSbuOptions.map((opt) => {
                           const isSelected = selectedDashboardSbu === opt.value;
                           return (
                             <button
@@ -608,7 +622,7 @@ export const ReportsView: React.FC<IReportsViewProps> = ({
                             className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#012964]/20"
                           >
                             <option value="ALL">All SBUs</option>
-                            {SBU_OPTIONS.map((sbu) => (
+                            {availableSbuList.map((sbu) => (
                               <option key={sbu} value={sbu}>
                                 {sbu}
                               </option>

@@ -35,10 +35,19 @@ export const AdminConsoleView: React.FC<IAdminConsoleViewProps> = ({
       if (forceRefresh && (dataService as any).clearCache) {
         (dataService as any).clearCache();
       }
-      const [roles, levels] = await Promise.all([
-        dataService.getUserRoles ? dataService.getUserRoles(forceRefresh) : Promise.resolve([]),
-        dataService.getWorkflowLevels(undefined, forceRefresh),
-      ]);
+      let roles = dataService.getUserRoles ? await dataService.getUserRoles(forceRefresh) : [];
+      if (
+        typeof dataService.migrateLegacyRoleMatrixEntries === "function" &&
+        roles.some((r) => r.needs_sbu_map_migration)
+      ) {
+        const migRes = await dataService
+          .migrateLegacyRoleMatrixEntries({ name: currentUser.name, email: currentUser.email })
+          .catch(() => ({ migratedCount: 0 }));
+        if (migRes.migratedCount > 0 && dataService.getUserRoles) {
+          roles = await dataService.getUserRoles(true);
+        }
+      }
+      const levels = await dataService.getWorkflowLevels(undefined, forceRefresh);
       const cleanRoles = roles.filter((a) => {
         const isAutoProvisioned =
           a.role === "Admin" &&

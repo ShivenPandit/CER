@@ -2,7 +2,7 @@
 import { SPHttpClient } from "@microsoft/sp-http";
 import { WebPartContext } from "@microsoft/sp-webpart-base";
 import { ICERDataService } from "./ICERDataService";
-import { ICERProposal, IFieldChoices, DEFAULT_FIELD_CHOICES } from "../models/CERModel";
+import { ICERProposal, IFieldChoices, DEFAULT_FIELD_CHOICES, ISBUItem } from "../models/CERModel";
 import {
   ICERAuditRecord,
   ICERRemarksVersion,
@@ -19,7 +19,7 @@ import {
   isValidEmail,
 } from "../models/WorkflowModel";
 import { ICERAttachment, ICERAttachmentManifestEntry } from "../models/AttachmentModel";
-import { IDirectoryUser, IUserRoleAssignment, IAdminAuditRecord, IAppUser, UserRole } from "../models/UserModel";
+import { IDirectoryUser, IUserRoleAssignment, IAdminAuditRecord, IAppUser, UserRole, SbuApprovalMap } from "../models/UserModel";
 import { PermissionService } from "./PermissionService";
 import { validateAttachment } from "../utils/attachmentValidation";
 import { getCurrentFiscalYearPhasingLabels, formatLocalDate, formatLocalTime, getLocalComponents } from "../utils/dateUtils";
@@ -33,6 +33,21 @@ import {
   stripAttachmentsManifest,
   formatUserFriendlySharePointError,
 } from "../utils/sanitizationUtils";
+import {
+  toStableSbuCode,
+  toSbuDisplayName,
+  getDefaultRoleTitleForLevel,
+  mapRoleTitleToLevel,
+  normalizeLevelsAndTitles,
+  parseSbuApprovalMap,
+  serializeSbuApprovalMap,
+  getSyncedSbusFromMap,
+  updateSbuInApprovalMap,
+  mergeSingleAssignmentIntoMap,
+  buildLegacyFallbackMap,
+  reconstructUserSbuMapFromRoles,
+  registerSbuItems,
+} from "../utils/sbuApprovalMapUtils";
 
 export { formatUserFriendlySharePointError } from "../utils/sanitizationUtils";
 
@@ -75,11 +90,16 @@ export class SharePointCERDataService implements ICERDataService {
 
   private _cachedAttachmentFields: Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string; AllowMultipleValues?: boolean }> | null = null;
   private _cachedRoleMatrixFields: Array<{ InternalName: string; Title: string; TypeAsString: string; EntityPropertyName?: string }> | null = null;
+  private _cachedSBUs: { data: ISBUItem[]; timestamp: number } | null = null;
+  private _inFlightSBUs: Promise<ISBUItem[]> | null = null;
 
   public clearCache(): void {
     this._cachedHistoryFields = null;
     this._cachedAttachmentFields = null;
     this._cachedRoleMatrixFields = null;
+    this._cachedSBUs = null;
+    this._inFlightSBUs = null;
+    this._cachedFieldChoices = undefined;
     this._cachedSubmissionsByCerId.clear();
     this._cachedUserRoles = null;
     this._cachedUserRolesTimestamp = 0;
@@ -151,7 +171,7 @@ export class SharePointCERDataService implements ICERDataService {
     }
   }
 
-  private async _getApprovalLevelFieldInfo(): Promise<{ name: string; isChoice: boolean; isMultiChoice: boolean }> {
+  private async _getApprovalLevelFieldInfo(): Promise<{ name: string; isChoice: boolean; isMultiChoice: boolean; exists: boolean }> {
     try {
       const fields = await this.getRoleMatrixFields();
       const candidate = (fields || []).find((f) => {
@@ -173,15 +193,19 @@ export class SharePointCERDataService implements ICERDataService {
           name: candidate.InternalName,
           isChoice: type === "choice" || type === "multichoice",
           isMultiChoice: type === "multichoice",
+          exists: true,
         };
+      }
+      if (fields && fields.length > 0) {
+        return { name: "approverLevel", isChoice: true, isMultiChoice: false, exists: false };
       }
     } catch {
       // ignore
     }
-    return { name: "approverLevel", isChoice: true, isMultiChoice: false };
+    return { name: "approverLevel", isChoice: true, isMultiChoice: false, exists: false };
   }
 
-  private async _getApprovalRoleTitleFieldInfo(): Promise<{ name: string; isChoice: boolean; isMultiChoice: boolean }> {
+  private async _getApprovalRoleTitleFieldInfo(): Promise<{ name: string; isChoice: boolean; isMultiChoice: boolean; exists: boolean }> {
     try {
       const fields = await this.getRoleMatrixFields();
       const candidate = (fields || []).find((f) => {
@@ -204,12 +228,41 @@ export class SharePointCERDataService implements ICERDataService {
           name: candidate.InternalName,
           isChoice: type === "choice" || type === "multichoice",
           isMultiChoice: type === "multichoice",
+          exists: true,
         };
+      }
+      if (fields && fields.length > 0) {
+        return { name: "approverRoleTitle", isChoice: true, isMultiChoice: true, exists: false };
       }
     } catch {
       // ignore
     }
-    return { name: "approverRoleTitle", isChoice: true, isMultiChoice: true };
+    return { name: "approverRoleTitle", isChoice: true, isMultiChoice: true, exists: false };
+  }
+
+  private async _getSbuApprovalMapFieldInfo(): Promise<{ name: string; exists: boolean; schemaKnown: boolean }> {
+    try {
+      const fields = await this.getRoleMatrixFields();
+      const candidate = (fields || []).find((f) => {
+        const intName = (f.InternalName || "").toLowerCase();
+        const title = (f.Title || "").toLowerCase();
+        return (
+          intName === "sbuapprovalmap" ||
+          intName === "sbu_approval_map" ||
+          title === "sbuapprovalmap" ||
+          title === "sbu approval map"
+        );
+      });
+      if (candidate && candidate.InternalName) {
+        return { name: candidate.InternalName, exists: true, schemaKnown: true };
+      }
+      if (fields && fields.length > 0) {
+        return { name: "sbuApprovalMap", exists: false, schemaKnown: true };
+      }
+    } catch {
+      // ignore
+    }
+    return { name: "sbuApprovalMap", exists: true, schemaKnown: false };
   }
 
   private async _getSbuFieldInfo(): Promise<{ name: string; isChoice: boolean; isMultiChoice: boolean }> {
@@ -235,15 +288,7 @@ export class SharePointCERDataService implements ICERDataService {
   }
 
   private _getDefaultRoleTitle(level: number): string {
-    switch (level) {
-      case 1: return "Finance";
-      case 2: return "Project Owner";
-      case 3: return "BU CFO";
-      case 4: return "BU Director";
-      case 5: return "VOGL CFO";
-      case 6: return "VOGL CEO";
-      default: return "Approver";
-    }
+    return getDefaultRoleTitleForLevel(level);
   }
 
   private async _getRoleFieldInfo(): Promise<{ name: string; isChoice: boolean }> {
@@ -280,13 +325,156 @@ export class SharePointCERDataService implements ICERDataService {
   }
 
   // ---------------------------------------------------------------------------
-  // 0. Dropdown Choice Fields from SharePoint List Schema
+  // 0. SBU Master & Dropdown Choice Fields from SharePoint List Schema
   // ---------------------------------------------------------------------------
 
-  public async getFieldChoices(): Promise<IFieldChoices> {
-    if (this._cachedFieldChoices) {
+  public async getSBUs(forceRefresh = false): Promise<ISBUItem[]> {
+    const CACHE_TTL_MS = 60000;
+    const now = Date.now();
+    if (!forceRefresh && this._cachedSBUs && now - this._cachedSBUs.timestamp < CACHE_TTL_MS) {
+      return this._cachedSBUs.data;
+    }
+    if (!forceRefresh && this._inFlightSBUs) {
+      return this._inFlightSBUs;
+    }
+
+    const defaultFallback: ISBUItem[] = [
+      { title: "RJ North", sbuCode: "RJ_NORTH", isActive: true, sortOrder: 1 },
+      { title: "RJ South", sbuCode: "RJ_SOUTH", isActive: true, sortOrder: 2 },
+      { title: "CBOS", sbuCode: "CBOS", isActive: true, sortOrder: 3 },
+      { title: "RAVA", sbuCode: "RAVA", isActive: true, sortOrder: 4 },
+    ];
+
+    const fetchPromise = (async () => {
+      try {
+        const rawItems = await this._sp.getListItems<any>(SP_LISTS.SBU_MASTER, {
+          select: "Id,Title,sbuCode,SBUCode,isActive,IsActive,sortOrder,SortOrder",
+          orderby: "sortOrder asc,Id asc",
+          top: 100,
+        });
+
+        if (Array.isArray(rawItems) && rawItems.length > 0) {
+          const items: ISBUItem[] = rawItems
+            .map((r) => {
+              const title = String(r.Title || "").trim();
+              const code = String(r.sbuCode || r.SBUCode || toStableSbuCode(title)).trim().toUpperCase();
+              const active = r.isActive !== undefined ? Boolean(r.isActive) : (r.IsActive !== undefined ? Boolean(r.IsActive) : true);
+              const sort = Number(r.sortOrder !== undefined ? r.sortOrder : (r.SortOrder !== undefined ? r.SortOrder : 99));
+              return {
+                id: String(r.Id),
+                title,
+                sbuCode: code,
+                isActive: active,
+                sortOrder: isNaN(sort) ? 99 : sort,
+              };
+            })
+            .filter((s) => Boolean(s.title));
+
+          if (items.length > 0) {
+            items.sort((a, b) => a.sortOrder - b.sortOrder);
+            registerSbuItems(items);
+            this._cachedSBUs = { data: items, timestamp: Date.now() };
+            return items;
+          }
+        }
+      } catch (err) {
+        console.warn("[SharePointCERDataService] Warning querying SBUMaster list, using default fallback:", err);
+      }
+
+      registerSbuItems(defaultFallback);
+      this._cachedSBUs = { data: defaultFallback, timestamp: Date.now() };
+      return defaultFallback;
+    })();
+
+    this._inFlightSBUs = fetchPromise;
+    try {
+      const res = await fetchPromise;
+      return res;
+    } finally {
+      this._inFlightSBUs = null;
+    }
+  }
+
+  public async createSBU(sbu: { title: string; sbuCode?: string; isActive?: boolean; sortOrder?: number }): Promise<ISBUItem> {
+    const title = String(sbu.title || "").trim();
+    if (!title) {
+      throw new Error("SBU Title is required.");
+    }
+    const currentSBUs = await this.getSBUs();
+    if (currentSBUs.some((s) => s.title.toLowerCase() === title.toLowerCase())) {
+      throw new Error(`SBU with name '${title}' already exists.`);
+    }
+
+    let code = (sbu.sbuCode || toStableSbuCode(title)).trim().toUpperCase();
+    if (!sbu.sbuCode) {
+      let suffix = 2;
+      const baseCode = code;
+      while (currentSBUs.some((s) => (s.sbuCode || "").toUpperCase() === code)) {
+        code = `${baseCode}_${suffix++}`;
+      }
+    }
+    const active = sbu.isActive !== false;
+    const maxSort = currentSBUs.reduce((max, s) => Math.max(max, Number(s.sortOrder) || 0), 0);
+    const sort = Number(sbu.sortOrder !== undefined ? sbu.sortOrder : maxSort + 1);
+
+    const payload: Record<string, any> = {
+      Title: title,
+      sbuCode: code,
+      isActive: active,
+      sortOrder: sort,
+    };
+
+    let createdId = "";
+    try {
+      const created = await this._sp.createListItem<any>(SP_LISTS.SBU_MASTER, payload);
+      if (created && created.Id) {
+        createdId = String(created.Id);
+      }
+    } catch (createErr) {
+      // Fallback for casing variations (e.g. SBUCode, IsActive, SortOrder)
+      try {
+        const altPayload = {
+          Title: title,
+          SBUCode: code,
+          IsActive: active,
+          SortOrder: sort,
+        };
+        const createdAlt = await this._sp.createListItem<any>(SP_LISTS.SBU_MASTER, altPayload);
+        if (createdAlt && createdAlt.Id) {
+          createdId = String(createdAlt.Id);
+        }
+      } catch (altErr) {
+        throw new Error(
+          `Failed to create SBU '${title}' in SBUMaster list: ${createErr instanceof Error ? createErr.message : String(createErr)}`
+        );
+      }
+    }
+
+    const newItem: ISBUItem = {
+      id: createdId,
+      title,
+      sbuCode: code,
+      isActive: active,
+      sortOrder: sort,
+    };
+
+    // Invalidate caches and register new SBU
+    this._cachedSBUs = null;
+    this._cachedFieldChoices = undefined;
+    this._cachedWorkflowLevels.clear();
+    await this.getSBUs(true);
+
+    return newItem;
+  }
+
+  public async getFieldChoices(forceRefresh = false): Promise<IFieldChoices> {
+    if (!forceRefresh && this._cachedFieldChoices) {
       return this._cachedFieldChoices;
     }
+
+    // Load active SBUs from SBUMaster
+    const sbus = await this.getSBUs(forceRefresh).catch(() => []);
+    const activeSbuTitles = sbus.filter((s) => s.isActive).map((s) => s.title);
 
     try {
       let fields: Array<{ InternalName: string; Title: string; Choices: string[]; DefaultValue: string }> = [];
@@ -309,7 +497,7 @@ export class SharePointCERDataService implements ICERDataService {
         }
 
         const resolved: IFieldChoices = {
-          sbu: choicesMap.sbu && choicesMap.sbu.length > 0 ? choicesMap.sbu : DEFAULT_FIELD_CHOICES.sbu,
+          sbu: activeSbuTitles.length > 0 ? activeSbuTitles : (choicesMap.sbu && choicesMap.sbu.length > 0 ? choicesMap.sbu : DEFAULT_FIELD_CHOICES.sbu),
           cat: (choicesMap.category || choicesMap.cat) && (choicesMap.category || choicesMap.cat).length > 0 ? (choicesMap.category || choicesMap.cat) : DEFAULT_FIELD_CHOICES.cat,
           currency: choicesMap.currency && choicesMap.currency.length > 0 ? choicesMap.currency : DEFAULT_FIELD_CHOICES.currency,
           payable: choicesMap.payable && choicesMap.payable.length > 0 ? choicesMap.payable : DEFAULT_FIELD_CHOICES.payable,
@@ -335,8 +523,13 @@ export class SharePointCERDataService implements ICERDataService {
       console.warn("[SharePointCERDataService] Error querying choice fields from CERProposals list, using default field choices:", e);
     }
 
-    this._cachedFieldChoices = DEFAULT_FIELD_CHOICES;
-    return DEFAULT_FIELD_CHOICES;
+    const fallbackSbus = activeSbuTitles.length > 0 ? activeSbuTitles : DEFAULT_FIELD_CHOICES.sbu;
+    const fallbackResolved: IFieldChoices = {
+      ...DEFAULT_FIELD_CHOICES,
+      sbu: fallbackSbus,
+    };
+    this._cachedFieldChoices = fallbackResolved;
+    return fallbackResolved;
   }
 
   // ---------------------------------------------------------------------------
@@ -3092,8 +3285,13 @@ export class SharePointCERDataService implements ICERDataService {
           resultLevels = buildLevelsForSbu(trimmedSbu);
         } else {
           // When no specific SBU or "All" is requested, build levels for ALL known SBUs so that
-          // find operations matching any SBU (RJ North, RJ South, CBOS, RAVA) succeed, plus "All" fallback.
-          for (const sbuName of ROLE_MATRIX_SBUS) {
+          // find operations matching any SBU succeed, plus "All" fallback.
+          const allKnownSbus = await this.getSBUs().catch(() => []);
+          const targetSbuList = allKnownSbus.length > 0
+            ? allKnownSbus.map((s) => s.title)
+            : Array.from(ROLE_MATRIX_SBUS);
+
+          for (const sbuName of targetSbuList) {
             resultLevels.push(...buildLevelsForSbu(sbuName));
           }
           resultLevels.push(...buildLevelsForSbu("All"));
@@ -5137,6 +5335,9 @@ export class SharePointCERDataService implements ICERDataService {
           return [];
         }
 
+        // Ensure dynamic SBU registry is primed for code conversions
+        await this.getSBUs().catch(() => []);
+
         const nestedList: IUserRoleAssignment[][] = await Promise.all(items.map(async (item: any) => {
           let userPerson = PersonFieldService.extractPersonField(item, "User");
           const assignedByPerson = PersonFieldService.extractPersonField(item, "assignedBy");
@@ -5217,6 +5418,13 @@ export class SharePointCERDataService implements ICERDataService {
               ? item.roleTitle
               : item.RoleTitle;
 
+          const rawSbuApprovalMap =
+            item.sbuApprovalMap !== undefined
+              ? item.sbuApprovalMap
+              : item.sbu_approval_map !== undefined
+              ? item.sbu_approval_map
+              : item.SBUApprovalMap;
+
           const parseMultiValues = (val: any): string[] => {
             if (val === undefined || val === null || val === "") return [];
             if (Array.isArray(val)) {
@@ -5236,46 +5444,37 @@ export class SharePointCERDataService implements ICERDataService {
           };
 
           const parsedSbus = parseMultiValues(item.sbu || item.SBU);
-          const rawLevels = parseMultiValues(rawLevel);
-          const parsedLevels: number[] = [];
-          for (const lStr of rawLevels) {
-            const match = lStr.match(/\d+/);
-            if (match) {
-              const num = parseInt(match[0], 10);
-              if (!isNaN(num) && parsedLevels.indexOf(num) === -1) parsedLevels.push(num);
-            } else if (!isNaN(Number(lStr))) {
-              const num = Number(lStr);
-              if (parsedLevels.indexOf(num) === -1) parsedLevels.push(num);
+          let parsedMap = parseSbuApprovalMap(rawSbuApprovalMap);
+          let needsMigration = false;
+
+          // Backward-compatibility fallback: if sbuApprovalMap is empty, derive per-SBU map from legacy columns
+          if (Object.keys(parsedMap).length === 0) {
+            const rawLevels = parseMultiValues(rawLevel);
+            const parsedLevels: number[] = [];
+            for (const lStr of rawLevels) {
+              const match = lStr.match(/\d+/);
+              if (match) {
+                const num = parseInt(match[0], 10);
+                if (!isNaN(num) && parsedLevels.indexOf(num) === -1) parsedLevels.push(num);
+              } else if (!isNaN(Number(lStr))) {
+                const num = Number(lStr);
+                if (parsedLevels.indexOf(num) === -1) parsedLevels.push(num);
+              }
+            }
+            const parsedRoleTitles = parseMultiValues(rawRoleTitle);
+            for (const title of parsedRoleTitles) {
+              const lvlFromTitle = mapRoleTitleToLevel(title);
+              if (lvlFromTitle !== null && parsedLevels.indexOf(lvlFromTitle) === -1) {
+                parsedLevels.push(lvlFromTitle);
+              }
+            }
+            parsedLevels.sort((a, b) => a - b);
+
+            if (parsedLevels.length > 0) {
+              parsedMap = buildLegacyFallbackMap(parsedSbus, parsedLevels, parsedRoleTitles);
+              needsMigration = Object.keys(parsedMap).length > 0;
             }
           }
-          const parsedRoleTitles = parseMultiValues(rawRoleTitle);
-
-          // Canonical mapping from role title to level
-          const mapRoleTitleToLevel = (title: string): number | null => {
-            const t = (title || "").toLowerCase().trim();
-            if (!t) return null;
-            if (t === "finance" || (t.indexOf("finance") !== -1 && t.indexOf("corporate") === -1 && t.indexOf("cfo") === -1)) return 1;
-            if (t.indexOf("project owner") !== -1 || t === "owner") return 2;
-            if (t.indexOf("bu cfo") !== -1 || (t.indexOf("cfo") !== -1 && t.indexOf("vogl") === -1)) return 3;
-            if (t.indexOf("bu director") !== -1 || (t.indexOf("director") !== -1 && t.indexOf("vogl") === -1)) return 4;
-            if (t.indexOf("vogl cfo") !== -1) return 5;
-            if (t.indexOf("vogl ceo") !== -1 || t.indexOf("ceo") !== -1) return 6;
-            const match = t.match(/l(?:evel)?\s*(\d+)/i);
-            if (match) {
-              const num = parseInt(match[1], 10);
-              if (!isNaN(num) && num >= 1 && num <= 7) return num;
-            }
-            return null;
-          };
-
-          // Bidirectional resolution: Infer levels from role titles if not present in parsedLevels
-          for (const title of parsedRoleTitles) {
-            const lvlFromTitle = mapRoleTitleToLevel(title);
-            if (lvlFromTitle !== null && parsedLevels.indexOf(lvlFromTitle) === -1) {
-              parsedLevels.push(lvlFromTitle);
-            }
-          }
-          parsedLevels.sort((a, b) => a - b);
 
           const rawRole =
             item.role !== undefined
@@ -5307,8 +5506,11 @@ export class SharePointCERDataService implements ICERDataService {
             : (roleValue as UserRole) || "Initiator";
 
           const spItemId = String(item.ID !== undefined ? item.ID : item.Id !== undefined ? item.Id : item.id || Date.now());
+          const syncedSbus = getSyncedSbusFromMap(parsedMap);
+          const effectiveUserSbus = syncedSbus.length > 0 ? syncedSbus : parsedSbus;
+          const hasHierarchyAccess = item.approvalHierarchyPage === true || item.approvalHierarchyPage === 1 || String(item.approvalHierarchyPage).toLowerCase() === "yes";
 
-          if (parsedLevels.length === 0) {
+          if (Object.keys(parsedMap).length === 0) {
             return [
               {
                 id: spItemId,
@@ -5319,44 +5521,49 @@ export class SharePointCERDataService implements ICERDataService {
                 role: parsedRole,
                 approval_level: undefined,
                 approval_levels: [],
-                approver_role_title: parsedRoleTitles[0] || "",
-                approver_role_titles: parsedRoleTitles,
+                approver_role_title: "",
+                approver_role_titles: [],
                 department: item.department || undefined,
-                sbu: parsedSbus[0] || "",
-                sbus: parsedSbus,
+                sbu: effectiveUserSbus[0] || "",
+                sbus: effectiveUserSbus,
+                sbu_approval_map: {},
+                needs_sbu_map_migration: false,
                 is_active: item.isActive !== undefined ? !!item.isActive : true,
-                approval_hierarchy_page: item.approvalHierarchyPage === true || item.approvalHierarchyPage === 1 || String(item.approvalHierarchyPage).toLowerCase() === "yes",
+                approval_hierarchy_page: hasHierarchyAccess,
                 assigned_by: assignedByName,
                 assigned_date: assignedDate,
               },
             ];
           }
 
+          // SBU-isolated expansion: each SBU resolves strictly its own configured levels (no Cartesian leakage)
           const assignments: IUserRoleAssignment[] = [];
-          const effectiveSbus = parsedSbus.length > 0 ? parsedSbus : ["All"];
-          for (const s of effectiveSbus) {
-            for (let i = 0; i < parsedLevels.length; i++) {
-              const lvl = parsedLevels[i];
-              const matchedTitle =
-                parsedRoleTitles.find((t) => mapRoleTitleToLevel(t) === lvl) ||
-                parsedRoleTitles[i] ||
-                this._getDefaultRoleTitle(lvl);
+          for (const sbuCode of Object.keys(parsedMap)) {
+            const entry = parsedMap[sbuCode];
+            const sbuDisplay = toSbuDisplayName(sbuCode);
+            const entryLevels = entry.levels || [];
+            const entryTitles = entry.roleTitles || [];
+            for (let i = 0; i < entryLevels.length; i++) {
+              const lvl = entryLevels[i];
+              const matchedTitle = entryTitles[i] || getDefaultRoleTitleForLevel(lvl);
               assignments.push({
-                id: effectiveSbus.length === 1 && parsedLevels.length === 1 ? spItemId : `${spItemId}__${s}__${lvl}`,
+                id: `${spItemId}__${sbuDisplay}__${lvl}`,
                 user_name: userName,
                 user_email: userEmail,
                 login_name: loginName,
                 user_id: userId,
                 role: parsedRole,
                 approval_level: lvl,
-                approval_levels: parsedLevels,
+                approval_levels: [...entryLevels],
                 approver_role_title: matchedTitle,
-                approver_role_titles: parsedRoleTitles,
+                approver_role_titles: [...entryTitles],
                 department: item.department || undefined,
-                sbu: s,
-                sbus: parsedSbus,
+                sbu: sbuDisplay,
+                sbus: effectiveUserSbus,
+                sbu_approval_map: parsedMap,
+                needs_sbu_map_migration: needsMigration,
                 is_active: item.isActive !== undefined ? !!item.isActive : true,
-                approval_hierarchy_page: item.approvalHierarchyPage === true || item.approvalHierarchyPage === 1 || String(item.approvalHierarchyPage).toLowerCase() === "yes",
+                approval_hierarchy_page: hasHierarchyAccess,
                 assigned_by: assignedByName,
                 assigned_date: assignedDate,
               });
@@ -5441,137 +5648,342 @@ export class SharePointCERDataService implements ICERDataService {
     }
   }
 
+  private async _resolveRoleMatrixSpUserId(assignment: Partial<IUserRoleAssignment>): Promise<number | null> {
+    let spUserId: number | null = assignment.user_id || null;
+    if (!spUserId && (assignment.login_name || assignment.user_email)) {
+      const candidates = [
+        assignment.login_name,
+        assignment.user_email,
+        assignment.login_name && assignment.login_name.indexOf("|") === -1 ? `i:0#.f|membership|${assignment.login_name}` : "",
+        assignment.user_email && assignment.user_email.indexOf("|") === -1 ? `i:0#.f|membership|${assignment.user_email}` : "",
+      ].filter(Boolean) as string[];
+
+      for (const candidate of candidates) {
+        try {
+          const ensured = await PersonFieldService.resolveUser(this._spHttpClient, this._siteUrl, candidate);
+          if (ensured && ensured.Id) {
+            spUserId = ensured.Id;
+            break;
+          }
+        } catch {
+          // try next candidate
+        }
+      }
+
+      if (!spUserId) {
+        try {
+          const siteUsers = await this._sp.getSiteUsers<{ Id: number; Email?: string; LoginName?: string; Title?: string }>();
+          const normEmail = (assignment.user_email || "").toLowerCase().trim();
+          const normLogin = (assignment.login_name || "").toLowerCase().trim();
+          const normName = (assignment.user_name || "").toLowerCase().trim();
+
+          const found = siteUsers.find((u) => {
+            const uEmail = (u.Email || "").toLowerCase().trim();
+            const uLogin = (u.LoginName || "").toLowerCase().trim();
+            const uTitle = (u.Title || "").toLowerCase().trim();
+            return (
+              (normEmail && (uEmail === normEmail || uLogin.indexOf(normEmail) !== -1)) ||
+              (normLogin && (uLogin === normLogin || uLogin.indexOf(normLogin) !== -1)) ||
+              (normName && uTitle === normName)
+            );
+          });
+          if (found && found.Id) {
+            spUserId = found.Id;
+          }
+        } catch {
+          // ignore fallback error
+        }
+      }
+    }
+    return spUserId;
+  }
+
+  private _findMatchingRolesForUser(
+    allRoles: IUserRoleAssignment[],
+    target: Partial<IUserRoleAssignment>,
+    spUserId?: number | null
+  ): IUserRoleAssignment[] {
+    const normEmail = (target.user_email || "").trim().toLowerCase();
+    const normLogin = (target.login_name || "").trim().toLowerCase();
+    const normName = (target.user_name || "").trim().toLowerCase();
+    const baseTargetId = target.id ? String(target.id).split("__")[0] : "";
+
+    return (allRoles || []).filter((r) => {
+      const baseRId = String(r.id).split("__")[0];
+      if (baseTargetId && baseRId === baseTargetId) return true;
+      if (spUserId && r.user_id && Number(r.user_id) === Number(spUserId)) return true;
+      const rEmail = (r.user_email || "").trim().toLowerCase();
+      const rLogin = (r.login_name || "").trim().toLowerCase();
+      const rName = (r.user_name || "").trim().toLowerCase();
+      return (
+        (normEmail && (rEmail === normEmail || rLogin === normEmail)) ||
+        (normLogin && (rLogin === normLogin || rEmail === normLogin)) ||
+        (normName && rName === normName)
+      );
+    });
+  }
+
+  private _resolveFinalSbuMapForSave(
+    assignment: Partial<IUserRoleAssignment>,
+    existingRolesForUser: IUserRoleAssignment[],
+    mode: "merge" | "replace"
+  ): SbuApprovalMap {
+    const existingMap = reconstructUserSbuMapFromRoles(existingRolesForUser);
+
+    if (assignment.sbu_approval_map !== undefined) {
+      return parseSbuApprovalMap(assignment.sbu_approval_map);
+    }
+
+    const targetSbu = (assignment.sbu || "").trim();
+    if (!targetSbu) {
+      return mode === "replace" ? {} : existingMap;
+    }
+
+    if (assignment.approval_levels !== undefined) {
+      return updateSbuInApprovalMap(
+        existingMap,
+        targetSbu,
+        assignment.approval_levels,
+        assignment.approver_role_titles
+      );
+    }
+
+    if (assignment.approval_level !== undefined && assignment.approval_level !== null) {
+      if (mode === "merge") {
+        return mergeSingleAssignmentIntoMap(
+          existingMap,
+          targetSbu,
+          assignment.approval_level,
+          assignment.approver_role_title
+        );
+      }
+      return updateSbuInApprovalMap(
+        existingMap,
+        targetSbu,
+        [assignment.approval_level],
+        assignment.approver_role_title ? [assignment.approver_role_title] : undefined
+      );
+    }
+
+    if (mode === "replace") {
+      return updateSbuInApprovalMap(existingMap, targetSbu, []);
+    }
+    return existingMap;
+  }
+
+  private async _buildRoleMatrixWritePayload(
+    userName: string,
+    isTargetAdmin: boolean,
+    spUserId: number | null,
+    mapToSave: SbuApprovalMap
+  ): Promise<{ payload: Record<string, any>; syncedSbus: string[]; serializedMap: string }> {
+    const roleInfo = await this._getRoleFieldInfo();
+    const sbuInfo = await this._getSbuFieldInfo();
+    const mapFieldInfo = await this._getSbuApprovalMapFieldInfo();
+
+    if (mapFieldInfo.schemaKnown && !mapFieldInfo.exists) {
+      throw new Error(
+        "Missing SharePoint column 'sbuApprovalMap' (Multiple lines of text - Plain text) on list 'CERRoleMatrix'. Please create this column in SharePoint List Settings before saving SBU-specific approval assignments."
+      );
+    }
+
+    const syncedSbus = getSyncedSbusFromMap(mapToSave);
+    const serializedMap = serializeSbuApprovalMap(mapToSave);
+
+    const payload: Record<string, any> = {
+      Title: userName,
+      [roleInfo.name]: isTargetAdmin ? "Admin" : null,
+      [mapFieldInfo.name]: serializedMap || null,
+    };
+
+    if (sbuInfo.isMultiChoice) {
+      payload[sbuInfo.name] = syncedSbus;
+    } else {
+      payload[sbuInfo.name] = syncedSbus[0] || null;
+    }
+
+    if (spUserId) {
+      payload.UserId = spUserId;
+    }
+
+    return { payload, syncedSbus, serializedMap };
+  }
+
+  private _applyRoleMatrixODataRetry(
+    currentPayload: Record<string, any>,
+    errStr: string,
+    isTargetAdmin: boolean
+  ): boolean {
+    // 1. PrimitiveValue expected when an array or object was sent
+    if (
+      errStr.indexOf("primitivevalue") !== -1 ||
+      errStr.indexOf("primitive value") !== -1 ||
+      errStr.indexOf("cannot convert a primitive value") !== -1 ||
+      (errStr.indexOf("startarray") !== -1 && errStr.indexOf("primitive") !== -1)
+    ) {
+      const propMatch = errStr.match(/property named '([^']+)'/i);
+      const key =
+        propMatch && propMatch[1]
+          ? Object.keys(currentPayload).find((k) => k.toLowerCase() === propMatch[1].toLowerCase())
+          : Object.keys(currentPayload).find(
+              (k) =>
+                Array.isArray(currentPayload[k]) ||
+                (currentPayload[k] && typeof currentPayload[k] === "object" && Array.isArray(currentPayload[k].results))
+            );
+      if (key) {
+        const val = currentPayload[key];
+        if (Array.isArray(val)) {
+          currentPayload[key] = val.length > 0 ? String(val[0]) : null;
+          return true;
+        }
+        if (val && typeof val === "object" && Array.isArray((val as any).results)) {
+          const r = (val as any).results;
+          currentPayload[key] = r.length > 0 ? String(r[0]) : null;
+          return true;
+        }
+      }
+    }
+
+    // 2. StartArray expected when a primitive or StartObject was sent
+    if (errStr.indexOf("startarray") !== -1 && errStr.indexOf("primitive") === -1) {
+      const propMatch = errStr.match(/property named '([^']+)'/i);
+      if (propMatch && propMatch[1]) {
+        const key = Object.keys(currentPayload).find((k) => k.toLowerCase() === propMatch[1].toLowerCase());
+        if (key) {
+          const val = currentPayload[key];
+          if (val && typeof val === "object" && !Array.isArray(val) && Array.isArray((val as any).results)) {
+            currentPayload[key] = (val as any).results;
+          } else if (val !== null && val !== undefined && !Array.isArray(val)) {
+            currentPayload[key] = [val];
+          } else if (val === null || val === undefined) {
+            currentPayload[key] = [];
+          }
+          return true;
+        }
+      }
+    }
+
+    // 3. StartObject expected when a raw array was sent (verbose OData expecting { results: [...] })
+    if (errStr.indexOf("startobject") !== -1) {
+      const propMatch = errStr.match(/property named '([^']+)'/i);
+      if (propMatch && propMatch[1]) {
+        const key = Object.keys(currentPayload).find((k) => k.toLowerCase() === propMatch[1].toLowerCase());
+        if (key) {
+          const val = currentPayload[key];
+          if (Array.isArray(val)) {
+            currentPayload[key] = { results: val };
+          } else if (val !== null && val !== undefined) {
+            currentPayload[key] = { results: [val] };
+          } else {
+            currentPayload[key] = { results: [] };
+          }
+          return true;
+        }
+      }
+    }
+
+    // 4. Prune missing optional fields cleanly
+    const fieldMatch =
+      errStr.match(/The property '([^']+)' does not exist/i) ||
+      errStr.match(/property '([^']+)' does not exist/i) ||
+      errStr.match(/field or property '([^']+)' does not exist/i) ||
+      errStr.match(/field '([^']+)' does not exist/i) ||
+      errStr.match(/column named '([^']+)' was not found/i);
+    if (fieldMatch && fieldMatch[1]) {
+      const missingField = fieldMatch[1].toLowerCase();
+      if (missingField === "sbuapprovalmap" || missingField === "sbu_approval_map") {
+        throw new Error(
+          "Missing SharePoint column 'sbuApprovalMap' (Multiple lines of text - Plain text) on list 'CERRoleMatrix'. Please create this column in SharePoint List Settings before saving."
+        );
+      }
+      const keyToRemove = Object.keys(currentPayload).find((k) => k.toLowerCase() === missingField);
+      if (keyToRemove) {
+        delete currentPayload[keyToRemove];
+        if ((missingField === "role" || missingField === "userrole" || missingField === "cerrole") && isTargetAdmin) {
+          const altRoleKey = missingField === "role" ? "Role" : "role";
+          if (currentPayload[altRoleKey] === undefined) {
+            currentPayload[altRoleKey] = "Admin";
+          }
+        }
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   public async assignUserRole(
     assignment: Omit<IUserRoleAssignment, "id">,
     actor: { name: string; email: string }
   ): Promise<IUserRoleAssignment> {
     this.clearCache();
 
-    // Security restriction: System Admin accounts cannot be created via the UI if they do not already exist in SharePoint
-    if (assignment.role === "Admin" && assignment.approval_level === undefined) {
+    const incomingHasAssignments =
+      (assignment.sbu_approval_map && Object.keys(assignment.sbu_approval_map).length > 0) ||
+      assignment.approval_level !== undefined ||
+      (assignment.approval_levels && assignment.approval_levels.length > 0);
+
+    // Security restriction: System Admin accounts cannot be created via the UI if they do not already exist
+    if (assignment.role === "Admin" && !incomingHasAssignments) {
       throw new Error(
         "Security Restriction: System Admin accounts cannot be created or modified through the web interface. System Admin permissions must be managed directly in SharePoint CERRoleMatrix list."
       );
     }
 
     try {
-      // 1. Resolve SharePoint user ID for target employee with multi-stage resolution
-      let spUserId: number | null = assignment.user_id || null;
-      if (!spUserId && (assignment.login_name || assignment.user_email)) {
-        const candidates = [
-          assignment.login_name,
-          assignment.user_email,
-          assignment.login_name && assignment.login_name.indexOf("|") === -1 ? `i:0#.f|membership|${assignment.login_name}` : "",
-          assignment.user_email && assignment.user_email.indexOf("|") === -1 ? `i:0#.f|membership|${assignment.user_email}` : "",
-        ].filter(Boolean) as string[];
+      const spUserId = await this._resolveRoleMatrixSpUserId(assignment);
+      const allRoles = await this.getUserRoles(true);
+      const matchingExisting = this._findMatchingRolesForUser(allRoles, assignment, spUserId);
 
-        for (const candidate of candidates) {
-          try {
-            const ensured = await PersonFieldService.resolveUser(
-              this._spHttpClient,
-              this._siteUrl,
-              candidate
-            );
-            if (ensured && ensured.Id) {
-              spUserId = ensured.Id;
-              break;
-            }
-          } catch {
-            // try next candidate
-          }
-        }
+      const isTargetAdmin =
+        String(assignment.role || "").trim().toLowerCase() === "admin" ||
+        matchingExisting.some((r) => String(r.role || "").trim().toLowerCase() === "admin");
 
-        // Secondary fallback: query site users directly
-        if (!spUserId) {
-          try {
-            const siteUsers = await this._sp.getSiteUsers<{ Id: number; Email?: string; LoginName?: string; Title?: string }>();
-            const normEmail = (assignment.user_email || "").toLowerCase().trim();
-            const normLogin = (assignment.login_name || "").toLowerCase().trim();
-            const normName = (assignment.user_name || "").toLowerCase().trim();
+      const finalMap = this._resolveFinalSbuMapForSave(assignment, matchingExisting, "merge");
+      const syncedSbus = getSyncedSbusFromMap(finalMap);
 
-            const found = siteUsers.find((u) => {
-              const uEmail = (u.Email || "").toLowerCase().trim();
-              const uLogin = (u.LoginName || "").toLowerCase().trim();
-              const uTitle = (u.Title || "").toLowerCase().trim();
-              return (
-                (normEmail && (uEmail === normEmail || uLogin.indexOf(normEmail) !== -1)) ||
-                (normLogin && (uLogin === normLogin || uLogin.indexOf(normLogin) !== -1)) ||
-                (normName && uTitle === normName)
-              );
-            });
-            if (found && found.Id) {
-              spUserId = found.Id;
-            }
-          } catch {
-            // ignore fallback error
-          }
-        }
-      }
-
-      // Base payload targeting CERRoleMatrix list columns
-      let isTargetAdmin = String(assignment.role || "").trim().toLowerCase() === "admin";
-      if (!isTargetAdmin) {
-        const existing = (this._cachedUserRoles || []).find(
-          (r) =>
-            (assignment.user_email && r.user_email && r.user_email.toLowerCase() === assignment.user_email.toLowerCase()) ||
-            (assignment.login_name && r.login_name && r.login_name.toLowerCase() === assignment.login_name.toLowerCase()) ||
-            (assignment.user_name && r.user_name && r.user_name.toLowerCase() === assignment.user_name.toLowerCase())
+      // Maintain strictly one unique SharePoint record per user
+      if (matchingExisting.length > 0 && matchingExisting[0].id) {
+        const primaryItemId = String(matchingExisting[0].id).split("__")[0];
+        await this.updateUserRole(
+          {
+            ...matchingExisting[0],
+            ...assignment,
+            id: primaryItemId,
+            role: isTargetAdmin ? "Admin" : (assignment.role || matchingExisting[0].role),
+            user_id: spUserId || matchingExisting[0].user_id,
+            sbu: syncedSbus[0] || assignment.sbu || "",
+            sbus: syncedSbus,
+            sbu_approval_map: finalMap,
+            is_active: true,
+          },
+          actor
         );
-        if (existing && String(existing.role || "").trim().toLowerCase() === "admin") {
-          isTargetAdmin = true;
-        }
+        return {
+          ...matchingExisting[0],
+          ...assignment,
+          id: primaryItemId,
+          role: isTargetAdmin ? "Admin" : (assignment.role || matchingExisting[0].role),
+          user_id: spUserId || matchingExisting[0].user_id,
+          sbu: syncedSbus[0] || assignment.sbu || "",
+          sbus: syncedSbus,
+          sbu_approval_map: finalMap,
+          is_active: true,
+        };
       }
 
-      const roleInfo = await this._getRoleFieldInfo();
-      const sbuInfo = await this._getSbuFieldInfo();
-      const levelInfo = await this._getApprovalLevelFieldInfo();
-      const roleTitleInfo = await this._getApprovalRoleTitleFieldInfo();
-
-      const sbusToSave = assignment.sbus && assignment.sbus.length > 0 ? assignment.sbus : (assignment.sbu ? [assignment.sbu] : []);
-      const levelsToSave = assignment.approval_levels && assignment.approval_levels.length > 0
-        ? assignment.approval_levels
-        : (assignment.approval_level !== undefined && assignment.approval_level !== null ? [assignment.approval_level] : []);
-      const titlesToSave = assignment.approver_role_titles && assignment.approver_role_titles.length > 0
-        ? assignment.approver_role_titles
-        : (assignment.approver_role_title ? [assignment.approver_role_title] : []);
-
-      const payload: Record<string, any> = {
-        Title: assignment.user_name,
-        [roleInfo.name]: isTargetAdmin ? "Admin" : null,
-      };
-
-      if (sbuInfo.isMultiChoice) {
-        payload[sbuInfo.name] = sbusToSave;
-      } else {
-        payload[sbuInfo.name] = sbusToSave[0] || null;
-      }
-
-      if (levelInfo.isMultiChoice) {
-        payload[levelInfo.name] = levelsToSave.map(String);
-      } else if (levelsToSave.length > 0) {
-        payload[levelInfo.name] = levelInfo.isChoice ? String(levelsToSave[0]) : Number(levelsToSave[0]);
-      } else {
-        payload[levelInfo.name] = null;
-      }
-
-      if (roleTitleInfo.isMultiChoice) {
-        payload[roleTitleInfo.name] = titlesToSave;
-      } else if (titlesToSave.length > 0) {
-        payload[roleTitleInfo.name] = titlesToSave[0];
-      } else {
-        payload[roleTitleInfo.name] = null;
-      }
-
-      if (spUserId) {
-        payload.UserId = spUserId;
-      }
+      const { payload } = await this._buildRoleMatrixWritePayload(
+        assignment.user_name,
+        isTargetAdmin,
+        spUserId,
+        finalMap
+      );
 
       let res: { Id?: number; ID?: number } | null = null;
       const listName = SP_LISTS.CER_ROLE_MATRIX;
-      let currentPayload: Record<string, any> = { ...payload };
+      const currentPayload: Record<string, any> = { ...payload };
       let lastCreateErr: any = null;
 
-      // Robust creation loop: auto-prune non-existent columns if tenant schema differs
       for (let attempt = 0; attempt < 5; attempt++) {
         try {
           res = await this._sp.createListItem<{ Id?: number; ID?: number }>(listName, currentPayload);
@@ -5580,228 +5992,69 @@ export class SharePointCERDataService implements ICERDataService {
           lastCreateErr = createErr;
           const errStr = String(createErr?.message || "").toLowerCase();
 
-          // Auto-recover OData format mismatches for collection / choice properties
-          // 1. PrimitiveValue expected when an array or object was sent (e.g., single-choice or number column)
-          if (
-            errStr.indexOf("primitivevalue") !== -1 ||
-            errStr.indexOf("primitive value") !== -1 ||
-            errStr.indexOf("cannot convert a primitive value") !== -1 ||
-            (errStr.indexOf("startarray") !== -1 && errStr.indexOf("primitive") !== -1)
-          ) {
-            const propMatch = errStr.match(/property named '([^']+)'/i);
-            if (propMatch && propMatch[1]) {
-              const propName = propMatch[1];
-              const key = Object.keys(currentPayload).find((k) => k.toLowerCase() === propName.toLowerCase());
-              if (key) {
-                const val = currentPayload[key];
-                if (Array.isArray(val)) {
-                  currentPayload[key] = val.length > 0 ? (typeof val[0] === "number" ? val[0] : String(val[0])) : null;
-                } else if (val && typeof val === "object" && Array.isArray((val as any).results)) {
-                  const r = (val as any).results;
-                  currentPayload[key] = r.length > 0 ? (typeof r[0] === "number" ? r[0] : String(r[0])) : null;
-                }
-                continue;
-              }
-            } else {
-              // Anonymous error without property name, e.g.
-              // "An unexpected 'StartArray' node was found when reading from the JSON reader. A 'PrimitiveValue' node was expected."
-              const levelKey = Object.keys(currentPayload).find((k) => k.toLowerCase() === levelInfo.name.toLowerCase());
-              if (levelKey && (Array.isArray(currentPayload[levelKey]) || (currentPayload[levelKey] && typeof currentPayload[levelKey] === "object" && Array.isArray(currentPayload[levelKey].results)))) {
-                const raw = currentPayload[levelKey];
-                const arr = Array.isArray(raw) ? raw : raw.results;
-                currentPayload[levelKey] = arr.length > 0 ? (levelInfo.isChoice ? String(arr[0]) : Number(arr[0])) : null;
-                continue;
-              }
-              const anyArrayKey = Object.keys(currentPayload).find(
-                (k) => Array.isArray(currentPayload[k]) || (currentPayload[k] && typeof currentPayload[k] === "object" && Array.isArray(currentPayload[k].results))
-              );
-              if (anyArrayKey) {
-                const raw = currentPayload[anyArrayKey];
-                const arr = Array.isArray(raw) ? raw : raw.results;
-                currentPayload[anyArrayKey] = arr.length > 0 ? arr[0] : null;
-                continue;
-              }
-            }
-          }
-
-          // 2. StartArray expected when a primitive or StartObject was sent
-          if (errStr.indexOf("startarray") !== -1 && errStr.indexOf("primitive") === -1) {
-            const propMatch = errStr.match(/property named '([^']+)'/i);
-            if (propMatch && propMatch[1]) {
-              const propName = propMatch[1];
-              const key = Object.keys(currentPayload).find((k) => k.toLowerCase() === propName.toLowerCase());
-              if (key) {
-                const val = currentPayload[key];
-                if (val && typeof val === "object" && !Array.isArray(val) && Array.isArray((val as any).results)) {
-                  currentPayload[key] = (val as any).results;
-                } else if (val !== null && val !== undefined && !Array.isArray(val)) {
-                  currentPayload[key] = [val];
-                } else if (val === null || val === undefined) {
-                  currentPayload[key] = [];
-                }
-                continue;
-              }
-            }
-          }
-
-          // 3. StartObject expected when a raw array was sent (e.g. verbose OData expecting { results: [...] })
-          if (errStr.indexOf("startobject") !== -1) {
-            const propMatch = errStr.match(/property named '([^']+)'/i);
-            if (propMatch && propMatch[1]) {
-              const propName = propMatch[1];
-              const key = Object.keys(currentPayload).find((k) => k.toLowerCase() === propName.toLowerCase());
-              if (key) {
-                const val = currentPayload[key];
-                if (Array.isArray(val)) {
-                  currentPayload[key] = { results: val };
-                } else if (val !== null && val !== undefined) {
-                  currentPayload[key] = { results: [val] };
-                } else {
-                  currentPayload[key] = { results: [] };
-                }
-                continue;
-              }
-            }
-          }
-
-          // Catch SharePoint uniqueness violation on [User] if pre-check didn't catch it
+          // Recover cleanly if [User] uniqueness constraint found an existing record we missed
           if (
             errStr.indexOf("spduplicatevaluesfoundexception") !== -1 ||
             errStr.indexOf("duplicate values were found") !== -1
           ) {
-            try {
-              const freshRoles = await this.getUserRoles(true);
-              const normTargetEmail = (assignment.user_email || "").trim().toLowerCase();
-              const normTargetLogin = (assignment.login_name || "").trim().toLowerCase();
-              const normTargetName = (assignment.user_name || "").trim().toLowerCase();
-
-              const duplicateItem = freshRoles.find((r) => {
-                if (spUserId && r.user_id && Number(r.user_id) === Number(spUserId)) return true;
-                const rEmail = (r.user_email || "").trim().toLowerCase();
-                const rLogin = (r.login_name || "").trim().toLowerCase();
-                const rName = (r.user_name || "").trim().toLowerCase();
-                return (
-                  (normTargetEmail && (rEmail === normTargetEmail || rLogin === normTargetEmail)) ||
-                  (normTargetLogin && (rLogin === normTargetLogin || rEmail === normTargetLogin)) ||
-                  (normTargetName && rName === normTargetName)
-                );
-              });
-
-              if (duplicateItem && duplicateItem.id) {
-                const isDuplicateAdmin =
-                  isTargetAdmin ||
-                  String(duplicateItem.role || "").trim().toLowerCase() === "admin" ||
-                  String(assignment.role || "").trim().toLowerCase() === "admin";
-                const roleToKeep = isDuplicateAdmin ? "Admin" : (assignment.role || duplicateItem.role);
-                await this.updateUserRole(
-                  {
-                    ...duplicateItem,
-                    ...assignment,
-                    id: duplicateItem.id,
-                    role: roleToKeep,
-                    user_id: spUserId || duplicateItem.user_id,
-                    is_active: true,
-                  },
-                  actor
-                );
-                this.clearCache();
-                return {
-                  ...duplicateItem,
+            const freshRoles = await this.getUserRoles(true);
+            const dupMatches = this._findMatchingRolesForUser(freshRoles, assignment, spUserId);
+            if (dupMatches.length > 0 && dupMatches[0].id) {
+              const dupBaseId = String(dupMatches[0].id).split("__")[0];
+              const dupAdmin =
+                isTargetAdmin ||
+                dupMatches.some((r) => String(r.role || "").trim().toLowerCase() === "admin");
+              const mergedDupMap = this._resolveFinalSbuMapForSave(assignment, dupMatches, "merge");
+              const mergedSbus = getSyncedSbusFromMap(mergedDupMap);
+              await this.updateUserRole(
+                {
+                  ...dupMatches[0],
                   ...assignment,
-                  id: duplicateItem.id,
-                  role: roleToKeep,
-                  user_id: spUserId || duplicateItem.user_id,
+                  id: dupBaseId,
+                  role: dupAdmin ? "Admin" : (assignment.role || dupMatches[0].role),
+                  user_id: spUserId || dupMatches[0].user_id,
+                  sbu: mergedSbus[0] || assignment.sbu || "",
+                  sbus: mergedSbus,
+                  sbu_approval_map: mergedDupMap,
                   is_active: true,
-                };
-              }
-            } catch (dupRecoveryErr) {
-              console.warn("[SharePointCERDataService] Duplicate recovery update failed:", dupRecoveryErr);
+                },
+                actor
+              );
+              return {
+                ...dupMatches[0],
+                ...assignment,
+                id: dupBaseId,
+                role: dupAdmin ? "Admin" : (assignment.role || dupMatches[0].role),
+                user_id: spUserId || dupMatches[0].user_id,
+                sbu: mergedSbus[0] || assignment.sbu || "",
+                sbus: mergedSbus,
+                sbu_approval_map: mergedDupMap,
+                is_active: true,
+              };
             }
           }
 
-          // Match field name from SharePoint error message (e.g. "The property 'xyz' does not exist" or "field or property 'xyz' does not exist")
-          const fieldMatch =
-            errStr.match(/The property '([^']+)' does not exist/i) ||
-            errStr.match(/property '([^']+)' does not exist/i) ||
-            errStr.match(/field or property '([^']+)' does not exist/i) ||
-            errStr.match(/field '([^']+)' does not exist/i) ||
-            errStr.match(/column named '([^']+)' was not found/i);
-          if (fieldMatch && fieldMatch[1]) {
-            const missingField = fieldMatch[1].toLowerCase();
-            const keyToRemove = Object.keys(currentPayload).find(
-              (k) => k.toLowerCase() === missingField
-            );
-            if (keyToRemove) {
-              delete currentPayload[keyToRemove];
-              // Try alternative column if role was rejected
-              if ((missingField === "role" || missingField === "userrole" || missingField === "cerrole") && isTargetAdmin) {
-                const altRoleKey = missingField === "role" ? "Role" : "role";
-                if (currentPayload[altRoleKey] === undefined) {
-                  currentPayload[altRoleKey] = "Admin";
-                }
-              }
-              // Try alternative column if approval level was rejected
-              if ((missingField === "approvallevel" || missingField === "approverlevel") && assignment.approval_level) {
-                const altKey = missingField === "approvallevel" ? "approverLevel" : "approvalLevel";
-                if (currentPayload[altKey] === undefined) {
-                  currentPayload[altKey] = assignment.approval_level;
-                }
-              }
-              continue;
-            }
+          if (this._applyRoleMatrixODataRetry(currentPayload, errStr, isTargetAdmin)) {
+            continue;
           }
-
-          // Known optional column fallbacks
-          if ((errStr.indexOf("approvallevel") !== -1 || errStr.indexOf("approverlevel") !== -1) && assignment.approval_level) {
-            // Type mismatch fallback: Choice (Edm.String) vs Number (Edm.Double)
-            if (errStr.indexOf("edm.string") !== -1 || errStr.indexOf("edm.double") !== -1 || errStr.indexOf("convert") !== -1) {
-              const activeKey = currentPayload.approverLevel !== undefined ? "approverLevel" : "approvalLevel";
-              if (typeof currentPayload[activeKey] === "number") {
-                currentPayload[activeKey] = String(assignment.approval_level);
-                continue;
-              } else if (typeof currentPayload[activeKey] === "string") {
-                currentPayload[activeKey] = Number(assignment.approval_level);
-                continue;
-              }
-            }
-            const hadApproval = currentPayload.approvalLevel !== undefined;
-            const hadApprover = currentPayload.approverLevel !== undefined;
-            delete currentPayload.approvalLevel;
-            delete currentPayload.approverLevel;
-            if (hadApproval && !hadApprover) {
-              currentPayload.approverLevel = assignment.approval_level;
-              continue;
-            } else if (hadApprover && !hadApproval) {
-              currentPayload.approvalLevel = assignment.approval_level;
-              continue;
-            }
-          }
-          if (errStr.indexOf("approverroletitle") !== -1 || errStr.indexOf("approvalroletitle") !== -1) {
-            const hadApprover = currentPayload.approverRoleTitle !== undefined;
-            const hadApproval = currentPayload.approvalRoleTitle !== undefined;
-            delete currentPayload.approverRoleTitle;
-            delete currentPayload.approvalRoleTitle;
-            if (hadApprover && !hadApproval && assignment.approver_role_title) {
-              currentPayload.approvalRoleTitle = assignment.approver_role_title;
-              continue;
-            } else if (hadApproval && !hadApprover && assignment.approver_role_title) {
-              currentPayload.approverRoleTitle = assignment.approver_role_title;
-              continue;
-            }
-          }
-
           break;
         }
       }
 
       if (!res) {
-        throw new Error(`Failed to write to role matrix list in SharePoint. (${lastCreateErr instanceof Error ? lastCreateErr.message : String(lastCreateErr)})`);
+        throw new Error(
+          `Failed to write to role matrix list in SharePoint. (${lastCreateErr instanceof Error ? lastCreateErr.message : String(lastCreateErr)})`
+        );
       }
 
       const created: IUserRoleAssignment = {
         ...assignment,
         id: String(res.ID !== undefined ? res.ID : res.Id !== undefined ? res.Id : Date.now()),
         user_id: spUserId || undefined,
+        role: isTargetAdmin ? "Admin" : assignment.role,
+        sbu: syncedSbus[0] || assignment.sbu || "",
+        sbus: syncedSbus,
+        sbu_approval_map: finalMap,
         assigned_by: actor.name,
         assigned_date: new Date().toISOString(),
       };
@@ -5813,7 +6066,7 @@ export class SharePointCERDataService implements ICERDataService {
           action: "ROLE_ASSIGNED",
           target_type: "USER",
           target_id: created.id,
-          details: `Assigned role '${created.role}' to ${created.user_name} (${created.user_email}) for SBU '${created.sbu || "All"}'${created.approval_level ? ` with Approval Level ${created.approval_level}` : ""}.`,
+          details: `Assigned role '${created.role}' to ${created.user_name} (${created.user_email}) for SBU(s) '${syncedSbus.join(", ") || "None"}'.`,
           after_value: JSON.stringify(created),
           timestamp: new Date().toISOString(),
         });
@@ -5825,7 +6078,9 @@ export class SharePointCERDataService implements ICERDataService {
       return created;
     } catch (e) {
       console.error("[SharePointCERDataService] assignUserRole failed in SharePoint:", e);
-      throw new Error(`Unable to assign user role to '${assignment.user_name}' in SharePoint role matrix: ${e instanceof Error ? e.message : String(e)}`);
+      throw new Error(
+        `Unable to assign user role to '${assignment.user_name}' in SharePoint role matrix: ${e instanceof Error ? e.message : String(e)}`
+      );
     }
   }
 
@@ -5834,88 +6089,30 @@ export class SharePointCERDataService implements ICERDataService {
     actor: { name: string; email: string }
   ): Promise<void> {
     this.clearCache();
-    // Ensure System Admin privilege is preserved if the account is an Admin
-    let isTargetAdmin = String(assignment.role || "").trim().toLowerCase() === "admin";
-
-    // If not explicitly Admin in incoming assignment, check existing records in matrix
-    if (!isTargetAdmin) {
-      const existing = (this._cachedUserRoles || []).find(
-        (r) =>
-          (assignment.id && r.id === assignment.id) ||
-          (assignment.user_email && r.user_email && r.user_email.toLowerCase() === assignment.user_email.toLowerCase()) ||
-          (assignment.login_name && r.login_name && r.login_name.toLowerCase() === assignment.login_name.toLowerCase()) ||
-          (assignment.user_name && r.user_name && r.user_name.toLowerCase() === assignment.user_name.toLowerCase())
-      );
-      if (existing && String(existing.role || "").trim().toLowerCase() === "admin") {
-        isTargetAdmin = true;
-      }
-    }
 
     try {
-      // 1. Resolve SharePoint user ID using ensureUser
-      let spUserId: number | null = assignment.user_id || null;
-      if (!spUserId && (assignment.login_name || assignment.user_email)) {
-        try {
-          const targetLogon = assignment.login_name || assignment.user_email;
-          const ensured = await PersonFieldService.resolveUser(
-            this._spHttpClient,
-            this._siteUrl,
-            targetLogon
-          );
-          spUserId = ensured.Id;
-        } catch (ensureErr) {
-          console.warn("[SharePointCERDataService] ensureUser resolution warning during updateUserRole:", ensureErr);
-        }
-      }
+      const spUserId = await this._resolveRoleMatrixSpUserId(assignment);
+      const targetItemId = String(assignment.id).split("__")[0];
 
-      const roleInfo = await this._getRoleFieldInfo();
-      const sbuInfo = await this._getSbuFieldInfo();
-      const levelInfo = await this._getApprovalLevelFieldInfo();
-      const roleTitleInfo = await this._getApprovalRoleTitleFieldInfo();
+      // Fetch current rows so existing Admin privileges and non-target SBU mappings are preserved
+      const allRoles = await this.getUserRoles(true);
+      const matchingExisting = this._findMatchingRolesForUser(allRoles, { ...assignment, id: targetItemId }, spUserId);
 
-      const sbusToSave = assignment.sbus && assignment.sbus.length > 0 ? assignment.sbus : (assignment.sbu ? [assignment.sbu] : []);
-      const levelsToSave = assignment.approval_levels && assignment.approval_levels.length > 0
-        ? assignment.approval_levels
-        : (assignment.approval_level !== undefined && assignment.approval_level !== null ? [assignment.approval_level] : []);
-      const titlesToSave = assignment.approver_role_titles && assignment.approver_role_titles.length > 0
-        ? assignment.approver_role_titles
-        : (assignment.approver_role_title ? [assignment.approver_role_title] : []);
+      const isTargetAdmin =
+        String(assignment.role || "").trim().toLowerCase() === "admin" ||
+        matchingExisting.some((r) => String(r.role || "").trim().toLowerCase() === "admin");
 
-      const payload: Record<string, any> = {
-        Title: assignment.user_name,
-        [roleInfo.name]: isTargetAdmin ? "Admin" : null,
-      };
-
-      if (sbuInfo.isMultiChoice) {
-        payload[sbuInfo.name] = sbusToSave;
-      } else {
-        payload[sbuInfo.name] = sbusToSave[0] || null;
-      }
-
-      if (levelInfo.isMultiChoice) {
-        payload[levelInfo.name] = levelsToSave.map(String);
-      } else if (levelsToSave.length > 0) {
-        payload[levelInfo.name] = levelInfo.isChoice ? String(levelsToSave[0]) : Number(levelsToSave[0]);
-      } else {
-        payload[levelInfo.name] = null;
-      }
-
-      if (roleTitleInfo.isMultiChoice) {
-        payload[roleTitleInfo.name] = titlesToSave;
-      } else if (titlesToSave.length > 0) {
-        payload[roleTitleInfo.name] = titlesToSave[0];
-      } else {
-        payload[roleTitleInfo.name] = null;
-      }
-
-      if (spUserId) {
-        payload.UserId = spUserId;
-      }
+      const finalMap = this._resolveFinalSbuMapForSave(assignment, matchingExisting, "replace");
+      const { payload, serializedMap } = await this._buildRoleMatrixWritePayload(
+        assignment.user_name,
+        isTargetAdmin,
+        spUserId,
+        finalMap
+      );
 
       const listName = SP_LISTS.CER_ROLE_MATRIX;
-      const targetItemId = String(assignment.id).split("__")[0];
       let updated = false;
-      let currentPayload: Record<string, any> = { ...payload };
+      const currentPayload: Record<string, any> = { ...payload };
       let lastUpdateErr: any = null;
 
       for (let attempt = 0; attempt < 5; attempt++) {
@@ -5926,163 +6123,17 @@ export class SharePointCERDataService implements ICERDataService {
         } catch (updateErr: any) {
           lastUpdateErr = updateErr;
           const errStr = String(updateErr?.message || "").toLowerCase();
-
-          // Auto-recover OData format mismatches for collection / choice properties
-          // 1. PrimitiveValue expected when an array or object was sent (e.g., single-choice or number column)
-          if (
-            errStr.indexOf("primitivevalue") !== -1 ||
-            errStr.indexOf("primitive value") !== -1 ||
-            errStr.indexOf("cannot convert a primitive value") !== -1 ||
-            (errStr.indexOf("startarray") !== -1 && errStr.indexOf("primitive") !== -1)
-          ) {
-            const propMatch = errStr.match(/property named '([^']+)'/i);
-            if (propMatch && propMatch[1]) {
-              const propName = propMatch[1];
-              const key = Object.keys(currentPayload).find((k) => k.toLowerCase() === propName.toLowerCase());
-              if (key) {
-                const val = currentPayload[key];
-                if (Array.isArray(val)) {
-                  currentPayload[key] = val.length > 0 ? (typeof val[0] === "number" ? val[0] : String(val[0])) : null;
-                } else if (val && typeof val === "object" && Array.isArray((val as any).results)) {
-                  const r = (val as any).results;
-                  currentPayload[key] = r.length > 0 ? (typeof r[0] === "number" ? r[0] : String(r[0])) : null;
-                }
-                continue;
-              }
-            } else {
-              // Anonymous error without property name, e.g.
-              // "An unexpected 'StartArray' node was found when reading from the JSON reader. A 'PrimitiveValue' node was expected."
-              const levelKey = Object.keys(currentPayload).find((k) => k.toLowerCase() === levelInfo.name.toLowerCase());
-              if (levelKey && (Array.isArray(currentPayload[levelKey]) || (currentPayload[levelKey] && typeof currentPayload[levelKey] === "object" && Array.isArray(currentPayload[levelKey].results)))) {
-                const raw = currentPayload[levelKey];
-                const arr = Array.isArray(raw) ? raw : raw.results;
-                currentPayload[levelKey] = arr.length > 0 ? (levelInfo.isChoice ? String(arr[0]) : Number(arr[0])) : null;
-                continue;
-              }
-              const anyArrayKey = Object.keys(currentPayload).find(
-                (k) => Array.isArray(currentPayload[k]) || (currentPayload[k] && typeof currentPayload[k] === "object" && Array.isArray(currentPayload[k].results))
-              );
-              if (anyArrayKey) {
-                const raw = currentPayload[anyArrayKey];
-                const arr = Array.isArray(raw) ? raw : raw.results;
-                currentPayload[anyArrayKey] = arr.length > 0 ? arr[0] : null;
-                continue;
-              }
-            }
-          }
-
-          // 2. StartArray expected when a primitive or StartObject was sent
-          if (errStr.indexOf("startarray") !== -1 && errStr.indexOf("primitive") === -1) {
-            const propMatch = errStr.match(/property named '([^']+)'/i);
-            if (propMatch && propMatch[1]) {
-              const propName = propMatch[1];
-              const key = Object.keys(currentPayload).find((k) => k.toLowerCase() === propName.toLowerCase());
-              if (key) {
-                const val = currentPayload[key];
-                if (val && typeof val === "object" && !Array.isArray(val) && Array.isArray((val as any).results)) {
-                  currentPayload[key] = (val as any).results;
-                } else if (val !== null && val !== undefined && !Array.isArray(val)) {
-                  currentPayload[key] = [val];
-                } else if (val === null || val === undefined) {
-                  currentPayload[key] = [];
-                }
-                continue;
-              }
-            }
-          }
-
-          // 3. StartObject expected when a raw array was sent (e.g. verbose OData expecting { results: [...] })
-          if (errStr.indexOf("startobject") !== -1) {
-            const propMatch = errStr.match(/property named '([^']+)'/i);
-            if (propMatch && propMatch[1]) {
-              const propName = propMatch[1];
-              const key = Object.keys(currentPayload).find((k) => k.toLowerCase() === propName.toLowerCase());
-              if (key) {
-                const val = currentPayload[key];
-                if (Array.isArray(val)) {
-                  currentPayload[key] = { results: val };
-                } else if (val !== null && val !== undefined) {
-                  currentPayload[key] = { results: [val] };
-                } else {
-                  currentPayload[key] = { results: [] };
-                }
-                continue;
-              }
-            }
-          }
-          const fieldMatch =
-            errStr.match(/The property '([^']+)' does not exist/i) ||
-            errStr.match(/property '([^']+)' does not exist/i) ||
-            errStr.match(/field or property '([^']+)' does not exist/i) ||
-            errStr.match(/field '([^']+)' does not exist/i) ||
-            errStr.match(/column named '([^']+)' was not found/i);
-          if (fieldMatch && fieldMatch[1]) {
-            const missingField = fieldMatch[1].toLowerCase();
-            const keyToRemove = Object.keys(currentPayload).find(
-              (k) => k.toLowerCase() === missingField
-            );
-            if (keyToRemove) {
-              delete currentPayload[keyToRemove];
-              // Try alternative column if role was rejected
-              if ((missingField === "role" || missingField === "userrole" || missingField === "cerrole") && isTargetAdmin) {
-                const altRoleKey = missingField === "role" ? "Role" : "role";
-                if (currentPayload[altRoleKey] === undefined) {
-                  currentPayload[altRoleKey] = "Admin";
-                }
-              }
-              // Try alternative column if approval level was rejected
-              if ((missingField === "approvallevel" || missingField === "approverlevel") && assignment.approval_level) {
-                const altKey = missingField === "approvallevel" ? "approverLevel" : "approvalLevel";
-                if (currentPayload[altKey] === undefined) {
-                  currentPayload[altKey] = assignment.approval_level;
-                }
-              }
-              continue;
-            }
-          }
-          if ((errStr.indexOf("approvallevel") !== -1 || errStr.indexOf("approverlevel") !== -1) && assignment.approval_level) {
-            // Type mismatch fallback: Choice (Edm.String) vs Number (Edm.Double)
-            if (errStr.indexOf("edm.string") !== -1 || errStr.indexOf("edm.double") !== -1 || errStr.indexOf("convert") !== -1) {
-              const activeKey = currentPayload.approverLevel !== undefined ? "approverLevel" : "approvalLevel";
-              if (typeof currentPayload[activeKey] === "number") {
-                currentPayload[activeKey] = String(assignment.approval_level);
-                continue;
-              } else if (typeof currentPayload[activeKey] === "string") {
-                currentPayload[activeKey] = Number(assignment.approval_level);
-                continue;
-              }
-            }
-            const hadApproval = currentPayload.approvalLevel !== undefined;
-            const hadApprover = currentPayload.approverLevel !== undefined;
-            delete currentPayload.approvalLevel;
-            delete currentPayload.approverLevel;
-            if (hadApproval && !hadApprover) {
-              currentPayload.approverLevel = assignment.approval_level;
-              continue;
-            } else if (hadApprover && !hadApproval) {
-              currentPayload.approvalLevel = assignment.approval_level;
-              continue;
-            }
-          }
-          if (errStr.indexOf("approverroletitle") !== -1 || errStr.indexOf("approvalroletitle") !== -1) {
-            const hadApprover = currentPayload.approverRoleTitle !== undefined;
-            const hadApproval = currentPayload.approvalRoleTitle !== undefined;
-            delete currentPayload.approverRoleTitle;
-            delete currentPayload.approvalRoleTitle;
-            if (hadApprover && !hadApproval && assignment.approver_role_title) {
-              currentPayload.approvalRoleTitle = assignment.approver_role_title;
-              continue;
-            } else if (hadApproval && !hadApprover && assignment.approver_role_title) {
-              currentPayload.approverRoleTitle = assignment.approver_role_title;
-              continue;
-            }
+          if (this._applyRoleMatrixODataRetry(currentPayload, errStr, isTargetAdmin)) {
+            continue;
           }
           break;
         }
       }
 
       if (!updated) {
-        throw new Error(`Failed to update item ${assignment.id} in role matrix. (${lastUpdateErr instanceof Error ? lastUpdateErr.message : String(lastUpdateErr)})`);
+        throw new Error(
+          `Failed to update item ${assignment.id} in role matrix. (${lastUpdateErr instanceof Error ? lastUpdateErr.message : String(lastUpdateErr)})`
+        );
       }
 
       try {
@@ -6091,8 +6142,8 @@ export class SharePointCERDataService implements ICERDataService {
           actor_email: actor.email,
           action: "ROLE_UPDATED",
           target_type: "USER",
-          target_id: assignment.id,
-          details: `Updated role assignment for ${assignment.user_name}. SBU: ${assignment.sbu || "All"}, Role: ${assignment.role}${assignment.approval_level ? `, Level: ${assignment.approval_level}` : ""}.`,
+          target_id: targetItemId,
+          details: `Updated SBU approval map for ${assignment.user_name}: ${serializedMap || "(no SBU assignments)"}. Role: ${isTargetAdmin ? "Admin" : "Standard"}.`,
           after_value: JSON.stringify(assignment),
           timestamp: new Date().toISOString(),
         });
@@ -6103,7 +6154,9 @@ export class SharePointCERDataService implements ICERDataService {
       return;
     } catch (e) {
       console.error("[SharePointCERDataService] updateUserRole failed in SharePoint:", e);
-      throw new Error(`Unable to update user role for '${assignment.user_name}' in SharePoint role matrix: ${e instanceof Error ? e.message : String(e)}`);
+      throw new Error(
+        `Unable to update user role for '${assignment.user_name}' in SharePoint role matrix: ${e instanceof Error ? e.message : String(e)}`
+      );
     }
   }
 
@@ -6112,24 +6165,52 @@ export class SharePointCERDataService implements ICERDataService {
     actor: { name: string; email: string }
   ): Promise<void> {
     this.clearCache();
-    // Security restriction: System Admin accounts cannot be deleted via the UI
-    try {
-      const existingRoles = await this.getUserRoles();
-      const target = existingRoles.find((r) => String(r.id) === String(assignmentId));
-      if (target && target.role === "Admin") {
-        throw new Error(
-          "Security Restriction: System Admin accounts cannot be deleted through the web interface. System Admin permissions must be managed directly in SharePoint CERRoleMatrix list."
+    const parts = String(assignmentId).split("__");
+    const targetItemId = parts[0];
+    const scopedSbu = parts[1];
+    const scopedLevel = parts[2] ? Number(parts[2]) : undefined;
+
+    const existingRoles = await this.getUserRoles(true);
+    const rowsForItem = existingRoles.filter((r) => String(r.id).split("__")[0] === targetItemId);
+    const primaryTarget = rowsForItem[0] || existingRoles.find((r) => String(r.id) === String(assignmentId));
+    const isAdmin = rowsForItem.some((r) => r.role === "Admin") || primaryTarget?.role === "Admin";
+
+    // If scoped to a specific SBU/level, remove only that scope from sbuApprovalMap first
+    if (scopedSbu && primaryTarget) {
+      const currentMap = reconstructUserSbuMapFromRoles(rowsForItem);
+      const sbuCode = toStableSbuCode(scopedSbu);
+      const entry = currentMap[sbuCode];
+      const nextLevels =
+        scopedLevel !== undefined && entry
+          ? entry.levels.filter((l) => Number(l) !== scopedLevel)
+          : [];
+      const updatedMap = updateSbuInApprovalMap(currentMap, scopedSbu, nextLevels);
+
+      if (Object.keys(updatedMap).length > 0 || isAdmin) {
+        const syncedSbus = getSyncedSbusFromMap(updatedMap);
+        await this.updateUserRole(
+          {
+            ...primaryTarget,
+            id: targetItemId,
+            sbu: syncedSbus[0] || "",
+            sbus: syncedSbus,
+            sbu_approval_map: updatedMap,
+          },
+          actor
         );
+        return;
       }
-    } catch (checkErr: any) {
-      if (String(checkErr?.message || "").indexOf("Security Restriction") !== -1) {
-        throw checkErr;
-      }
+    }
+
+    // Security restriction: System Admin accounts cannot be deleted via the UI
+    if (isAdmin) {
+      throw new Error(
+        "Security Restriction: System Admin accounts cannot be deleted through the web interface. System Admin permissions must be managed directly in SharePoint CERRoleMatrix list."
+      );
     }
 
     try {
       const listName = SP_LISTS.CER_ROLE_MATRIX;
-      const targetItemId = String(assignmentId).split("__")[0];
       await this._sp.deleteListItem(listName, targetItemId);
 
       try {
@@ -6149,8 +6230,58 @@ export class SharePointCERDataService implements ICERDataService {
       return;
     } catch (e) {
       console.error("[SharePointCERDataService] revokeUserRole failed in SharePoint:", e);
-      throw new Error(`Unable to revoke user role assignment '${assignmentId}' in SharePoint role matrix: ${e instanceof Error ? e.message : String(e)}`);
+      throw new Error(
+        `Unable to revoke user role assignment '${assignmentId}' in SharePoint role matrix: ${e instanceof Error ? e.message : String(e)}`
+      );
     }
+  }
+
+  /**
+   * Migrates legacy CERRoleMatrix rows (that still rely on approverLevel/approverRoleTitle)
+   * into the SBU-isolated JSON `sbuApprovalMap` column while keeping `sbu` synchronized.
+   */
+  public async migrateLegacyRoleMatrixEntries(actor: { name: string; email: string }): Promise<{ migratedCount: number }> {
+    const mapFieldInfo = await this._getSbuApprovalMapFieldInfo();
+    if (!mapFieldInfo.exists && mapFieldInfo.schemaKnown) {
+      return { migratedCount: 0 };
+    }
+
+    const roles = await this.getUserRoles(true);
+    const itemsToMigrate = new Map<string, IUserRoleAssignment>();
+
+    for (const r of roles) {
+      if (r.needs_sbu_map_migration && r.sbu_approval_map && Object.keys(r.sbu_approval_map).length > 0) {
+        const baseId = String(r.id).split("__")[0];
+        if (!itemsToMigrate.has(baseId)) {
+          itemsToMigrate.set(baseId, r);
+        }
+      }
+    }
+
+    let migratedCount = 0;
+    for (const [baseId, sampleRole] of Array.from(itemsToMigrate.entries())) {
+      try {
+        const syncedSbus = getSyncedSbusFromMap(sampleRole.sbu_approval_map);
+        await this.updateUserRole(
+          {
+            ...sampleRole,
+            id: baseId,
+            sbu: syncedSbus[0] || "",
+            sbus: syncedSbus,
+            sbu_approval_map: sampleRole.sbu_approval_map,
+          },
+          actor
+        );
+        migratedCount++;
+      } catch (migErr) {
+        console.warn(`[SharePointCERDataService] Migration skipped for role matrix item ${baseId}:`, migErr);
+      }
+    }
+
+    if (migratedCount > 0) {
+      this.clearCache();
+    }
+    return { migratedCount };
   }
 
   // ---------------------------------------------------------------------------

@@ -4,11 +4,20 @@ import { AUDIT_FIELD_DESCRIPTIONS, EXCLUDED_AUDIT_FIELDS } from "../models/Audit
 import { getFirstActiveError, FormErrors, validateField, validateAll, hasEnteredCostBreakdown } from "../utils/cerValidation";
 import { EmailTemplateService } from "../services/EmailTemplateService";
 import { buildTableRowsForIteration, IIterationRun, IProposalVersionEntry } from "../components/ApprovalWorkflow/StatusHistoryModal";
-import { buildActiveCycleUpcomingRowsForPdf } from "../services/PDFExportService";
+import { buildActiveCycleUpcomingRowsForPdf } from "../utils/pdfWorkflowHelpers";
 import { IWorkflowLevel } from "../models/WorkflowModel";
 import { formatUserFriendlySharePointError, normalizeUserLogon } from "../utils/sanitizationUtils";
 import { PermissionService } from "../services/PermissionService";
 import { IAppUser } from "../models/UserModel";
+import {
+  toStableSbuCode,
+  toSbuDisplayName,
+  parseSbuApprovalMap,
+  serializeSbuApprovalMap,
+  getSyncedSbusFromMap,
+  updateSbuInApprovalMap,
+  buildLegacyFallbackMap,
+} from "../utils/sbuApprovalMapUtils";
 
 // Standalone runner fallback for tsx / Node execution
 const _global: any = typeof globalThis !== "undefined" ? globalThis : {};
@@ -90,6 +99,9 @@ if (typeof _global.describe === "undefined") {
       }
     },
     not: {
+      toBe: (expected: any) => {
+        if (actual === expected) throw new Error(`Expected value NOT to be ${JSON.stringify(expected)}`);
+      },
       toBeNull: () => {
         if (actual === null) throw new Error("Expected value not to be null");
       },
@@ -1673,5 +1685,255 @@ describe("CER Management System - Business Logic & Requirements Tests", () => {
     parsedLevels.sort((a, b) => a - b);
 
     expect(parsedLevels).toEqual([1, 3, 4, 5]);
+  });
+
+  // ROLE-MATRIX-06: Independent SBU-level isolation via sbuApprovalMap on 1 unique user record
+  test("ROLE-MATRIX-06: Updating RJ South preserves RJ North levels independently on 1 unique user record", async () => {
+    if (typeof localStorage !== "undefined") localStorage.clear();
+    const matrixService = new LocalMockCERDataService();
+    const bootstrapActor = { name: "SYSTEM_INITIAL_BOOTSTRAP", email: "system@bootstrap" };
+    const adminActor = { name: "Test Admin", email: "demo.admin@example.com" };
+
+    // 1. Seed Nitin Doshi as Admin assigned ONLY to L6 in RJ North
+    const seeded = await matrixService.assignUserRole(
+      {
+        user_name: "Nitin Doshi",
+        user_email: "nitin.doshi@vedanta.co.in",
+        login_name: "nitin.doshi@vedanta.co.in",
+        role: "Admin",
+        sbu: "RJ North",
+        sbus: ["RJ North"],
+        sbu_approval_map: updateSbuInApprovalMap({}, "RJ North", [6], ["VOGL CEO"]),
+        approval_level: 6,
+        approval_levels: [6],
+        approver_role_title: "VOGL CEO",
+        approver_role_titles: ["VOGL CEO"],
+        is_active: true,
+        assigned_by: "System",
+        assigned_date: new Date().toISOString(),
+      },
+      bootstrapActor
+    );
+
+    // 2. Now update RJ South ONLY: assign Nitin Doshi to L1 (Finance) and L5 (VOGL CFO) in RJ South
+    const nextMap = updateSbuInApprovalMap(
+      { RJ_NORTH: { levels: [6], roleTitles: ["VOGL CEO"] } },
+      "RJ South",
+      [1, 5],
+      ["Finance", "VOGL CFO"]
+    );
+    await matrixService.updateUserRole(
+      {
+        ...seeded,
+        id: String(seeded.id).split("__")[0],
+        sbu: "RJ North",
+        sbus: getSyncedSbusFromMap(nextMap),
+        sbu_approval_map: nextMap,
+        approval_level: 1,
+        approval_levels: [1, 5],
+      },
+      adminActor
+    );
+
+    // 3. Verify getWorkflowLevels("RJ North") ONLY contains Nitin at L6 (never L1 or L5!)
+    const rjNorthLevels = await matrixService.getWorkflowLevels("RJ North", true);
+    const hasNitin = (lvlNum: number, lvls: typeof rjNorthLevels) =>
+      (lvls.find((l) => l.level_id === lvlNum)?.approvers || []).some(
+        (u) => u.user_email === "nitin.doshi@vedanta.co.in"
+      );
+
+    expect(hasNitin(6, rjNorthLevels)).toBe(true);
+    expect(hasNitin(1, rjNorthLevels)).toBe(false);
+    expect(hasNitin(5, rjNorthLevels)).toBe(false);
+
+    // 4. Verify getWorkflowLevels("RJ South") ONLY contains Nitin at L1 & L5 (never L6!)
+    const rjSouthLevels = await matrixService.getWorkflowLevels("RJ South", true);
+    expect(hasNitin(1, rjSouthLevels)).toBe(true);
+    expect(hasNitin(5, rjSouthLevels)).toBe(true);
+    expect(hasNitin(6, rjSouthLevels)).toBe(false);
+
+    // 5. Verify 1 unique record ID base and synchronized sbus
+    const allRoles = await matrixService.getUserRoles(true);
+    const nitinRoles = allRoles.filter((r) => r.user_email === "nitin.doshi@vedanta.co.in");
+    expect(nitinRoles.length).toBe(3); // Expanded: RJ North L6, RJ South L1, RJ South L5
+    const distinctBaseIds = Array.from(new Set(nitinRoles.map((r) => String(r.id).split("__")[0])));
+    expect(distinctBaseIds.length).toBe(1);
+    expect(nitinRoles[0].sbus).toEqual(["RJ North", "RJ South"]);
+    expect(nitinRoles[0].role).toBe("Admin");
+
+    // 6. Verify PermissionService authorizes RJ North L6 and RJ South L1, and blocks RJ North L1
+    const nitinAppUser: IAppUser = {
+      id: "nitin-1",
+      name: "Nitin Doshi",
+      email: "nitin.doshi@vedanta.co.in",
+      loginName: "nitin.doshi@vedanta.co.in",
+      role: "Admin",
+      roles: ["Admin", "Approver"],
+      sbus: ["RJ North", "RJ South"],
+      approval_levels: [1, 5, 6],
+      is_active: true,
+    };
+    expect(
+      PermissionService.canApproveCER(
+        { id: "p1", cerprno: "CER-2026-100", status: "In Approval", current_level: 6, sbu: "RJ North" } as any,
+        nitinAppUser,
+        rjNorthLevels.find((l) => l.level_id === 6)!
+      ).allowed
+    ).toBe(true);
+    expect(
+      PermissionService.canApproveCER(
+        { id: "p2", cerprno: "CER-2026-101", status: "In Approval", current_level: 1, sbu: "RJ North" } as any,
+        nitinAppUser,
+        rjNorthLevels.find((l) => l.level_id === 1)!
+      ).allowed
+    ).toBe(false);
+    expect(
+      PermissionService.canApproveCER(
+        { id: "p3", cerprno: "CER-2026-102", status: "In Approval", current_level: 1, sbu: "RJ South" } as any,
+        nitinAppUser,
+        rjSouthLevels.find((l) => l.level_id === 1)!
+      ).allowed
+    ).toBe(true);
+  });
+
+  // ROLE-MATRIX-07: Admin preservation when all SBUs removed, JSON helpers, HTML strip & legacy migration
+  test("ROLE-MATRIX-07: SBU sync, JSON HTML-strip guard, legacy migration & zero-SBU Admin preservation", async () => {
+    if (typeof localStorage !== "undefined") localStorage.clear();
+    const matrixService = new LocalMockCERDataService();
+    const bootstrapActor = { name: "SYSTEM_INITIAL_BOOTSTRAP", email: "system@bootstrap" };
+    const adminActor = { name: "Test Admin", email: "demo.admin@example.com" };
+
+    // 1. Test sbuApprovalMap utilities (stable codes, JSON roundtrip, HTML stripping, legacy fallback)
+    expect(toStableSbuCode("RJ North")).toBe("RJ_NORTH");
+    expect(toStableSbuCode("RJ South")).toBe("RJ_SOUTH");
+    expect(toStableSbuCode("CBOS")).toBe("CBOS");
+    expect(toStableSbuCode("RAVA")).toBe("RAVA");
+
+    const htmlWrapped = `<div class="ExternalClass123">{&quot;RJ_NORTH&quot;:{&quot;levels&quot;:[6],&quot;roleTitles&quot;:[&quot;VOGL CEO&quot;]},&quot;RJ_SOUTH&quot;:{&quot;levels&quot;:[1,5],&quot;roleTitles&quot;:[&quot;Finance&quot;,&quot;VOGL CFO&quot;]}}</div>`;
+    const parsedHtml = parseSbuApprovalMap(htmlWrapped);
+    expect(parsedHtml.RJ_NORTH.levels).toEqual([6]);
+    expect(parsedHtml.RJ_SOUTH.levels).toEqual([1, 5]);
+    expect(getSyncedSbusFromMap(parsedHtml)).toEqual(["RJ North", "RJ South"]);
+
+    const legacyMap = buildLegacyFallbackMap(["RJ North", "RJ South"], [1, 5], ["Finance", "VOGL CFO"]);
+    expect(legacyMap.RJ_NORTH.levels).toEqual([1, 5]);
+    expect(legacyMap.RJ_SOUTH.levels).toEqual([1, 5]);
+    expect(serializeSbuApprovalMap({})).toBe("");
+
+    // 2. Admin with zero SBUs retains Admin privilege
+    const adminUser = await matrixService.assignUserRole(
+      {
+        user_name: "Nadeem Sohail",
+        user_email: "nadeem@stl.com",
+        login_name: "nadeem@stl.com",
+        role: "Admin",
+        sbu: "RJ North",
+        sbus: ["RJ North"],
+        sbu_approval_map: updateSbuInApprovalMap({}, "RJ North", [3], ["BU CFO"]),
+        approval_level: 3,
+        is_active: true,
+        assigned_by: "System",
+        assigned_date: new Date().toISOString(),
+      },
+      bootstrapActor
+    );
+
+    // Remove RJ North from Admin via scoped revoke
+    await matrixService.revokeUserRole(`${adminUser.id}__RJ North__3`, adminActor);
+    const rolesAfterClear = await matrixService.getUserRoles(true);
+    const nadeemAfter = rolesAfterClear.find((r) => r.user_email === "nadeem@stl.com");
+    expect(Boolean(nadeemAfter)).toBe(true);
+    expect(nadeemAfter!.role).toBe("Admin");
+    expect(nadeemAfter!.sbus).toEqual([]);
+    expect(nadeemAfter!.approval_level).toBeUndefined();
+  });
+
+  // DYN-SBU-01: Dynamic SBUMaster integration, CRUD, workflow level resolution, and validation
+  test("DYN-SBU-01: Dynamic SBUMaster integration, creation, workflow level routing, and form validation", async () => {
+    const sbuService = new LocalMockCERDataService();
+    const adminActor = { name: "Test Admin", email: "demo.admin@example.com" };
+
+    // 1. Initial active SBUs
+    const initialSbus = await sbuService.getSBUs();
+    expect(initialSbus.length).toBe(4);
+    expect(initialSbus.map((s) => s.title)).toEqual(["RJ North", "RJ South", "CBOS", "RAVA"]);
+
+    // 2. Create new SBU "KG Offshore"
+    const newSbu = await sbuService.createSBU({
+      title: "KG Offshore",
+      sbuCode: "KG_OFFSHORE",
+      isActive: true,
+      sortOrder: 5,
+    });
+    expect(newSbu.id).toBeDefined();
+    expect(newSbu.title).toBe("KG Offshore");
+    expect(newSbu.sbuCode).toBe("KG_OFFSHORE");
+
+    // 3. Dynamic utility conversion
+    expect(toStableSbuCode("KG Offshore")).toBe("KG_OFFSHORE");
+    expect(toSbuDisplayName("KG_OFFSHORE")).toBe("KG Offshore");
+
+    // 4. getFieldChoices includes KG Offshore
+    const choices = await sbuService.getFieldChoices(true);
+    expect(choices.sbu).toContain("KG Offshore");
+
+    // 5. Assign approver in KG Offshore
+    await sbuService.assignUserRole(
+      {
+        user_name: "KG Approver",
+        user_email: "kg.approver@vedanta.co.in",
+        login_name: "kg.approver@vedanta.co.in",
+        role: "Approver",
+        sbu: "KG Offshore",
+        approval_level: 3,
+        approver_role_title: "BU CFO",
+        is_active: true,
+        assigned_by: "Admin",
+        assigned_date: new Date().toISOString(),
+      },
+      adminActor
+    );
+
+    // 6. getWorkflowLevels dynamically resolves KG Offshore
+    const kgLevels = await sbuService.getWorkflowLevels("KG Offshore", true);
+    expect(kgLevels.length).toBe(6);
+    const l3 = kgLevels.find((lvl) => lvl.level_id === 3);
+    expect(l3?.approver_email).toContain("kg.approver@vedanta.co.in");
+
+    // Existing RJ North is unaffected
+    const rjNorthLevels = await sbuService.getWorkflowLevels("RJ North");
+    const rjNorthL3 = rjNorthLevels.find((lvl) => lvl.level_id === 3);
+    expect(rjNorthL3?.approver_email).not.toContain("kg.approver@vedanta.co.in");
+
+    // 7. Validation with allowedSbus
+    const testProposal: any = {
+      proposal_no: "PR-KG-001",
+      pr_name: "KG Deepwater Drilling",
+      owname: "KG Project Manager",
+      owner_email: "pm.kg@vedanta.co.in",
+      sbu: "KG Offshore",
+      object: "Deepwater exploration project",
+      cat: "Vital",
+      amount: 50,
+      currency: "USD",
+      payable: "Payback",
+      cbudget: "Yes",
+      jv: "No",
+      jv_recoverable: "No",
+      jv_budget: "No",
+      st_date: "2026-04-01",
+      com_date: "2027-03-31",
+      capex_fy: 50,
+      cost_breakdown: [{ id: "1", description: "Drilling", amount: 50 }],
+    };
+    const { isValid, errors } = validateAll(testProposal, false, choices.sbu);
+    expect(errors.sbu).toBeUndefined();
+    expect(isValid).toBe(true);
+
+    // If an invalid SBU is provided, it must be rejected
+    testProposal.sbu = "Invalid SBU";
+    const invalidRes = validateAll(testProposal, false, choices.sbu);
+    expect(invalidRes.isValid).toBe(false);
+    expect(invalidRes.errors.sbu).toContain("Please select a valid SBU");
   });
 });

@@ -243,12 +243,12 @@ D:/Git/CER/
 
 Proposals follow a strict Fixed Six-Level Sequential Approval Workflow:
 
-1. **L1 - Finance**: SBU-wise designated approver in `CERRoleMatrix` (`approverLevel = "1"`).
+1. **L1 - Finance**: SBU-wise designated approver in `CERRoleMatrix` (`sbuApprovalMap[SBU_CODE]` includes level `1`).
 2. **L2 - Project Owner**: **Dynamic Automatic Resolution** resolved per proposal from `cerOwner` (`owner_email`).
-3. **L3 - BU CFO**: SBU-wise designated approver in `CERRoleMatrix` (`approverLevel = "3"`).
-4. **L4 - BU Director**: SBU-wise designated approver in `CERRoleMatrix` (`approverLevel = "4"`).
-5. **L5 - VOGL CFO**: Corporate / SBU designated approver in `CERRoleMatrix` (`approverLevel = "5"`).
-6. **L6 - VOGL CEO**: Corporate / SBU designated approver in `CERRoleMatrix` (`approverLevel = "6"`).
+3. **L3 - BU CFO**: SBU-wise designated approver in `CERRoleMatrix` (`sbuApprovalMap[SBU_CODE]` includes level `3`).
+4. **L4 - BU Director**: SBU-wise designated approver in `CERRoleMatrix` (`sbuApprovalMap[SBU_CODE]` includes level `4`).
+5. **L5 - VOGL CFO**: Corporate / SBU designated approver in `CERRoleMatrix` (`sbuApprovalMap[SBU_CODE]` includes level `5`).
+6. **L6 - VOGL CEO**: Corporate / SBU designated approver in `CERRoleMatrix` (`sbuApprovalMap[SBU_CODE]` includes level `6`).
 
 Proposals follow strict contiguous stage progression (Level 1 → Level 2 → Level 3 → Level 4 → Level 5 → Level 6).
 
@@ -344,10 +344,11 @@ Every authenticated user can access the 5 standard CER pages without requiring a
 - **Matrix Dimensions**:
   - **4 Rows (SBUs)**: `RJ North`, `RJ South`, `CBOS`, `RAVA`.
   - **8 Columns**: `Block/SBU/Field`, `L1 - Finance`, `L2 - Project Owner (Dynamic)`, `L3 - BU CFO`, `L4 - BU Director`, `L5 - VOGL CFO`, `L6 - VOGL CEO`, `Action`.
-- **Fixed Choice Columns**:
-  - `approverLevel`: Configured as a **Choice** column (`1`, `3`, `4`, `5`, `6`) in SharePoint because approval stages are fixed.
-  - `approverRoleTitle`: Configured as a **Choice** column (`Finance`, `BU CFO`, `BU Director`, `VOGL CFO`, `VOGL CEO`) because role titles are fixed standards. (`Project Owner` is excluded because Level 2 is dynamic and never assigned in the matrix).
-  - `role`: Choice column with single option `Admin`. Left blank for normal stage approvers.
+- **SBU-Isolated Matrix Columns**:
+  - `User`: Native Person column with **Enforce unique values = Yes** (strictly one unique SharePoint record per employee).
+  - `sbu`: Configured as a **Choice (Allow multiple selections: Yes)** column synchronized automatically with active SBU keys inside `sbuApprovalMap`.
+  - `sbuApprovalMap`: Configured as a **Multiple lines of text (Plain text)** column storing SBU-isolated JSON keyed by canonical SBU codes (`CBOS`, `RAVA`, `RJ_NORTH`, `RJ_SOUTH`), ensuring assignments in one SBU (e.g. `RJ South`) never alter another SBU (e.g. `RJ North`). Legacy `approverLevel` and `approverRoleTitle` Choice columns are removed.
+  - `role`: Choice column with single option `Admin`. Preserved even when a user has zero SBU assignments; left blank for normal stage approvers.
   - Level 2 is dynamic per proposal and auto-routes to each proposal's Project Owner (`cerOwner` / `owner_email`).
 
 ---
@@ -362,7 +363,7 @@ The application communicates exclusively with 6 lists/libraries in clean CamelCa
 | 2   | **`CERProposalsHistory`**  | Custom List      | Archive repository for approved proposal snapshots prior to post-approval amendments.                                                 |
 | 3   | **`CERApprovalDecisions`** | Custom List      | Formal sign-off records (Approved / Rejected / Send Back) with timestamps and version cycle tags.                                     |
 | 4   | **`CERAttachments`**       | Document Library | Associated technical and financial PDF/Excel documentation.                                                                           |
-| 5   | **`CERRoleMatrix`**        | Custom List      | Modern SBU-wise Role-Based Access Control (RBAC) and Fixed 6-Level Approval Matrix (`sbu`, `approverLevel` & `approverRoleTitle` as Multi-Choice). |
+| 5   | **`CERRoleMatrix`**        | Custom List      | Unique-user SBU-wise Role-Based Access Control (RBAC) & Approval Matrix (`User` unique, `sbu` synced Multi-Choice, `sbuApprovalMap` JSON). |
 | 6   | **`CERMailTrigger`**       | Custom List      | Transient outbox queue for Power Automate email dispatch.                                                                             |
 
 > For the complete schema specification, field types, and step-by-step manual creation instructions, refer to [SHAREPOINT_LISTS_AND_COLUMNS_SETUP.md](file:///d:/Git/CER/docs/SHAREPOINT_LISTS_AND_COLUMNS_SETUP.md).

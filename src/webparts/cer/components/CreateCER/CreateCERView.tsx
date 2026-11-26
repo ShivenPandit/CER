@@ -43,7 +43,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     pr_name: "",
     owname: "",
     owner_email: "",
-    sbu: "RJ North",
+    sbu: (fieldChoices?.sbu && fieldChoices.sbu.length > 0 ? fieldChoices.sbu[0] : "RJ North") as any,
     status: "Draft",
     object: "",
     amount: "" as any,
@@ -113,6 +113,18 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [isCheckingCerNo, setIsCheckingCerNo] = useState(false);
   const cerNoDebounceTimer = React.useRef<any>(null);
+
+  // Sync default SBU if fieldChoices loads after initial mount
+  useEffect(() => {
+    if (fieldChoices?.sbu && fieldChoices.sbu.length > 0) {
+      setFormData((prev) => {
+        if (!prev.sbu || (fieldChoices.sbu.indexOf(prev.sbu) === -1 && prev.sbu === "RJ North" && fieldChoices.sbu.indexOf("RJ North") === -1)) {
+          return { ...prev, sbu: fieldChoices.sbu[0] as any };
+        }
+        return prev;
+      });
+    }
+  }, [fieldChoices?.sbu]);
 
   // Derive the active top validation or submission error message in real time
   const activeTopError = React.useMemo(() => {
@@ -190,7 +202,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
       }
 
       if (hasAttemptedSubmit || touched[field] || errors[field]) {
-        const error = validateField(field, value, updated, false);
+        const error = validateField(field, value, updated, false, fieldChoices?.sbu);
         setErrors((prevErrors) => {
           const newErrors = { ...prevErrors };
           if (error) {
@@ -296,7 +308,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     }
 
     setTouched((prev) => ({ ...prev, [field]: true }));
-    const error = validateField(field, currentVal, updatedForm, false);
+    const error = validateField(field, currentVal, updatedForm, false, fieldChoices?.sbu);
     setErrors((prev) => {
       const updated = { ...prev };
       if (error) {
@@ -412,7 +424,7 @@ export const CreateCERView: React.FC<ICreateCERViewProps> = ({
     setFormData(sanitizedData);
 
     // Validate using modern rules
-    const { errors: validationErrors, isValid, firstErrorField } = validateAll(sanitizedData, isDraft);
+    const { errors: validationErrors, isValid, firstErrorField } = validateAll(sanitizedData, isDraft, fieldChoices?.sbu);
 
     if (!isValid) {
       setHasAttemptedSubmit(true);

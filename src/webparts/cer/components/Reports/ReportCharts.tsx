@@ -466,17 +466,39 @@ export const MonthlyTrendChart: React.FC<IMonthlyTrendProps> = ({ proposals }) =
 // Chart 3: Proposals by SBU / Block (High-Density Executive Horizontal Bars)
 // ---------------------------------------------------------------------------
 
+const SBU_PALETTE = [
+  { solidColor: "#012964", dotBg: "bg-[#012964]" },
+  { solidColor: "#2563EB", dotBg: "bg-blue-600" },
+  { solidColor: "#4F46E5", dotBg: "bg-indigo-600" },
+  { solidColor: "#0D9488", dotBg: "bg-teal-600" },
+  { solidColor: "#059669", dotBg: "bg-emerald-600" },
+  { solidColor: "#D97706", dotBg: "bg-amber-600" },
+  { solidColor: "#7C3AED", dotBg: "bg-violet-600" },
+  { solidColor: "#E11D48", dotBg: "bg-rose-600" },
+];
+
 export interface ISbuBarChartProps {
   proposals: ICERProposal[];
 }
 
 export const SbuBarChart: React.FC<ISbuBarChartProps> = ({ proposals }) => {
-  const sbus = [
-    { name: "RJ North", solidColor: "#012964", dotBg: "bg-[#012964]" },
-    { name: "RJ South", solidColor: "#2563EB", dotBg: "bg-blue-600" },
-    { name: "CBOS", solidColor: "#4F46E5", dotBg: "bg-indigo-600" },
-    { name: "RAVA", solidColor: "#0D9488", dotBg: "bg-teal-600" },
-  ];
+  const sbuNames = React.useMemo(() => {
+    const set = new Set<string>();
+    ["RJ North", "RJ South", "CBOS", "RAVA"].forEach((s) => set.add(s));
+    proposals.forEach((p) => {
+      if (p.sbu && p.sbu.trim()) set.add(p.sbu.trim());
+    });
+    return Array.from(set);
+  }, [proposals]);
+
+  const sbus = sbuNames.map((name, idx) => {
+    const palette = SBU_PALETTE[idx % SBU_PALETTE.length];
+    return {
+      name,
+      solidColor: palette.solidColor,
+      dotBg: palette.dotBg,
+    };
+  });
   const total = proposals.length;
 
   const data = sbus.map((item) => {
@@ -490,6 +512,11 @@ export const SbuBarChart: React.FC<ISbuBarChartProps> = ({ proposals }) => {
 
   const maxCount = Math.max(...data.map((d) => d.count), 1);
   const activeSbuCount = data.filter((d) => d.count > 0).length;
+
+  const highestSbu = React.useMemo(() => {
+    if (data.length === 0 || total === 0) return null;
+    return [...data].sort((a, b) => b.count - a.count)[0];
+  }, [data, total]);
 
   return (
     <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col justify-between">
@@ -545,7 +572,9 @@ export const SbuBarChart: React.FC<ISbuBarChartProps> = ({ proposals }) => {
       {/* Bottom Summary Bar */}
       <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
         <span className="font-medium">Total Registered: <strong className="text-slate-800">{total} Proposals</strong></span>
-        <span className="font-semibold text-slate-700">Highest Share: RJ North ({data[0].pctDisplay})</span>
+        <span className="font-semibold text-slate-700">
+          Highest Share: {highestSbu && highestSbu.count > 0 ? `${highestSbu.name} (${highestSbu.pctDisplay})` : "None"}
+        </span>
       </div>
     </div>
   );
@@ -555,17 +584,39 @@ export const SbuBarChart: React.FC<ISbuBarChartProps> = ({ proposals }) => {
 // Chart 4: Financial Overview by SBU (2-Decimal Calculations & Proportional Stack)
 // ---------------------------------------------------------------------------
 
+const FINANCIAL_SBU_PALETTE = [
+  { solidColor: "#012964", colorClass: "bg-[#012964]" },
+  { solidColor: "#2563EB", colorClass: "bg-blue-600" },
+  { solidColor: "#4F46E5", colorClass: "bg-indigo-600" },
+  { solidColor: "#0D9488", colorClass: "bg-teal-600" },
+  { solidColor: "#059669", colorClass: "bg-emerald-600" },
+  { solidColor: "#D97706", colorClass: "bg-amber-600" },
+  { solidColor: "#7C3AED", colorClass: "bg-violet-600" },
+  { solidColor: "#E11D48", colorClass: "bg-rose-600" },
+];
+
 export interface IFinancialSbuProps {
   proposals: ICERProposal[];
 }
 
 export const FinancialSbuBarChart: React.FC<IFinancialSbuProps> = ({ proposals }) => {
-  const sbus = [
-    { name: "RJ North", solidColor: "#012964", colorClass: "bg-[#012964]" },
-    { name: "RJ South", solidColor: "#2563EB", colorClass: "bg-blue-600" },
-    { name: "CBOS", solidColor: "#4F46E5", colorClass: "bg-indigo-600" },
-    { name: "RAVA", solidColor: "#0D9488", colorClass: "bg-teal-600" },
-  ];
+  const sbuNames = React.useMemo(() => {
+    const set = new Set<string>();
+    ["RJ North", "RJ South", "CBOS", "RAVA"].forEach((s) => set.add(s));
+    proposals.forEach((p) => {
+      if (p.sbu && p.sbu.trim()) set.add(p.sbu.trim());
+    });
+    return Array.from(set);
+  }, [proposals]);
+
+  const sbus = sbuNames.map((name, idx) => {
+    const palette = FINANCIAL_SBU_PALETTE[idx % FINANCIAL_SBU_PALETTE.length];
+    return {
+      name,
+      solidColor: palette.solidColor,
+      colorClass: palette.colorClass,
+    };
+  });
 
   let grandTotal = 0;
   const sbuFinancials = sbus.map((sbuObj) => {
@@ -588,6 +639,11 @@ export const FinancialSbuBarChart: React.FC<IFinancialSbuProps> = ({ proposals }
       avg: sbuProps.length > 0 ? Math.round(amount / sbuProps.length) : 0,
     };
   });
+
+  const primaryAllocSbu = React.useMemo(() => {
+    if (sbuFinancials.length === 0 || grandTotal === 0) return null;
+    return [...sbuFinancials].sort((a, b) => b.amount - a.amount)[0];
+  }, [sbuFinancials, grandTotal]);
 
   return (
     <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col justify-between">
@@ -668,8 +724,10 @@ export const FinancialSbuBarChart: React.FC<IFinancialSbuProps> = ({ proposals }
 
       {/* Bottom Summary Strip */}
       <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-        <span className="font-medium">Portfolio Spread: <strong className="text-slate-800">4 Business Units</strong></span>
-        <span className="font-semibold text-purple-700">Primary Allocation: RJ North ({formatSharePercent(sbuFinancials[0]?.amount || 0, grandTotal)})</span>
+        <span className="font-medium">Portfolio Spread: <strong className="text-slate-800">{sbuFinancials.length} Business Units</strong></span>
+        <span className="font-semibold text-purple-700">
+          Primary Allocation: {primaryAllocSbu && primaryAllocSbu.amount > 0 ? `${primaryAllocSbu.name} (${formatSharePercent(primaryAllocSbu.amount, grandTotal)})` : "None"}
+        </span>
       </div>
     </div>
   );

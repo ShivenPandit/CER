@@ -254,7 +254,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
       }
 
       if (hasAttemptedSubmit || touched[field] || errors[field]) {
-        const error = validateField(field, value, updated, false);
+        const error = validateField(field, value, updated, false, fieldChoices?.sbu);
         setErrors((prevErrors) => {
           const newErrors = { ...prevErrors };
           if (error) {
@@ -480,7 +480,7 @@ export const ChangeCERView: React.FC<IChangeCERViewProps> = ({
     setFormData(sanitizedData);
 
     // Validate using modern rules
-    const { errors: validationErrors, isValid, firstErrorField } = validateAll(sanitizedData, isDraft);
+    const { errors: validationErrors, isValid, firstErrorField } = validateAll(sanitizedData, isDraft, fieldChoices?.sbu);
 
     if (!isValid) {
       setHasAttemptedSubmit(true);

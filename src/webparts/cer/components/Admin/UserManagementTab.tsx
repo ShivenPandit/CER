@@ -14,16 +14,25 @@ import {
   Info,
   Sparkles,
   Lock,
+  Plus,
 } from "lucide-react";
 import {
   IAppUser,
   IUserRoleAssignment,
   IDirectoryUser,
+  SbuApprovalMap,
 } from "../../models/UserModel";
 import { IWorkflowLevel } from "../../models/WorkflowModel";
 import { ICERDataService } from "../../services/ICERDataService";
 import { useModalScrollLock } from "../../hooks/useModalScrollLock";
 import { UserAvatar } from "../Common/UserAvatar";
+import {
+  updateSbuInApprovalMap,
+  getSyncedSbusFromMap,
+  reconstructUserSbuMapFromRoles,
+  toStableSbuCode,
+} from "../../utils/sbuApprovalMapUtils";
+import { ISBUItem } from "../../models/CERModel";
 
 interface IUserManagementTabProps {
   dataService: ICERDataService;
@@ -68,6 +77,93 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // SBU Master & Dynamic Blocks
+  // ---------------------------------------------------------------------------
+  const [sbuItems, setSbuItems] = useState<ISBUItem[]>([]);
+  const [isAddSbuModalOpen, setIsAddSbuModalOpen] = useState(false);
+  const [newSbuTitle, setNewSbuTitle] = useState("");
+  const [isSavingSbu, setIsSavingSbu] = useState(false);
+  const [addSbuError, setAddSbuError] = useState<string | null>(null);
+
+  const loadSbuItems = async (): Promise<void> => {
+    try {
+      if (typeof dataService.getSBUs === "function") {
+        const items = await dataService.getSBUs();
+        if (items && items.length > 0) {
+          setSbuItems(items);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn("[UserManagementTab] Failed to load SBUs:", err);
+    }
+    setSbuItems([
+      { title: "RJ North", sbuCode: "RJ_NORTH", isActive: true, sortOrder: 1 },
+      { title: "RJ South", sbuCode: "RJ_SOUTH", isActive: true, sortOrder: 2 },
+      { title: "CBOS", sbuCode: "CBOS", isActive: true, sortOrder: 3 },
+      { title: "RAVA", sbuCode: "RAVA", isActive: true, sortOrder: 4 },
+    ]);
+  };
+
+  useEffect(() => {
+    loadSbuItems().catch(() => {});
+  }, [dataService]);
+
+  const matrixBlocks = useMemo(() => {
+    if (sbuItems.length > 0) {
+      return sbuItems.filter((s) => s.isActive !== false).map((s) => s.title);
+    }
+    return ["RJ North", "RJ South", "CBOS", "RAVA"];
+  }, [sbuItems]);
+
+  const handleCreateSbu = async (): Promise<void> => {
+    const title = newSbuTitle.trim();
+    if (!title) {
+      setAddSbuError("SBU Name is required.");
+      return;
+    }
+    const baseCode = toStableSbuCode(title).toUpperCase();
+    let code = baseCode;
+    let suffix = 2;
+    while (sbuItems.some((item) => (item.sbuCode || "").toUpperCase() === code)) {
+      code = `${baseCode}_${suffix++}`;
+    }
+    const nextSortOrder = sbuItems.reduce((max, item) => Math.max(max, Number(item.sortOrder) || 0), 0) + 1;
+
+    setIsSavingSbu(true);
+    setAddSbuError(null);
+    try {
+      if (typeof dataService.createSBU === "function") {
+        await dataService.createSBU({
+          title,
+          sbuCode: code,
+          sortOrder: nextSortOrder,
+          isActive: true,
+        });
+      } else {
+        setSbuItems((prev) => [
+          ...prev,
+          {
+            title,
+            sbuCode: code,
+            sortOrder: nextSortOrder,
+            isActive: true,
+          },
+        ]);
+      }
+
+      await loadSbuItems();
+      await onRefreshRoles();
+      setIsAddSbuModalOpen(false);
+      setSuccessMessage(`SBU '${title}' was successfully added and is now available in the matrix and forms.`);
+    } catch (err: any) {
+      setAddSbuError(err?.message || "Failed to add SBU.");
+    } finally {
+      setIsSavingSbu(false);
+    }
+  };
 
   useEffect(() => {
     if (workflowLevels && workflowLevels.length > 0) {
@@ -404,33 +500,52 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
         }
       }
 
-      // 3. Process Approvers Removed from this Block completely
+      const cleanName = (val?: string) =>
+        (val || "")
+          .replace(/\s*\([^)]*\)/g, "")
+          .replace(/[^a-zA-Z0-9\s]/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+
+      const findExistingRolesForUser = (userKey: string, userObj?: Partial<IUserRoleAssignment>) => {
+        const stagedCleanName = cleanName(userObj?.user_name);
+        const baseObjId = userObj?.id ? String(userObj.id).split("__")[0] : "";
+        return roles.filter((r) => {
+          const baseRId = String(r.id).split("__")[0];
+          const rCleanName = cleanName(r.user_name);
+          return (
+            (baseObjId && !baseObjId.startsWith("dir-") && baseRId === baseObjId) ||
+            getUserKey(r) === userKey ||
+            (userObj?.user_id && r.user_id && Number(r.user_id) === Number(userObj.user_id)) ||
+            (stagedCleanName && rCleanName && stagedCleanName === rCleanName)
+          );
+        });
+      };
+
+      // 3. Process Approvers Removed from this Block completely (modify ONLY this SBU key in sbuApprovalMap)
       const currentUserKeys = Array.from(currentInBlockByUser.keys());
       for (const k of currentUserKeys) {
         if (!stagedByUser.has(k)) {
           const { user } = currentInBlockByUser.get(k)!;
-          const existingRole = roles.find((r) => getUserKey(r) === k || (user.id && r.id === user.id));
-          if (existingRole) {
-            const isAdmin = String(existingRole.role || "").trim().toLowerCase() === "admin";
-            const currentSbus = existingRole.sbus || (existingRole.sbu ? [existingRole.sbu] : []);
-            const remainingSbus = currentSbus.filter((s) => s.toLowerCase() !== block.toLowerCase());
+          const matchingRoles = findExistingRolesForUser(k, user);
+          const primaryRecord = matchingRoles[0];
+          if (primaryRecord) {
+            const isAdmin = matchingRoles.some((r) => String(r.role || "").trim().toLowerCase() === "admin");
+            const existingMap: SbuApprovalMap = reconstructUserSbuMapFromRoles(matchingRoles);
+            const updatedMap = updateSbuInApprovalMap(existingMap, block, []);
+            const syncedSbus = getSyncedSbusFromMap(updatedMap);
+            const baseId = String(primaryRecord.id).split("__")[0];
 
-            if (remainingSbus.length > 0) {
+            if (syncedSbus.length > 0 || isAdmin) {
               await dataService.updateUserRole(
                 {
-                  ...existingRole,
-                  sbu: remainingSbus[0],
-                  sbus: remainingSbus,
-                },
-                actor
-              );
-            } else if (isAdmin) {
-              await dataService.updateUserRole(
-                {
-                  ...existingRole,
-                  role: "Admin",
-                  sbu: "",
-                  sbus: [],
+                  ...primaryRecord,
+                  id: baseId,
+                  role: isAdmin ? "Admin" : primaryRecord.role,
+                  sbu: syncedSbus[0] || "",
+                  sbus: syncedSbus,
+                  sbu_approval_map: updatedMap,
                   approval_level: undefined,
                   approval_levels: [],
                   approver_role_title: undefined,
@@ -440,59 +555,39 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 actor
               );
             } else {
-              await dataService.revokeUserRole(existingRole.id, actor);
+              await dataService.revokeUserRole(baseId, actor);
             }
           }
         }
       }
 
-      // 4. Process Staged Approvers (assigned, updated, or multi-level configured)
+      // 4. Process Staged Approvers (update ONLY the selected SBU key in sbuApprovalMap, preserving other SBUs)
       const stagedUserEntries = Array.from(stagedByUser.entries());
       for (const [k, { user, levels }] of stagedUserEntries) {
         levels.sort((a, b) => a - b);
         const titles = levels.map((l) => getApproverRoleTitle(l));
 
-        const stagedCleanName = (user.user_name || "")
-          .replace(/\s*\([^)]*\)/g, "")
-          .replace(/[^a-zA-Z0-9\s]/g, "")
-          .replace(/\s+/g, " ")
-          .trim()
-          .toLowerCase();
-
-        const existingRole = roles.find((r) => {
-          const rCleanName = (r.user_name || "")
-            .replace(/\s*\([^)]*\)/g, "")
-            .replace(/[^a-zA-Z0-9\s]/g, "")
-            .replace(/\s+/g, " ")
-            .trim()
-            .toLowerCase();
-          return (
-            (user.id && r.id === user.id) ||
-            getUserKey(r) === k ||
-            (user.user_id && r.user_id && Number(r.user_id) === Number(user.user_id)) ||
-            (stagedCleanName && rCleanName && stagedCleanName === rCleanName)
-          );
-        });
+        const matchingRoles = findExistingRolesForUser(k, user);
+        const existingRecord = matchingRoles[0];
+        const existingMap: SbuApprovalMap = reconstructUserSbuMapFromRoles(matchingRoles);
+        const updatedMap = updateSbuInApprovalMap(existingMap, block, levels, titles);
+        const syncedSbus = getSyncedSbusFromMap(updatedMap);
 
         const isAdmin =
-          (existingRole && String(existingRole.role || "").trim().toLowerCase() === "admin") ||
-          (user && String(user.role || "").trim().toLowerCase() === "admin");
-        const roleToSave = isAdmin ? "Admin" : (existingRole?.role || user?.role || ("" as any));
+          matchingRoles.some((r) => String(r.role || "").trim().toLowerCase() === "admin") ||
+          String(user.role || "").trim().toLowerCase() === "admin";
+        const roleToSave = isAdmin ? "Admin" : (existingRecord?.role || user?.role || ("" as any));
 
-        if (existingRole) {
-          const existingSbus = existingRole.sbus || (existingRole.sbu ? [existingRole.sbu] : []);
-          const mergedSbusSet = new Set<string>([block]);
-          existingSbus.forEach((s) => {
-            if (s && s.toLowerCase() !== "all" && s.trim()) mergedSbusSet.add(s.trim());
-          });
-          const mergedSbus = Array.from(mergedSbusSet);
-
+        if (existingRecord) {
+          const baseId = String(existingRecord.id).split("__")[0];
           await dataService.updateUserRole(
             {
-              ...existingRole,
+              ...existingRecord,
+              id: baseId,
               role: roleToSave,
-              sbu: block,
-              sbus: mergedSbus,
+              sbu: syncedSbus[0] || block,
+              sbus: syncedSbus,
+              sbu_approval_map: updatedMap,
               approval_level: levels[0],
               approval_levels: levels,
               approver_role_title: titles[0],
@@ -509,8 +604,9 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               login_name: user.login_name || user.user_email,
               user_id: user.user_id,
               role: roleToSave,
-              sbu: block,
-              sbus: [block],
+              sbu: syncedSbus[0] || block,
+              sbus: syncedSbus,
+              sbu_approval_map: updatedMap,
               approval_level: levels[0],
               approval_levels: levels,
               approver_role_title: titles[0],
@@ -653,7 +749,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
         </div>
       )}
 
-      {/* Main Top Bar: Back button, Page Title */}
+      {/* Main Top Bar: Back button, Page Title & Add SBU */}
       <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-3.5">
         <div className="flex items-center gap-3 shrink-0">
           {onCancel && (
@@ -680,6 +776,21 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
               </p>
             </div>
           </div>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => {
+              setNewSbuTitle("");
+              setAddSbuError(null);
+              setIsAddSbuModalOpen(true);
+            }}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#012964] hover:bg-[#012250] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add SBU</span>
+          </button>
         </div>
       </div>
 
@@ -708,7 +819,7 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
-                {MATRIX_BLOCKS.map((block) => {
+                {matrixBlocks.map((block) => {
                   const assignedCount = getAssignedCountForBlock(block);
                   return (
                       <tr key={block} className="hover:bg-slate-50/80 transition-colors group">
@@ -1214,6 +1325,98 @@ export const UserManagementTab: React.FC<IUserManagementTabProps> = ({
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ======================================================================= */}
+      {/* MODAL: ADD SBU MODAL                                                    */}
+      {/* ======================================================================= */}
+      {isAddSbuModalOpen && createPortal(
+        <div
+          className="fixed inset-0 !m-0 !top-0 !left-0 !right-0 !bottom-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs overscroll-contain animate-fade-in overflow-y-auto"
+          style={{ overscrollBehavior: "contain" }}
+        >
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/90 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#012964]/10 flex items-center justify-center text-[#012964] shrink-0">
+                  <Plus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Add Strategic Business Unit (SBU)</h3>
+                  <p className="text-[11px] text-slate-500">Create a new SBU for role routing and matrix approvals</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddSbuModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4">
+              {addSbuError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-xs text-red-700">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
+                  <span>{addSbuError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  SBU Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newSbuTitle}
+                  onChange={(e) => setNewSbuTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !isSavingSbu && newSbuTitle.trim()) {
+                      e.preventDefault();
+                      handleCreateSbu().catch(() => {});
+                    }
+                  }}
+                  className="w-full h-10 px-3.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#012964]/20 focus:border-[#012964]"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-2.5 px-5 py-3.5 bg-slate-50 border-t border-slate-100 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsAddSbuModalOpen(false)}
+                disabled={isSavingSbu}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateSbu}
+                disabled={isSavingSbu || !newSbuTitle.trim()}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#012964] hover:bg-[#012250] text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {isSavingSbu ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving SBU...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Save SBU</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>,

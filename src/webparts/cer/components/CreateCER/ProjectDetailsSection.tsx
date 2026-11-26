@@ -180,11 +180,15 @@ export const ProjectDetailsSection: React.FC<IProjectDetailsSectionProps> = ({
             onBlur={() => onBlur && onBlur("sbu")}
             className="w-full h-10 px-3.5 py-2 bg-white border border-slate-200 hover:border-slate-300 rounded-lg focus:border-[#012964] focus:ring-1 focus:ring-[#012964]/20 focus:outline-none transition-colors text-sm font-medium text-slate-900 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
           >
-            {(fieldChoices?.sbu && fieldChoices.sbu.length > 0 ? fieldChoices.sbu : SBU_OPTIONS).map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
+            {(() => {
+              const baseOpts = fieldChoices?.sbu && fieldChoices.sbu.length > 0 ? fieldChoices.sbu : SBU_OPTIONS;
+              const allOpts = formData.sbu && baseOpts.indexOf(formData.sbu) === -1 ? [formData.sbu, ...baseOpts] : baseOpts;
+              return allOpts.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ));
+            })()}
           </select>
           {getFieldError("sbu") && (
             <p className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium" role="alert">

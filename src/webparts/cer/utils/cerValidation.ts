@@ -129,7 +129,8 @@ export function validateField(
   field: keyof ICERProposal,
   value: any,
   formData: ICERProposal,
-  isDraft: boolean = false
+  isDraft: boolean = false,
+  allowedSbus?: string[]
 ): string | undefined {
   // In Draft mode: Name of Project and CER Owner Name/Email are required to save draft.
   // All other fields remain optional (format validated only if provided).
@@ -251,12 +252,17 @@ export function validateField(
     }
 
     // -------------------------------------------------------------------------------------------
-    // 5. Block/SBU (Required dropdown with exactly: CBOS, RAVA, RJ North, RJ South)
+    // 5. Block/SBU (Required dropdown)
     // -------------------------------------------------------------------------------------------
     case "sbu": {
-      const allowedSbus = ["CBOS", "RAVA", "RJ North", "RJ South"];
-      if (!value || allowedSbus.indexOf(value) === -1) {
-        return "Block/SBU is required. Please select CBOS, RAVA, RJ North, or RJ South.";
+      const trimmed = String(value || "").trim();
+      if (!trimmed) {
+        return "Block/SBU is required.";
+      }
+      if (allowedSbus && allowedSbus.length > 0) {
+        if (!allowedSbus.some((s) => s.toLowerCase() === trimmed.toLowerCase())) {
+          return `Block/SBU is required. Please select a valid SBU (${allowedSbus.join(", ")}).`;
+        }
       }
       return undefined;
     }
@@ -511,7 +517,11 @@ export function validateField(
  * Enforces that ONLY the 14 mandatory fields are required on submission.
  * All other form fields are strictly optional.
  */
-export function validateAll(formData: ICERProposal, isDraft: boolean = false): {
+export function validateAll(
+  formData: ICERProposal,
+  isDraft: boolean = false,
+  allowedSbus?: string[]
+): {
   errors: FormErrors;
   isValid: boolean;
   firstErrorField?: keyof ICERProposal | "phasing_mismatch" | "cost_mismatch";
@@ -528,7 +538,7 @@ export function validateAll(formData: ICERProposal, isDraft: boolean = false): {
       "remarks", "remarks_jv", "wells", "preop"
     ];
     for (const field of allFields) {
-      const err = validateField(field, formData[field], formData, true);
+      const err = validateField(field, formData[field], formData, true, allowedSbus);
       if (err) errors[field] = err;
     }
   } else {
@@ -554,7 +564,7 @@ export function validateAll(formData: ICERProposal, isDraft: boolean = false): {
     for (const field of mandatoryFields) {
       // Compatibility: if field is proposal_no but proposal_no is empty and cerprno is present, accept cerprno
       const val = field === "proposal_no" ? (formData.proposal_no || formData.cerprno) : formData[field];
-      const err = validateField(field, val, formData, false);
+      const err = validateField(field, val, formData, false, allowedSbus);
       if (err) {
         errors[field] = err;
       }

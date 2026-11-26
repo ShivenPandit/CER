@@ -17,6 +17,13 @@ export interface IAppUser {
   canManageApprovalHierarchy?: boolean;
 }
 
+export interface ISbuApprovalEntry {
+  levels: number[];
+  roleTitles: string[];
+}
+
+export type SbuApprovalMap = Record<string, ISbuApprovalEntry>;
+
 export interface IUserRoleAssignment {
   id: string; // SharePoint Item ID or UUID
   user_name: string;
@@ -24,12 +31,14 @@ export interface IUserRoleAssignment {
   login_name: string;
   role: UserRole;
   approval_level?: number;
-  approval_levels?: number[]; // Multi-choice assigned levels
+  approval_levels?: number[]; // SBU-scoped assigned levels
   approver_role_title?: string;
-  approver_role_titles?: string[]; // Multi-choice assigned role titles
+  approver_role_titles?: string[]; // SBU-scoped assigned role titles
   department?: string;
   sbu?: string;
-  sbus?: string[]; // Multi-choice assigned SBUs
+  sbus?: string[]; // Synchronized list of assigned SBUs
+  sbu_approval_map?: SbuApprovalMap; // Full SBU-keyed map: { SBU_CODE: { levels, roleTitles } }
+  needs_sbu_map_migration?: boolean; // True when loaded from legacy columns and sbuApprovalMap is not yet persisted
   is_active?: boolean;
   assigned_by: string;
   assigned_date: string;
@@ -46,6 +55,7 @@ export interface ICERRoleMatrixItem {
   role: UserRole;
   sbu: string;
   sbus?: string[];
+  sbu_approval_map?: SbuApprovalMap;
   approver_level?: number;
   approver_levels?: number[];
   approver_role_title?: string;

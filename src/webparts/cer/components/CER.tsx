@@ -304,13 +304,17 @@ const CER: React.FC<ICERProps> = (props) => {
 
   const handleRefreshProposals = async (force: boolean = false): Promise<void> => {
     try {
-      const [propsList, levels] = await Promise.all([
+      const [propsList, levels, choices] = await Promise.all([
         dataService.getAllProposals(force),
         dataService.getWorkflowLevels(undefined, force),
+        dataService.getFieldChoices(force),
       ]);
       setProposals(propsList);
       if (levels) {
         setWorkflowLevels(levels);
+      }
+      if (choices) {
+        setFieldChoices(choices);
       }
     } catch (e) {
       console.error("[CER] Error refreshing proposals:", e);

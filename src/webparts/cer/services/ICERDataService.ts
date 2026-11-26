@@ -1,4 +1,4 @@
-import { ICERProposal, IFieldChoices } from "../models/CERModel";
+import { ICERProposal, IFieldChoices, ISBUItem } from "../models/CERModel";
 import { ICERAuditRecord, ICERRemarksVersion } from "../models/AuditModel";
 import { IWorkflowLevel, IApprovalDecision, INotificationLog } from "../models/WorkflowModel";
 import { ICERAttachment } from "../models/AttachmentModel";
@@ -13,6 +13,7 @@ export interface ICERDataService {
   assignUserRole(assignment: Omit<IUserRoleAssignment, "id">, actor: { name: string; email: string }): Promise<IUserRoleAssignment>;
   updateUserRole(assignment: IUserRoleAssignment, actor: { name: string; email: string }): Promise<void>;
   revokeUserRole(assignmentId: string, actor: { name: string; email: string }): Promise<void>;
+  migrateLegacyRoleMatrixEntries?(actor: { name: string; email: string }): Promise<{ migratedCount: number }>;
 
   // Approval Hierarchy Administrators (derived from CERRoleMatrix)
   getHierarchyAdmins(forceRefresh?: boolean): Promise<string[]>;
@@ -23,7 +24,11 @@ export interface ICERDataService {
   clearCache?(): void;
 
   // Dropdown Field Choices (Fetched directly from SharePoint list schema)
-  getFieldChoices(): Promise<IFieldChoices>;
+  getFieldChoices(forceRefresh?: boolean): Promise<IFieldChoices>;
+
+  // Dynamic SBU Master (SBUMaster list)
+  getSBUs(forceRefresh?: boolean): Promise<ISBUItem[]>;
+  createSBU(sbu: { title: string; sbuCode?: string; isActive?: boolean; sortOrder?: number }): Promise<ISBUItem>;
 
   // Proposals
   getAllProposals(forceRefresh?: boolean): Promise<ICERProposal[]>;

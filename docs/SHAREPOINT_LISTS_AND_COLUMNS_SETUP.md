@@ -3,7 +3,7 @@
 **Target Site Collection:** `https://vedanta.sharepoint.com/sites/CERManagementSystemUAT`  
 **Application:** Capital Expenditure Request (CER) Management System  
 **Naming Standard:** Strict CamelCase across all List Names and Column Internal Names (No Underscores `_`)  
-**Version:** 3.5 (Multi-Version Snapshot Isolation & Cycle-Tagged Approval Decisions)
+**Version:** 3.5
 
 ---
 
@@ -19,24 +19,13 @@ When creating lists manually in SharePoint (**Site Contents -> New -> List -> Bl
 | 4   | **`CERAttachments`**       | Document Library | Associated technical and financial PDF/Excel documentation.                                                                                                                     |
 | 5   | **`CERRoleMatrix`**        | Custom List      | Modern SBU-wise Role-Based Access Control (RBAC) and Fixed 6-Level Approval Matrix.                                                                                             |
 | 6   | **`CERMailTrigger`**       | Custom List      | Outbox queue for Power Automate email notifications (processed items are automatically deleted).                                                                                |
+| 7   | **`SBUMaster`**            | Custom List      | Master registry of Strategic Business Units (SBUs) for dynamic routing and role matrix.                                                                                         |
+
+*(Note: Built-in system fields `Title`, `ID`, `Created`, `Created By`, `Modified`, and `Modified By` are created automatically by SharePoint for every list).*
 
 ---
 
 ## 2. Complete List Specifications & Column Schemas
-
-> [!IMPORTANT]
-> **SharePoint Built-in System Fields — DO NOT CREATE MANUALLY:**
-> Every SharePoint list automatically provides built-in system fields:
->
-> - **`Title`**: The default column created automatically with every SharePoint list. You do **not** click "+ Add column" to create `Title`.
-> - **`Created By` (Internal: `Author`)**: System-managed Person field. **Do NOT create manually.**
-> - **`Modified By` (Internal: `Editor`)**: System-managed Person field. **Do NOT create manually.**
-> - **`Created`** & **`Modified`**: System-managed timestamps. **Do NOT create manually.**
-> - **`ID`**: System-managed unique integer ID. **Do NOT create manually.**
->
-> **Rule:** Only create the **custom columns** listed in the tables below via **`+ Add column`**. Never create columns named `Author`, `Editor`, `Created By`, or `Modified By`.
-
----
 
 ### 2.1 `CERProposals` (Master Proposals Registry)
 
@@ -49,7 +38,7 @@ Stores all proposal header data, financial justifications, partner details, Indi
 | **CER Proposal No**     | **`proposalNo`**        | **Single line of text** | **Yes**  | **Yes** | **Yes**            | **Alphanumeric business ref (e.g. `PR-RJ-001`)**            | **User-entered business proposal number.** Mandatory field in SharePoint and application logic; must be unique across all proposals. Alphanumeric format, non-empty, whitespace-validated.                                                                                                                                                                                                                                                            |
 | Proposal Name           | `prName`                | Single line of text     | Yes      | No      | No                 | Free text (max 255 chars)                                   | Project descriptive title.                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | **CER Owner**           | **`cerOwner`**          | **Person or Group**     | **Yes**  | No      | **Yes**            | **`SPFieldUser` (Single)**                                  | **Native SharePoint Person column.** Populated via `cerOwnerId: <IntegerId>` obtained from `ensureUser`. Provides the owner's Display Name (`cerOwner/Title`), Corporate Email (`cerOwner/EMail`), presence, and M365 profile card (eliminates redundant text fields).                                                                                                                                                                                |
-| SBU                     | `sbu`                   | Choice                  | Yes      | No      | **Yes**            | `RJ North`, `RJ South`, `CBOS`, `RAVA`                      | Strategic Business Unit determining approval hierarchy.                                                                                                                                                                                                                                                                                                                                                                                               |
+| SBU                     | `sbu`                   | Choice                  | Yes      | No      | **Yes**            | `RJ North`, `RJ South`, `CBOS`, `RAVA`<br/>(Can add values manually: Yes)  | Strategic Business Unit determining approval hierarchy.                                                                                                                                                                                                                                                                                                                                                                                               |
 | Status                  | `status`                | Choice                  | Yes      | No      | **Yes**            | `Draft`, `In Approval`, `Approved`, `Rejected`, `Send Back` | Current lifecycle stage of the proposal. Stored as `Send Back` when approver requests rework.                                                                                                                                                                                                                                                                                                                                                         |
 | Proposal Object         | `object`                | Multiple lines of text  | No       | No      | No                 | Plain text                                                  | Strategic objectives and project summary. _(Note: Multi-line text cannot be indexed in SharePoint)._                                                                                                                                                                                                                                                                                                                                                  |
 | Total Amount            | `amount`                | Number                  | Yes      | No      | **Yes**            | Decimals: 2, Min: 0                                         | Total proposed capital expenditure in chosen currency.                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -117,25 +106,12 @@ Go to **List Settings -> Indexed Columns -> Create a new index**:
 10. `pendingWithRole`
 11. `pendingWithEmail` (Person column)
 12. `RequestDate`
-    _(Note: `Title` is indexed automatically by SharePoint)._
-
-#### Two-Field Identifier Separation Architecture:
-
-- **`cerPrId` (CER Proposal ID)**: Permanent system identifier formatted as `CER-YYYY-NNNN` (e.g. `CER-2026-0001`). Generated via atomic CAS (Compare-And-Swap) ETag concurrency allocator. (Replaced legacy column `cerPrNo`). Read-only across all UI views and never editable by any user or administrator. Used as the immutable foreign key joining all child lists (`CERAuditTrail`, `CERApprovalDecisions`, `CERAttachments`).
-- **`proposalNo` (CER Proposal No)**: User-entered business reference (e.g. `PR-RJ-2026-001`). Mandatory on creation; validated for non-empty alphanumeric formatting; checked for uniqueness across active proposals before save; editable in Draft or Revised modes per lifecycle authorization rules.
-- **Legacy Row Compatibility**: For existing SharePoint items created before the introduction of `cerPrId` or `proposalNo`, the service layer seamlessly maps `cer_proposal_id` and `proposal_no` using `cerPrId || cerPrNo || Title`, preventing null pointer exceptions or broken views.
-- **Database Safety & Uniqueness**: `proposalNo` in SharePoint has `Required = Yes` and `Enforce unique values = Yes`. Mandatory validation and uniqueness checks are strictly enforced by both the SharePoint database and the application service layer.
 
 ---
 
 ### 2.2 `CERProposalsHistory` (Historical Approved Proposals Archive)
 
 Stores complete, immutable historical snapshots of approved proposals prior to post-approval changes and re-submissions.
-
-- **SharePoint List Type:** Custom List
-- **Purpose:** When an approved CER is edited and resubmitted for post-approval, the approved state is copied into `CERProposalsHistory` with an incremental version tag (`V1`, `V2`, etc.). The active record in `CERProposals` is then updated in-place.
-- **Multi-Version Snapshot Architecture:** Each historical snapshot represents a completed, frozen approval cycle. By indexing `cerPrId` and `version`, multiple historical snapshots for the same proposal number or CER ID are preserved independently without overwriting earlier versions.
-- **Field Type Note:** Choice-based fields from `CERProposals` (such as `sbu`, `status`, `category`, `payable`, `currentBudgeted`, `jointVenture`, `jvRecoverable`, `jvBudgeted`, `pendingWithRole`, `pendingWithEmail`) are configured as **Single line of text** to allow flexible archival of historical states without choice constraint conflicts.
 
 | Display Name            | Internal Column Name    | SharePoint Field Type      | Required | Unique? | Indexed?           | Choices / Format / Constraints            | Business Description                                                                                                                                                                                                           |
 | ----------------------- | ----------------------- | -------------------------- | -------- | ------- | ------------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -145,7 +121,7 @@ Stores complete, immutable historical snapshots of approved proposals prior to p
 | **Version**             | **`version`**           | **Single line of text**    | **No**   | **No**  | **Yes**            | **`V1`, `V2`, `V3` format**               | **Sequential version snapshot identifier.** Uniquely distinguishes each archived iteration for a proposal. Prevents subsequent post-approvals from overwriting earlier snapshots. Indexed for high-performance version lookup. |
 | Proposal Name           | `prName`                | Single line of text        | Yes      | No      | No                 | Free text (max 255 chars)                 | Project descriptive title at the time of snapshot.                                                                                                                                                                             |
 | CER Owner               | `cerOwner`              | Single line of text / User | No       | No      | No                 | Text or Person                            | Project Owner name or corporate email.                                                                                                                                                                                         |
-| SBU                     | `sbu`                   | Single line of text        | No       | No      | **Yes**            | Text (e.g. `RJ North`, `CBOS`)            | Strategic Business Unit. (Configured as Text to avoid choice conflicts).                                                                                                                                                       |
+| SBU                     | `sbu`                   | Choice / Single line of text | No       | No      | **Yes**            | `RJ North`, `RJ South`, `CBOS`, `RAVA`<br/>(Can add values manually: Yes) | Strategic Business Unit at the time of snapshot.                                                                                                                                                                                |
 | Status                  | `status`                | Single line of text        | No       | No      | **Yes**            | `Approved`                                | Snapshot status (always `Approved` for archived historical proposals).                                                                                                                                                         |
 | Proposal Object         | `object`                | Multiple lines of text     | No       | No      | No                 | Plain text                                | Strategic objectives and project summary.                                                                                                                                                                                      |
 | Total Amount            | `amount`                | Number                     | Yes      | No      | **Yes**            | Decimals: 2                               | Total sanctioned capital expenditure in chosen currency for this version.                                                                                                                                                      |
@@ -184,7 +160,7 @@ Stores complete, immutable historical snapshots of approved proposals prior to p
 | Engineering Cost        | `engineeringCost`       | Number                     | No       | No      | No                 | Decimals: 2                               | Engineering, design, and consultancy cost breakdown.                                                                                                                                                                           |
 | Surface Facilities Cost | `surfaceFacilitiesCost` | Number                     | No       | No      | No                 | Decimals: 2                               | Surface pipelines, manifolds, and civil works.                                                                                                                                                                                 |
 | Commissioning Cost      | `commissioningCost`     | Number                     | No       | No      | No                 | Decimals: 2                               | Plant commissioning and testing expenditure.                                                                                                                                                                                   |
-| Wells                   | `wellsCost`             | Number                     | No       | No      | No                 | Decimals: 2                               | Wells drilling, completion, and workover cost breakdown. _(Replaces legacy Preoperative Cost `preoperativeCost`)._                                                                                                                                            |
+| Wells                   | `wellsCost`             | Number                     | No       | No      | No                 | Decimals: 2                               | Wells drilling, completion, and workover cost breakdown. _(Replaces legacy Preoperative Cost `preoperativeCost`)._                                                                                                            |
 | Other Costs             | `otherCosts`            | Number                     | No       | No      | No                 | Decimals: 2                               | Contingencies and miscellaneous provisions.                                                                                                                                                                                    |
 | Total Item Cost         | `total`                 | Number                     | No       | No      | No                 | Decimals: 2                               | Sum of cost breakdown items (must equal `amount`).                                                                                                                                                                             |
 | General Remarks         | `remarks`               | Multiple lines of text     | No       | No      | No                 | Plain text                                | Initiator justification notes.                                                                                                                                                                                                 |
@@ -222,8 +198,6 @@ Captures formal sign-off records by approvers with timestamps and outcomes.
 | **Approver**        | **`approver`**       | **Person or Group**     | **Yes**  | No      | **Yes**            | **`SPFieldUser` (Single)**          | **Native SharePoint Person column.** (Or relies on built-in `Author`). Stores approver's full M365 identity, email, and presence. Eliminates redundant text fields.                                                                                                                                         |
 | Remarks             | `remarks`            | Multiple lines of text  | No       | No      | No                 | Plain text                          | Mandatory on rejection; optional on approval.                                                                                                                                                                                                                                                               |
 | Decided At          | `decidedAt`          | Date and Time           | Yes      | No      | **Yes**            | DateTime (ISO 8601)                 | Timestamp decision was finalized.                                                                                                                                                                                                                                                                           |
-
-_(Note: Columns `approverName` and `approverEmail` are replaced by the Person field `approver` / `Author` and do not need to be created as text)._
 
 #### `CERApprovalDecisions` — Columns to Index in SharePoint List Settings:
 
@@ -267,26 +241,13 @@ Go to **Library Settings -> Indexed Columns -> Create a new index**:
 
 Modern enterprise role matrix and sequential approval permissions registry. Controls administrator access, SBU scope, and designates the fixed sequential approvers for L1, L3, L4, L5, and L6.
 
-> [!IMPORTANT]
-> **Key Schema Requirements & Simplified Access Model:**
->
-> 1. **`User` Unique Constraint:** When creating the `User` column in SharePoint list settings, select **"Enforce unique values: Yes"** (or No if multiple rows per user are used). Because `sbu`, `approverLevel`, and `approverRoleTitle` are Multi-Choice fields, each employee has one primary active record in `CERRoleMatrix` containing all their assigned SBUs and approval levels.
-> 2. **Multi-Choice Columns for SBUs, Levels & Titles:** `sbu`, `approverLevel`, and `approverRoleTitle` are configured as **Choice** fields with **"Allow multiple selections: Yes"** enabled in SharePoint list settings. This allows an approver to oversee multiple SBUs (e.g., `RJ North` and `RJ South`) and/or act across multiple sequential approval stages (e.g., `Level 1 - Finance` and `Level 3 - BU CFO`) under a single record. `Project Owner` (L2) is dynamic and never stored in `CERRoleMatrix`.
-> 3. **Simplified RBAC & Admin Access:** All authenticated users have access to common CER pages (_Create CER, My CER Proposals, Pending Approvals, Reports & Analytics, User Manual_). Privileged access to the Admin Console is strictly restricted to users holding an active `role = "Admin"` record in `CERRoleMatrix`. Legacy application roles (`Initiator`, `Approver`, `Finance_Audit`) have been completely removed.
-> 4. **Approvers Defined by Matrix Assignment (Not Profile Roles):** An "Approver" is not a separate application role you assign in a dropdown. Any user assigned to an SBU and stage in the Admin Console **Approval Role Matrix** is automatically authorized as the approver for that level and SBU. Their `role` column is left blank.
-> 5. **Single Source of Truth for Approval Authority:** The Approval Role Matrix is the single source of truth for approval authorization at stages L1, L3, L4, L5, and L6. Proposals pending at a level require an exact SBU approver match in `CERRoleMatrix`. L2 is dynamically resolved from the proposal's Project Owner (`cerOwner` / `owner_email`).
-> 6. **Admin Console Redesign:** The Admin Console contains **only** the 8-column × 4-SBU Approval Role Matrix. Employee Directory has been completely removed.
-> 7. **Mandatory SBU:** SBU is mandatory and strictly limited to the 4 operational SBUs: `CBOS`, `RAVA`, `RJ North`, `RJ South`.
-> 8. **Omitted Columns:** `assignedBy`, `assignedDate`, `isActive`, and `department` are intentionally omitted (not created in SharePoint). SharePoint built-in system fields (`Created By` and `Created`) automatically handle record auditing.
-
-| Display Name            | Internal Column Name | SharePoint Field Type   | Required | Unique?           | Indexed?           | Choices / Format / Constraints                                    | Business Description                                                                                                                                                                                                                    |
-| ----------------------- | -------------------- | ----------------------- | -------- | ----------------- | ------------------ | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Title**               | `Title`              | Single line of text     | Yes      | No                | **Yes (Built-in)** | Employee display name or UPN                                      | Standard SharePoint title field.                                                                                                                                                                                                        |
-| **User**                | **`User`**           | **Person or Group**     | **Yes**  | **Yes (Enforced)**| **Yes**            | **`SPFieldUser` (Single, People only)**                           | **Native SharePoint Person column.** Populated via `UserId: <IntegerId>` obtained from `ensureUser`. Stores full employee identity including corporate email (`User/EMail`), login name (`User/Name`), presence, and M365 profile card. |
-| Assigned Role           | `role`               | Choice                  | No       | No                | **Yes**            | **`Admin`**                                                       | **Administrator privilege flag.** Set to `Admin` for users authorized to access the Admin Console. Normal matrix approver rows leave this field blank.                                                                                  |
-| **SBU**                 | **`sbu`**            | **Choice (Multi-Select)**| **Yes**  | No                | No                 | **Allow multiple selections: Yes**<br/>`CBOS`, `RAVA`, `RJ North`, `RJ South` | **Multi-selection SBU scope.** Strictly matches the 4 operational SBUs. An approver can be assigned to multiple SBUs simultaneously.                                                                                                    |
-| Approval Level Stage    | `approverLevel`      | **Choice (Multi-Select)**| No       | No                | No                 | **Allow multiple selections: Yes**<br/>`1`, `3`, `4`, `5`, `6`    | **Sequential approval levels.** Configured as **Choice (Allow multiple selections: Yes)** with choices `1, 3, 4, 5, 6`. An approver can act at multiple stages simultaneously. (Level 2 is Project Owner and dynamic).                  |
-| Approver Role Title     | `approverRoleTitle`  | **Choice (Multi-Select)**| No       | No                | No                 | **Allow multiple selections: Yes**<br/>`Finance`, `BU CFO`, `BU Director`, `VOGL CFO`, `VOGL CEO` | **Descriptive role titles.** Configured as **Choice (Allow multiple selections: Yes)** with choices `Finance, BU CFO, BU Director, VOGL CFO, VOGL CEO`. (Project Owner is excluded as it is dynamic).                                  |
+| Display Name            | Internal Column Name | SharePoint Field Type            | Required | Unique?           | Indexed?           | Choices / Format / Constraints                                                                                      | Business Description                                                                                                                                                                                                                                   |
+| ----------------------- | -------------------- | -------------------------------- | -------- | ----------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Title**               | `Title`              | Single line of text              | Yes      | No                | **Yes (Built-in)** | Employee display name or UPN                                                                                        | Standard SharePoint title field.                                                                                                                                                                                                                       |
+| **User**                | **`User`**           | **Person or Group**              | **Yes**  | **Yes (Enforced)**| **Yes**            | **`SPFieldUser` (Single, People only)**                                                                             | **Native SharePoint Person column.** Enforces strictly **1 unique row per employee**. Populated via `UserId: <IntegerId>` obtained from `ensureUser`. Stores full employee identity (`User/Title`, `User/EMail`, `User/Name`).                        |
+| Assigned Role           | `role`               | Choice                           | No       | No                | **Yes**            | **`Admin`**                                                                                                         | **Administrator privilege flag.** Set to `Admin` for users authorized to access the Admin Console (preserved even when `sbu` and `sbuApprovalMap` are empty). Left blank for normal matrix approvers.                                                   |
+| **SBU**                 | **`sbu`**            | **Choice (Multi-Select)**        | No       | No                | No                 | **Allow multiple selections: Yes**<br/>**Can add values manually: Yes**<br/>`CBOS`, `RAVA`, `RJ North`, `RJ South` | **Synchronized Multi-Select SBU scope.** Automatically synchronized with active SBU keys in `sbuApprovalMap` (set empty `[]` for Admin-only rows with no approver assignments).                                                                        |
+| **SBU Approval Map**    | **`sbuApprovalMap`** | **Multiple lines of text (Plain text)** | No  | No                | No                 | **Plain text (NOT Rich text)**<br/>JSON keyed by stable SBU codes:<br/>`{"RJ_NORTH":{"levels":[6],"roleTitles":["VOGL CEO"]},"RJ_SOUTH":{"levels":[1,5],"roleTitles":["Finance","VOGL CFO"]}}` | **SBU-isolated approval mapping.** Stores per-SBU approval `levels` (`1,3,4,5,6`) and `roleTitles` (`Finance`, `BU CFO`, `BU Director`, `VOGL CFO`, `VOGL CEO`) keyed by stable SBU codes (`CBOS`, `RAVA`, `RJ_NORTH`, `RJ_SOUTH`). Ensures editing one SBU never alters another SBU. |
 
 #### `CERRoleMatrix` — Columns to Index in SharePoint List Settings:
 
@@ -295,8 +256,6 @@ Go to **List Settings -> Indexed Columns -> Create a new index**:
 1. `User` (Person or Group)
 2. `role`
 3. `sbu`
-4. `approverLevel`
-5. `approverRoleTitle`
 
 ---
 
@@ -315,26 +274,30 @@ Transient outbox queue used to trigger email notifications via Power Automate. I
 | **Email Body**       | `emailBody`          | Multiple lines of text  | No       | No      | No       | Plain text           | Pre-rendered, responsive branded HTML body.                                               |
 | **Importance**       | `importance`         | Single line of text     | No       | No      | No       | `High`, `Normal`     | Email priority flag.                                                                      |
 
+#### `CERMailTrigger` — Columns to Index in SharePoint List Settings:
+
+Go to **List Settings -> Indexed Columns -> Create a new index**:
+
+1. `cerPrId`
+
 ---
 
-## 3. Fixed Six-Level Sequential Approval Workflow Specification
+### 2.7 `SBUMaster` (Master Strategic Business Units Registry)
 
-The application enforces an immutable, hardcoded six-level sequential approval workflow. Users and administrators cannot add, delete, rename, or reorder levels through the UI.
+Master registry of Strategic Business Units (SBUs) driving dynamic proposal routing, SBU dropdowns, and dynamic Approval Role Matrix configuration.
 
-| Level | Approval Stage Name | Approver Assignment Mechanism | Resolution Source in `CERRoleMatrix` |
-|---|---|---|---|
-| **L1** | **Finance** | SBU-wise Designated Approver | User assigned with `approverLevel = "1"` (Choice), and matching `sbu` (`RJ North`, `RJ South`, `CBOS`, `RAVA`) |
-| **L2** | **Project Owner** | **Dynamic Automatic Resolution** | **Resolved automatically from each proposal's `cerOwner` (`owner_email`).** Never configured in `CERRoleMatrix`. |
-| **L3** | **BU CFO** | SBU-wise Designated Approver | User assigned with `approverLevel = "3"` (Choice), and matching `sbu` (`RJ North`, `RJ South`, `CBOS`, `RAVA`) |
-| **L4** | **BU Director** | SBU-wise Designated Approver | User assigned with `approverLevel = "4"` (Choice), and matching `sbu` (`RJ North`, `RJ South`, `CBOS`, `RAVA`) |
-| **L5** | **VOGL CFO** | Corporate / SBU Designated Approver | User assigned with `approverLevel = "5"` (Choice), and matching `sbu` (`RJ North`, `RJ South`, `CBOS`, `RAVA`) |
-| **L6** | **VOGL CEO** | Corporate / SBU Designated Approver | User assigned with `approverLevel = "6"` (Choice), and matching `sbu` (`RJ North`, `RJ South`, `CBOS`, `RAVA`) |
+| Display Name | Internal Column Name | SharePoint Field Type | Required | Unique? | Indexed? | Choices / Format / Constraints | Business Description |
+| ------------ | -------------------- | --------------------- | -------- | ------- | -------- | ------------------------------ | -------------------- |
+| **Title** | `Title` | Single line of text | **Yes** | **Yes** | **Yes (Built-in)** | Unique SBU display name (e.g. `RJ North`, `RJ South`, `CBOS`, `RAVA`) | Full SBU display name. Unique business identifier. |
+| **SBU Code** | `sbuCode` | Single line of text | **Yes** | **Yes** | **Yes** | Stable uppercase code (e.g. `RJ_NORTH`, `RJ_SOUTH`, `CBOS`, `RAVA`) | Stable programmatic code used as JSON key in `CERRoleMatrix.sbuApprovalMap`. |
+| **Active?** | `isActive` | Yes/No (Boolean) | **Yes** | No | **Yes** | Default: `Yes` | Active status flag. Only active SBUs appear for new CER creation. Inactive SBUs remain intact for history and reporting. |
+| **Sort Order** | `sortOrder` | Number | **Yes** | **Yes** | **Yes** | Number (Decimals: 0) | Display sort sequence for UI dropdowns, tabs, and reports. |
 
-### Key Workflow Rules:
+#### `SBUMaster` — Columns to Index in SharePoint List Settings:
 
-1. **Strict Sequential Progression:** A proposal must be approved in strict order: L1 -> L2 -> L3 -> L4 -> L5 -> L6.
-2. **Project Owner Auto-Fetch at L2:** The Project Owner assigned to the CER (`cerOwner` / `owname` / `owner_email`) is dynamically assigned as the L2 approver for that specific proposal.
-3. **Approval Matrix as Single Source of Truth:** A user can approve a proposal only when the proposal is in `In Approval` status at the pending level, and the user is explicitly assigned to that exact approval level and matching SBU (or `All`) in `CERRoleMatrix`. Legacy blanket restrictions preventing proposal creators or Project Owners from approving other stages have been removed: if a creator or Project Owner is designated in the matrix for that stage/SBU, their matrix assignment governs. Level 2 (Project Owner) remains dynamically bound to the proposal's designated owner (`cerOwner` / `owner_email`).
-4. **Send Back & Revision Reset:** If any approver selects "Send Back", the proposal reverts to `Revised` status and returns to the Initiator for rework. Upon resubmission, the proposal resets to `In Approval` at **Level 1 (Finance)**.
-5. **Rejection Terminal State:** If any approver rejects the proposal, it permanently transitions to `Rejected` status.
-6. **Multi-Version Snapshot Isolation & Frozen States:** When an approved proposal undergoes Post-Approval Change / Resubmission, its current approved state is archived to `CERProposalsHistory` with an incremental version tag (`V1`, `V2`, `V3`, etc.). Historical snapshots are immutable records containing all 6 approved stages. In `StatusHistoryModal`, sequential stage limits are strictly enforced: if an iteration was Sent Back or Rejected at Level K, stages higher than K are strictly rendered as `Not Started`, preventing decisions from leaking across cycles.
+Go to **List Settings -> Indexed Columns -> Create a new index**:
+
+1. `Title` (Built-in primary index)
+2. `sbuCode`
+3. `isActive`
+4. `sortOrder`

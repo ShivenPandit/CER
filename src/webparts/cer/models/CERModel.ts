@@ -130,6 +130,14 @@ export const SBU_OPTIONS: SBUOption[] = [
   "RJ South"
 ];
 
+export interface ISBUItem {
+  id?: string;
+  title: string;       // SBU Display Name (e.g. "RJ North", "Barmer North")
+  sbuCode: string;     // Canonical code for sbuApprovalMap (e.g. "RJ_NORTH", "BARMER_NORTH")
+  isActive: boolean;   // Active status (default: true)
+  sortOrder: number;   // Display order (1, 2, 3...)
+}
+
 export interface IFieldChoices {
   sbu: string[];
   cat: string[];

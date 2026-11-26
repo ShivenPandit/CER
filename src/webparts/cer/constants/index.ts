@@ -19,6 +19,7 @@ export const SP_LISTS = {
   CER_APPROVAL_DECISIONS: "CERApprovalDecisions",
   CER_ATTACHMENTS: "CERAttachments",
   CER_MAIL_TRIGGER: "CERMailTrigger",
+  SBU_MASTER: "SBUMaster",
   // Legacy compatibility aliases
   CER_MASTER: "CERProposals",
   CER_WORKFLOW_HISTORY: "CERApprovalDecisions",
@@ -105,6 +106,14 @@ export const FIXED_6_LEVEL_APPROVAL_STAGES: readonly IFixedApprovalStageConfig[]
 // SBU-Wise Role Matrix Choices (Mandatory SBUs)
 export const ROLE_MATRIX_SBUS = ["CBOS", "RAVA", "RJ North", "RJ South"] as const;
 export type RoleMatrixSBU = typeof ROLE_MATRIX_SBUS[number];
+
+// Stable SBU codes used as keys in sbuApprovalMap JSON
+export const ROLE_MATRIX_SBU_CODES: Record<RoleMatrixSBU, string> = {
+  CBOS: "CBOS",
+  RAVA: "RAVA",
+  "RJ North": "RJ_NORTH",
+  "RJ South": "RJ_SOUTH",
+};
 
 // Supported Roles in CERRoleMatrix
 export const ROLE_MATRIX_ROLES = ["Initiator", "Approver", "Finance_Audit", "Admin"] as const;
